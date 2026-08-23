@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # No real deployment target for this portfolio project (README's own note) - CI proves the
+      # build succeeds against placeholder env values, matching ago-widget's own "no real hosted
+      # deployment to default to" precedent (build.mjs's own refusal to guess one).
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: "http://localhost:5009"
+          VITE_KEYCLOAK_AUTHORITY: "http://127.0.0.1:8081/realms/ago-chat"
+          VITE_KEYCLOAK_CLIENT_ID: "ago-console"
