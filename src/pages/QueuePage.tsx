@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
+import { usePermissions } from "../auth/PermissionsContext.js";
 import { useOperatorConnection } from "../realtime/OperatorConnectionContext.js";
 import { fetchOperatorQueue } from "../api/conversationsApi.js";
 import type { OperatorQueueResponse } from "../realtime/protocol/types.js";
@@ -29,6 +30,7 @@ const WAITING_REFRESH_INTERVAL_MS = 15_000;
  */
 export function QueuePage() {
   const { user, logout } = useAuth();
+  const { hasPermission } = usePermissions();
   const { connection, connectionState } = useOperatorConnection();
   const [queue, setQueue] = useState<OperatorQueueResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +66,13 @@ export function QueuePage() {
       <p>
         Signed in as {user?.profile.preferred_username ?? user?.profile.sub} - <button onClick={() => void logout()}>Sign out</button>
       </p>
+      {/* `5-08`: only rendered once `usePermissions()` actually confirms the permission - see that
+          hook's own doc comment on why a client-side hide is UI-only, never the real gate. */}
+      {hasPermission("site:configure") && (
+        <p>
+          <Link to="/admin">Admin: all conversations for this site</Link>
+        </p>
+      )}
       <p>Operator hub: {connectionState}</p>
       {error && <p role="alert">{error}</p>}
 

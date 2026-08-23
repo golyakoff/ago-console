@@ -40,19 +40,33 @@ export interface ConversationAssignedDto {
   assignedAt: string;
 }
 
-/** `5-07`: `Ago.Chat.Contracts.ConversationSummaryDto` - one row of the queue view. */
+/**
+ * `5-07`: `Ago.Chat.Contracts.ConversationSummaryDto` - one row of the queue view.
+ * `operatorId` is a `5-08` addition, additive/optional per `ConversationSummaryDto.cs`'s own doc
+ * comment - `null`/absent for `Waiting` rows and for any server that predates this field. The queue
+ * view's own two lists never needed it; the admin's site-wide list (`AdminConversationsPage`) is the
+ * first caller that does.
+ */
 export interface ConversationSummaryDto {
   conversationId: string;
   visitorId: string;
   state: "Waiting" | "Assigned" | "Closed";
   createdAt: string;
   operatorUnreadCount: number;
+  operatorId?: string | null;
 }
 
 /** `5-07`: `Ago.Chat.Contracts.OperatorQueueResponse` - `GET /api/v1/conversations/queue`'s body. */
 export interface OperatorQueueResponse {
   waiting: ConversationSummaryDto[];
   assignedToMe: ConversationSummaryDto[];
+}
+
+/** `5-08`: `Ago.Chat.Contracts.AllConversationsForSiteResponse` -
+ * `GET /api/v1/conversations/all`'s body, the admin/supervisor site-wide list. */
+export interface AllConversationsForSiteResponse {
+  conversations: ConversationSummaryDto[];
+  nextBeforeId: string | null;
 }
 
 /** The server's graceful-shutdown hint (`ConnectionDrainCoordinator`, `Ago.Platform.Realtime`) -
