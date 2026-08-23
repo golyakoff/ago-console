@@ -1,0 +1,17 @@
+/* Deliberately minimal - a design system is `5-07`'s own decision, once there is a real UI to apply
+   it to (`5-06`'s own Out-of-scope list). Just enough that the scaffold's placeholder pages are
+   readable. */
+:root {
+  color-scheme: light dark;
+  font: 16px/1.5 system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
