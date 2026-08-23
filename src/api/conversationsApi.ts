@@ -1,5 +1,5 @@
 import { config } from "../config.js";
-import type { OperatorQueueResponse } from "../realtime/protocol/types.js";
+import type { AllConversationsForSiteResponse, OperatorQueueResponse } from "../realtime/protocol/types.js";
 
 /**
  * `5-07`: `GET /api/v1/conversations/queue` (`Ago.Chat.Api.Conversations.ConversationsEndpoints`,
@@ -20,4 +20,30 @@ export async function fetchOperatorQueue(accessToken: string): Promise<OperatorQ
   }
 
   return (await response.json()) as OperatorQueueResponse;
+}
+
+/**
+ * `5-08`: `GET /api/v1/conversations/all` (`Ago.Chat.Api.Conversations.ConversationsEndpoints`, this
+ * item's own addition) - the admin/supervisor site-wide list, gated server-side on
+ * `site:configure` (`GetAllConversationsForSiteHandler`'s own remarks). Keyset-paginated like
+ * `loadOlderHistory`; `beforeId` is the previous page's `nextBeforeId`, omitted for the first page.
+ */
+export async function fetchAllConversationsForSite(
+  accessToken: string,
+  beforeId?: string,
+): Promise<AllConversationsForSiteResponse> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/conversations/all`);
+  if (beforeId) {
+    url.searchParams.set("beforeId", beforeId);
+  }
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load all conversations: ${response.status}`);
+  }
+
+  return (await response.json()) as AllConversationsForSiteResponse;
 }

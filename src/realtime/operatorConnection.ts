@@ -172,14 +172,18 @@ export class OperatorConnection {
    * `clientMessageId`. `SendOutcomeUnknownError` is retry-safe too, but only with the *same*
    * `clientMessageId` passed here - `5-07`'s whole point, wired all the way through to
    * `Conversation.AddOperatorMessage`'s in-memory dedup check server-side.
+   *
+   * `attachmentId` is `5-08`'s own addition - `OperatorHub.SendMessageAsync` has accepted it since
+   * `5-07` (appended before `clientMessageId`, see that method's own remarks on argument order), this
+   * console simply never had a caller that had already uploaded and confirmed one until now.
    */
-  async sendMessage(conversationId: string, body: string, clientMessageId: string): Promise<number> {
+  async sendMessage(conversationId: string, body: string, clientMessageId: string, attachmentId: string | null = null): Promise<number> {
     if (this.connection.state !== signalR.HubConnectionState.Connected) {
       throw new NotConnectedError();
     }
 
     try {
-      return await this.connection.invoke<number>("SendMessageAsync", conversationId, body, null, clientMessageId);
+      return await this.connection.invoke<number>("SendMessageAsync", conversationId, body, attachmentId, clientMessageId);
     } catch (error) {
       if (this.connection.state !== signalR.HubConnectionState.Connected) {
         throw new SendOutcomeUnknownError(error);
