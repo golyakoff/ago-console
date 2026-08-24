@@ -8,6 +8,7 @@ import { OnboardingPage } from "./pages/OnboardingPage.js";
 import { QueuePage } from "./pages/QueuePage.js";
 import { ConversationPage } from "./pages/ConversationPage.js";
 import { AdminConversationsPage } from "./pages/AdminConversationsPage.js";
+import { WidgetConfigPage } from "./pages/WidgetConfigPage.js";
 
 /**
  * The routing shell: login (via `RequireAuth`'s own redirect, no separate landing page) -> queue ->
@@ -26,6 +27,9 @@ import { AdminConversationsPage } from "./pages/AdminConversationsPage.js";
  * concern, authorized is a page concern" split every `ago-chat` handler already draws
  * (`adr/0016`'s "the check happens in Application, never at the transport edge" - the console's own
  * analogue is "never at the router").
+ *
+ * `11-02`: `/settings/widget` joins the same layout on the identical pattern - `WidgetConfigPage`
+ * gates itself on `site:configure` internally, exactly like `/admin` above.
  *
  * `10-03`: two more routes, both outside the operator layout above on purpose - `adr/0023`'s own
  * addendum has the full "this is a fourth surface" reasoning. `/signup` carries no guard at all (a
@@ -63,6 +67,7 @@ export function App() {
         <Route path="/" element={<QueuePage />} />
         <Route path="/conversations/:conversationId" element={<ConversationPage />} />
         <Route path="/admin" element={<AdminConversationsPage />} />
+        <Route path="/settings/widget" element={<WidgetConfigPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
