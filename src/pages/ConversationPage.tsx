@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { useOperatorConnection } from "../realtime/OperatorConnectionContext.js";
@@ -14,15 +14,14 @@ import {
   uploadToPresignedUrl,
   type AttachmentDownloadResponse,
 } from "../api/attachmentsApi.js";
-import { ConnectionStateBadge } from "../realtime/ConnectionStateBadge.js";
-import { PageHead } from "../shell/AppShell.js";
-import { Panel } from "../components/Panel.js";
 import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
-import { Input } from "../components/Input.js";
-import { Field } from "../components/Field.js";
 import { Spinner } from "../components/Spinner.js";
+import { Composer } from "../workspace/Composer.js";
+import { Thread } from "../workspace/Thread.js";
+import { VisitorPanel } from "../workspace/VisitorPanel.js";
+import { useWorkspace } from "../workspace/workspaceContext.js";
 
 const PRESENCE_POLL_INTERVAL_MS = 10_000;
 const HISTORY_PAGE_SIZE = 50;
@@ -47,32 +46,49 @@ type AttachmentDetail = AttachmentDownloadResponse | "loading" | "deleted" | "er
 /**
  * `5-07`: the conversation view - message thread, send box, keyset history paging, visitor presence.
  * Joining calls `OperatorConnection.joinConversation`, which invokes `JoinConversationAsync` - safe
- * to call here because the only way to reach this page is via a `Link` from `QueuePage`'s
+ * to call here because the only way to reach this page is via a link from the workspace's
  * "Assigned to me" list (never "Waiting"), so the conversation is already assigned to this operator
  * and the call is the documented same-operator no-op, not a claim (`OperatorConnection`'s own doc
  * comment has the detail).
  *
  * `5-08`: adds attachment upload (with real progress from the PUT itself), inline thumbnail preview,
- * download, and a permission-gated delete action - the ordinary conversation view's own closeout from
- * `authorization.md`'s Stage 5 console notes, layered onto the same message thread rather than a
- * separate view. Never renders a downloaded attachment as trusted same-origin content
- * (`file-storage.md`'s "Validation and safety" section): a thumbnail is a real generated image safe
- * to `<img>` inline, but the full-file download always goes through a plain link to the presigned URL
- * - a different origin (MinIO/S3) than the console itself, so even a malicious upload can only ever
- * render in *that* origin's own tab, never this one's.
+ * download, and a permission-gated delete action. Never renders a downloaded attachment as trusted
+ * same-origin content (`file-storage.md`'s "Validation and safety" section): a thumbnail is a real
+ * generated image safe to `<img>` inline, but the full-file download always goes through a plain link
+ * to the presigned URL - a different origin (MinIO/S3) than the console itself, so even a malicious
+ * upload can only ever render in *that* origin's own tab, never this one's.
  *
- * `11-05` restyled this screen and changed nothing it does. Worth naming explicitly, because three
- * of the changes look like they could have been behavioural and are not: the composer is still an
- * `<input>` (Enter still submits - see the comment on it); the attachment delete still fires
- * immediately with no confirmation dialog, even though this item ships a `Dialog` component, because
- * putting a confirm step in front of a destructive action *is* a behaviour change; and the presence
- * readout is still three-valued, with "unknown" a distinct state from "offline".
+ * `11-05` restyled it and changed nothing it does.
+ *
+ * ## What `11-06` changes, and what it deliberately does not
+ *
+ * This is no longer a page: it is the middle and right regions of the workspace
+ * (`WorkspaceLayout`), returned as a fragment so both land in their own grid areas. The route is
+ * unchanged - `/conversations/:id` is still real, still linkable, still reloadable - and so is every
+ * piece of protocol behaviour below it: the deferred join that waits for `connected`, the
+ * `joinedConversationId` guard against re-joining on each reconnect, `loadOlderHistory`'s keyset
+ * paging, the `SendOutcomeUnknownError`/`NotConnectedError` split and the retry rule that goes with
+ * it (same `clientMessageId` when the outcome is unknown, a fresh one when nothing was sent), and
+ * `5-08`'s create -> presigned PUT -> confirm upload sequence, which is called from the composer now
+ * but is otherwise untouched.
+ *
+ * Three things did change, all of them the item's own scope:
+ *
+ * - **Rendering moved out.** The thread is `Thread` (grouping, day separators, timestamps) and the
+ *   send box is `Composer` (multiline, Enter/Shift+Enter, drag-and-drop and paste). This file keeps
+ *   the state and the protocol; those two own the presentation.
+ * - **The composer's contract.** Enter now sends from a `<textarea>` rather than submitting a
+ *   `<form>` - there is no `<form>` any more, so the "an untyped button inside a form submits it"
+ *   trap `Button` guards against does not arise here at all.
+ * - **The visitor readout became a panel** rather than two badges beside a page title, and it says
+ *   out loud how little the platform actually knows (`VisitorPanel`).
  */
 export function ConversationPage() {
   const { conversationId } = useParams<{ conversationId: string }>();
   const { user } = useAuth();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, siteId } = usePermissions();
   const { connection, connectionState } = useOperatorConnection();
+  const { conversation, now, timeZone, refreshQueue } = useWorkspace();
   const [messages, setMessages] = useState<MessageDto[]>([]);
   const [nextBeforeSequence, setNextBeforeSequence] = useState<number | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -89,8 +105,14 @@ export function ConversationPage() {
   // Resets which conversation has been joined whenever the route param itself changes - not on
   // every `connectionState` flicker, which is what the effect below depends on (see its own
   // comment for why joining must wait for "connected" but must not re-join on every reconnect).
+  // `11-06` makes this reachable far more often than `5-07` could: switching conversations is now a
+  // click in the rail rather than a full page navigation, so the same component instance is reused.
   useEffect(() => {
     joinedConversationId.current = null;
+    setDraft("");
+    setPendingAttachment(null);
+    setUploadError(null);
+    setVisitorOnline(null);
   }, [conversationId]);
 
   useEffect(() => {
@@ -101,7 +123,7 @@ export function ConversationPage() {
     // `OperatorConnectionProvider` starts the shared connection asynchronously (a real WebSocket
     // handshake); this page can mount before that handshake finishes, e.g. a direct deep link to
     // `/conversations/:id` or a hard reload while already on one - found live, manually verifying
-    // this item: `JoinConversationAsync` threw "Cannot send data if the connection is not in the
+    // `5-07`: `JoinConversationAsync` threw "Cannot send data if the connection is not in the
     // 'Connected' State" every time, because `@microsoft/signalr`'s `invoke` does not queue behind
     // a not-yet-connected `HubConnection`, it rejects immediately. Waiting for `connectionState ===
     // "connected"` here is the fix; `joinedConversationId` is what stops this same effect from
@@ -134,7 +156,8 @@ export function ConversationPage() {
         }
         // `JoinConversationAsync`'s fresh-join page is newest-first, same convention as
         // `GetHistoryAsync` (`ConversationHistoryPage`'s own doc comment) - reversed once here so
-        // the rest of this component can simply append.
+        // the rest of this component can simply append. `Thread` re-sorts by `sequence` regardless,
+        // which is the guarantee that actually holds (`date-and-time.md` rule 6).
         setMessages([...page.messages].reverse());
         setNextBeforeSequence(page.nextBeforeSequence);
       })
@@ -176,6 +199,9 @@ export function ConversationPage() {
       try {
         await connection.sendMessage(conversationId, body, clientMessageId, attachmentId);
         setFailedSend(null);
+        // `11-06`: the rail shows this conversation's own row, so let it re-read rather than sit on
+        // a snapshot taken before the operator answered.
+        refreshQueue();
       } catch (err) {
         if (err instanceof SendOutcomeUnknownError) {
           // Retry-safe with the *same* clientMessageId - server-side dedup (5-07's own ago-chat
@@ -192,15 +218,16 @@ export function ConversationPage() {
         }
       }
     },
-    [connection, conversationId],
+    [connection, conversationId, refreshQueue],
   );
 
-  const handleSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
+  const handleSend = () => {
     const body = draft.trim();
     // An attachment always rides with a caption, never sent body-less - MessageBody
     // (`Ago.Chat.Domain`) rejects an empty/whitespace-only body regardless of whether a message
     // carries an attachment, and this item does not touch that domain rule to add an exception.
+    // `Composer` disables Send for an empty draft; this is the second half of the same guard, for
+    // the keyboard path.
     if (!body) {
       return;
     }
@@ -217,10 +244,11 @@ export function ConversationPage() {
     void send(failedSend.body, failedSend.clientMessageId, failedSend.attachmentId);
   };
 
-  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file || !conversationId || !user?.access_token) {
+  /** `5-08`'s upload sequence, unchanged and not reimplemented - only its trigger moved. It used to
+   * be an `onChange` handler bound to a visible file input; the composer now calls it with a file
+   * that may equally have been dropped or pasted. */
+  const handleFileChosen = async (file: File) => {
+    if (!conversationId || !user?.access_token) {
       return;
     }
 
@@ -290,8 +318,6 @@ export function ConversationPage() {
     }
 
     if (detail === "error") {
-      // Kept as an assertive live region, exactly as before `11-05` - the bare `<span role="alert">`
-      // this replaces said the same thing with the same semantics, just unstyled.
       return (
         <span className="ago-message__attachment" role="alert">
           <Badge tone="danger">Attachment unavailable</Badge>
@@ -336,119 +362,83 @@ export function ConversationPage() {
     }
   };
 
+  if (!conversationId) {
+    return null;
+  }
+
   return (
     <>
-      <PageHead
-        title="Conversation"
-        aside={
-          <>
-            <ConnectionStateBadge state={connectionState} />
-            {/* Presence is a genuinely three-valued thing - online, offline, and "the presence call
-                itself failed or has not answered yet" - and it stayed three-valued here. */}
-            {visitorOnline === null ? (
-              <Badge tone="neutral">Visitor: unknown</Badge>
-            ) : visitorOnline ? (
-              <Badge tone="success" dot>
-                Visitor online
-              </Badge>
+      <section className="ago-workspace__main" aria-label="Conversation">
+        <header className="ago-workspace__main-head">
+          {/* Only visible in the single-column layout, where the rail is off screen - see
+              `workspace.css`. On a laptop the list is right there and a back link would be a
+              control that undoes nothing. */}
+          <Link className="ago-workspace__back" to="/">
+            ← Conversations
+          </Link>
+          <h2 className="ago-workspace__main-title">
+            {conversation ? (
+              <>
+                Conversation with <span className="ago-mono">{conversation.visitorId.slice(0, 8)}</span>
+              </>
             ) : (
-              <Badge tone="neutral" dot>
-                Visitor offline
-              </Badge>
+              "Conversation"
             )}
-          </>
-        }
-      />
+          </h2>
+        </header>
 
-      <Panel
-        title="Messages"
-        actions={
-          nextBeforeSequence !== null && (
-            <Button size="sm" variant="secondary" onClick={() => void loadOlder()} disabled={loadingOlder}>
-              {loadingOlder ? "Loading…" : "Load older messages"}
-            </Button>
-          )
-        }
-      >
-        {/* `aria-label="Message thread"` predates `11-05` and survives it unchanged - it is the only
-            accessible name this list has, since the panel heading above is not associated with it. */}
-        <ul className="ago-thread" aria-label="Message thread">
-          {messages.map((m) => (
-            <li key={m.id} className={`ago-message ago-message--${m.authorKind === "Operator" ? "operator" : "visitor"}`}>
-              <span className="ago-message__meta">
-                <span className="ago-message__author">{m.authorKind}</span>
-                <span className="ago-message__sequence">#{m.sequence}</span>
-              </span>
-              <span className="ago-message__body">{m.body}</span>
-              {m.attachmentId && renderAttachment(m.attachmentId)}
-            </li>
-          ))}
-        </ul>
-
-        {failedSend && (
-          <Alert
-            tone="danger"
-            title="Send failed or is unconfirmed"
-            action={
-              <Button size="sm" variant="danger" onClick={handleRetry}>
-                Retry
-              </Button>
-            }
-          >
-            &quot;{failedSend.body}&quot;
-          </Alert>
-        )}
-      </Panel>
-
-      <Panel title="Reply" quiet>
-        <Field label="Attach a file" description="Optional. An attachment is sent together with the message below.">
-          {({ id, "aria-describedby": describedBy }) => (
-            <Input
-              id={id}
-              aria-describedby={describedBy}
-              type="file"
-              onChange={(e) => void handleFileSelected(e)}
-              disabled={uploadProgress !== null}
-            />
-          )}
-        </Field>
-
-        {uploadProgress && (
-          // `role="status"` rather than a bare paragraph, so a screen reader hears the upload finish
-          // instead of only sighted users seeing the percentage move.
-          <p className="ago-meta" role="status">
-            Uploading {uploadProgress.fileName}: {uploadProgress.percent}%
+        {connectionState === "connected" ? null : (
+          <p className="ago-meta ago-workspace__main-note" role="status">
+            Waiting for the operator hub before this thread can load or send.
           </p>
         )}
-        {uploadError && <Alert tone="danger">{uploadError}</Alert>}
-        {pendingAttachment && (
-          <Alert
-            tone="info"
-            action={
-              <Button size="sm" variant="ghost" onClick={() => setPendingAttachment(null)}>
-                Remove
-              </Button>
-            }
-          >
-            Ready to send: {pendingAttachment.fileName}
-          </Alert>
-        )}
 
-        <form className="ago-composer" onSubmit={handleSubmit}>
-          {/* Still an `<input>`, still submitting on Enter. `11-05` deliberately did not swap it for
-              the `Textarea` component it also ships - that would change what Enter does, which is
-              behaviour, not presentation (`11-06` owns the composer's redesign). */}
-          <Input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Message"
-            aria-label="Message to send"
+        <Thread
+          messages={messages}
+          now={now}
+          timeZone={timeZone}
+          renderAttachment={renderAttachment}
+          canLoadOlder={nextBeforeSequence !== null}
+          loadingOlder={loadingOlder}
+          onLoadOlder={() => void loadOlder()}
+        />
+
+        <div className="ago-workspace__composer">
+          {failedSend && (
+            <Alert
+              tone="danger"
+              title="Send failed or is unconfirmed"
+              action={
+                <Button size="sm" variant="danger" onClick={handleRetry}>
+                  Retry
+                </Button>
+              }
+            >
+              &quot;{failedSend.body}&quot;
+            </Alert>
+          )}
+
+          <Composer
+            draft={draft}
+            onDraftChange={setDraft}
+            onSend={handleSend}
+            onFileChosen={(file) => void handleFileChosen(file)}
+            onRemoveAttachment={() => setPendingAttachment(null)}
+            pendingAttachment={pendingAttachment}
+            uploadProgress={uploadProgress}
+            uploadError={uploadError}
           />
-          <Button type="submit" variant="primary">
-            Send
-          </Button>
-        </form>
-      </Panel>
+        </div>
+      </section>
+
+      <VisitorPanel
+        conversationId={conversationId}
+        conversation={conversation}
+        visitorOnline={visitorOnline}
+        siteId={siteId}
+        now={now}
+        timeZone={timeZone}
+      />
     </>
   );
 }

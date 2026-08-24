@@ -59,6 +59,8 @@ export class OperatorConnection {
   private readonly connection: signalR.HubConnection;
   private seenMessageIds = new SeenMessageIds();
   private messageListener: ((message: MessageDto) => void) | null = null;
+  private anyMessageListener: ((message: MessageDto) => void) | null = null;
+  private seenAnywhereMessageIds = new SeenMessageIds();
   private stateListener: ((state: ConnectionState) => void) | null = null;
   private conversationAssignedListener: ((dto: ConversationAssignedDto) => void) | null = null;
   private reconnectHintListener: ((hint: ReconnectHint) => void) | null = null;
@@ -81,7 +83,16 @@ export class OperatorConnection {
       })
       .build();
 
-    this.connection.on("MessageReceived", (dto: MessageDto) => this.handleIncoming(dto));
+    this.connection.on("MessageReceived", (dto: MessageDto) => {
+      // Two listeners, deliberately in this order and deliberately independent: the unfiltered one
+      // feeds the workspace's attention state for every assigned conversation, the filtered one
+      // feeds whichever thread is on screen. See `onAnyMessage` for why the split exists.
+      if (this.anyMessageListener !== null && this.seenAnywhereMessageIds.markSeen(dto.id)) {
+        this.anyMessageListener(dto);
+      }
+
+      this.handleIncoming(dto);
+    });
     this.connection.on("ConversationAssigned", (dto: ConversationAssignedDto) =>
       this.conversationAssignedListener?.(dto),
     );
@@ -98,6 +109,26 @@ export class OperatorConnection {
 
   onMessage(listener: (message: MessageDto) => void): void {
     this.messageListener = listener;
+  }
+
+  /**
+   * `11-06`: every `MessageReceived` push this connection receives, for *any* conversation this
+   * operator is assigned - not just the one currently on screen.
+   *
+   * `onMessage` above cannot serve this: `handleIncoming` deliberately drops a push whose
+   * `conversationId` is not the open one, which is correct for rendering a thread and is exactly
+   * why the console previously could not know that a second conversation had a new visitor message
+   * in it. The workspace's unread badges and its document-title count are that knowledge, so this
+   * item adds the unfiltered listener rather than weakening the filtered one - the two answer
+   * different questions and the split keeps `ConversationPage` unable to render a message that does
+   * not belong to it.
+   *
+   * Deduplicated on its own `SeenMessageIds` instance, separate from the per-conversation one
+   * `joinConversation` resets: the sender's own message arrives twice by design (local echo plus
+   * fan-out, `dedup.ts`), and a badge that counted both would be wrong twice over.
+   */
+  onAnyMessage(listener: (message: MessageDto) => void): void {
+    this.anyMessageListener = listener;
   }
 
   onStateChange(listener: (state: ConnectionState) => void): void {

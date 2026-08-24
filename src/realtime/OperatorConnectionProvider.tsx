@@ -23,6 +23,7 @@ export function OperatorConnectionProvider({ children }: { children: ReactNode }
   const { user } = useAuth();
   const accessToken = user?.access_token;
   const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
+  const [serverDraining, setServerDraining] = useState(false);
 
   if (!accessToken) {
     // `RequireAuth` (the route this is always mounted inside) guarantees a signed-in user by the
@@ -34,7 +35,21 @@ export function OperatorConnectionProvider({ children }: { children: ReactNode }
   const connection = useMemo(() => new OperatorConnection(accessToken), [accessToken]);
 
   useEffect(() => {
-    connection.onStateChange(setConnectionState);
+    connection.onStateChange((state) => {
+      setConnectionState(state);
+      // `11-06`: a successful (re)connect retires the drain hint. Safe to clear on *every*
+      // "connected" rather than only on a reconnect, because the hint can only ever arrive after
+      // the "connected" that preceded it - the server has to have a live connection to push it
+      // down. `linkStatus.ts` has the state table this feeds.
+      if (state === "connected") {
+        setServerDraining(false);
+      }
+    });
+    // Nothing consumed this before `11-06`: `5-07` wired the listener up and left it informational.
+    // It is the console's only honest source for a "degraded" indicator, so the workspace now shows
+    // it (`linkStatus.ts`). The reconnect itself is still SignalR's own - this is the operator
+    // finding out *why* their connection is about to blink, not a second reconnect mechanism.
+    connection.onReconnectHint(() => setServerDraining(true));
     connection.start().catch(() => setConnectionState("disconnected"));
 
     // Deliberately no `connection.stop()` here. This provider sits at the layout-route level
@@ -50,7 +65,10 @@ export function OperatorConnectionProvider({ children }: { children: ReactNode }
     // anyway - neither needs this cleanup to run to behave correctly.
   }, [connection]);
 
-  const value = useMemo<OperatorConnectionState>(() => ({ connection, connectionState }), [connection, connectionState]);
+  const value = useMemo<OperatorConnectionState>(
+    () => ({ connection, connectionState, serverDraining }),
+    [connection, connectionState, serverDraining],
+  );
 
   return <OperatorConnectionContext.Provider value={value}>{children}</OperatorConnectionContext.Provider>;
 }

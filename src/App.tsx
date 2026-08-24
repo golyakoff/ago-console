@@ -6,7 +6,8 @@ import { OperatorShell } from "./shell/OperatorShell.js";
 import { CallbackPage } from "./pages/CallbackPage.js";
 import { SignupPage } from "./pages/SignupPage.js";
 import { OnboardingPage } from "./pages/OnboardingPage.js";
-import { QueuePage } from "./pages/QueuePage.js";
+import { WorkspaceLayout } from "./workspace/WorkspaceLayout.js";
+import { NoConversationSelected } from "./workspace/NoConversationSelected.js";
 import { ConversationPage } from "./pages/ConversationPage.js";
 import { AdminConversationsPage } from "./pages/AdminConversationsPage.js";
 import { WidgetConfigPage } from "./pages/WidgetConfigPage.js";
@@ -73,8 +74,18 @@ export function App() {
           </RequireAuth>
         }
       >
-        <Route path="/" element={<QueuePage />} />
-        <Route path="/conversations/:conversationId" element={<ConversationPage />} />
+        {/* `11-06`: both conversation routes now render inside one more layout route - the operator
+            workspace, which owns the queue data, the conversation list and the three-region frame,
+            and puts whichever of the two elements below is active into its own grid areas. The
+            routing contract is deliberately unchanged: `/` is still the queue's home and
+            `/conversations/:id` is still a real, linkable, reloadable route. What changed is that
+            they are now two states of one screen rather than two pages. `/admin` and
+            `/settings/widget` stay outside it - they are ordinary full-width pages and have nothing
+            to do with a conversation list. */}
+        <Route element={<WorkspaceLayout />}>
+          <Route path="/" element={<NoConversationSelected />} />
+          <Route path="/conversations/:conversationId" element={<ConversationPage />} />
+        </Route>
         <Route path="/admin" element={<AdminConversationsPage />} />
         <Route path="/settings/widget" element={<WidgetConfigPage />} />
       </Route>

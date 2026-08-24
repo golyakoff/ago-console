@@ -3,7 +3,7 @@ import { createContext, useContext } from "react";
 export interface PermissionsState {
   /** `null` while the first `GET /api/v1/operators/me` call is still in flight - callers that need
    * to gate a whole page (`AdminConversationsPage`) should treat this as "not yet known", not "no
-   * permissions", the same way `QueuePage`'s own `queue === null` means "still loading". */
+   * permissions", the same way the workspace's own `queue === null` means "still loading". */
   permissions: string[] | null;
   /** `11-02`: the signed-in operator's own site, from the same `GET /api/v1/operators/me` response -
    * `WidgetConfigPage` needs this to build `11-01`'s site-scoped URL (`GET`/`PUT

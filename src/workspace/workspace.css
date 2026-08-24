@@ -1,0 +1,610 @@
+/* The operator workspace - `11-06`. Three regions on a laptop, two when the window narrows, one on
+   a phone-width screen.
+
+   Values come from `../design/tokens.css`; nothing here invents a colour, a space or a radius
+   (`adr/0030`: "a literal colour or size anywhere else in `src/` is a defect"). The two exceptions
+   are the grid track widths and the breakpoints, which are layout geometry rather than design
+   values - stated in `rem` so they scale with the user's own font size, and commented where the
+   number came from.
+
+   The rules that used to live in `index.css` for the thread, the composer and the queue rows moved
+   here and were rewritten; the workspace is where all three now live, and splitting them across two
+   files would have left `index.css` owning half a screen it no longer describes. */
+
+/* --- The frame ---------------------------------------------------------------------------------
+   `.ago-shell--fixed` (AppShell's `wide`) is what bounds the height: without it the chain of
+   `min-height` never resolves to a real number and `overflow: auto` on a child does nothing, so the
+   page scrolls as a whole and the composer walks off the bottom of the screen. */
+
+.ago-workspace {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  gap: var(--ago-space-4);
+  /* 21rem is the narrowest the rail can be while a visitor id badge, an unread badge and "Waiting
+     14m" still sit on two comfortable lines; 18rem is the aside's own equivalent for a full uuid at
+     12px mono. The middle takes what is left, and `minmax(0, 1fr)` rather than `1fr` because a grid
+     track's default `min-width: auto` would let a long unbroken message body push the whole layout
+     wider than the viewport. */
+  grid-template-columns: 21rem minmax(0, 1fr) 18rem;
+  grid-template-areas: "rail main aside";
+}
+
+.ago-workspace__rail {
+  grid-area: rail;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-3);
+  padding: var(--ago-space-4);
+  background: var(--ago-surface);
+  border: 1px solid var(--ago-line);
+  border-radius: var(--ago-radius-lg);
+  box-shadow: var(--ago-shadow-sm);
+}
+
+.ago-workspace__rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ago-space-3);
+  flex-wrap: wrap;
+}
+
+.ago-workspace__rail-title {
+  font-size: var(--ago-text-sm);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ago-ink-soft);
+}
+
+/* The list scrolls, the connection state and any alert above it do not - a reconnect warning that
+   scrolls out of view is a warning nobody sees. */
+.ago-workspace__rail-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-5);
+  margin: 0 calc(var(--ago-space-2) * -1);
+  padding: 0 var(--ago-space-2);
+}
+
+.ago-workspace__main {
+  grid-area: main;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-3);
+  padding: var(--ago-space-4);
+  background: var(--ago-surface);
+  border: 1px solid var(--ago-line);
+  border-radius: var(--ago-radius-lg);
+  box-shadow: var(--ago-shadow-sm);
+}
+
+/* With no conversation open there is no visitor panel, so the empty state takes both columns rather
+   than leaving an 18rem hole where a panel about nobody would go. */
+.ago-workspace__main--empty {
+  grid-area: main / main / aside / aside;
+  align-items: center;
+  justify-content: center;
+}
+
+.ago-workspace__main-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ago-space-3);
+  flex-wrap: wrap;
+  padding-bottom: var(--ago-space-3);
+  border-bottom: 1px solid var(--ago-line);
+}
+
+.ago-workspace__main-title {
+  font-size: var(--ago-text-lg);
+}
+
+.ago-workspace__main-note {
+  margin: 0;
+}
+
+/* Hidden until the single-column breakpoint, where the rail is off screen and this is the only way
+   back to it. */
+.ago-workspace__back {
+  display: none;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.ago-workspace__aside {
+  grid-area: aside;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-3);
+  padding: var(--ago-space-4);
+  background: var(--ago-surface-raised);
+  border: 1px solid var(--ago-line);
+  border-radius: var(--ago-radius-lg);
+}
+
+/* --- The conversation list --------------------------------------------------------------------- */
+
+.ago-list-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-2);
+}
+
+.ago-list-group__head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ago-list-group__title {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-2);
+  font-size: var(--ago-text-base);
+}
+
+.ago-list-group__count {
+  font-family: var(--ago-font-mono);
+  font-size: var(--ago-text-xs);
+  font-weight: 600;
+  color: var(--ago-ink-soft);
+}
+
+.ago-list-group__note {
+  font-size: var(--ago-text-xs);
+  color: var(--ago-ink-soft);
+}
+
+.ago-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-2);
+}
+
+.ago-list__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-1);
+  padding: var(--ago-space-3);
+  border: 1px solid var(--ago-line);
+  border-radius: var(--ago-radius-md);
+  background: var(--ago-surface);
+  transition:
+    border-color var(--ago-transition),
+    background var(--ago-transition);
+}
+
+/* An assigned row is a link, and the whole row is the target, so what looks clickable is what is
+   clickable. */
+a.ago-list__row {
+  text-decoration: none;
+  color: inherit;
+}
+
+a.ago-list__row:hover {
+  border-color: var(--ago-brand);
+  background: var(--ago-brand-tint);
+}
+
+/* The conversation currently open. Marked by a left edge and a tint, never by colour alone - it is
+   also the `NavLink` that carries `aria-current="page"`. */
+a.ago-list__row--active,
+a.ago-list__row--active:hover {
+  border-color: var(--ago-brand);
+  background: var(--ago-brand-tint);
+  box-shadow: inset 3px 0 0 var(--ago-brand);
+}
+
+/* A waiting row is read-only by design (`ConversationList`'s own doc comment on why there is no
+   claim action). It is visibly not a control: no anchor, no hover response, no pointer, a flat
+   sunken surface and a dashed edge that reads as "information", not "target". */
+.ago-list__row--static {
+  background: var(--ago-surface-sunken);
+  border-style: dashed;
+  cursor: default;
+}
+
+.ago-list__row-top {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-2);
+  flex-wrap: wrap;
+}
+
+.ago-list__row-bottom {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-2);
+  font-size: var(--ago-text-xs);
+}
+
+/* --- The thread ---------------------------------------------------------------------------------
+   Two-tone by author, following the landing page's own widget mock (`.bubble-op` on white with a
+   hairline, `.bubble-visitor` on brand) - the same conversation seen from the other end. */
+
+.ago-thread-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--ago-space-2) var(--ago-space-1);
+}
+
+.ago-thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-1);
+}
+
+.ago-thread__older {
+  display: flex;
+  justify-content: center;
+  padding-bottom: var(--ago-space-3);
+}
+
+/* A day separator is a horizontal rule with the day sitting in it - drawn with borders on the
+   pseudo-elements rather than a background image so it inherits the surface behind it. */
+.ago-thread__day {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-3);
+  margin: var(--ago-space-4) 0 var(--ago-space-2);
+  font-size: var(--ago-text-xs);
+  font-weight: 700;
+  color: var(--ago-ink-soft);
+}
+
+.ago-thread__day::before,
+.ago-thread__day::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--ago-line);
+}
+
+.ago-message {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-1);
+  max-width: min(46rem, 82%);
+}
+
+.ago-message--group-start {
+  margin-top: var(--ago-space-3);
+}
+
+.ago-message--operator {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.ago-message--visitor {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+/* The author in words on the first message of every run. Side and colour never carry it alone
+   (WCAG 1.4.1), and this is also what a screen reader reads before the run. */
+.ago-message__author {
+  font-size: var(--ago-text-xs);
+  font-weight: 700;
+  color: var(--ago-ink-soft);
+  padding: 0 var(--ago-space-2);
+}
+
+.ago-message__bubble {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-2);
+  padding: var(--ago-space-3) var(--ago-space-4);
+  border-radius: var(--ago-radius-lg);
+  border: 1px solid var(--ago-line);
+  background: var(--ago-surface);
+}
+
+.ago-message--operator .ago-message__bubble {
+  background: var(--ago-brand-tint);
+  border-color: var(--ago-lavender);
+}
+
+/* The corner that points at its own side is squared off on the group's first message only, so a run
+   reads as one utterance broken across lines rather than as several separate ones. */
+.ago-message--operator.ago-message--group-start .ago-message__bubble {
+  border-top-right-radius: var(--ago-radius-sm);
+}
+
+.ago-message--visitor.ago-message--group-start .ago-message__bubble {
+  border-top-left-radius: var(--ago-radius-sm);
+}
+
+.ago-message__body {
+  font-size: var(--ago-text-base);
+  overflow-wrap: anywhere;
+  /* Newlines are now real - the composer produces them, so the thread has to render them. */
+  white-space: pre-wrap;
+}
+
+.ago-message__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-2);
+  align-self: flex-end;
+  font-size: var(--ago-text-xs);
+  color: var(--ago-ink-soft);
+}
+
+/* Development builds only (`Thread` gates it on `import.meta.env.DEV`) - the sequence number is
+   genuinely useful when debugging the protocol and genuinely not for operators. In production it
+   survives in the bubble's `title`. */
+.ago-message__sequence {
+  font-family: var(--ago-font-mono);
+}
+
+.ago-message__attachment {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-3);
+  flex-wrap: wrap;
+  font-size: var(--ago-text-sm);
+}
+
+.ago-message__thumb {
+  max-width: 7.5rem;
+  max-height: 7.5rem;
+  border-radius: var(--ago-radius-sm);
+  border: 1px solid var(--ago-line);
+}
+
+/* --- The composer ------------------------------------------------------------------------------- */
+
+.ago-workspace__composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-2);
+}
+
+.ago-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-2);
+  padding: var(--ago-space-3);
+  border: 1px solid var(--ago-line);
+  border-radius: var(--ago-radius-lg);
+  background: var(--ago-surface-raised);
+  transition:
+    border-color var(--ago-transition),
+    background var(--ago-transition);
+}
+
+/* The drop target has to be visible while a file is over it, or drag-and-drop is a feature nobody
+   discovers. Dashed, brand-tinted, and the whole composer - not a separate drop zone that would be
+   one more thing on screen. */
+.ago-composer--dragging {
+  border-color: var(--ago-brand);
+  border-style: dashed;
+  background: var(--ago-brand-tint);
+}
+
+.ago-composer__row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--ago-space-3);
+}
+
+.ago-composer__input {
+  flex: 1;
+  min-width: 0;
+  /* Height is set by `Composer`'s auto-grow effect from the element's own `scrollHeight`; `resize:
+     none` stops the manual grabber from fighting it, and `min-height` keeps a single-line draft the
+     same height as the Send button beside it. */
+  resize: none;
+  min-height: 2.75rem;
+  max-height: 12.5rem;
+}
+
+.ago-composer__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-2);
+}
+
+.ago-composer__attachment {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-2);
+  flex-wrap: wrap;
+  font-size: var(--ago-text-sm);
+}
+
+.ago-composer__attachment-name {
+  font-family: var(--ago-font-mono);
+  font-size: var(--ago-text-xs);
+  overflow-wrap: anywhere;
+}
+
+.ago-composer__hint {
+  font-size: var(--ago-text-xs);
+  color: var(--ago-ink-soft);
+}
+
+/* --- The visitor panel -------------------------------------------------------------------------- */
+
+.ago-aside__title {
+  font-size: var(--ago-text-sm);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ago-ink-soft);
+}
+
+.ago-aside__row {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-2);
+  flex-wrap: wrap;
+}
+
+.ago-aside__facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-1);
+  margin: 0;
+  font-size: var(--ago-text-sm);
+}
+
+.ago-aside__facts dt {
+  font-size: var(--ago-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ago-ink-faint);
+  margin-top: var(--ago-space-3);
+}
+
+.ago-aside__facts dd {
+  margin: 0;
+}
+
+/* A full identifier, wrapped rather than truncated - the panel exists partly so an id can be copied
+   whole into a ticket or a log query. */
+.ago-aside__id {
+  font-size: var(--ago-text-xs);
+  overflow-wrap: anywhere;
+}
+
+.ago-aside__note {
+  margin-top: auto;
+  padding-top: var(--ago-space-4);
+  font-size: var(--ago-text-xs);
+  color: var(--ago-ink-soft);
+}
+
+/* --- The empty state ---------------------------------------------------------------------------- */
+
+.ago-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ago-space-3);
+  max-width: 32rem;
+  text-align: center;
+  color: var(--ago-ink-soft);
+}
+
+.ago-empty-state__glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--ago-radius-md);
+  background: var(--ago-brand-tint);
+  color: var(--ago-brand-deep);
+  font-size: var(--ago-text-xl);
+}
+
+.ago-empty-state__title {
+  color: var(--ago-ink);
+}
+
+.ago-empty-state__body {
+  font-size: var(--ago-text-sm);
+}
+
+/* --- The responsive floor -----------------------------------------------------------------------
+   Two breakpoints, both stated in `rem` so they follow the user's own text size rather than a device
+   category. This is a laptop tool that degrades honestly, not a mobile app: the goal at the narrow
+   end is "usable and not broken", not "designed for a phone". */
+
+/* Below ~1180px: the visitor panel loses its own column and becomes a strip above the thread. Both
+   remaining columns keep their scrolling behaviour. */
+@media (max-width: 74rem) {
+  .ago-workspace {
+    grid-template-columns: 19rem minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "rail aside"
+      "rail main";
+  }
+
+  .ago-workspace__main--empty {
+    grid-area: rail-start / main-start / main-end / main-end;
+  }
+
+  .ago-workspace__aside {
+    overflow-y: visible;
+  }
+
+  .ago-aside__facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    column-gap: var(--ago-space-4);
+  }
+
+  .ago-aside__facts dt {
+    margin-top: 0;
+  }
+
+  .ago-aside__note {
+    display: none;
+  }
+}
+
+/* Below ~840px: one column. The list and the open conversation become alternating full-width views
+   rather than shrinking both into uselessness, and the back link appears because the rail it points
+   at is no longer on screen. The shell stops being viewport-height here too - on a short, narrow
+   screen a fixed frame leaves nothing usable, and ordinary page scrolling is the better failure. */
+@media (max-width: 52.5rem) {
+  .ago-shell--fixed {
+    height: auto;
+  }
+
+  .ago-shell__main--wide {
+    overflow: visible;
+  }
+
+  .ago-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    grid-template-areas:
+      "rail"
+      "aside"
+      "main";
+  }
+
+  .ago-workspace__main--empty {
+    grid-area: main;
+  }
+
+  .ago-workspace--conversation .ago-workspace__rail {
+    display: none;
+  }
+
+  .ago-workspace__back {
+    display: inline;
+  }
+
+  .ago-workspace__rail-scroll,
+  .ago-thread-scroll {
+    overflow-y: visible;
+  }
+
+  .ago-thread-scroll {
+    /* Without a bounded height the thread would grow to any length and push the composer off the
+       bottom of the document; a viewport-relative cap keeps the reply box reachable. */
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  .ago-message {
+    max-width: 92%;
+  }
+}
