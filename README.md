@@ -43,6 +43,18 @@ src/
                     (placeholders - 5-07 builds the real thing)
 ```
 
+## Building for the public deployment
+
+`8-02`: `npm run build` (Vite's own `tsc -b && vite build`) picks up `.env.production` automatically
+in production mode - committed, not gitignored, since none of its three values are secrets (see the
+file's own header comment). `Dockerfile` builds this into a minimal nginx image
+(`../ago-root/docs/adr/0026-*`'s "no registry, build on the VPS" mechanism) -
+`../ago-deploy/k8s/build-static-images.sh` builds it,
+`../ago-deploy/k8s/overlays/demo/console-static.yaml` runs it behind
+`https://console.reserve-me.ru`. `nginx.conf` adds the client-side-routing fallback
+react-router's `/callback` route needs (a direct load of any path but `/` would otherwise 404
+before react-router ever got a chance to handle it).
+
 ## Testing
 
 ```bash
