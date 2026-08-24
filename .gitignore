@@ -14,6 +14,11 @@ dist-ssr
 .env
 .env.*
 !.env.example
+# .env.production is the one exception to the blanket .env.* ignore above: it carries the public
+# deployment's build-time config (8-02), and none of its three values are secrets (see the file's
+# own header comment) - Vite's own convention treats a committed .env.production as normal, only
+# .env.local/.env.*.local (real per-developer overrides) are meant to stay uncommitted.
+!.env.production
 
 # Editor directories and files
 .vscode/*
