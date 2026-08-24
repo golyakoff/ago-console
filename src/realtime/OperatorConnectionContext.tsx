@@ -4,6 +4,10 @@ import type { OperatorConnection, ConnectionState } from "./operatorConnection.j
 export interface OperatorConnectionState {
   connection: OperatorConnection;
   connectionState: ConnectionState;
+  /** `11-06`: the server pushed `"Reconnect"` (`ConnectionDrainCoordinator`) and the resulting drop
+   * has not happened yet - the one genuinely observable degradation, see `linkStatus.ts` for why it
+   * is the only one shown. Cleared by the next successful (re)connect. */
+  serverDraining: boolean;
 }
 
 export const OperatorConnectionContext = createContext<OperatorConnectionState | null>(null);

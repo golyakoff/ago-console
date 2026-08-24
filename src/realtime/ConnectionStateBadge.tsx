@@ -1,40 +1,38 @@
 import { Badge } from "../components/Badge.js";
+import { linkStatusOf } from "./linkStatus.js";
 import type { ConnectionState } from "./operatorConnection.js";
 
-const TONE: Record<ConnectionState, "success" | "neutral" | "danger"> = {
-  connected: "success",
-  connecting: "neutral",
-  reconnecting: "neutral",
-  disconnected: "danger",
-};
-
-const LABEL: Record<ConnectionState, string> = {
-  connected: "Connected",
-  connecting: "Connecting…",
-  reconnecting: "Reconnecting…",
-  disconnected: "Disconnected",
-};
-
 /**
- * `11-05`. The operator hub's own state, rendered as a `Badge`.
+ * `11-05` turned `Operator hub: {connectionState}` - a raw enum name printed inside a paragraph -
+ * into a `Badge`. `11-06` gives it the states the protocol really has, including the two the item
+ * names: `reconnecting`, and the one genuinely observable degradation, `draining` (the server's own
+ * `"Reconnect"` push). `linkStatus.ts` owns that mapping and, more importantly, owns the argument
+ * for why the *other* degradations in `realtime.md`'s failure table are deliberately absent.
  *
- * It lives beside the connection it describes rather than in `src/components/`, and it is
- * deliberately *not* a twelfth entry on the item's closed component list: the eleven are generic
- * primitives with no knowledge of this product, and this is the opposite - a fixed mapping from
- * `ConnectionState`'s four values to a tone and a sentence, useful to exactly the two pages that
- * are inside `OperatorConnectionProvider`. Putting it in the design system would have meant a
- * component library that knows what a SignalR connection is.
+ * Still not a twelfth entry on `adr/0030`'s closed component list, for the same reason as before:
+ * the eleven are generic primitives that know nothing about this product, and this is a fixed
+ * mapping from one product's connection states onto a tone and a sentence. It is built *out of* one
+ * of the eleven.
  *
- * The state is never carried by colour alone: the word is always there, which is what the two pages
- * printed as `Operator hub: {connectionState}` before this item and what a screen reader still gets.
- * The raw lowercase value becomes a sentence here because "reconnecting" is a state an operator has
- * to act on (stop typing, wait) and a bare enum name buried in a paragraph did not read as one.
+ * The state is never carried by colour alone - the word is always rendered, and the sentence from
+ * `linkStatus` rides along as the `title`, so the badge answers "and what does that mean for me"
+ * without the operator having to know what a hub is.
  */
-export function ConnectionStateBadge({ state }: { state: ConnectionState }) {
+export function ConnectionStateBadge({
+  state,
+  serverDraining = false,
+}: {
+  state: ConnectionState;
+  serverDraining?: boolean;
+}) {
+  const status = linkStatusOf(state, serverDraining);
+
   return (
-    <Badge tone={TONE[state]} dot>
-      <span className="ago-visually-hidden">Operator hub:</span>
-      {LABEL[state]}
-    </Badge>
+    <span title={status.detail}>
+      <Badge tone={status.tone} dot>
+        <span className="ago-visually-hidden">Operator hub:</span>
+        {status.label}
+      </Badge>
+    </span>
   );
 }

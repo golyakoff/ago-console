@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useMatch } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { AppShell, ShellIdentity, type AppShellNavItem } from "./AppShell.js";
@@ -26,7 +26,17 @@ export function OperatorShell() {
   const { user, logout } = useAuth();
   const { siteId, hasPermission } = usePermissions();
 
-  const nav: AppShellNavItem[] = [{ to: "/", label: "Queue", end: true }];
+  // `11-06`: the two workspace routes want the full-width, viewport-height frame; `/admin` and
+  // `/settings/widget` are ordinary documents and keep the reading-width one. Asked as two route
+  // matches here rather than answered inside `AppShell`, which reads no context and knows no routes
+  // on purpose.
+  // Both hooks are called unconditionally and combined afterwards - `||` between two `useMatch`
+  // calls would short-circuit the second one and change the hook order between renders.
+  const queueMatch = useMatch("/");
+  const conversationMatch = useMatch("/conversations/:conversationId");
+  const isWorkspace = queueMatch !== null || conversationMatch !== null;
+
+  const nav: AppShellNavItem[] = [{ to: "/", label: "Conversations", end: true }];
   if (hasPermission("site:configure")) {
     nav.push({ to: "/admin", label: "All conversations" });
     nav.push({ to: "/settings/widget", label: "Widget appearance" });
@@ -35,6 +45,7 @@ export function OperatorShell() {
   return (
     <AppShell
       nav={nav}
+      wide={isWorkspace}
       identity={
         <ShellIdentity
           operator={user?.profile.preferred_username ?? user?.profile.sub ?? "Signed in"}

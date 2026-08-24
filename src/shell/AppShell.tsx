@@ -16,6 +16,18 @@ export interface AppShellProps {
   /** The signed-in operator block, sign-out included. Absent on the pre-session routes
    * (`/signup`, `/callback`), where there is nobody to name. */
   identity?: ReactNode;
+  /**
+   * `11-06`: the route below is a workspace, not a document - it should use the full shell width and
+   * fit the viewport, with its own regions scrolling internally rather than the page scrolling as a
+   * whole.
+   *
+   * It is a prop rather than something the shell works out for itself because `AppShell` reads no
+   * context and knows no routes, deliberately (see this component's own doc comment) - the caller
+   * that already knows which route is rendering is the one that can answer this. The default is the
+   * reading-width, page-scrolling layout every other screen wants; a 1180px-wide line of 15px text
+   * is past the readable measure, which is why the cap exists at all.
+   */
+  wide?: boolean;
   children: ReactNode;
 }
 
@@ -33,9 +45,9 @@ export interface AppShellProps {
  * all from an accessibility standpoint: before this, every screen was a bare `<div>` and a
  * keyboard user had no way past the navigation.
  */
-export function AppShell({ nav, identity, children }: AppShellProps) {
+export function AppShell({ nav, identity, wide = false, children }: AppShellProps) {
   return (
-    <div className="ago-shell">
+    <div className={wide ? "ago-shell ago-shell--fixed" : "ago-shell"}>
       <a className="ago-skip-link" href="#ago-main">
         Skip to content
       </a>
@@ -72,7 +84,7 @@ export function AppShell({ nav, identity, children }: AppShellProps) {
         </div>
       </header>
 
-      <main className="ago-shell__main" id="ago-main">
+      <main className={wide ? "ago-shell__main ago-shell__main--wide" : "ago-shell__main"} id="ago-main">
         {children}
       </main>
     </div>

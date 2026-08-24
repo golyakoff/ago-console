@@ -57,7 +57,8 @@ const COLUMNS: TableColumn<ConversationSummaryDto>[] = [
   },
 ];
 
-/** Same poll interval `QueuePage` uses for its own read-only "waiting" list - see that page's own
+/** Same poll interval the operator workspace uses for its own read-only "waiting" list (`11-06`'s
+ * `WorkspaceLayout`, which is where `QueuePage`'s two lists moved) - see `ConversationList`'s own
  * doc comment for why a short poll, not a push, is the deliberate shape here too: nothing broadcasts
  * "a conversation changed" to every operator of a site, only to the one it gets assigned to. */
 const REFRESH_INTERVAL_MS = 15_000;

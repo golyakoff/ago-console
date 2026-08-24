@@ -173,6 +173,23 @@
   gap: var(--ago-space-6);
 }
 
+/* `11-06`: the workspace variant (`AppShell`'s `wide`). Two changes, and both are needed together:
+   the shell takes an exact viewport height rather than a minimum, which is what finally bounds the
+   flex chain so a region inside `<main>` can scroll on its own; and `<main>` drops the reading-width
+   cap, because a three-region workspace is not a line of text. `100dvh` rather than `100vh` so a
+   mobile browser's collapsing address bar does not leave the composer under it. Every other screen
+   is untouched - it keeps `min-height` and keeps scrolling as a page. */
+.ago-shell--fixed {
+  height: 100dvh;
+}
+
+.ago-shell__main--wide {
+  max-width: var(--ago-shell-max);
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: var(--ago-space-6);
+}
+
 /* Every screen opens with one of these: a title, an optional sentence, and whatever status the page
    wants beside it (connection state, a back link). */
 .ago-page-head {

@@ -35,7 +35,7 @@ const DEFAULT_SWATCH_COLOR = "#2f6fed";
  * configuration screen actually built in `ago-console`.
  *
  * Gated the same way `AdminConversationsPage` already established: `usePermissions()` decides whether
- * to render the form at all (client-side, UX only - the entry point in `QueuePage` is hidden the same
+ * to render the form at all (client-side, UX only - the shell's own entry point is hidden the same
  * way) while `11-01`'s own server-side `site:configure` check on both `GET`/`PUT` is the actual gate.
  * An operator who reaches this route some other way without the permission still gets a real `403`
  * from the fetch, surfaced as `loadError`/`submitError` text, never hidden as if the call had
@@ -43,7 +43,7 @@ const DEFAULT_SWATCH_COLOR = "#2f6fed";
  *
  * `11-05` landed after this screen and adopts it, per that item's own "whichever lands second adopts
  * the other's result" note: restyled onto the shell and the component set, with the entry point that
- * `11-02` added to `QueuePage` folded into the shell's permission-gated navigation - the same
+ * `11-02` added to the queue screen folded into the shell's permission-gated navigation - the same
  * `usePermissions()` gate, in one place instead of two. The screen's own internal gate above is
  * untouched and remains what stops a direct URL from rendering the form.
  */

@@ -18,6 +18,11 @@
 @import "./design/base.css";
 @import "./components/components.css";
 @import "./shell/shell.css";
+/* `11-06`: the operator workspace's own regions - the conversation list, the thread, the composer
+   and the visitor panel. The thread, composer and queue-row rules that used to sit in this file
+   moved there and were rewritten; keeping half a screen's styling here and half beside its
+   components would have made both harder to find. */
+@import "./workspace/workspace.css";
 
 #root {
   min-height: 100vh;
@@ -44,137 +49,6 @@
   gap: var(--ago-space-2);
 }
 
-/* --- Conversation thread ---------------------------------------------------------------------
- * `ConversationPage`'s message list. Two-tone by author, following the landing page's own widget
- * mock (`.bubble-op` on white with a hairline, `.bubble-visitor` on brand) - which is exactly the
- * conversation this console is the other end of, so the operator sees the same shapes the visitor
- * does. Restyled only: the markup keeps its `aria-label="Message thread"` and its per-message
- * sequence, author and body, unchanged. */
-
-.ago-thread {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ago-space-3);
-  padding: var(--ago-space-1) 0;
-}
-
-.ago-message {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ago-space-2);
-  max-width: 46rem;
-  padding: var(--ago-space-3) var(--ago-space-4);
-  border-radius: var(--ago-radius-lg);
-  border: 1px solid var(--ago-line);
-  background: var(--ago-surface);
-}
-
-.ago-message--operator {
-  align-self: flex-end;
-  background: var(--ago-brand-tint);
-  border-color: var(--ago-lavender);
-  border-bottom-right-radius: var(--ago-radius-sm);
-}
-
-.ago-message--visitor {
-  align-self: flex-start;
-  border-bottom-left-radius: var(--ago-radius-sm);
-}
-
-.ago-message__meta {
-  display: flex;
-  align-items: center;
-  gap: var(--ago-space-2);
-  font-size: var(--ago-text-xs);
-  color: var(--ago-ink-soft);
-}
-
-/* The author is never carried by the bubble's side or colour alone - this label is real text in
- * every message, which is what keeps 1.4.1 satisfied and what a screen reader reads. */
-.ago-message__author {
-  font-weight: 700;
-  color: var(--ago-ink);
-}
-
-.ago-message__sequence {
-  font-family: var(--ago-font-mono);
-}
-
-.ago-message__body {
-  font-size: var(--ago-text-base);
-  overflow-wrap: anywhere;
-}
-
-.ago-message__attachment {
-  display: flex;
-  align-items: center;
-  gap: var(--ago-space-3);
-  flex-wrap: wrap;
-  font-size: var(--ago-text-sm);
-}
-
-.ago-message__thumb {
-  max-width: 7.5rem;
-  max-height: 7.5rem;
-  border-radius: var(--ago-radius-sm);
-  border: 1px solid var(--ago-line);
-}
-
-/* --- Composer -------------------------------------------------------------------------------- */
-
-.ago-composer {
-  display: flex;
-  align-items: center;
-  gap: var(--ago-space-3);
-}
-
-.ago-composer .ago-control {
-  flex: 1;
-  min-width: 0;
-}
-
-/* --- Queue list ------------------------------------------------------------------------------
- * A list of rows, not a table: the queue is scanned and clicked, and each row is one target. */
-
-.ago-queue {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ago-space-2);
-}
-
-.ago-queue__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--ago-space-3);
-  flex-wrap: wrap;
-  padding: var(--ago-space-3) var(--ago-space-4);
-  border: 1px solid var(--ago-line);
-  border-radius: var(--ago-radius-md);
-  background: var(--ago-surface);
-  transition:
-    border-color var(--ago-transition),
-    background var(--ago-transition);
-}
-
-/* An entire row is the link target for an assigned conversation - the whole row, not just the
- * words, so the click target matches what looks clickable. */
-a.ago-queue__row {
-  text-decoration: none;
-  color: inherit;
-}
-
-a.ago-queue__row:hover {
-  border-color: var(--ago-brand);
-  background: var(--ago-brand-tint);
-}
-
-/* Waiting rows are read-only by design (`QueuePage`'s own doc comment on why there is no claim
- * action), so they are visibly not interactive: no hover, no pointer, a sunken surface. */
-.ago-queue__row--static {
-  background: var(--ago-surface-raised);
-}
-
 /* --- Widget-config swatch (`11-02`'s screen) -------------------------------------------------
  * Everything except the colour itself, which is the operator's live input and therefore the one
  * legitimate inline style left in the console. The border is `--ago-line-strong` rather than the
@@ -188,12 +62,4 @@ a.ago-queue__row:hover {
   flex: none;
   border-radius: 50%;
   border: 1px solid var(--ago-line-strong);
-}
-
-.ago-queue__row-main {
-  display: flex;
-  align-items: center;
-  gap: var(--ago-space-3);
-  flex-wrap: wrap;
-  min-width: 0;
 }
