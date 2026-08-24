@@ -4,6 +4,58 @@ import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchAllConversationsForSite } from "../api/conversationsApi.js";
 import type { ConversationSummaryDto } from "../realtime/protocol/types.js";
+import { PageHead } from "../shell/AppShell.js";
+import { Panel } from "../components/Panel.js";
+import { Alert } from "../components/Alert.js";
+import { Badge } from "../components/Badge.js";
+import { Table, type TableColumn } from "../components/Table.js";
+import { Skeleton, Spinner } from "../components/Spinner.js";
+
+/** The conversation lifecycle's three states, given the tones the palette reserves for them.
+ * Declared outside the component so the mapping is a constant, not something rebuilt per render. */
+const STATE_TONE: Record<ConversationSummaryDto["state"], "brand" | "success" | "neutral"> = {
+  Waiting: "brand",
+  Assigned: "success",
+  Closed: "neutral",
+};
+
+const COLUMNS: TableColumn<ConversationSummaryDto>[] = [
+  {
+    key: "visitor",
+    header: "Visitor",
+    render: (c) => (
+      <Badge tone="neutral" mono>
+        {c.visitorId.slice(0, 8)}
+      </Badge>
+    ),
+  },
+  {
+    key: "state",
+    header: "State",
+    render: (c) => <Badge tone={STATE_TONE[c.state]}>{c.state}</Badge>,
+  },
+  {
+    key: "operator",
+    header: "Assigned operator",
+    render: (c) =>
+      c.operatorId ? (
+        <span className="ago-mono">{c.operatorId.slice(0, 8)}</span>
+      ) : (
+        <span className="ago-meta">Unassigned</span>
+      ),
+  },
+  {
+    key: "started",
+    header: "Started",
+    render: (c) => <span className="ago-meta">{new Date(c.createdAt).toLocaleString()}</span>,
+  },
+  {
+    key: "unread",
+    header: "Unread",
+    align: "end",
+    render: (c) => c.operatorUnreadCount,
+  },
+];
 
 /** Same poll interval `QueuePage` uses for its own read-only "waiting" list - see that page's own
  * doc comment for why a short poll, not a push, is the deliberate shape here too: nothing broadcasts
@@ -28,6 +80,12 @@ const REFRESH_INTERVAL_MS = 15_000;
  * this view should surface as if it were a bug). The attachment-delete action lives in the ordinary
  * `ConversationPage` message thread instead, for whichever conversations the signed-in operator can
  * actually open the normal way.
+ *
+ * `11-05`: restyled onto the shell and the `Table` component. The page's own "Back to queue" link is
+ * gone from the success path only - the shell's navigation carries it on every route now, and two
+ * routes to the same place a few pixels apart is worse than one. It is kept on the permission-refusal
+ * branch, where it is the only way out and where the shell's own "All conversations" item is
+ * (correctly) absent for exactly the operator who lands there.
  */
 export function AdminConversationsPage() {
   const { user } = useAuth();
@@ -59,55 +117,47 @@ export function AdminConversationsPage() {
   }, [refresh, hasPermission]);
 
   if (permissions === null) {
-    return <p>Loading…</p>;
+    return <Spinner label="Checking your permissions…" />;
   }
 
   if (!hasPermission("site:configure")) {
     return (
-      <div>
-        <p role="alert">You do not have permission to view every conversation for this site.</p>
+      <>
+        <PageHead title="All conversations" />
+        {/* `Alert tone="danger"` renders `role="alert"` - the same assertive live region the bare
+            `<p role="alert">` here had before `11-05`, which this item's accessibility floor
+            requires be preserved rather than lost in the restyle. */}
+        <Alert tone="danger">You do not have permission to view every conversation for this site.</Alert>
         <p>
           <Link to="/">Back to queue</Link>
         </p>
-      </div>
+      </>
     );
   }
 
   return (
-    <div>
-      <p>
-        <Link to="/">Back to queue</Link>
-      </p>
-      <h2>All conversations for this site</h2>
-      {error && <p role="alert">{error}</p>}
-      {conversations === null ? (
-        <p>Loading…</p>
-      ) : conversations.length === 0 ? (
-        <p>No conversations yet.</p>
-      ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Visitor</th>
-              <th>State</th>
-              <th>Assigned operator</th>
-              <th>Started</th>
-              <th>Unread</th>
-            </tr>
-          </thead>
-          <tbody>
-            {conversations.map((c) => (
-              <tr key={c.conversationId}>
-                <td>{c.visitorId.slice(0, 8)}</td>
-                <td>{c.state}</td>
-                <td>{c.operatorId ? c.operatorId.slice(0, 8) : "Unassigned"}</td>
-                <td>{new Date(c.createdAt).toLocaleString()}</td>
-                <td>{c.operatorUnreadCount}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
+    <>
+      <PageHead
+        title="All conversations"
+        description="Every conversation for this site, not just the ones assigned to you. Read-only."
+      />
+
+      {error && <Alert tone="danger">{error}</Alert>}
+
+      <Panel title="Site conversations" description={`Refreshed every ${REFRESH_INTERVAL_MS / 1000} seconds.`}>
+        {conversations === null ? (
+          <Skeleton lines={4} label="Loading conversations…" />
+        ) : conversations.length === 0 ? (
+          <p className="ago-empty">No conversations yet.</p>
+        ) : (
+          <Table
+            caption="Every conversation for this site, newest first."
+            columns={COLUMNS}
+            rows={conversations}
+            rowKey={(c) => c.conversationId}
+          />
+        )}
+      </Panel>
+    </>
   );
 }

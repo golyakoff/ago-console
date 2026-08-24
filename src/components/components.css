@@ -1,0 +1,533 @@
+/* Styling for the closed component set (`11-05`: Button, Input, Textarea, Select, Field, Table,
+   Badge, Panel, Alert, Spinner/Skeleton, Dialog) plus the three shared *state* styles - loading,
+   empty and error - that the item asks to make first-class.
+
+   One stylesheet rather than eleven co-located ones: the set is closed by design, so there is no
+   growth curve to plan for, and having every control's dimensions visible in one file is what keeps
+   a 32px button and a 32px input actually the same height. `adr/0030` has the reasoning for plain
+   CSS + custom properties over CSS-in-JS or a utility framework.
+
+   Every value here reads a token from `../design/tokens.css`. A literal colour, radius or pixel
+   size appearing below without a token is a bug, not a shortcut - the two exceptions are `#fff` on
+   a brand fill (measured 6.27:1 in `tokens.css`, and there is no white token because white is not
+   part of the palette's semantics) and the `1px` hairlines. */
+
+/* ============================================================================ Button */
+
+.ago-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ago-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--ago-radius-md);
+  font-family: var(--ago-font-sans);
+  font-weight: 700;
+  font-size: var(--ago-text-base);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background var(--ago-transition),
+    border-color var(--ago-transition),
+    color var(--ago-transition);
+}
+
+.ago-btn--md {
+  padding: var(--ago-space-3) var(--ago-space-5);
+  min-height: 2.5rem; /* 40px - matches the control height in `--ago-input` below */
+}
+
+.ago-btn--sm {
+  padding: var(--ago-space-2) var(--ago-space-3);
+  min-height: 2rem;
+  font-size: var(--ago-text-sm);
+}
+
+.ago-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.ago-btn--primary {
+  background: var(--ago-brand);
+  color: #fff;
+}
+
+.ago-btn--primary:hover:not(:disabled) {
+  background: var(--ago-brand-deep);
+}
+
+.ago-btn--secondary {
+  background: var(--ago-surface);
+  color: var(--ago-ink);
+  border-color: var(--ago-line-strong);
+}
+
+.ago-btn--secondary:hover:not(:disabled) {
+  background: var(--ago-brand-tint);
+  border-color: var(--ago-brand);
+  color: var(--ago-brand-deep);
+}
+
+/* A ghost button has no border of its own, so 1.4.11's 3:1 boundary rule does not apply to it - its
+   affordance is the label, which is brand-coloured text at 9.39:1. Used only where a bordered
+   button beside it already establishes the row as a control strip. */
+.ago-btn--ghost {
+  background: transparent;
+  color: var(--ago-brand-deep);
+}
+
+.ago-btn--ghost:hover:not(:disabled) {
+  background: var(--ago-brand-tint);
+}
+
+.ago-btn--danger {
+  background: var(--ago-surface);
+  color: var(--ago-danger);
+  border-color: var(--ago-danger);
+}
+
+.ago-btn--danger:hover:not(:disabled) {
+  background: var(--ago-danger-tint);
+}
+
+/* ============================================================================ Input / Textarea / Select */
+
+.ago-control {
+  width: 100%;
+  background: var(--ago-surface);
+  color: var(--ago-ink);
+  border: 1px solid var(--ago-line-strong);
+  border-radius: var(--ago-radius-sm);
+  padding: var(--ago-space-2) var(--ago-space-3);
+  font-size: var(--ago-text-base);
+  transition:
+    border-color var(--ago-transition),
+    box-shadow var(--ago-transition);
+}
+
+.ago-control:not(textarea) {
+  min-height: 2.5rem;
+}
+
+.ago-control:hover:not(:disabled) {
+  border-color: var(--ago-ink-soft);
+}
+
+.ago-control:focus-visible {
+  border-color: var(--ago-brand);
+  box-shadow: var(--ago-focus-halo);
+}
+
+.ago-control:disabled {
+  background: var(--ago-surface-sunken);
+  color: var(--ago-ink-soft);
+  cursor: not-allowed;
+}
+
+/* Colour alone never carries "this is wrong" (1.4.1): the invalid border is always accompanied by
+   the Field's own error text, which is what `aria-describedby` points a screen reader at. */
+.ago-control[aria-invalid="true"] {
+  border-color: var(--ago-danger);
+}
+
+.ago-control--textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.ago-control--select {
+  appearance: none;
+  padding-right: var(--ago-space-8);
+  background-image: linear-gradient(45deg, transparent 50%, var(--ago-ink-soft) 50%),
+    linear-gradient(135deg, var(--ago-ink-soft) 50%, transparent 50%);
+  background-position:
+    right calc(var(--ago-space-4) + 4px) center,
+    right var(--ago-space-4) center;
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+/* A file input cannot be restyled through its own box in every browser, so it is styled as the
+   control strip around the native button rather than fought with. */
+.ago-control--file {
+  padding: var(--ago-space-2);
+  cursor: pointer;
+}
+
+.ago-control--file::file-selector-button {
+  margin-right: var(--ago-space-3);
+  padding: var(--ago-space-2) var(--ago-space-3);
+  border: 1px solid var(--ago-line-strong);
+  border-radius: var(--ago-radius-sm);
+  background: var(--ago-surface-sunken);
+  color: var(--ago-ink);
+  font-family: var(--ago-font-sans);
+  font-size: var(--ago-text-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ============================================================================ Field */
+
+.ago-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-1);
+}
+
+.ago-field__label {
+  font-size: var(--ago-text-sm);
+  font-weight: 700;
+  color: var(--ago-ink);
+}
+
+.ago-field__description {
+  font-size: var(--ago-text-sm);
+  color: var(--ago-ink-soft);
+}
+
+.ago-field__error {
+  font-size: var(--ago-text-sm);
+  font-weight: 600;
+  color: var(--ago-danger);
+}
+
+.ago-field__control-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-3);
+}
+
+/* ============================================================================ Table */
+
+.ago-table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--ago-line);
+  border-radius: var(--ago-radius-lg);
+  background: var(--ago-surface);
+}
+
+.ago-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--ago-text-base);
+}
+
+.ago-table caption {
+  text-align: left;
+  padding: var(--ago-space-3) var(--ago-space-4) 0;
+  font-size: var(--ago-text-sm);
+  color: var(--ago-ink-soft);
+}
+
+.ago-table th,
+.ago-table td {
+  text-align: left;
+  padding: var(--ago-space-3) var(--ago-space-4);
+  border-bottom: 1px solid var(--ago-line);
+}
+
+.ago-table thead th {
+  background: var(--ago-surface-sunken);
+  font-size: var(--ago-text-sm);
+  font-weight: 700;
+  color: var(--ago-ink-soft);
+  white-space: nowrap;
+}
+
+.ago-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ago-table tbody tr:hover td {
+  background: var(--ago-surface-raised);
+}
+
+.ago-table .ago-table__cell--end {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================================ Badge */
+
+.ago-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ago-space-2);
+  border-radius: var(--ago-radius-pill);
+  padding: var(--ago-space-1) var(--ago-space-3);
+  font-size: var(--ago-text-xs);
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.ago-badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentcolor;
+  flex: none;
+}
+
+.ago-badge--neutral {
+  background: var(--ago-surface-sunken);
+  color: var(--ago-ink);
+}
+
+.ago-badge--brand {
+  background: var(--ago-brand-tint);
+  color: var(--ago-brand-deep);
+}
+
+.ago-badge--accent {
+  background: var(--ago-lavender);
+  color: var(--ago-lavender-ink);
+}
+
+.ago-badge--success {
+  background: var(--ago-mint);
+  color: var(--ago-success);
+}
+
+.ago-badge--success .ago-badge__dot {
+  /* The landing's own live-dot, halo included - the one place `--ago-live` appears, and it is never
+     alone: the badge always carries a real word beside it. */
+  background: var(--ago-live);
+  box-shadow: 0 0 0 3px rgba(51, 209, 122, 0.22);
+}
+
+.ago-badge--danger {
+  background: var(--ago-danger-tint);
+  color: var(--ago-danger);
+}
+
+.ago-badge--mono {
+  font-family: var(--ago-font-mono);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ============================================================================ Panel */
+
+.ago-panel {
+  background: var(--ago-surface);
+  border: 1px solid var(--ago-line);
+  border-radius: var(--ago-radius-lg);
+  box-shadow: var(--ago-shadow-sm);
+  padding: var(--ago-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-4);
+}
+
+.ago-panel--quiet {
+  background: var(--ago-surface-raised);
+  box-shadow: none;
+}
+
+.ago-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ago-space-4);
+  flex-wrap: wrap;
+}
+
+.ago-panel__title {
+  font-size: var(--ago-text-lg);
+}
+
+.ago-panel__description {
+  margin-top: var(--ago-space-1);
+  font-size: var(--ago-text-sm);
+  color: var(--ago-ink-soft);
+  max-width: 62ch;
+}
+
+.ago-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-2);
+}
+
+.ago-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-3);
+}
+
+/* ============================================================================ Alert */
+
+.ago-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ago-space-3);
+  border: 1px solid;
+  border-radius: var(--ago-radius-md);
+  padding: var(--ago-space-3) var(--ago-space-4);
+  font-size: var(--ago-text-base);
+}
+
+.ago-alert__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-2);
+  align-items: flex-start;
+}
+
+.ago-alert__title {
+  font-weight: 700;
+}
+
+.ago-alert--danger {
+  background: var(--ago-danger-tint);
+  border-color: var(--ago-danger);
+  color: var(--ago-danger);
+}
+
+.ago-alert--success {
+  background: var(--ago-mint);
+  border-color: var(--ago-success);
+  color: var(--ago-success);
+}
+
+.ago-alert--info {
+  background: var(--ago-brand-tint);
+  border-color: var(--ago-lavender-dim);
+  color: var(--ago-brand-deep);
+}
+
+/* The icon is decorative - `aria-hidden`, because the alert's role and its text already carry the
+   meaning, and a screen reader announcing "warning sign" adds nothing. */
+.ago-alert__glyph {
+  flex: none;
+  line-height: var(--ago-leading-base);
+  font-weight: 800;
+}
+
+/* ============================================================================ Spinner / Skeleton */
+
+.ago-spinner-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ago-space-3);
+  color: var(--ago-ink-soft);
+  font-size: var(--ago-text-base);
+}
+
+.ago-spinner {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--ago-lavender);
+  border-top-color: var(--ago-brand);
+  animation: ago-spin 0.7s linear infinite;
+}
+
+@keyframes ago-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* With reduced motion the ring must still read as "busy" without rotating, so it becomes a static
+   two-tone ring; the `aria-live` text beside it is what actually communicates the state either way. */
+@media (prefers-reduced-motion: reduce) {
+  .ago-spinner {
+    animation: none;
+  }
+}
+
+.ago-skeleton {
+  display: block;
+  height: 1rem;
+  border-radius: var(--ago-radius-sm);
+  background: linear-gradient(90deg, var(--ago-surface-sunken), var(--ago-line), var(--ago-surface-sunken));
+  background-size: 200% 100%;
+  animation: ago-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes ago-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.ago-skeleton-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-3);
+}
+
+/* ============================================================================ Dialog */
+
+.ago-dialog {
+  width: min(32rem, calc(100vw - var(--ago-space-8)));
+  padding: 0;
+  border: 1px solid var(--ago-line);
+  border-radius: var(--ago-radius-lg);
+  background: var(--ago-surface);
+  color: var(--ago-ink);
+  box-shadow: var(--ago-shadow-lg);
+}
+
+.ago-dialog::backdrop {
+  background: rgba(12, 26, 25, 0.45); /* --ago-ink-deep at 45%; custom properties do not cross into ::backdrop */
+}
+
+.ago-dialog__inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-4);
+  padding: var(--ago-space-5);
+}
+
+.ago-dialog__title {
+  font-size: var(--ago-text-lg);
+}
+
+.ago-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ago-space-2);
+}
+
+/* ============================================================================ States
+
+   Loading, empty and error, as the item asks - first-class and named, rather than an ad-hoc
+   `<p>Loading…</p>` per page. These are shared styles, not components: `Spinner`/`Skeleton` and
+   `Alert` are the components that carry loading and error, and an empty list is a sentence in a
+   Panel, not a widget. Adding an `EmptyState` component would have put a twelfth entry on a list the
+   backlog item deliberately closed at eleven. */
+
+.ago-empty {
+  padding: var(--ago-space-6) var(--ago-space-4);
+  border: 1px dashed var(--ago-line-strong);
+  border-radius: var(--ago-radius-md);
+  background: var(--ago-surface-raised);
+  color: var(--ago-ink-soft);
+  text-align: center;
+  font-size: var(--ago-text-base);
+}
+
+.ago-meta {
+  font-size: var(--ago-text-sm);
+  color: var(--ago-ink-soft);
+}
+
+.ago-mono {
+  font-family: var(--ago-font-mono);
+  font-size: var(--ago-text-xs);
+  color: var(--ago-ink-soft);
+}

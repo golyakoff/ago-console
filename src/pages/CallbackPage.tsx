@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { userManager } from "../auth/userManager.js";
 import { resolveOperatorState } from "../api/operatorsApi.js";
+import { CenteredShell } from "../shell/AppShell.js";
+import { Alert } from "../components/Alert.js";
+import { Spinner } from "../components/Spinner.js";
 
 /**
  * Keycloak redirects here with `?code=...&state=...` after the operator signs in *or* registers -
@@ -42,8 +45,22 @@ export function CallbackPage() {
   }, [navigate]);
 
   if (error) {
-    return <p>Sign-in failed: {error}</p>;
+    // `11-05`: this was a plain `<p>` with no `role` at all, which meant a screen-reader user who
+    // had navigated away from the top of the page was never told the sign-in had failed. `Alert
+    // tone="danger"` carries `role="alert"`, so it is announced. That is an accessibility fix, not a
+    // behaviour change - the same text, at the same moment, for the same reason.
+    return (
+      <CenteredShell>
+        <Alert tone="danger" title="Sign-in failed">
+          {error}
+        </Alert>
+      </CenteredShell>
+    );
   }
 
-  return <p>Completing sign-in…</p>;
+  return (
+    <CenteredShell>
+      <Spinner label="Completing sign-in…" />
+    </CenteredShell>
+  );
 }

@@ -2,6 +2,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { registerSite, RegisterSiteError } from "../api/sitesApi.js";
+import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
+import { Panel } from "../components/Panel.js";
+import { Field } from "../components/Field.js";
+import { Input } from "../components/Input.js";
+import { Button } from "../components/Button.js";
+import { Alert } from "../components/Alert.js";
 
 /**
  * `10-03`: state (b)'s destination - a real, signature-valid Keycloak identity (`CallbackPage`'s
@@ -19,6 +25,11 @@ import { registerSite, RegisterSiteError } from "../api/sitesApi.js";
  * holds starts passing `RequireOperatorIdentity` on the very next call - exactly the "no separate
  * new-operator branch downstream" the backlog asks for, and the reason this page needs no token
  * refresh/re-login step of its own.
+ *
+ * `11-05`: renders `AppShell` directly with an identity block but no navigation - there is nothing to
+ * navigate to yet, and `usePermissions()` is unavailable here by design (this route is deliberately
+ * outside `PermissionsProvider`, see above), which is exactly the case `AppShell`'s props-only,
+ * context-free design exists for.
  */
 export function OnboardingPage() {
   const { user, logout } = useAuth();
@@ -82,37 +93,65 @@ export function OnboardingPage() {
   };
 
   return (
-    <div>
-      <p>
-        Signed in as {user?.profile.preferred_username ?? user?.profile.sub} - <button onClick={() => void logout()}>Sign out</button>
-      </p>
-      <h1>Finish setting up your site</h1>
-      <p>Your Keycloak account is verified. Choose a display name and the one website origin your widget will be embedded on.</p>
+    <AppShell
+      identity={
+        <ShellIdentity
+          operator={user?.profile.preferred_username ?? user?.profile.sub ?? "Signed in"}
+          // No site yet - that is the entire reason this page exists.
+          siteId={null}
+          onSignOut={() => void logout()}
+        />
+      }
+    >
+      <PageHead
+        title="Finish setting up your site"
+        description="Your Keycloak account is verified. Choose a display name and the one website origin your widget will be embedded on."
+      />
 
-      <form onSubmit={(e) => void handleSubmit(e)}>
-        <div>
-          <label>
-            Site display name
-            <input value={siteName} onChange={(e) => setSiteName(e.target.value)} disabled={submitting} />
-          </label>
-        </div>
-        <div>
-          <label>
-            Embed origin
-            <input
-              value={origin}
-              onChange={(e) => setOrigin(e.target.value)}
-              placeholder="https://shop.example.com"
-              disabled={submitting}
-            />
-          </label>
-        </div>
-        {validationError && <p role="alert">{validationError}</p>}
-        {submitError && <p role="alert">{submitError}</p>}
-        <button type="submit" disabled={submitting}>
-          {submitting ? "Setting up…" : "Finish setup"}
-        </button>
-      </form>
-    </div>
+      <Panel>
+        <form className="ago-stack" onSubmit={(e) => void handleSubmit(e)}>
+          <Field label="Site display name">
+            {(controlProps) => (
+              <Input
+                {...controlProps}
+                value={siteName}
+                onChange={(e) => setSiteName(e.target.value)}
+                disabled={submitting}
+              />
+            )}
+          </Field>
+
+          <Field
+            label="Embed origin"
+            description="Scheme, host and port only - no path, e.g. https://shop.example.com."
+          >
+            {(controlProps) => (
+              <Input
+                {...controlProps}
+                value={origin}
+                onChange={(e) => setOrigin(e.target.value)}
+                placeholder="https://shop.example.com"
+                disabled={submitting}
+              />
+            )}
+          </Field>
+
+          {/* Kept as two form-level messages rather than split onto the fields they came from.
+              `validate()` returns one message at a time and stops at the first failure, and telling
+              which field a message belongs to would mean either matching on its text - brittle - or
+              changing `validate()`'s shape, which is code this presentation-only item has no reason
+              to touch. `Alert tone="danger"` carries `role="alert"`, exactly as the two bare
+              `<p role="alert">` paragraphs here did before `11-05`. */}
+          {validationError && <Alert tone="danger">{validationError}</Alert>}
+          {submitError && <Alert tone="danger">{submitError}</Alert>}
+
+          <div className="ago-row">
+            <Button type="submit" variant="primary" disabled={submitting}>
+              {submitting ? "Setting up…" : "Finish setup"}
+            </Button>
+          </div>
+        </form>
+      </Panel>
+    </AppShell>
   );
 }

@@ -3,7 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#fbfaf7" />
     <title>AGO Chat operator console</title>
+    <!--
+      `11-05`: the same three families, fetched the same way, as `ago-landing/index.html` - Manrope
+      for the interface, Unbounded for the shell's wordmark, JetBrains Mono for identifiers. Loading
+      them from Google Fonts rather than self-hosting via an npm package is a deliberate, and
+      deliberately revisitable, choice: it adds no dependency to `package.json` (CLAUDE.md's rule on
+      dependencies applies to npm exactly as it does to NuGet), and it matches what the landing page
+      already does in this same project. The costs are real and stated in `adr/0030` - a third-party
+      request on first paint, and a privacy consideration once the console is public. Every stack in
+      `src/design/tokens.css` ends in a system font, so the console stays fully usable when this
+      request fails or is blocked; `display=swap` is what keeps text visible while it is in flight.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700&family=Manrope:wght@400;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div id="root"></div>
