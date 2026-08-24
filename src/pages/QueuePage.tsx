@@ -66,11 +66,13 @@ export function QueuePage() {
       <p>
         Signed in as {user?.profile.preferred_username ?? user?.profile.sub} - <button onClick={() => void logout()}>Sign out</button>
       </p>
-      {/* `5-08`: only rendered once `usePermissions()` actually confirms the permission - see that
-          hook's own doc comment on why a client-side hide is UI-only, never the real gate. */}
+      {/* `5-08`/`11-02`: only rendered once `usePermissions()` actually confirms the permission -
+          see that hook's own doc comment on why a client-side hide is UI-only, never the real gate. */}
       {hasPermission("site:configure") && (
         <p>
           <Link to="/admin">Admin: all conversations for this site</Link>
+          {" · "}
+          <Link to="/settings/widget">Widget appearance</Link>
         </p>
       )}
       <p>Operator hub: {connectionState}</p>

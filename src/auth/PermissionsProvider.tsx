@@ -17,6 +17,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const accessToken = user?.access_token;
   const [permissions, setPermissions] = useState<string[] | null>(null);
+  const [siteId, setSiteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!accessToken) {
@@ -31,6 +32,9 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       .then((response) => {
         if (!cancelled) {
           setPermissions(response.permissions);
+          // `11-02`: the same response already carries `siteId` - one fetch, two pieces of state,
+          // not a second call `WidgetConfigPage` would otherwise need to make on its own.
+          setSiteId(response.siteId);
         }
       })
       .catch((err: unknown) => {
@@ -48,7 +52,10 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
 
   const hasPermission = useCallback((permission: string) => permissions?.includes(permission) ?? false, [permissions]);
 
-  const value = useMemo<PermissionsState>(() => ({ permissions, hasPermission }), [permissions, hasPermission]);
+  const value = useMemo<PermissionsState>(
+    () => ({ permissions, siteId, hasPermission }),
+    [permissions, siteId, hasPermission],
+  );
 
   return <PermissionsContext.Provider value={value}>{children}</PermissionsContext.Provider>;
 }
