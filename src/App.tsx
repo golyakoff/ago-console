@@ -1,7 +1,8 @@
-import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { RequireAuth } from "./auth/RequireAuth.js";
 import { PermissionsProvider } from "./auth/PermissionsProvider.js";
 import { OperatorConnectionProvider } from "./realtime/OperatorConnectionProvider.js";
+import { OperatorShell } from "./shell/OperatorShell.js";
 import { CallbackPage } from "./pages/CallbackPage.js";
 import { SignupPage } from "./pages/SignupPage.js";
 import { OnboardingPage } from "./pages/OnboardingPage.js";
@@ -39,6 +40,14 @@ import { WidgetConfigPage } from "./pages/WidgetConfigPage.js";
  * Keycloak-identity-only token (state (b), `CallbackPage`'s own routing) does not carry yet, and
  * `RequireAuth`'s existing "is there any OIDC session" check is exactly the gate this state needs,
  * nothing narrower.
+ *
+ * `11-05`: the operator layout route's element is now `OperatorShell` rather than a bare `<Outlet />`
+ * - the shell renders the persistent header (identity, permission-gated navigation with an active
+ * state, sign-out) and puts the `<Outlet />` inside its own `<main>`. It is mounted here, inside the
+ * providers, precisely because it reads `usePermissions()`; the three routes above it that live
+ * outside those providers render `AppShell`/`CenteredShell` themselves instead, which take
+ * everything they display as props and read no context. No route's guarding changed - this is a
+ * presentation change and the tree is the same shape it was, one element deeper.
  */
 export function App() {
   return (
@@ -58,7 +67,7 @@ export function App() {
           <RequireAuth>
             <PermissionsProvider>
               <OperatorConnectionProvider>
-                <Outlet />
+                <OperatorShell />
               </OperatorConnectionProvider>
             </PermissionsProvider>
           </RequireAuth>

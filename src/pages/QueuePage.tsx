@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
-import { usePermissions } from "../auth/PermissionsContext.js";
 import { useOperatorConnection } from "../realtime/OperatorConnectionContext.js";
 import { fetchOperatorQueue } from "../api/conversationsApi.js";
 import type { OperatorQueueResponse } from "../realtime/protocol/types.js";
+import { ConnectionStateBadge } from "../realtime/ConnectionStateBadge.js";
+import { PageHead } from "../shell/AppShell.js";
+import { Panel } from "../components/Panel.js";
+import { Alert } from "../components/Alert.js";
+import { Badge } from "../components/Badge.js";
+import { Skeleton } from "../components/Spinner.js";
 
 /** Refetch interval for the read-only "waiting" list - see this file's own remarks below on why a
  * periodic REST refresh, not a live push, is the deliberate (and stated) shape for that half of the
@@ -27,10 +32,16 @@ const WAITING_REFRESH_INTERVAL_MS = 15_000;
  * something an operator acts on directly, so a short poll is a reasonable, deliberately limited
  * answer rather than a reason to build a new broadcast-on-conversation-start feature this item was
  * never scoped to need.
+ *
+ * `11-05` restyled this screen and moved two things off it, both presentation-only. The "Signed in
+ * as … Sign out" sentence and the permission-gated links to `/admin` and `/settings/widget` are now
+ * the shell's header (`OperatorShell`), which gates them through the identical `usePermissions()`
+ * call this page used to make - the same client-side hide with the same caveat, in a place every
+ * route can see it from. Nothing else moved: both lists, both refresh mechanisms and the
+ * `leaveConversation()` cleanup are untouched.
  */
 export function QueuePage() {
-  const { user, logout } = useAuth();
-  const { hasPermission } = usePermissions();
+  const { user } = useAuth();
   const { connection, connectionState } = useOperatorConnection();
   const [queue, setQueue] = useState<OperatorQueueResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,55 +73,62 @@ export function QueuePage() {
   }, [connection]);
 
   return (
-    <div>
-      <p>
-        Signed in as {user?.profile.preferred_username ?? user?.profile.sub} - <button onClick={() => void logout()}>Sign out</button>
-      </p>
-      {/* `5-08`/`11-02`: only rendered once `usePermissions()` actually confirms the permission -
-          see that hook's own doc comment on why a client-side hide is UI-only, never the real gate. */}
-      {hasPermission("site:configure") && (
-        <p>
-          <Link to="/admin">Admin: all conversations for this site</Link>
-          {" · "}
-          <Link to="/settings/widget">Widget appearance</Link>
-        </p>
-      )}
-      <p>Operator hub: {connectionState}</p>
-      {error && <p role="alert">{error}</p>}
+    <>
+      <PageHead
+        title="Queue"
+        description="Conversations assigned to you, and everything currently waiting for this site."
+        aside={<ConnectionStateBadge state={connectionState} />}
+      />
 
-      <h2>Assigned to me</h2>
-      {queue === null ? (
-        <p>Loading…</p>
-      ) : queue.assignedToMe.length === 0 ? (
-        <p>Nothing assigned yet.</p>
-      ) : (
-        <ul>
-          {queue.assignedToMe.map((c) => (
-            <li key={c.conversationId}>
-              <Link to={`/conversations/${c.conversationId}`}>
-                Visitor {c.visitorId.slice(0, 8)} - since {new Date(c.createdAt).toLocaleTimeString()}
-                {c.operatorUnreadCount > 0 && ` (${c.operatorUnreadCount} unread)`}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      {error && <Alert tone="danger">{error}</Alert>}
 
-      <h2>Waiting</h2>
-      {/* Read-only by design - see this file's own doc comment on why there is no claim action here. */}
-      {queue === null ? (
-        <p>Loading…</p>
-      ) : queue.waiting.length === 0 ? (
-        <p>Nothing waiting.</p>
-      ) : (
-        <ul>
-          {queue.waiting.map((c) => (
-            <li key={c.conversationId}>
-              Visitor {c.visitorId.slice(0, 8)} - waiting since {new Date(c.createdAt).toLocaleTimeString()}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+      <Panel title="Assigned to me" description="Live - a new assignment appears here without a refresh.">
+        {queue === null ? (
+          <Skeleton lines={3} label="Loading your assigned conversations…" />
+        ) : queue.assignedToMe.length === 0 ? (
+          <p className="ago-empty">Nothing assigned yet. New conversations arrive here automatically.</p>
+        ) : (
+          <ul className="ago-queue">
+            {queue.assignedToMe.map((c) => (
+              <li key={c.conversationId}>
+                <Link className="ago-queue__row" to={`/conversations/${c.conversationId}`}>
+                  <span className="ago-queue__row-main">
+                    <Badge tone="brand" mono>
+                      {c.visitorId.slice(0, 8)}
+                    </Badge>
+                    <span className="ago-meta">since {new Date(c.createdAt).toLocaleTimeString()}</span>
+                  </span>
+                  {c.operatorUnreadCount > 0 && <Badge tone="danger">{c.operatorUnreadCount} unread</Badge>}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+
+      {/* Read-only by design - see this file's own doc comment on why there is no claim action here.
+          `11-05` makes that visible rather than only documented: these rows are plain rows with no
+          hover affordance and no link, next to a list whose rows are entirely clickable. */}
+      <Panel title="Waiting" description={`Read-only. Refreshed every ${WAITING_REFRESH_INTERVAL_MS / 1000} seconds.`}>
+        {queue === null ? (
+          <Skeleton lines={2} label="Loading the waiting list…" />
+        ) : queue.waiting.length === 0 ? (
+          <p className="ago-empty">Nothing waiting.</p>
+        ) : (
+          <ul className="ago-queue">
+            {queue.waiting.map((c) => (
+              <li key={c.conversationId} className="ago-queue__row ago-queue__row--static">
+                <span className="ago-queue__row-main">
+                  <Badge tone="neutral" mono>
+                    {c.visitorId.slice(0, 8)}
+                  </Badge>
+                  <span className="ago-meta">waiting since {new Date(c.createdAt).toLocaleTimeString()}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+    </>
   );
 }

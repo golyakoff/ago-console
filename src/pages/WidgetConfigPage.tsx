@@ -10,6 +10,14 @@ import {
   type WidgetPosition,
 } from "../api/widgetConfigApi.js";
 import { isValidHexColor } from "./widgetConfigValidation.js";
+import { PageHead } from "../shell/AppShell.js";
+import { Panel } from "../components/Panel.js";
+import { Field } from "../components/Field.js";
+import { Input } from "../components/Input.js";
+import { Select } from "../components/Select.js";
+import { Button } from "../components/Button.js";
+import { Alert } from "../components/Alert.js";
+import { Skeleton, Spinner } from "../components/Spinner.js";
 
 const POSITION_LABELS: Record<WidgetPosition, string> = {
   BottomRight: "Bottom right",
@@ -32,6 +40,12 @@ const DEFAULT_SWATCH_COLOR = "#2f6fed";
  * An operator who reaches this route some other way without the permission still gets a real `403`
  * from the fetch, surfaced as `loadError`/`submitError` text, never hidden as if the call had
  * succeeded.
+ *
+ * `11-05` landed after this screen and adopts it, per that item's own "whichever lands second adopts
+ * the other's result" note: restyled onto the shell and the component set, with the entry point that
+ * `11-02` added to `QueuePage` folded into the shell's permission-gated navigation - the same
+ * `usePermissions()` gate, in one place instead of two. The screen's own internal gate above is
+ * untouched and remains what stops a direct URL from rendering the form.
  */
 export function WidgetConfigPage() {
   const { user } = useAuth();
@@ -71,17 +85,20 @@ export function WidgetConfigPage() {
   }, [load, hasPermission]);
 
   if (permissions === null) {
-    return <p>Loading…</p>;
+    return <Spinner label="Checking your permissions…" />;
   }
 
   if (!hasPermission("site:configure")) {
     return (
-      <div>
-        <p role="alert">You do not have permission to configure this site's widget.</p>
+      <>
+        <PageHead title="Widget appearance" />
+        {/* `role="alert"` preserved through `Alert tone="danger"` - see `AdminConversationsPage`'s
+            identical branch. */}
+        <Alert tone="danger">You do not have permission to configure this site&apos;s widget.</Alert>
         <p>
           <Link to="/">Back to queue</Link>
         </p>
-      </div>
+      </>
     );
   }
 
@@ -129,70 +146,79 @@ export function WidgetConfigPage() {
   const swatchColor = isValidHexColor(colorInput.trim()) ? colorInput.trim() : DEFAULT_SWATCH_COLOR;
 
   return (
-    <div>
-      <p>
-        <Link to="/">Back to queue</Link>
-      </p>
-      <h2>Widget appearance</h2>
-      {/* `adr/0029`: config is read once, at bootstrap - stated here so the operator making the
-          change knows why an already-open visitor tab will not reflect it immediately. */}
-      <p>
-        Changes here take effect the next time a visitor's page loads the widget. A visitor who already
-        has the widget open on their page will not see the new color or position until they reload it.
-      </p>
+    <>
+      <PageHead
+        title="Widget appearance"
+        /* `adr/0029`: config is read once, at bootstrap - stated here so the operator making the
+           change knows why an already-open visitor tab will not reflect it immediately. */
+        description="Changes here take effect the next time a visitor's page loads the widget. A visitor who already has the widget open on their page will not see the new color or position until they reload it."
+      />
 
-      {loadError && <p role="alert">{loadError}</p>}
+      {loadError && <Alert tone="danger">{loadError}</Alert>}
 
       {current === null && !loadError ? (
-        <p>Loading…</p>
+        <Panel>
+          <Skeleton lines={3} label="Loading the widget configuration…" />
+        </Panel>
       ) : (
-        <form onSubmit={(e) => void handleSubmit(e)}>
-          <div>
-            <label>
-              Primary color (hex, optional)
-              <input
-                value={colorInput}
-                onChange={(e) => setColorInput(e.target.value)}
-                placeholder="#2F6FED"
-                disabled={submitting}
-              />
-            </label>
-            <span
-              aria-hidden="true"
-              title="Preview"
-              style={{
-                display: "inline-block",
-                width: "1.5rem",
-                height: "1.5rem",
-                marginLeft: "0.5rem",
-                verticalAlign: "middle",
-                borderRadius: "50%",
-                border: "1px solid #d1d5db",
-                background: swatchColor,
-              }}
-            />
-          </div>
-          <div>
-            <label>
-              Launcher position
-              <select
-                value={position}
-                onChange={(e) => setPosition(e.target.value as WidgetPosition)}
-                disabled={submitting}
-              >
-                <option value="BottomRight">{POSITION_LABELS.BottomRight}</option>
-                <option value="BottomLeft">{POSITION_LABELS.BottomLeft}</option>
-              </select>
-            </label>
-          </div>
-          {validationError && <p role="alert">{validationError}</p>}
-          {submitError && <p role="alert">{submitError}</p>}
-          {saved && <p>Saved.</p>}
-          <button type="submit" disabled={submitting}>
-            {submitting ? "Saving…" : "Save"}
-          </button>
-        </form>
+        <Panel title="Launcher">
+          <form className="ago-stack" onSubmit={(e) => void handleSubmit(e)}>
+            <Field
+              label="Primary color (hex, optional)"
+              description="Leave empty to use the widget's own built-in default."
+              error={validationError}
+              adornment={
+                <span
+                  className="ago-widget-swatch"
+                  aria-hidden="true"
+                  title="Preview"
+                  // The one inline style left in the console, and it has to be: the value is the
+                  // operator's own live input, so it cannot come from a token or a class. Its
+                  // dimensions and border moved into `.ago-widget-swatch` in `index.css`; only the
+                  // colour itself stays here.
+                  style={{ background: swatchColor }}
+                />
+              }
+            >
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  value={colorInput}
+                  onChange={(e) => setColorInput(e.target.value)}
+                  placeholder="#2F6FED"
+                  disabled={submitting}
+                />
+              )}
+            </Field>
+
+            <Field label="Launcher position">
+              {(controlProps) => (
+                <Select
+                  {...controlProps}
+                  value={position}
+                  onChange={(e) => setPosition(e.target.value as WidgetPosition)}
+                  disabled={submitting}
+                >
+                  <option value="BottomRight">{POSITION_LABELS.BottomRight}</option>
+                  <option value="BottomLeft">{POSITION_LABELS.BottomLeft}</option>
+                </Select>
+              )}
+            </Field>
+
+            {submitError && <Alert tone="danger">{submitError}</Alert>}
+            {/* Was a bare `<p>Saved.</p>` with no live-region role at all before `11-05` - `Alert
+                tone="success"` gives it `role="status"`, polite rather than assertive, so it is
+                announced without interrupting. */}
+            {saved && <Alert tone="success">Saved.</Alert>}
+
+            <div className="ago-row">
+              <Button type="submit" variant="primary" disabled={submitting}>
+                {submitting ? "Saving…" : "Save"}
+              </Button>
+            </div>
+          </form>
+        </Panel>
       )}
-    </div>
+    </>
   );
 }

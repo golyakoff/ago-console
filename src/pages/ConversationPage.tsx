@@ -14,6 +14,15 @@ import {
   uploadToPresignedUrl,
   type AttachmentDownloadResponse,
 } from "../api/attachmentsApi.js";
+import { ConnectionStateBadge } from "../realtime/ConnectionStateBadge.js";
+import { PageHead } from "../shell/AppShell.js";
+import { Panel } from "../components/Panel.js";
+import { Alert } from "../components/Alert.js";
+import { Badge } from "../components/Badge.js";
+import { Button } from "../components/Button.js";
+import { Input } from "../components/Input.js";
+import { Field } from "../components/Field.js";
+import { Spinner } from "../components/Spinner.js";
 
 const PRESENCE_POLL_INTERVAL_MS = 10_000;
 const HISTORY_PAGE_SIZE = 50;
@@ -51,6 +60,13 @@ type AttachmentDetail = AttachmentDownloadResponse | "loading" | "deleted" | "er
  * to `<img>` inline, but the full-file download always goes through a plain link to the presigned URL
  * - a different origin (MinIO/S3) than the console itself, so even a malicious upload can only ever
  * render in *that* origin's own tab, never this one's.
+ *
+ * `11-05` restyled this screen and changed nothing it does. Worth naming explicitly, because three
+ * of the changes look like they could have been behavioural and are not: the composer is still an
+ * `<input>` (Enter still submits - see the comment on it); the attachment delete still fires
+ * immediately with no confirmation dialog, even though this item ships a `Dialog` component, because
+ * putting a confirm step in front of a destructive action *is* a behaviour change; and the presence
+ * readout is still three-valued, with "unknown" a distinct state from "offline".
  */
 export function ConversationPage() {
   const { conversationId } = useParams<{ conversationId: string }>();
@@ -266,35 +282,40 @@ export function ConversationPage() {
     const detail = attachmentDetails[attachmentId];
 
     if (detail === undefined || detail === "loading") {
-      return <span> (loading attachment…)</span>;
+      return <Spinner label="Loading attachment…" />;
     }
 
     if (detail === "deleted") {
-      return <span> (attachment deleted)</span>;
+      return <span className="ago-meta">Attachment deleted</span>;
     }
 
     if (detail === "error") {
-      return <span role="alert"> (attachment unavailable)</span>;
+      // Kept as an assertive live region, exactly as before `11-05` - the bare `<span role="alert">`
+      // this replaces said the same thing with the same semantics, just unstyled.
+      return (
+        <span className="ago-message__attachment" role="alert">
+          <Badge tone="danger">Attachment unavailable</Badge>
+        </span>
+      );
     }
 
     return (
-      <span>
-        {" "}
+      <span className="ago-message__attachment">
         {detail.thumbnailUrl ? (
           // A real generated thumbnail (5-04) - the one case safe to render inline, unlike the raw
           // download below (this component's own doc comment has the reasoning).
           <a href={detail.url} target="_blank" rel="noopener noreferrer">
-            <img src={detail.thumbnailUrl} alt="Attachment thumbnail" style={{ maxWidth: 120, maxHeight: 120, verticalAlign: "middle" }} />
+            <img className="ago-message__thumb" src={detail.thumbnailUrl} alt="Attachment thumbnail" />
           </a>
         ) : (
           <a href={detail.url} target="_blank" rel="noopener noreferrer">
             Download attachment ({detail.contentType})
           </a>
-        )}{" "}
+        )}
         {hasPermission("attachment:delete") && (
-          <button type="button" onClick={() => void handleDeleteAttachment(attachmentId)}>
+          <Button size="sm" variant="danger" onClick={() => void handleDeleteAttachment(attachmentId)}>
             Delete attachment
-          </button>
+          </Button>
         )}
       </span>
     );
@@ -316,57 +337,118 @@ export function ConversationPage() {
   };
 
   return (
-    <div>
-      <p>
-        Operator hub: {connectionState} - Visitor:{" "}
-        {visitorOnline === null ? "unknown" : visitorOnline ? "online" : "offline"}
-      </p>
+    <>
+      <PageHead
+        title="Conversation"
+        aside={
+          <>
+            <ConnectionStateBadge state={connectionState} />
+            {/* Presence is a genuinely three-valued thing - online, offline, and "the presence call
+                itself failed or has not answered yet" - and it stayed three-valued here. */}
+            {visitorOnline === null ? (
+              <Badge tone="neutral">Visitor: unknown</Badge>
+            ) : visitorOnline ? (
+              <Badge tone="success" dot>
+                Visitor online
+              </Badge>
+            ) : (
+              <Badge tone="neutral" dot>
+                Visitor offline
+              </Badge>
+            )}
+          </>
+        }
+      />
 
-      {nextBeforeSequence !== null && (
-        <button onClick={() => void loadOlder()} disabled={loadingOlder}>
-          {loadingOlder ? "Loading…" : "Load older messages"}
-        </button>
-      )}
+      <Panel
+        title="Messages"
+        actions={
+          nextBeforeSequence !== null && (
+            <Button size="sm" variant="secondary" onClick={() => void loadOlder()} disabled={loadingOlder}>
+              {loadingOlder ? "Loading…" : "Load older messages"}
+            </Button>
+          )
+        }
+      >
+        {/* `aria-label="Message thread"` predates `11-05` and survives it unchanged - it is the only
+            accessible name this list has, since the panel heading above is not associated with it. */}
+        <ul className="ago-thread" aria-label="Message thread">
+          {messages.map((m) => (
+            <li key={m.id} className={`ago-message ago-message--${m.authorKind === "Operator" ? "operator" : "visitor"}`}>
+              <span className="ago-message__meta">
+                <span className="ago-message__author">{m.authorKind}</span>
+                <span className="ago-message__sequence">#{m.sequence}</span>
+              </span>
+              <span className="ago-message__body">{m.body}</span>
+              {m.attachmentId && renderAttachment(m.attachmentId)}
+            </li>
+          ))}
+        </ul>
 
-      <ul aria-label="Message thread">
-        {messages.map((m) => (
-          <li key={m.id}>
-            [{m.sequence}] {m.authorKind}: {m.body}
-            {m.attachmentId && renderAttachment(m.attachmentId)}
-          </li>
-        ))}
-      </ul>
+        {failedSend && (
+          <Alert
+            tone="danger"
+            title="Send failed or is unconfirmed"
+            action={
+              <Button size="sm" variant="danger" onClick={handleRetry}>
+                Retry
+              </Button>
+            }
+          >
+            &quot;{failedSend.body}&quot;
+          </Alert>
+        )}
+      </Panel>
 
-      {failedSend && (
-        <p role="alert">
-          Send failed or is unconfirmed: "{failedSend.body}" - <button onClick={handleRetry}>Retry</button>
-        </p>
-      )}
+      <Panel title="Reply" quiet>
+        <Field label="Attach a file" description="Optional. An attachment is sent together with the message below.">
+          {({ id, "aria-describedby": describedBy }) => (
+            <Input
+              id={id}
+              aria-describedby={describedBy}
+              type="file"
+              onChange={(e) => void handleFileSelected(e)}
+              disabled={uploadProgress !== null}
+            />
+          )}
+        </Field>
 
-      <div>
-        <label>
-          Attach a file: <input type="file" onChange={(e) => void handleFileSelected(e)} disabled={uploadProgress !== null} />
-        </label>
         {uploadProgress && (
-          <p>
+          // `role="status"` rather than a bare paragraph, so a screen reader hears the upload finish
+          // instead of only sighted users seeing the percentage move.
+          <p className="ago-meta" role="status">
             Uploading {uploadProgress.fileName}: {uploadProgress.percent}%
           </p>
         )}
-        {uploadError && <p role="alert">{uploadError}</p>}
+        {uploadError && <Alert tone="danger">{uploadError}</Alert>}
         {pendingAttachment && (
-          <p>
-            Ready to send: {pendingAttachment.fileName}{" "}
-            <button type="button" onClick={() => setPendingAttachment(null)}>
-              Remove
-            </button>
-          </p>
+          <Alert
+            tone="info"
+            action={
+              <Button size="sm" variant="ghost" onClick={() => setPendingAttachment(null)}>
+                Remove
+              </Button>
+            }
+          >
+            Ready to send: {pendingAttachment.fileName}
+          </Alert>
         )}
-      </div>
 
-      <form onSubmit={handleSubmit}>
-        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Message" />
-        <button type="submit">Send</button>
-      </form>
-    </div>
+        <form className="ago-composer" onSubmit={handleSubmit}>
+          {/* Still an `<input>`, still submitting on Enter. `11-05` deliberately did not swap it for
+              the `Textarea` component it also ships - that would change what Enter does, which is
+              behaviour, not presentation (`11-06` owns the composer's redesign). */}
+          <Input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Message"
+            aria-label="Message to send"
+          />
+          <Button type="submit" variant="primary">
+            Send
+          </Button>
+        </form>
+      </Panel>
+    </>
   );
 }

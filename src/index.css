@@ -1,17 +1,199 @@
-/* Deliberately minimal - a design system is `5-07`'s own decision, once there is a real UI to apply
-   it to (`5-06`'s own Out-of-scope list). Just enough that the scaffold's placeholder pages are
-   readable. */
-:root {
-  color-scheme: light dark;
-  font: 16px/1.5 system-ui, "Segoe UI", Roboto, sans-serif;
-}
+/* The single stylesheet entry point, imported once from `main.tsx`.
+ *
+ * `11-05` replaced the seventeen lines that used to live here - a system font stack, `margin: 0`, a
+ * `max-width`, and a header comment deferring the design-system choice to `5-07`. `5-07` shipped the
+ * UI that deferral was waiting for and never made the pass; this is that pass. `adr/0030` records
+ * why it is tokens plus a hand-rolled, closed component set rather than a component library.
+ *
+ * The order below is the cascade, and it is deliberate: tokens declare, base sets element defaults
+ * from them, components and the shell style class names on top. Nothing downstream redeclares a
+ * token.
+ *
+ * The `color-scheme: light dark` that used to sit in this file is gone. It made the browser paint
+ * native form controls dark while nothing else in the console responded, which read as a rendering
+ * bug rather than a theme. The console is light-only, deliberately (author's decision, 2026-08-24);
+ * see `tokens.css` for what reinstating a dark theme would actually entail. */
 
-body {
-  margin: 0;
-}
+@import "./design/tokens.css";
+@import "./design/base.css";
+@import "./components/components.css";
+@import "./shell/shell.css";
 
 #root {
-  max-width: 60rem;
-  margin: 0 auto;
-  padding: 1.5rem;
+  min-height: 100vh;
+}
+
+/* --- Screen-level layout helpers ------------------------------------------------------------
+ * Not components - just the two stacking rhythms every retrofitted screen uses, named once so a
+ * page does not reach for an inline `style` to get a gap. */
+
+.ago-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-4);
+}
+
+.ago-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-3);
+  flex-wrap: wrap;
+}
+
+.ago-row--tight {
+  gap: var(--ago-space-2);
+}
+
+/* --- Conversation thread ---------------------------------------------------------------------
+ * `ConversationPage`'s message list. Two-tone by author, following the landing page's own widget
+ * mock (`.bubble-op` on white with a hairline, `.bubble-visitor` on brand) - which is exactly the
+ * conversation this console is the other end of, so the operator sees the same shapes the visitor
+ * does. Restyled only: the markup keeps its `aria-label="Message thread"` and its per-message
+ * sequence, author and body, unchanged. */
+
+.ago-thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-3);
+  padding: var(--ago-space-1) 0;
+}
+
+.ago-message {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-2);
+  max-width: 46rem;
+  padding: var(--ago-space-3) var(--ago-space-4);
+  border-radius: var(--ago-radius-lg);
+  border: 1px solid var(--ago-line);
+  background: var(--ago-surface);
+}
+
+.ago-message--operator {
+  align-self: flex-end;
+  background: var(--ago-brand-tint);
+  border-color: var(--ago-lavender);
+  border-bottom-right-radius: var(--ago-radius-sm);
+}
+
+.ago-message--visitor {
+  align-self: flex-start;
+  border-bottom-left-radius: var(--ago-radius-sm);
+}
+
+.ago-message__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-2);
+  font-size: var(--ago-text-xs);
+  color: var(--ago-ink-soft);
+}
+
+/* The author is never carried by the bubble's side or colour alone - this label is real text in
+ * every message, which is what keeps 1.4.1 satisfied and what a screen reader reads. */
+.ago-message__author {
+  font-weight: 700;
+  color: var(--ago-ink);
+}
+
+.ago-message__sequence {
+  font-family: var(--ago-font-mono);
+}
+
+.ago-message__body {
+  font-size: var(--ago-text-base);
+  overflow-wrap: anywhere;
+}
+
+.ago-message__attachment {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-3);
+  flex-wrap: wrap;
+  font-size: var(--ago-text-sm);
+}
+
+.ago-message__thumb {
+  max-width: 7.5rem;
+  max-height: 7.5rem;
+  border-radius: var(--ago-radius-sm);
+  border: 1px solid var(--ago-line);
+}
+
+/* --- Composer -------------------------------------------------------------------------------- */
+
+.ago-composer {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-3);
+}
+
+.ago-composer .ago-control {
+  flex: 1;
+  min-width: 0;
+}
+
+/* --- Queue list ------------------------------------------------------------------------------
+ * A list of rows, not a table: the queue is scanned and clicked, and each row is one target. */
+
+.ago-queue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-2);
+}
+
+.ago-queue__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ago-space-3);
+  flex-wrap: wrap;
+  padding: var(--ago-space-3) var(--ago-space-4);
+  border: 1px solid var(--ago-line);
+  border-radius: var(--ago-radius-md);
+  background: var(--ago-surface);
+  transition:
+    border-color var(--ago-transition),
+    background var(--ago-transition);
+}
+
+/* An entire row is the link target for an assigned conversation - the whole row, not just the
+ * words, so the click target matches what looks clickable. */
+a.ago-queue__row {
+  text-decoration: none;
+  color: inherit;
+}
+
+a.ago-queue__row:hover {
+  border-color: var(--ago-brand);
+  background: var(--ago-brand-tint);
+}
+
+/* Waiting rows are read-only by design (`QueuePage`'s own doc comment on why there is no claim
+ * action), so they are visibly not interactive: no hover, no pointer, a sunken surface. */
+.ago-queue__row--static {
+  background: var(--ago-surface-raised);
+}
+
+/* --- Widget-config swatch (`11-02`'s screen) -------------------------------------------------
+ * Everything except the colour itself, which is the operator's live input and therefore the one
+ * legitimate inline style left in the console. The border is `--ago-line-strong` rather than the
+ * hard-coded `#d1d5db` this replaced - a swatch is a preview of a user-chosen colour, so its edge
+ * has to stay visible whatever that colour turns out to be, including white. */
+
+.ago-widget-swatch {
+  display: inline-block;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--ago-line-strong);
+}
+
+.ago-queue__row-main {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-3);
+  flex-wrap: wrap;
+  min-width: 0;
 }

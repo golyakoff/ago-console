@@ -1,0 +1,182 @@
+/* ===========================================================================================
+   AGO Console design tokens - the single source. Nothing in `src/` hard-codes a colour, a radius,
+   a shadow or a type size; everything reads a custom property declared here.
+
+   `11-05`. Every value below is traceable to `ago-landing/index.html` (this project's existing
+   visual identity and this item's stated source of truth for colour and type) or is derived from
+   one of its values by a rule stated in the comment next to it. Two kinds of entry exist, and the
+   difference is deliberate rather than sloppy:
+
+     - CARRIED OVER unchanged - the palette, per the author's 2026-08-24 decision that "the palette
+       comes across whole". A tenant who sees the landing page and then the console should recognise
+       the same product.
+     - RECOMPUTED - spacing, type sizes, radii and shadow distances. The landing page sells: it can
+       afford 76px section padding, 28px radii and clamp(34px,6.4vw,58px) display type. The console
+       is a tool an operator sits in for a whole shift, so the same identity is re-expressed at
+       working density. The rule used is written next to each block, so the next person can check
+       the arithmetic rather than guess at taste.
+
+   The console is LIGHT ONLY, deliberately and in writing (author's decision, 2026-08-24). There is
+   no `color-scheme: light dark` and no `prefers-color-scheme` block anywhere in this repository -
+   the seventeen-line `index.css` this replaced claimed a dark theme that only ever reached the
+   browser's native form controls, which read as a bug rather than a feature. Anyone reinstating it
+   owns building both themes properly, contrast checks included.
+
+   Contrast: every foreground/background pair this file is meant to produce was measured (WCAG 2.1
+   relative luminance) rather than eyeballed, and the measured ratio is recorded inline. Text pairs
+   clear 4.5:1; non-text boundaries that a user has to perceive to operate a control (1.4.11) clear
+   3:1. Where a landing colour could not clear the bar at console sizes, the derived value that does
+   is declared alongside it and the original is demoted to decoration - see `--ago-lavender-ink`.
+   =========================================================================================== */
+
+:root {
+  /* --- Type families -------------------------------------------------------------------------
+     Carried over from `ago-landing`'s own three families, with the same division of labour the
+     item asks for: Manrope carries the interface, Unbounded is confined to the shell's identity
+     (the wordmark and nothing else - display type in a dense tool is noise), JetBrains Mono is for
+     values that are literally identifiers: conversation/visitor ids, sequence numbers, hex colours.
+     Every stack ends in a real system fallback, because the console must stay fully usable when the
+     webfont does not load (see `index.html` for how the fonts are fetched, and `adr/0030` for the
+     trade-off that choice carries). */
+  --ago-font-sans: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --ago-font-display: "Unbounded", "Manrope", system-ui, sans-serif;
+  --ago-font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", "Consolas", monospace;
+
+  /* --- Ink (text) ----------------------------------------------------------------------------
+     Carried over: `--ink`, `--ink-soft` from the landing's `:root`; `--ink-deep` is the base of its
+     dark demo card (`linear-gradient(160deg,#132321,#0c1a19 70%)`). */
+  --ago-ink: #14141f;              /* 17.50:1 on --ago-paper, 18.27:1 on --ago-surface */
+  --ago-ink-soft: #57546f;         /*  6.93:1 on --ago-paper,  7.23:1 on --ago-surface */
+  --ago-ink-deep: #0c1a19;         /* 17.15:1 on --ago-mint - the landing's own dark/mint pairing, inverted */
+  /* Derived: `--ago-ink-soft` lightened until it still clears 4.5:1 on white, for placeholder text
+     that must read as "not a value" without becoming unreadable. Measured 5.42:1 on --ago-surface. */
+  --ago-ink-faint: #6b6780;
+
+  /* --- Paper (backgrounds) -------------------------------------------------------------------
+     Carried over: `--paper`, `--paper-alt` from the landing's `:root`; `#fdfcfa` is its
+     `.demo-card.light`; `#ffffff` is what every one of its raised surfaces already uses
+     (`.step-card`, `.widget-window`, `.bubble-op`). */
+  --ago-paper: #fbfaf7;            /* the application background */
+  --ago-surface: #ffffff;          /* panels, table bodies, form controls */
+  --ago-surface-raised: #fdfcfa;   /* a panel that sits on another panel */
+  --ago-surface-sunken: #f1efe9;   /* table headers, the shell's own inset areas, disabled controls */
+
+  /* --- Lines ---------------------------------------------------------------------------------
+     `--ago-line` is the landing's `--line`, carried over unchanged - it is a decorative separator
+     and 1.24:1 is fine for that. It is NOT usable as the edge of a control: WCAG 1.4.11 wants 3:1
+     for a boundary a user must perceive to know where an input is. `--ago-line-strong` is the same
+     warm-grey ramp pushed down until it clears that bar on all three console surfaces
+     (measured 3.62:1 on --ago-surface, 3.47:1 on --ago-paper, 3.15:1 on --ago-surface-sunken). */
+  --ago-line: #e5e2da;
+  --ago-line-strong: #8d8675;
+
+  /* --- Brand -------------------------------------------------------------------------------
+     Carried over whole from the landing's `--brand` / `--brand-deep` / `--brand-tint`, plus the two
+     lavenders it uses on dark (`.code-chip` text `#d9d6ff`, its tag colour `#8f8ac9`). Accent
+     restraint is the recomputation here, and it is a usage rule rather than a token: the landing
+     paints whole sections in `--brand`; the console spends it on exactly one primary action per
+     screen, the active navigation item, links, and the focus ring. */
+  --ago-brand: #4b3aff;            /* 6.27:1 against white, both directions - safe as a fill and as text */
+  --ago-brand-deep: #3324c9;       /* 9.39:1 on --ago-surface - hover, and link text */
+  --ago-brand-tint: #ecebff;       /* 8.00:1 with --ago-brand-deep on top */
+  --ago-lavender: #d9d6ff;         /* decoration only - halos, dividers inside tinted areas */
+  /* The landing's `#8f8ac9` is 3.16:1 on white: fine as syntax colouring on its near-black code
+     chip, not fine as console text. Kept for borders/dots, and darkened along its own hue into
+     `--ago-lavender-ink` for anything with a glyph in it (7.04:1 on --ago-surface, 5.03:1 on
+     --ago-lavender, 6.00:1 on --ago-brand-tint). */
+  --ago-lavender-dim: #8f8ac9;
+  --ago-lavender-ink: #565096;
+
+  /* --- Status ------------------------------------------------------------------------------
+     Mint and the live green are the landing's (`#eafffb`, `--live: #33d17a`). The landing never has
+     to report a failure, so it has no danger colour at all; the console does, and inventing one is
+     unavoidable. `--ago-danger` is placed in the same darkness band as `--ago-brand-deep` so it
+     reads as a sibling of the palette rather than a bootstrap red, and its tint carries the same
+     warmth the paper family has. `--ago-success` is `--live` darkened until it is readable as text
+     on its own tint - `--live` itself is 1.99:1 on white and stays a dot, never a glyph. */
+  --ago-live: #33d17a;             /* decorative dot only, always beside a real text label */
+  --ago-mint: #eafffb;
+  --ago-success: #12684a;          /* 6.76:1 on --ago-surface, 6.50:1 on --ago-mint */
+  --ago-danger: #9f1d17;           /* 7.89:1 on --ago-surface, 7.56:1 on --ago-paper */
+  --ago-danger-tint: #fdecea;      /* 6.90:1 with --ago-danger on top */
+
+  /* --- Spacing -------------------------------------------------------------------------------
+     RECOMPUTED. The landing's spacing is ad-hoc (8/10/12/14/16/18/20/26/28/32/40/44/76px, chosen
+     per-section by eye). A tool needs a scale, not a vocabulary, so this is a plain 4px ramp: the
+     landing's own most-used values (8/12/16/20/32/40) survive as steps 2/3/4/5/8/10, and its
+     section-scale values (44px, 76px) simply have no console equivalent - nothing in an operator
+     screen is 76px away from anything else. */
+  --ago-space-1: 0.25rem;   /*  4px */
+  --ago-space-2: 0.5rem;    /*  8px */
+  --ago-space-3: 0.75rem;   /* 12px */
+  --ago-space-4: 1rem;      /* 16px */
+  --ago-space-5: 1.25rem;   /* 20px */
+  --ago-space-6: 1.5rem;    /* 24px */
+  --ago-space-8: 2rem;      /* 32px */
+  --ago-space-10: 2.5rem;   /* 40px */
+  --ago-space-12: 3rem;     /* 48px */
+
+  /* --- Type scale ----------------------------------------------------------------------------
+     RECOMPUTED. The landing runs 16px body with fluid display type up to 58px. The console drops
+     body to 15px and caps the largest thing on any screen at 22px: an operator reads a queue, not a
+     pitch, and every pixel of leading spent on a headline is a row of the queue that fell off the
+     fold. Nothing here goes below 12px, and 12px is only ever used with `--ago-ink` or a tint pair
+     measured above, never with `--ago-ink-soft` on a tinted background. */
+  --ago-text-xs: 0.75rem;      /* 12px - badges, meta, mono ids */
+  --ago-text-sm: 0.8125rem;    /* 13px - field labels, table headers, secondary lines */
+  --ago-text-base: 0.9375rem;  /* 15px - body text and every form control */
+  --ago-text-lg: 1.0625rem;    /* 17px - panel and section headings (landing's own 17px lede) */
+  --ago-text-xl: 1.25rem;      /* 20px - the page title, one per screen */
+  --ago-text-display: 1.375rem;/* 22px - the shell wordmark, the only Unbounded on the screen */
+
+  --ago-leading-tight: 1.2;    /* headings - the landing's 1.12 loosened, because these are small */
+  --ago-leading-base: 1.5;     /* the landing's 1.55, tightened one notch for density */
+
+  /* --- Radii ---------------------------------------------------------------------------------
+     RECOMPUTED. The landing's `--r-lg: 28px` / `--r-md: 18px` are sized for cards that are 300px
+     tall; on a 32px-tall console button the same curve eats the label. Both halve. The pill carries
+     over unchanged, but its use narrows to badges - a pill-shaped button at this size reads as a
+     tag, not a control. */
+  --ago-radius-sm: 0.5rem;   /*  8px - inputs, badges' square variant, small chips */
+  --ago-radius-md: 0.75rem;  /* 12px - buttons, alerts (landing's 18px, halved and rounded) */
+  --ago-radius-lg: 1rem;     /* 16px - panels, dialogs, tables (landing's 28px, halved) */
+  --ago-radius-pill: 999px;  /* badges only */
+
+  /* --- Elevation -----------------------------------------------------------------------------
+     RECOMPUTED. Same two-layer recipe as the landing's `--shadow-soft`/`--shadow-card` (a 1px
+     contact shadow plus a wide, heavily-offset ambient one), with the ambient blur/offset roughly
+     halved: the landing's cards float off a page you scroll past, console panels sit on a surface
+     you work in. `--ago-shadow-lg` is the landing's `--shadow-card` unchanged, and is spent on
+     exactly one thing - the Dialog, which genuinely is above everything else. */
+  --ago-shadow-sm: 0 1px 2px rgba(20, 20, 31, 0.05), 0 6px 16px -12px rgba(20, 20, 31, 0.35);
+  --ago-shadow-md: 0 1px 2px rgba(20, 20, 31, 0.05), 0 12px 28px -18px rgba(20, 20, 31, 0.4);
+  --ago-shadow-lg: 0 1px 1px rgba(20, 20, 31, 0.05), 0 20px 44px -24px rgba(20, 20, 31, 0.45);
+
+  /* --- Focus ---------------------------------------------------------------------------------
+     The landing has no focus styling at all - it is a page you read, and it is a real gap there
+     too. The console cannot inherit a gap, so this is the one token group with no source to carry
+     over. The shape is borrowed from the landing's own halo idiom (`.eyebrow .dot`'s
+     `box-shadow: 0 0 0 3px rgba(...)`): a solid brand outline with a lavender-tinted halo behind
+     it. `--ago-brand` measures 6.27:1 on white, 6.01:1 on paper, 5.45:1 on sunken and 5.34:1 on
+     brand-tint, so the ring clears 1.4.11's 3:1 on every surface the console actually paints. */
+  --ago-focus-width: 2px;
+  --ago-focus-offset: 2px;
+  --ago-focus-color: var(--ago-brand);
+  --ago-focus-halo: 0 0 0 3px var(--ago-brand-tint);
+
+  /* --- Motion --------------------------------------------------------------------------------
+     The landing's transitions run .16s-.25s; the console keeps the fast end only. See `base.css`
+     for the `prefers-reduced-motion` opt-out that turns all of this off. */
+  --ago-transition: 0.16s ease;
+
+  /* --- Layout --------------------------------------------------------------------------------
+     The landing's `.wrap` is 1180px with 20px gutters. The shell header keeps that width so the
+     identity row lines up with the page it introduces; page content caps narrower, because a
+     1180px-wide line of 15px text is past the readable measure. */
+  --ago-shell-max: 1180px;
+  --ago-content-max: 68rem;   /* 1088px */
+  --ago-gutter: var(--ago-space-5);
+
+  --ago-z-header: 40;   /* the landing's own sticky nav z-index */
+  --ago-z-dialog: 100;
+}

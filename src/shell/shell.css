@@ -1,0 +1,225 @@
+/* The application shell - the persistent header every route renders inside, and the page frame
+   underneath it. `11-05`. Values come from `../design/tokens.css`; the layout idioms (a sticky
+   translucent header, an underline that grows under the active navigation item) are carried over
+   from `ago-landing`'s own `header.nav`. */
+
+.ago-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--ago-paper);
+}
+
+.ago-shell__header {
+  position: sticky;
+  top: 0;
+  z-index: var(--ago-z-header);
+  background: rgba(251, 250, 247, 0.88); /* --ago-paper at 88%; a custom property cannot carry alpha here */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--ago-line);
+}
+
+.ago-shell__header-row {
+  max-width: var(--ago-shell-max);
+  margin: 0 auto;
+  padding: var(--ago-space-3) var(--ago-gutter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ago-space-4);
+  flex-wrap: wrap;
+}
+
+/* --- Identity ------------------------------------------------------------------------------- */
+
+.ago-shell__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ago-space-3);
+  text-decoration: none;
+  color: var(--ago-ink);
+  flex: none;
+}
+
+.ago-shell__glyph {
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border-radius: var(--ago-radius-sm);
+  background: var(--ago-brand);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--ago-font-display);
+  font-weight: 700;
+  font-size: var(--ago-text-sm);
+}
+
+/* The only Unbounded on any console screen - the item confines display type to the shell's
+   identity, because a tool that shouts its own name in every heading is tiring to sit in. */
+.ago-shell__wordmark {
+  font-family: var(--ago-font-display);
+  font-weight: 700;
+  font-size: var(--ago-text-display);
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+.ago-shell__product {
+  font-family: var(--ago-font-sans);
+  font-size: var(--ago-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ago-ink-soft);
+  display: block;
+  margin-top: 2px;
+}
+
+/* --- Navigation ----------------------------------------------------------------------------- */
+
+.ago-shell__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-5);
+  flex-wrap: wrap;
+}
+
+.ago-shell__nav-link {
+  position: relative;
+  padding: var(--ago-space-1) 0;
+  color: var(--ago-ink-soft);
+  font-size: var(--ago-text-base);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color var(--ago-transition);
+}
+
+.ago-shell__nav-link:hover {
+  color: var(--ago-ink);
+}
+
+/* The landing's own growing-underline idiom. On the active item it is fully drawn and permanent -
+   which matters beyond decoration: the active state must not be carried by colour alone (WCAG
+   1.4.1), so weight, colour and this bar all change together, and `aria-current="page"` carries it
+   for anyone not looking at pixels at all. */
+.ago-shell__nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 100%;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--ago-brand);
+  transition: right var(--ago-transition);
+}
+
+.ago-shell__nav-link:hover::after {
+  right: 40%;
+}
+
+.ago-shell__nav-link--active,
+.ago-shell__nav-link--active:hover {
+  color: var(--ago-brand-deep);
+  font-weight: 800;
+}
+
+.ago-shell__nav-link--active::after,
+.ago-shell__nav-link--active:hover::after {
+  right: 0;
+}
+
+/* --- Signed-in operator --------------------------------------------------------------------- */
+
+.ago-shell__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-3);
+  flex-wrap: wrap;
+}
+
+.ago-shell__operator {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.25;
+}
+
+.ago-shell__operator-name {
+  font-size: var(--ago-text-sm);
+  font-weight: 700;
+  color: var(--ago-ink);
+}
+
+.ago-shell__operator-site {
+  font-family: var(--ago-font-mono);
+  font-size: var(--ago-text-xs);
+  color: var(--ago-ink-soft);
+}
+
+/* --- Page frame ----------------------------------------------------------------------------- */
+
+.ago-shell__main {
+  flex: 1;
+  width: 100%;
+  max-width: var(--ago-content-max);
+  margin: 0 auto;
+  padding: var(--ago-space-8) var(--ago-gutter) var(--ago-space-12);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-6);
+}
+
+/* Every screen opens with one of these: a title, an optional sentence, and whatever status the page
+   wants beside it (connection state, a back link). */
+.ago-page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ago-space-4);
+  flex-wrap: wrap;
+}
+
+.ago-page-head__title {
+  font-size: var(--ago-text-xl);
+}
+
+.ago-page-head__description {
+  margin-top: var(--ago-space-2);
+  font-size: var(--ago-text-sm);
+  color: var(--ago-ink-soft);
+  max-width: 68ch;
+}
+
+.ago-page-head__aside {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-2);
+  flex-wrap: wrap;
+}
+
+/* A centred single-message frame - sign-in redirects, the OIDC callback, a permission refusal. */
+.ago-shell__centered {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ago-space-12) var(--ago-gutter);
+}
+
+@media (max-width: 40rem) {
+  .ago-shell__header-row {
+    gap: var(--ago-space-3);
+  }
+
+  .ago-shell__operator {
+    align-items: flex-start;
+  }
+
+  .ago-shell__main {
+    padding-top: var(--ago-space-6);
+  }
+}
