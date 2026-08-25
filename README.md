@@ -40,8 +40,13 @@ src/
   auth/            oidc-client-ts UserManager, a React context, the RequireAuth route guard
   realtime/        the operator-hub SignalR connection (5-09's own withCredentials:false gotcha
                     applies here too - see the file's own comment)
-  pages/           CallbackPage (the OIDC redirect handler), QueuePage/ConversationPage
-                    (placeholders - 5-07 builds the real thing)
+  pages/           CallbackPage (the OIDC redirect handler), ConversationPage, and the two
+                    site-scoped screens gated on `site:configure` (AdminConversationsPage,
+                    WidgetConfigPage)
+  workspace/       11-06's operator workspace: the conversation rail, the thread, the composer
+  shell/           11-05's persistent frame - header, permission-gated navigation, identity
+  components/      adr/0030's closed component set; design/ holds its tokens
+  testing/         mounting helpers for the behaviour tests - never imported by application code
 ```
 
 ## Building for the public deployment
@@ -63,10 +68,51 @@ before react-router ever got a chance to handle it).
 ```bash
 npm run typecheck
 npm run lint
+npm test
 ```
 
-No unit tests yet - there is no logic here worth unit-testing beyond what TypeScript's own compiler
-and ESLint already catch (the scaffold has no business logic, only wiring). `5-07`'s own protocol
-handling (sequence ordering, dedup, backoff - the same shape `ago-widget`'s own tests already cover
-independently, since neither runtime shares code with the other) is where this repository's first
-real unit tests belong.
+All three run in CI on every push and pull request (`.github/workflows/ci.yml`). `npm test` was added
+to that workflow on 2026-08-25 - before then every test here was unenforced, which was an omission
+rather than a decision.
+
+The levels, and what belongs at each, are `../ago-root/docs/conventions/testing.md`'s frontend
+section. What this repository actually has:
+
+**Tested**
+
+- **Pure logic**, beside the module: `realtime/protocol/` (sequence ordering, dedup, jittered
+  backoff), `realtime/linkStatus`, `workspace/attention` and `workspace/threadModel`, `time/format`,
+  `pages/widgetConfigValidation`, `owner/ownerSites`.
+- **Permission gating** (`auth/permissionGating.test.tsx`): an operator without a permission is not
+  offered the control, on the shell navigation, on the two site-scoped pages and on the
+  attachment-delete action - including the two fail-closed cases that are easy to get backwards,
+  "the answer has not arrived yet" and "the call failed". Hiding a control is never the real gate
+  (`17-01`'s server-side check is), and showing an admin action to a non-admin is still a defect only
+  a test at this level can catch.
+- **The realtime connection across a token renewal** (`realtime/operatorConnection.test.tsx`, from
+  `5-16`): the defect that reached the live deployment, and the resume-on-reconnect and
+  resume-on-restart paths around it.
+- **The composer's keyboard contract** (`workspace/Composer.test.tsx`): Enter sends, Shift+Enter does
+  not, Enter during IME composition does not, Escape clears, an empty draft cannot be sent, and the
+  three ways a file gets attached.
+- **The conversation view's send and read semantics** (`pages/ConversationPage.test.tsx`): a failed
+  send offers a retry, and the retry reuses the same `clientMessageId` when the outcome is *unknown*
+  and mints a fresh one when nothing was sent - the difference between the two is invisible on screen
+  and produces duplicate messages in a stranger's chat if it regresses. Plus `5-15`'s mark-read rule:
+  up to the newest message actually on screen, debounced, and never from a backgrounded tab.
+
+**Deliberately not tested**
+
+- **Anything about appearance.** `11-05`'s component set is styling; there is nothing behavioural to
+  assert about a `Badge`, and a test that asserts a class name fails on every restyle while passing
+  through every real defect. No snapshots, for the same reason.
+- **Coverage as a number.** Not measured and not a target: rendering every component once buys a high
+  figure and proves nothing.
+- **Layout.** jsdom has no viewport, so whether the thread really scrolls to the newest message, and
+  whether the workspace's three regions lay out, are live-verification questions
+  (`src/testing/dom.tsx` stubs `scrollIntoView` for exactly that reason).
+- **A browser-driving end-to-end suite.** A real option with a real maintenance cost; the behaviours
+  above did not need one. Live verification against a running stack stays a required level for any UI
+  item, and is a complement to the above rather than a substitute for it.
+
+New screens join one of those two lists rather than neither.
