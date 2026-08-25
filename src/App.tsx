@@ -11,6 +11,7 @@ import { NoConversationSelected } from "./workspace/NoConversationSelected.js";
 import { ConversationPage } from "./pages/ConversationPage.js";
 import { AdminConversationsPage } from "./pages/AdminConversationsPage.js";
 import { WidgetConfigPage } from "./pages/WidgetConfigPage.js";
+import { OwnerSitesPage } from "./owner/OwnerSitesPage.js";
 
 /**
  * The routing shell: login (via `RequireAuth`'s own redirect, no separate landing page) -> queue ->
@@ -60,6 +61,38 @@ export function App() {
         element={
           <RequireAuth>
             <OnboardingPage />
+          </RequireAuth>
+        }
+      />
+      {/* `12-03`: `/owner` - the platform owner's cross-tenant operations view. Three things about
+          this route are deliberate:
+
+          **The path contains no "admin".** `5-08`'s `/admin` is a *tenant's own* supervisor looking
+          at their own site; this is the operator of the service looking at every site. The
+          authorization model draws that line sharply (`authorization.md`), a URL ends up in logs and
+          screenshots, and `12-02` made the same choice server-side (`/api/v1/owner/`, never
+          `/api/v1/admin/`). The two surfaces share no route segment, no endpoint and no component
+          tree.
+
+          **It is outside the operator layout, not inside it.** The platform owner is a Keycloak
+          realm role (`12-01`), not an operator seat, so this route may not assume an `operators` row
+          exists - which `OperatorConnectionProvider` does, unconditionally opening a per-operator hub
+          connection this screen has no use for. `PermissionsProvider` is kept and fails soft, exactly
+          as `/onboarding` reasons about the same providers for the same kind of token.
+
+          **Its gate is the server's, on every call.** `RequireAuth` here checks only "is there an
+          OIDC session"; the route does not check who the owner is, because `12-01`'s
+          `RequirePlatformOwner` policy on `12-02`'s endpoint already does, authoritatively, per
+          request. `OwnerSitesPage` renders whatever that policy answers. The console's own
+          client-side signal (`useOwnerEligibility`) decides one thing only - whether the navigation
+          link is drawn - and is the server's answer read back, never a re-derivation of it. */}
+      <Route
+        path="/owner"
+        element={
+          <RequireAuth>
+            <PermissionsProvider>
+              <OwnerSitesPage />
+            </PermissionsProvider>
           </RequireAuth>
         }
       />
