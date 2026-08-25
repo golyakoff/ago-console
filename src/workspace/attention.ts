@@ -1,33 +1,38 @@
 /**
- * `11-06`: what needs the operator's attention, and how loudly.
+ * `11-06`, rewritten by `5-15`: what needs the operator's attention, and how loudly.
  *
- * ## The honest problem with `operatorUnreadCount`
+ * ## The server owns the number now
  *
- * `11-06`'s scope says "real unread badges in the list (the data already exists as
- * `operatorUnreadCount`)". The field exists, but implementing the badge from it alone produces a
- * badge that never goes away, because **nothing in `ago-chat` ever clears it**:
- * `Conversation.IncrementUnreadCount` (`2-05`'s unread-counter consumer) only ever increments, and
- * there is no mark-read command, endpoint or handler anywhere in the repository. The number an
- * operator sees is therefore "every visitor message this conversation has ever contained", not
- * "messages you have not read" - and a badge reading `12 unread` on a conversation the operator is
- * looking at right now is a worse defect than no badge at all.
+ * `11-06` had to invent a session-local notion of "read", because `ago-chat`'s
+ * `operatorUnreadCount` only ever went up - there was no mark-read command anywhere in the
+ * repository, so a badge fed from that field alone never cleared, and a hard reload brought every
+ * already-read conversation's historical total back. `5-15` added the missing write
+ * (`POST /api/v1/conversations/{id}/read`, cleared up to the sequence the operator actually has),
+ * so that whole fallback is gone: **`operatorUnreadCount` is the truth**, and it survives a reload
+ * because it is a column, not a tab's memory.
  *
- * Adding the server-side clear is a backend change, which this stage excludes by name ("anything
- * more is a backend change and belongs in its own item"). So this module does what a client can do
- * honestly on its own, and states the seam rather than hiding it:
+ * What is left here is not a parallel notion of read state - it is a *freshness* overlay, and only
+ * for the window between queue fetches. `WorkspaceLayout` re-reads the queue every 15 seconds, so
+ * without this the badge would lag a real arrival by up to that long, and lag a clear the operator
+ * just performed by the length of one round trip:
  *
- * - A conversation the operator has **opened in this session** is read. Its count is whatever has
- *   arrived *since* they last had it open - which the console genuinely knows, because it sees every
- *   `MessageReceived` push for every conversation it is assigned (`OperatorConnection.onAnyMessage`,
- *   added by this item for exactly this purpose).
- * - A conversation the operator has **not opened in this session** falls back to the server's count,
- *   because on a fresh page load that is the only evidence available about what happened while they
- *   were away.
+ * - **`incoming`** - a visitor message was pushed for a conversation that is not on screen
+ *   (`OperatorConnection.onAnyMessage`). The count goes up straight away instead of at the next poll.
+ * - **`cleared`** - a mark-read for this conversation has *succeeded on the server*. The snapshot
+ *   the console is holding still has the old number in it, so it is ignored for that conversation
+ *   until the next fetch replaces it.
+ * - **`refetched`** - a new queue snapshot arrived and already contains everything above. Both
+ *   adjustments reset, which is what stops them being applied twice on top of a number that has
+ *   caught up. (`11-06` had no such reset, so a message counted locally *and* by the next poll was
+ *   briefly counted twice.)
  *
- * The limitation that leaves, stated plainly rather than buried: after a hard reload, a conversation
- * the operator had already read will show the server's total again, and over-report. That is the
- * exact shape of the gap a `conversation:mark-read` backend item would close, and it is written up
- * in the `11-06` backlog entry's Outcome rather than left for the next reader to rediscover.
+ * `newlyAssigned` is the one genuinely session-local fact left, and stays: "assigned while you were
+ * sitting here and you have not looked at it yet" is not something the server has an opinion about.
+ *
+ * A message pushed in the exact instant a queue fetch is in flight can be missed by both this
+ * overlay and that snapshot. It corrects itself on the next poll, and it is not worth a
+ * request-sequencing scheme to close - the server, not this module, is what the badge is ultimately
+ * reading.
  *
  * Everything here is a pure function of state the caller holds, so the badge arithmetic and the
  * document title are testable without a DOM, a clock or a hub connection.
@@ -35,12 +40,12 @@
 
 import type { ConversationSummaryDto } from "../realtime/protocol/types.js";
 
-/** What the console has learned about one conversation since the page loaded. */
+/** What the console knows that the queue snapshot in its hand does not, yet. */
 export interface LocalReadState {
-  /** Opened in this session - the operator has actually seen its thread on screen. */
-  opened: boolean;
-  /** Visitor messages pushed for it while it was *not* the conversation on screen. */
-  arrivedSinceOpen: number;
+  /** Visitor messages pushed for this conversation since that snapshot, while it was not on screen. */
+  arrivedSinceFetch: number;
+  /** A mark-read succeeded on the server since that snapshot, so its count is known to be stale. */
+  clearedSinceFetch: boolean;
   /** Assigned to this operator during this session and not yet opened - `4-02`'s engine handed it
    * over while they were sitting here. Drives the "New" marker; see `WorkspaceLayout` for why an
    * arrival is announced rather than acted on. */
@@ -49,23 +54,20 @@ export interface LocalReadState {
 
 export type ReadStateMap = Readonly<Record<string, LocalReadState>>;
 
-const UNSEEN: LocalReadState = { opened: false, arrivedSinceOpen: 0, newlyAssigned: false };
+const UNSEEN: LocalReadState = { arrivedSinceFetch: 0, clearedSinceFetch: false, newlyAssigned: false };
 
 function stateFor(states: ReadStateMap, conversationId: string): LocalReadState {
   return states[conversationId] ?? UNSEEN;
 }
 
 /**
- * The number the badge shows for one conversation - see this module's own doc comment for why the
- * server's count is a *fallback* rather than the source.
+ * The number the badge shows for one conversation: the server's own count, adjusted only for what
+ * has happened since it was fetched.
  */
 export function unreadCountFor(conversation: ConversationSummaryDto, states: ReadStateMap): number {
   const local = stateFor(states, conversation.conversationId);
-  if (local.opened) {
-    return local.arrivedSinceOpen;
-  }
-
-  return conversation.operatorUnreadCount + local.arrivedSinceOpen;
+  const fromServer = local.clearedSinceFetch ? 0 : conversation.operatorUnreadCount;
+  return fromServer + local.arrivedSinceFetch;
 }
 
 /** Total across everything assigned to this operator - the number that goes in the document title,
@@ -80,8 +82,7 @@ export function totalUnread(assigned: readonly ConversationSummaryDto[], states:
  * opened. It survives a queue refetch (which is why it lives here and not in a transient banner) and
  * disappears the moment the operator opens the conversation. */
 export function isNewlyAssigned(conversation: ConversationSummaryDto, states: ReadStateMap): boolean {
-  const local = stateFor(states, conversation.conversationId);
-  return local.newlyAssigned && !local.opened;
+  return stateFor(states, conversation.conversationId).newlyAssigned;
 }
 
 /**
@@ -120,43 +121,64 @@ export function oldestFirst(conversations: readonly ConversationSummaryDto[]): C
  * thing is trivially testable.
  */
 export type AttentionEvent =
-  /** The operator opened (or is looking at) this conversation. */
+  /** The operator opened this conversation. Local-only: it drops the "New" marker and any locally
+   * counted arrivals. The actual clearing of the count is `cleared`, raised when the server says so. */
   | { kind: "opened"; conversationId: string }
   /** A visitor message was pushed for this conversation while it was not the one on screen. */
   | { kind: "incoming"; conversationId: string }
+  /** `POST /api/v1/conversations/{id}/read` succeeded (`5-15`). */
+  | { kind: "cleared"; conversationId: string }
   /** `4-02`'s engine assigned this conversation during this session. */
-  | { kind: "assigned"; conversationId: string };
+  | { kind: "assigned"; conversationId: string }
+  /** A fresh queue snapshot arrived; every per-conversation adjustment above is now baked into it. */
+  | { kind: "refetched" };
 
 export function applyAttentionEvent(states: ReadStateMap, event: AttentionEvent): ReadStateMap {
+  if (event.kind === "refetched") {
+    // `newlyAssigned` deliberately survives: it is not something the snapshot carries, so a refetch
+    // is not evidence against it. Only the two freshness adjustments reset.
+    const next: Record<string, LocalReadState> = {};
+    for (const [conversationId, state] of Object.entries(states)) {
+      if (state.newlyAssigned) {
+        next[conversationId] = { ...UNSEEN, newlyAssigned: true };
+      }
+    }
+
+    return next;
+  }
+
   const current = stateFor(states, event.conversationId);
 
   switch (event.kind) {
     case "opened":
-      // Opening is the only thing that clears attention - and it clears all of it, including a count
-      // that arrived from the server. Re-opening an already-open conversation is a no-op by
-      // construction, which matters because the caller fires this from an effect that re-runs.
-      if (current.opened && current.arrivedSinceOpen === 0 && !current.newlyAssigned) {
+      // Re-opening an already-open conversation is a no-op by construction, which matters because
+      // the caller fires this from an effect that re-runs.
+      if (current.arrivedSinceFetch === 0 && !current.newlyAssigned) {
         return states;
       }
 
       return {
         ...states,
-        [event.conversationId]: { opened: true, arrivedSinceOpen: 0, newlyAssigned: false },
+        [event.conversationId]: { ...current, arrivedSinceFetch: 0, newlyAssigned: false },
       };
 
     case "incoming":
       return {
         ...states,
-        [event.conversationId]: { ...current, arrivedSinceOpen: current.arrivedSinceOpen + 1 },
+        [event.conversationId]: { ...current, arrivedSinceFetch: current.arrivedSinceFetch + 1 },
       };
 
-    case "assigned":
-      // An assignment for a conversation already open on screen is not "new" to the operator -
-      // they are looking at it. Anything else is.
-      if (current.opened) {
+    case "cleared":
+      if (current.clearedSinceFetch && current.arrivedSinceFetch === 0) {
         return states;
       }
 
+      return {
+        ...states,
+        [event.conversationId]: { ...current, clearedSinceFetch: true, arrivedSinceFetch: 0 },
+      };
+
+    case "assigned":
       return { ...states, [event.conversationId]: { ...current, newlyAssigned: true } };
   }
 }

@@ -4,7 +4,7 @@ import { useAuth } from "../auth/AuthContext.js";
 import { useOperatorConnection } from "../realtime/OperatorConnectionContext.js";
 import { ConnectionStateBadge } from "../realtime/ConnectionStateBadge.js";
 import { linkStatusOf } from "../realtime/linkStatus.js";
-import { fetchOperatorQueue } from "../api/conversationsApi.js";
+import { fetchOperatorQueue, markConversationRead } from "../api/conversationsApi.js";
 import type { OperatorQueueResponse } from "../realtime/protocol/types.js";
 import { Alert } from "../components/Alert.js";
 import { resolveTimeZone } from "../time/format.js";
@@ -107,10 +107,34 @@ export function WorkspaceLayout() {
     fetchOperatorQueue(user.access_token)
       .then((next) => {
         setQueue(next);
+        // `5-15`: the fresh snapshot already contains every arrival and every clear the overlay in
+        // `attention.ts` was standing in for, so those adjustments retire here rather than being
+        // added on top of a number that has caught up.
+        setAttention((prev) => applyAttentionEvent(prev, { kind: "refetched" }));
         setError(null);
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load the queue."));
   }, [user?.access_token]);
+
+  // `5-15`: the real server-side clear. Deliberately not followed by a `refreshQueue()` - the
+  // `cleared` event above already tells the rail what the server just told us, and forcing a queue
+  // round trip on every conversation open would be a request per open for a number we already have.
+  const markRead = useCallback(
+    (conversationId: string, upToSequence: number) => {
+      if (!user?.access_token) {
+        return;
+      }
+
+      markConversationRead(user.access_token, conversationId, upToSequence)
+        .then(() => setAttention((prev) => applyAttentionEvent(prev, { kind: "cleared", conversationId })))
+        .catch((err: unknown) => {
+          // Never surfaced to the operator: a badge that failed to clear is a cosmetic staleness the
+          // next open fixes, and an error banner for it would be worse than the defect.
+          console.warn("Failed to mark the conversation read", err);
+        });
+    },
+    [user?.access_token],
+  );
 
   useEffect(() => {
     refreshQueue();
@@ -123,7 +147,13 @@ export function WorkspaceLayout() {
   // so the row can be marked `New` and announced (see this component's doc comment).
   useEffect(() => {
     connection.onConversationAssigned((dto) => {
-      setAttention((prev) => applyAttentionEvent(prev, { kind: "assigned", conversationId: dto.conversationId }));
+      // An assignment for the conversation already on screen is not "new" to the operator - they are
+      // looking at it. Checked here rather than inside the reducer (`5-15`) so `attention.ts` stays a
+      // pure function of the events it is given and does not need to track what is open.
+      if (dto.conversationId !== openConversationIdRef.current) {
+        setAttention((prev) => applyAttentionEvent(prev, { kind: "assigned", conversationId: dto.conversationId }));
+      }
+
       setAnnouncement("A new conversation was assigned to you.");
       refreshQueue();
     });
@@ -163,8 +193,8 @@ export function WorkspaceLayout() {
     return () => clearTimeout(timer);
   }, [announcement]);
 
-  // Opening a conversation is the only thing that clears its attention - see `attention.ts` for why
-  // that is a client-side notion at all, and what it cannot know after a reload.
+  // Opening a conversation drops its "New" marker and any locally counted arrivals. The count itself
+  // is cleared by `markRead` once the server confirms - `5-15`; see `attention.ts` for the split.
   useEffect(() => {
     if (openConversationId === null) {
       return;
@@ -191,8 +221,8 @@ export function WorkspaceLayout() {
     null;
 
   const outletContext: WorkspaceOutletContext = useMemo(
-    () => ({ conversation, now, timeZone, refreshQueue }),
-    [conversation, now, timeZone, refreshQueue],
+    () => ({ conversation, now, timeZone, refreshQueue, markRead }),
+    [conversation, now, timeZone, refreshQueue, markRead],
   );
 
   const link = linkStatusOf(connectionState, serverDraining);
