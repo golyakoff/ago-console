@@ -24,11 +24,20 @@ export const userManager = new UserManager({
   response_type: "code",
   scope: "openid profile email",
   userStore: new WebStorageStateStore({ store: window.sessionStorage }),
-  // Silent renew (a hidden iframe re-authenticating before the access token expires) is
-  // deliberately not wired up here - it needs its own verified redirect/iframe handling, and
-  // `5-06`'s own scope is the login round trip itself, not session-lifetime management once a real,
-  // long-lived console session exists to maintain (`5-07`). An expired token today means the next
-  // authenticated call fails and the operator logs in again - correct, just not seamless yet.
+  // **Silent renew is on.** `5-06` left a note here saying it was "deliberately not wired up",
+  // meaning the hidden-iframe plumbing (`silent_redirect_uri` and a route to serve it) - which is
+  // still true and still not here. What that note got wrong, and `5-16` found the hard way, is the
+  // conclusion drawn from it: `UserManager`'s `automaticSilentRenew` defaults to **true**, and
+  // `signinSilent` only reaches for an iframe when there is no refresh token to use. Keycloak's
+  // authorization-code flow returns one, so renewal happens off the refresh token roughly a minute
+  // before each access token expires - no iframe, no redirect URI, nothing to wire.
+  //
+  // Which is the behaviour we want. It is recorded here because it is *invisible* - there is no
+  // setting in this file that says it is happening - and a reader who believed the old note would
+  // reason, as `5-06` and `5-07` both did, that an access token in this app never changes after
+  // sign-in. Anything holding a token must treat it as a value that rotates on its own schedule;
+  // `OperatorConnectionProvider` is the one place that got that wrong, and its doc comment has the
+  // full story.
 });
 
 /**

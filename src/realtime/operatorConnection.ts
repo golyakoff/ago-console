@@ -54,6 +54,23 @@ export class SendOutcomeUnknownError extends Error {
  * (a `5-07` addition to the wire contract, `Ago.Chat.Contracts`) is what lets `handleIncoming` below
  * tell a push meant for the currently-open conversation from one that is not, since the hub delivers
  * to this connection by *principal*, not by which conversation the console happens to have open.
+ *
+ * ## The subscription record (`5-16`)
+ *
+ * `subscribedConversationId` plus `sequenceTracker` are this connection's **record of what it is
+ * subscribed to server-side**, and `resumeSubscription` is the single thing that replays that record
+ * onto the wire. Everything that brings this connection into a connected state goes through it -
+ * `start()` and SignalR's own `onreconnected` alike - because a hub connection that comes back up
+ * has *no* server-side group membership from its previous life, and the screen carries on rendering
+ * the conversation regardless. That gap is silent by construction: nothing fails, messages simply
+ * stop arriving.
+ *
+ * `5-16` was a live instance of exactly that, from the one direction not covered: an access-token
+ * renewal used to construct a whole new `OperatorConnection` (the token rides in the negotiate URL),
+ * whose record was empty, so nothing re-joined and `onreconnected` never fired because it was not a
+ * reconnect. The token no longer rebuilds anything (`OperatorConnectionProvider`), and replay is
+ * keyed on "this connection became connected" rather than on any one cause of it, so the next way
+ * this connection comes back up - whatever it is - is covered without a second bolt-on.
  */
 export class OperatorConnection {
   private readonly connection: signalR.HubConnection;
@@ -64,13 +81,20 @@ export class OperatorConnection {
   private stateListener: ((state: ConnectionState) => void) | null = null;
   private conversationAssignedListener: ((dto: ConversationAssignedDto) => void) | null = null;
   private reconnectHintListener: ((hint: ReconnectHint) => void) | null = null;
-  private conversationId: string | null = null;
+  private subscribedConversationId: string | null = null;
   private sequenceTracker = new SequenceTracker();
 
-  constructor(accessToken: string) {
+  /**
+   * `accessTokenFactory` is a factory, not a token, and is called on every connect and every
+   * reconnect attempt - which is the whole reason `@microsoft/signalr` takes one. `5-16` found it
+   * closing over a captured string here: survivable only because a renewal rebuilt the entire
+   * object, which is the defect that item exists to remove. Reading the current token at call time
+   * is what makes a reconnect after a long idle re-negotiate with a token that is still valid.
+   */
+  constructor(accessTokenFactory: () => string) {
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl(`${config.apiBaseUrl}/hubs/operator`, {
-        accessTokenFactory: () => accessToken,
+        accessTokenFactory,
         // api-design.md's "Shipped in `5-09`" note names this exact gotcha for "any other SignalR
         // client this project adds": `@microsoft/signalr` defaults to `withCredentials: true`, and
         // the console never uses cookies (identity travels entirely through this bearer token,
@@ -175,9 +199,22 @@ export class OperatorConnection {
     }
   }
 
+  /**
+   * `5-16`: replays the subscription record after the socket is up, before announcing "connected" -
+   * a no-op on a first start (nothing is subscribed yet) and the whole point on any later one. A
+   * `start()` on a connection that already has an open conversation is not hypothetical: `stop()`
+   * followed by `start()` is how this class is restarted, and `@microsoft/signalr` gives that
+   * restarted `HubConnection` none of the server-side groups its previous life had.
+   *
+   * Rejecting rather than swallowing a failed replay is deliberate: the caller
+   * (`OperatorConnectionProvider`) already reports a failed `start()` as "disconnected", which is
+   * the honest answer for a connection whose thread is not actually live. Swallowing it would
+   * reproduce this item's own defect - a healthy-looking badge over a deaf conversation.
+   */
   async start(): Promise<void> {
     this.stateListener?.("connecting");
     await this.connection.start();
+    await this.resumeSubscription();
     this.stateListener?.("connected");
   }
 
@@ -195,7 +232,7 @@ export class OperatorConnection {
    * `AssignedToMe`.
    */
   async joinConversation(conversationId: string): Promise<JoinConversationResult> {
-    this.conversationId = conversationId;
+    this.subscribedConversationId = conversationId;
     this.sequenceTracker = new SequenceTracker();
     this.seenMessageIds = new SeenMessageIds();
 
@@ -212,9 +249,10 @@ export class OperatorConnection {
    * from a conversation view, so a push for a conversation no longer on screen is not mistaken for
    * one that is. Does not leave the hub connection itself; `MessageReceived` for this conversation
    * may still arrive (the operator is still assigned to it), it is simply not this console page's
-   * job to render it right now. */
+   * job to render it right now. Clearing the subscription record is also what stops a later
+   * reconnect from re-joining a conversation the operator is no longer looking at (`5-16`). */
   leaveConversation(): void {
-    this.conversationId = null;
+    this.subscribedConversationId = null;
   }
 
   /**
@@ -258,29 +296,58 @@ export class OperatorConnection {
     return this.connection.invoke<boolean>("GetVisitorPresenceAsync", conversationId);
   }
 
+  /**
+   * SignalR's own reconnect finished. Same replay as `start()`'s, then the state announcement -
+   * split out only because this path owns telling the provider the link is healthy again, whereas
+   * `start()` announces its own.
+   */
   private async resumeAfterReconnect(): Promise<void> {
-    if (this.conversationId === null) {
-      this.stateListener?.("connected");
+    try {
+      await this.resumeSubscription();
+    } catch (error) {
+      // Before `5-16` this rejection was unhandled and the badge simply stayed on "reconnecting"
+      // forever. Saying "disconnected" out loud is the same judgement `start()`'s doc comment
+      // records: the socket is up, but the conversation on screen is not receiving anything, and a
+      // badge that admits it is the only channel that can tell the operator so.
+      console.error("Failed to resume the open conversation after reconnecting", error);
+      this.stateListener?.("disconnected");
+      return;
+    }
+
+    this.stateListener?.("connected");
+  }
+
+  /**
+   * The one replay of the subscription record - see this class's own doc comment. Deliberately
+   * *not* a fresh `joinConversation`: this asks for the delta after `lastKnownSequence` (`3-03`'s
+   * resume protocol) and feeds it through `handleIncoming`, so a resume appends what was missed
+   * rather than discarding and re-rendering the whole thread.
+   */
+  private async resumeSubscription(): Promise<void> {
+    const conversationId = this.subscribedConversationId;
+    if (conversationId === null) {
       return;
     }
 
     const lastKnownSequence = this.sequenceTracker.lastKnownSequence;
     const result = await this.connection.invoke<JoinConversationResult>(
       "JoinConversationAsync",
-      this.conversationId,
+      conversationId,
       lastKnownSequence ?? undefined,
     );
     for (const message of result.messages) {
       this.handleIncoming(message);
     }
-
-    this.stateListener?.("connected");
   }
 
   private handleIncoming(dto: MessageDto): void {
     // See this class's own doc comment: a push for a conversation other than the one currently open
     // is real (the operator is still assigned to it) but not this view's to render.
-    if (dto.conversationId !== null && dto.conversationId !== undefined && dto.conversationId !== this.conversationId) {
+    if (
+      dto.conversationId !== null &&
+      dto.conversationId !== undefined &&
+      dto.conversationId !== this.subscribedConversationId
+    ) {
       return;
     }
 
