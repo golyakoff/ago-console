@@ -96,6 +96,27 @@ export function formatAbsolute(instant: Date, timeZone: string | null): string {
 }
 
 /**
+ * `24 Aug 2026` - a calendar date, in the rendering zone, short enough to sit in a table column.
+ *
+ * `12-03`'s owner table is the caller: "created" and "last activity" are being compared across rows,
+ * where the day is the unit that carries meaning and a full timestamp per row is noise. The exact,
+ * zone-labelled instant is never lost - the cell keeps `formatAbsolute` in its `title`, the same
+ * short-form-for-scanning / full-form-on-hover pairing the workspace already uses.
+ *
+ * Zone-derived like everything else here, not sliced off the ISO string: a 22:30 UTC instant is
+ * already tomorrow in Moscow, and rendering the UTC date for a Moscow reader is the same defect
+ * `dayKey` exists to avoid.
+ */
+export function formatDateStamp(instant: Date, timeZone: string | null): string {
+  return new Intl.DateTimeFormat(DISPLAY_LOCALE, {
+    timeZone: zoneOf(timeZone),
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(instant);
+}
+
+/**
  * The thread's day separator: `Today`, `Yesterday`, `Friday 21 August`, or `21 August 2025` once
  * the year differs. "Today" is computed by comparing day *keys in the rendering zone*, never by
  * subtracting 24 hours from a timestamp - on a spring-forward day those two answers differ.

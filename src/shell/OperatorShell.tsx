@@ -1,6 +1,7 @@
 import { Outlet, useMatch } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
+import { useOwnerEligibility } from "../auth/useOwnerEligibility.js";
 import { AppShell, ShellIdentity, type AppShellNavItem } from "./AppShell.js";
 
 /**
@@ -25,6 +26,7 @@ import { AppShell, ShellIdentity, type AppShellNavItem } from "./AppShell.js";
 export function OperatorShell() {
   const { user, logout } = useAuth();
   const { siteId, hasPermission } = usePermissions();
+  const ownerEligibility = useOwnerEligibility();
 
   // `11-06`: the two workspace routes want the full-width, viewport-height frame; `/admin` and
   // `/settings/widget` are ordinary documents and keep the reading-width one. Asked as two route
@@ -40,6 +42,17 @@ export function OperatorShell() {
   if (hasPermission("site:configure")) {
     nav.push({ to: "/admin", label: "All conversations" });
     nav.push({ to: "/settings/widget", label: "Widget appearance" });
+  }
+
+  // `12-03`: the platform owner's own route, for the one identity on the deployment that holds it.
+  // Note what this is *not* gated on - `usePermissions()` carries site-scoped permissions and knows
+  // nothing about the platform owner, and the console deliberately does not read the token's
+  // `realm_access.roles` to find out either. `useOwnerEligibility()` is `12-01`'s server-side policy
+  // decision read back from `12-02`'s endpoint; drawing this link is the only thing it does, and the
+  // screen behind it re-asks the server before rendering a row. Labelled "Platform sites" rather
+  // than anything containing "admin", which in this product means a tenant's own supervisor.
+  if (ownerEligibility === "eligible") {
+    nav.push({ to: "/owner", label: "Platform sites" });
   }
 
   return (

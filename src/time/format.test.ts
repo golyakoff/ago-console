@@ -3,6 +3,7 @@ import {
   dayKey,
   formatAbsolute,
   formatClockTime,
+  formatDateStamp,
   formatDayLabel,
   formatElapsed,
   formatElapsedWords,
@@ -61,6 +62,22 @@ describe("formatAbsolute", () => {
 
   it("labels the unknown-zone fallback as UTC rather than rendering it bare", () => {
     expect(formatAbsolute(new Date("2026-08-24T11:03:00+00:00"), null)).toContain("UTC");
+  });
+});
+
+describe("formatDateStamp", () => {
+  it("renders a short calendar date", () => {
+    expect(formatDateStamp(new Date("2026-08-24T11:03:00+00:00"), "UTC")).toBe("24 Aug 2026");
+  });
+
+  it("takes the date from the rendering zone, not from the ISO string's UTC day", () => {
+    // 22:30 UTC on the 24th is already the 25th in Moscow - a table column that showed "24 Aug" to
+    // a Moscow reader would disagree with every other timestamp in the console.
+    expect(formatDateStamp(new Date("2026-08-24T22:30:00+00:00"), MOSCOW)).toBe("25 Aug 2026");
+  });
+
+  it("falls back to the UTC date when no zone is known", () => {
+    expect(formatDateStamp(new Date("2026-08-24T22:30:00+00:00"), null)).toBe("24 Aug 2026");
   });
 });
 
