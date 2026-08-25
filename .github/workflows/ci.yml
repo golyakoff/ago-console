@@ -31,12 +31,74 @@ jobs:
       - name: Test
         run: npm test
 
-      # No real deployment target for this portfolio project (README's own note) - CI proves the
-      # build succeeds against placeholder env values, matching ago-widget's own "no real hosted
-      # deployment to default to" precedent (build.mjs's own refusal to guess one).
+      # `15-07`: this step used to override every VITE_* with a localhost placeholder. That was
+      # harmless while CI published nothing, and became a trap the moment it did - process env wins
+      # over .env files in Vite, so the job would have built and pushed a console pointed at
+      # localhost under a tag naming a commit whose .env.production says otherwise. The overrides
+      # are gone: CI now builds exactly what ships, from the committed .env.production, which is
+      # also what makes adr/0051's "the commit determines the artifact" true here rather than
+      # merely asserted. A broken .env.production now fails this step instead of hiding behind it.
       - name: Build
         run: npm run build
+
+  # `15-07`/`adr/0051`: the console image is published to GHCR from here, not built on the
+  # deployment node. Only on `main`, and only after build-test passed - a pull request never
+  # publishes, so a fork or a draft branch cannot put an image into the registry a deploy might
+  # later reach for. Modelled directly on ago-chat's own publish-images job (adr/0047).
+  publish-images:
+    needs: build-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # A repository's own GITHUB_TOKEN can write to that repository's own package feed - the same
+      # property adr/0018 already relies on for the NuGet feed, so publishing needs no new secret.
+      # Only *reading* a private package would, which is exactly why adr/0047 wants these public.
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      # No docker/login-action: `docker login` with the workflow token does the same thing with one
+      # fewer third-party action in the supply chain.
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      # Note what is NOT passed here: no VITE_* build arg of any kind. The bundle's configuration
+      # comes from the committed .env.production, so this image is a function of the commit alone -
+      # which is the only thing that lets ${{ github.sha }} be a truthful name for it (adr/0051).
+      # `main` moves and exists only for convenience; deploy.sh refuses it, and there is
+      # deliberately no `latest` at all.
+      - name: Build and push the console image
         env:
-          VITE_API_BASE_URL: "http://localhost:5009"
-          VITE_KEYCLOAK_AUTHORITY: "http://127.0.0.1:8081/realms/ago-chat"
-          VITE_KEYCLOAK_CLIENT_ID: "ago-console"
+          DOCKER_BUILDKIT: "1"
+        run: |
+          set -euo pipefail
+          repo="ghcr.io/${{ github.repository_owner }}/ago-console"
+          docker build \
+            --build-arg "GIT_COMMIT=${{ github.sha }}" \
+            -t "${repo}:${{ github.sha }}" \
+            -t "${repo}:main" \
+            .
+          docker push "${repo}:${{ github.sha }}"
+          docker push "${repo}:main"
+
+      # Proves the commit actually reached the served files, rather than only the tag. Cheap, and it
+      # is the exact property 15-07 exists for - a published image that cannot name its own commit
+      # is the 2026-08-25 failure with extra steps.
+      - name: Check the image can name its own commit
+        run: |
+          set -euo pipefail
+          repo="ghcr.io/${{ github.repository_owner }}/ago-console"
+          served=$(docker run --rm --entrypoint cat "${repo}:${{ github.sha }}" /usr/share/nginx/html/version.json)
+          echo "$served"
+          echo "$served" | grep -q '"commit":"${{ github.sha }}"'
+
+      - name: Summarise what was published
+        run: |
+          {
+            echo "### Image published"
+            echo
+            echo "Deploy with: \`./deploy.sh console ${{ github.sha }}\` (ago-deploy/k8s, on the node)"
+            echo
+            echo "- \`ghcr.io/${{ github.repository_owner }}/ago-console:${{ github.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

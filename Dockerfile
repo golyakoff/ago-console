@@ -1,12 +1,20 @@
 # Builds this repository's Vite/React SPA and serves the static dist/ output from a minimal nginx
-# image. Built directly on the VPS and imported into k3s's own containerd (adr/0026's "no registry"
-# image-delivery decision, the same one ago-chat's own Dockerfile follows) - not pushed anywhere,
-# no CI wiring here.
+# image.
+#
+# `15-07`/`adr/0051`: CI publishes this to GHCR as ghcr.io/golyakoff/ago-console, tagged with the
+# full 40-character commit SHA - the same shape adr/0047 gave the three Ago.Chat.* hosts. It
+# supersedes adr/0026's "build it on the VPS and import it into containerd", which is now the
+# fallback rather than the mechanism. This repository is the one the 2026-08-25 stale-bundle
+# incident actually happened to.
 #
 # .env.production (committed - see .gitignore's own exception, none of its values are secrets) is
 # picked up automatically by `vite build`'s own default production mode, no extra --mode flag or
 # build ARG needed here. That is also how `8-06`'s VITE_PUBLIC_DEMO reaches the image, so no change
-# was needed here or in ago-deploy for it.
+# was needed here or in ago-deploy for it. **That committed file is also what makes adr/0051 work
+# for this repository**: the deployment's API origin and Keycloak issuer are properties of the
+# commit, not of whoever ran `docker build`, so ago-console:<sha> is a function of the commit alone.
+# Nothing here may be turned into a build ARG without re-opening that decision - a VITE_* ARG would
+# let two different bundles claim one SHA tag.
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -19,9 +27,34 @@ RUN npm run build
 # nginx equivalent): official image, not a bespoke build, with the dynamic modules this
 # static-file-only container never uses (image filter, mail proxy, stream) stripped out.
 FROM nginx:1.27-alpine-slim
+# The commit this image is built from (`15-07`). Defaults to "unknown" rather than failing the
+# build: a local `docker build` for a quick check is a legitimate thing to do, and it should say
+# "unknown" out loud rather than lie or refuse.
+ARG GIT_COMMIT=unknown
+# The OCI annotations a registry and `docker inspect`/`crane config` read. `.source` is not only
+# documentation - GHCR uses it to link the published package back to this repository, which is what
+# makes the package inherit the repository's own visibility instead of arriving orphaned.
+LABEL org.opencontainers.image.source="https://github.com/golyakoff/ago-console" \
+      org.opencontainers.image.description="AGO Chat operator console" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.revision="${GIT_COMMIT}"
 COPY --from=build /app/dist /usr/share/nginx/html
 # react-router (adr/0023) does real client-side routing (/callback at minimum) - the default nginx
 # config 404s on a direct load of anything but /, so every path needs to fall back to index.html
 # and let the SPA's own router take over from there.
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+# `15-07`: the commit as a file the running container serves. A label is invisible from outside the
+# cluster and an image tag is a name somebody chose; this is the copy a `curl
+# https://console.reserve-me.ru/version.json` can read, which is precisely what nobody could do on
+# 2026-08-25 when this bundle was a week stale. Written after the COPY above, so it cannot be
+# shadowed by anything in dist/. Deliberately no build timestamp: two builds of one commit should be
+# the same artifact, and a clock is the easiest way to make them differ for no reason.
+#
+# A file rather than a Vite `define` in the JS: the console is always loaded from an origin that
+# serves this file next to it, so there is nothing a `define` would reach that this does not - and a
+# plain file is readable by curl, by smoke.sh and by the API server's pod proxy without parsing a
+# minified bundle. (The widget's answer is the other way round, and for the opposite reason: its
+# bundle is loaded from *someone else's* page.)
+RUN printf '{"app":"ago-console","commit":"%s"}\n' "${GIT_COMMIT}" \
+      > /usr/share/nginx/html/version.json
 EXPOSE 80

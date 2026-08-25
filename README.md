@@ -58,13 +58,29 @@ src/
 in production mode - committed, not gitignored, since none of its values are secrets (see the
 file's own header comment). One of them is `8-06`'s `VITE_PUBLIC_DEMO=true`, which is what puts the
 "this console is the public demo, these are strangers' conversations" strip under the shell header on
-this deployment and on no other. `Dockerfile` builds this into a minimal nginx image
-(`../ago-root/docs/adr/0026-*`'s "no registry, build on the VPS" mechanism) -
-`../ago-deploy/k8s/build-static-images.sh` builds it,
+this deployment and on no other. `Dockerfile` builds this into a minimal nginx image;
 `../ago-deploy/k8s/overlays/demo/console-static.yaml` runs it behind
 `https://console.reserve-me.ru`. `nginx.conf` adds the client-side-routing fallback
 react-router's `/callback` route needs (a direct load of any path but `/` would otherwise 404
 before react-router ever got a chance to handle it).
+
+## Publishing, and how a running console names its commit
+
+`15-07`/`../ago-root/docs/adr/0051-*`. CI publishes `ghcr.io/golyakoff/ago-console:<40-char commit
+SHA>` on every push to `main`, using the workflow's own `GITHUB_TOKEN` and no other secret
+(`adr/0047`). `../ago-deploy/k8s/build-static-images.sh` can still build the same name on the node
+for a hotfix, which is now the fallback rather than the mechanism (`adr/0026`, amended).
+
+**The image takes no environment input from its build command.** Every `VITE_*` value comes from the
+committed `.env.production` above, so `ago-console:<sha>` is a function of the commit and nothing
+else, and the SHA tag keeps meaning exactly one thing. Turning any of those into a `--build-arg`
+would quietly allow two different bundles under one tag; if a second environment ever exists, that
+is the decision to re-open (`adr/0051`), not this file.
+
+The image serves `/version.json` — `{"app":"ago-console","commit":"<sha>"}` — written from that same
+build arg. On 2026-08-25 this console served a week-old bundle and nobody could tell from outside;
+`curl https://console.reserve-me.ru/version.json` is the answer to that, and
+`../ago-deploy/k8s/smoke.sh` asks it on every run.
 
 ## Testing
 
