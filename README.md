@@ -37,12 +37,15 @@ src/
   config.ts        environment-based config (API base URL, Keycloak authority/client id, and
                     8-06's optional public-demo flag) - VITE_-prefixed, .env.local (gitignored),
                     .env.example documents the shape
-  auth/            oidc-client-ts UserManager, a React context, the RequireAuth route guard
+  auth/            oidc-client-ts UserManager, a React context, the RequireAuth route guard, and
+                    10-03's registration redirect (login and signup are the same PKCE request
+                    against two Keycloak endpoints)
   realtime/        the operator-hub SignalR connection (5-09's own withCredentials:false gotcha
                     applies here too - see the file's own comment)
-  pages/           CallbackPage (the OIDC redirect handler), ConversationPage, and the two
-                    site-scoped screens gated on `site:configure` (AdminConversationsPage,
-                    WidgetConfigPage)
+  pages/           CallbackPage (the OIDC redirect handler, and where 10-03's three token states
+                    are told apart), ConversationPage, 10-03's public SignupPage and the
+                    OnboardingPage behind it, and the two site-scoped screens gated on
+                    `site:configure` (AdminConversationsPage, WidgetConfigPage)
   workspace/       11-06's operator workspace: the conversation rail, the thread, the composer
   shell/           11-05's persistent frame - header, permission-gated navigation, identity
   components/      adr/0030's closed component set; design/ holds its tokens
@@ -89,6 +92,17 @@ section. What this repository actually has:
   "the answer has not arrived yet" and "the call failed". Hiding a control is never the real gate
   (`17-01`'s server-side check is), and showing an admin action to a non-admin is still a defect only
   a test at this level can catch.
+- **Signup and onboarding** (`10-03`: `pages/CallbackPage.test.tsx`, `pages/OnboardingPage.test.tsx`,
+  `pages/SignupPage.test.tsx`, `api/operatorState.test.ts`, `auth/registrationUrl.test.ts`). The
+  three states the OIDC callback has to tell apart - an existing operator, a real Keycloak identity
+  with no `operators` row yet, and no valid token - are one `if` away from each other and produce no
+  error when swapped: a new visitor sent to the queue sees an empty screen that will never fill, and
+  an operator sent to the signup form is asked to create a site the server will refuse. The
+  detection itself is a read of the server's own answer (`GET /api/v1/operators/me`'s `403`), so the
+  status-code mapping and its fail-closed cases - a `401`, a `500`, a network failure - are tested
+  where they live. Plus what the onboarding form checks itself versus what `10-02` decides: a client
+  check that fires must stop the request, and a value the client accepts and the server rejects must
+  surface the *server's* wording.
 - **The realtime connection across a token renewal** (`realtime/operatorConnection.test.tsx`, from
   `5-16`): the defect that reached the live deployment, and the resume-on-reconnect and
   resume-on-restart paths around it.

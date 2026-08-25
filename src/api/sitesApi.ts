@@ -2,7 +2,7 @@ import { config } from "../config.js";
 
 /**
  * `10-03`: the console's own caller for `10-02`'s bootstrap endpoint (`Ago.Chat.Api.Sites.
- * SitesEndpoints`, `POST /api/v1/sites`, gated by `RequireKeycloakIdentity` per `adr/0027`). Plain
+ * SitesEndpoints`, `POST /api/v1/sites`, gated by `RequireKeycloakIdentity` per `adr/0028`). Plain
  * `fetch`, matching every other `api/*.ts` file's own established shape - no generated client exists
  * in this project.
  *
@@ -24,9 +24,11 @@ export interface RegisterSiteResponse {
  * Carries the server's stable `type` code (`Site.InvalidName`, `Site.InvalidOrigin`,
  * `Site.AlreadyRegistered`, `Site.RateLimited` - `ConversationErrors`, `ago-chat`) alongside the
  * human-readable `detail` text every `ErrorExtensions.ToProblem` response already carries
- * (`api-design.md`: "clients branch on `type`, never on the message"). `OnboardingPage` does not
- * currently branch on `code` - it just displays `message` - but the field is kept distinct from a
- * plain `Error` so a future caller can branch without re-parsing the response.
+ * (`api-design.md`: "clients branch on `type`, never on the message"). `OnboardingPage` branches on
+ * exactly one of them - `Site.AlreadyRegistered`, which is the server saying the caller is already
+ * an operator and therefore a routing decision rather than an error to display - and shows
+ * `message` verbatim for every other, so a new server-side rejection reaches the visitor as the
+ * server worded it without this file needing to know it exists.
  */
 export class RegisterSiteError extends Error {
   readonly code: string;
