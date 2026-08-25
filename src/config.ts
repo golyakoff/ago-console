@@ -13,6 +13,18 @@ export interface Config {
   apiBaseUrl: string;
   keycloakAuthority: string;
   keycloakClientId: string;
+  /**
+   * `8-06`: this build is the *public* demo console, whose operator credentials are printed on the
+   * demo pages for anyone to use. Turns on the shell's standing "you are reading strangers' messages"
+   * strip.
+   *
+   * A deployment-time flag rather than a constant, because the same bundle is the real product's
+   * console: hard-coding the sentence would make it a lie the first time a paying tenant signs in,
+   * and hard-coding its absence would leave the public deployment silent. It is the only optional
+   * variable here - `required()` is not used, and the default is off, so a deployment that says
+   * nothing about it gets no notice rather than an accidental one.
+   */
+  isPublicDemo: boolean;
 }
 
 function required(name: string, value: string | undefined): string {
@@ -31,4 +43,7 @@ export const config: Config = {
   apiBaseUrl: required("VITE_API_BASE_URL", import.meta.env.VITE_API_BASE_URL).replace(/\/+$/, ""),
   keycloakAuthority: required("VITE_KEYCLOAK_AUTHORITY", import.meta.env.VITE_KEYCLOAK_AUTHORITY).replace(/\/+$/, ""),
   keycloakClientId: required("VITE_KEYCLOAK_CLIENT_ID", import.meta.env.VITE_KEYCLOAK_CLIENT_ID),
+  // Exact `"true"`, so that `VITE_PUBLIC_DEMO=false` - what someone turning this off will actually
+  // write - is off rather than a non-empty truthy string.
+  isPublicDemo: import.meta.env.VITE_PUBLIC_DEMO === "true",
 };

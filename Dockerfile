@@ -3,9 +3,10 @@
 # image-delivery decision, the same one ago-chat's own Dockerfile follows) - not pushed anywhere,
 # no CI wiring here.
 #
-# .env.production (committed - see .gitignore's own exception, none of its three values are
-# secrets) is picked up automatically by `vite build`'s own default production mode, no extra
-# --mode flag or build ARG needed here.
+# .env.production (committed - see .gitignore's own exception, none of its values are secrets) is
+# picked up automatically by `vite build`'s own default production mode, no extra --mode flag or
+# build ARG needed here. That is also how `8-06`'s VITE_PUBLIC_DEMO reaches the image, so no change
+# was needed here or in ago-deploy for it.
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./

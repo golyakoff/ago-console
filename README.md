@@ -34,8 +34,9 @@ yet the real queue/conversation UI (`5-07`).
 
 ```
 src/
-  config.ts        environment-based config (API base URL, Keycloak authority/client id) -
-                    VITE_-prefixed, .env.local (gitignored), .env.example documents the shape
+  config.ts        environment-based config (API base URL, Keycloak authority/client id, and
+                    8-06's optional public-demo flag) - VITE_-prefixed, .env.local (gitignored),
+                    .env.example documents the shape
   auth/            oidc-client-ts UserManager, a React context, the RequireAuth route guard
   realtime/        the operator-hub SignalR connection (5-09's own withCredentials:false gotcha
                     applies here too - see the file's own comment)
@@ -46,8 +47,10 @@ src/
 ## Building for the public deployment
 
 `8-02`: `npm run build` (Vite's own `tsc -b && vite build`) picks up `.env.production` automatically
-in production mode - committed, not gitignored, since none of its three values are secrets (see the
-file's own header comment). `Dockerfile` builds this into a minimal nginx image
+in production mode - committed, not gitignored, since none of its values are secrets (see the
+file's own header comment). One of them is `8-06`'s `VITE_PUBLIC_DEMO=true`, which is what puts the
+"this console is the public demo, these are strangers' conversations" strip under the shell header on
+this deployment and on no other. `Dockerfile` builds this into a minimal nginx image
 (`../ago-root/docs/adr/0026-*`'s "no registry, build on the VPS" mechanism) -
 `../ago-deploy/k8s/build-static-images.sh` builds it,
 `../ago-deploy/k8s/overlays/demo/console-static.yaml` runs it behind

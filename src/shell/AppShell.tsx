@@ -1,6 +1,48 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { Button } from "../components/Button.js";
+import { config } from "../config.js";
+
+/**
+ * `8-06`. The standing statement that this console is the public demo one, rendered by both shells
+ * directly under the header - so it is on the sign-in screen, on the OIDC callback, and on every
+ * operator screen afterwards.
+ *
+ * **Why not only the sign-in screen, which is what the item asks for.** This console has no sign-in
+ * screen to put it on: `RequireAuth` redirects to Keycloak from an effect, so the only thing this
+ * repository renders "on the way in" is a spinner that is replaced within a few hundred milliseconds
+ * by a page Keycloak owns and this repository cannot add a sentence to. A notice that only exists
+ * during that flash would satisfy the letter of the item and none of its point. So it renders there
+ * *and* stays.
+ *
+ * **Not dismissible.** The fact it states does not stop being true after it is read, and the
+ * operator's mistake it guards against - treating the queue as their own sandbox and answering as if
+ * nobody else can see it - is available on every message, not once at sign-in.
+ *
+ * **It reads `config` rather than taking a prop**, unlike everything else in this file. `config` is a
+ * static module constant, not React context, so nothing about the "renders outside every provider"
+ * property that lets `AppShell` serve `/signup` and `/callback` changes. The alternative, a prop,
+ * would have to be passed correctly by every one of the shells' call sites for the notice to appear,
+ * and a disclosure that goes missing when someone adds a route is worse than one this component owns.
+ */
+function PublicDemoNotice() {
+  if (!config.isPublicDemo) {
+    return null;
+  }
+
+  return (
+    <div className="ago-demo-notice">
+      {/* The band is full-bleed; the sentence inside it is capped and centred on the same
+          `--ago-shell-max` measure as the header row above, so it starts on the brand's own left
+          edge instead of running the whole width of a 1440px monitor. */}
+      <span className="ago-demo-notice__text">
+        This is a public demo console. Its login is published on the demo pages, so anyone can sign
+        in here - every conversation in it was typed by a stranger, who was told you can read it. Do
+        not type anything real.
+      </span>
+    </div>
+  );
+}
 
 export interface AppShellNavItem {
   to: string;
@@ -83,6 +125,8 @@ export function AppShell({ nav, identity, wide = false, children }: AppShellProp
           {identity && <div className="ago-shell__identity">{identity}</div>}
         </div>
       </header>
+
+      <PublicDemoNotice />
 
       <main className={wide ? "ago-shell__main ago-shell__main--wide" : "ago-shell__main"} id="ago-main">
         {children}
@@ -171,6 +215,7 @@ export function CenteredShell({ children }: { children: ReactNode }) {
           </span>
         </div>
       </header>
+      <PublicDemoNotice />
       <main className="ago-shell__centered" id="ago-main">
         {children}
       </main>
