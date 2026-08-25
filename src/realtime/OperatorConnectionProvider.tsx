@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import { OperatorConnection, type ConnectionState } from "./operatorConnection.js";
 import { OperatorConnectionContext, type OperatorConnectionState } from "./OperatorConnectionContext.js";
@@ -18,12 +18,49 @@ import { OperatorConnectionContext, type OperatorConnectionState } from "./Opera
  * component and a plain function breaks Vite's Fast Refresh for the component
  * (`react-refresh/only-export-components`), the same reason that split already existed here before
  * this item touched it.
+ *
+ * ## `5-16`: why the access token is not a dependency
+ *
+ * It used to be: `useMemo(() => new OperatorConnection(accessToken), [accessToken])`. That reads as
+ * harmless and is not, because `oidc-client-ts` renews the access token on its own - `UserManager`'s
+ * `automaticSilentRenew` defaults to **true**, and since Keycloak's code flow returns a refresh
+ * token, `signinSilent` renews straight off it with no iframe and no `silent_redirect_uri`, which is
+ * why `userManager.ts`'s note about silent renew "not being wired up" was true of the iframe
+ * plumbing and false about whether renewal happens. Each renewal fires `userLoaded`, `AuthProvider`
+ * publishes a new `user`, and a *brand-new* `OperatorConnection` was built with an empty
+ * subscription record - so the conversation on screen quietly stopped receiving messages while
+ * continuing to render, and the connection it replaced was never stopped, leaving one live
+ * server-side entry per renewal.
+ *
+ * So the token is not what identifies a connection - the **operator** is, and the operator cannot
+ * change under a mounted provider (see the memo's own comment). The token now reaches SignalR
+ * through a factory reading the live value at connect and reconnect time (`OperatorConnection`'s
+ * constructor), which is what a renewal is supposed to look like: nothing is rebuilt, and the next
+ * negotiate carries the current token.
+ *
+ * The alternative - keep rebuilding on every renewal, and have the new connection re-join whatever
+ * the old one had open - was rejected: it fixes the reported symptom, keeps the orphaned connections
+ * (which were a second, separately-reported anomaly), and leaves the console permanently doing the
+ * most expensive thing available (a full WebSocket teardown and negotiate) on a schedule set by
+ * Keycloak's token lifetime.
+ *
+ * What it does *not* fix on its own is the general case, which is why `OperatorConnection` also
+ * gained a single replay path for its subscription record (see that class's doc comment). Removing
+ * one cause of a connection coming back up empty is not the same as covering them all, and the
+ * reported symptom - "switched to another chat and back and it recovered" - is what a lost
+ * subscription looks like from *any* cause, not just this one.
  */
 export function OperatorConnectionProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const accessToken = user?.access_token;
   const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
   const [serverDraining, setServerDraining] = useState(false);
+
+  // The live token. Assigned during render (the same pattern `WorkspaceLayout` uses for the open
+  // conversation id) so `accessTokenFactory` reads the newest renewal without the connection
+  // itself being a function of it.
+  const accessTokenRef = useRef(accessToken);
+  accessTokenRef.current = accessToken;
 
   if (!accessToken) {
     // `RequireAuth` (the route this is always mounted inside) guarantees a signed-in user by the
@@ -32,7 +69,17 @@ export function OperatorConnectionProvider({ children }: { children: ReactNode }
     throw new Error("OperatorConnectionProvider requires an authenticated user - mount it inside RequireAuth.");
   }
 
-  const connection = useMemo(() => new OperatorConnection(accessToken), [accessToken]);
+  // Empty dependencies, on purpose and not by oversight: **nothing** about a signed-in operator can
+  // invalidate this connection while the provider stays mounted. Not the token (the factory reads it
+  // live); not the operator either - a different `sub` can only arrive through a Keycloak redirect,
+  // which is a full page load, and losing the user at all takes `RequireAuth` down and this
+  // component with it. That is also this item's answer to "stop the old connection when one is
+  // genuinely replaced": there is no replacement left to stop, because the replacement was the bug.
+  // Should a future change ever reintroduce a dependency here, it owes this file a `stop()` of the
+  // connection it replaces - a replaced-but-running connection sits in the server-side registry
+  // until its TTL expires (`realtime.md`'s connection registry), which is exactly how one tab came
+  // to hold twelve entries for one operator.
+  const connection = useMemo(() => new OperatorConnection(() => accessTokenRef.current ?? ""), []);
 
   useEffect(() => {
     connection.onStateChange((state) => {
