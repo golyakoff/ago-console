@@ -77,6 +77,25 @@ export class OperatorConnection {
         // adr/0022/adr/0023).
         withCredentials: false,
       })
+      // `5-14`: without this, `@microsoft/signalr`'s default logger is `ConsoleLogger(Information)`,
+      // and `WebSocketTransport` logs "WebSocket connected to {url}" at exactly `Information` - after
+      // it has appended `access_token=` to that url. The result is a live, unexpired operator JWT in
+      // plain text in devtools on every connect, which `coding-style.md` bans outright ("Never log
+      // message bodies, tokens, presigned URLs...").
+      //
+      // `Warning` rather than `Error`/`None` because it is the *lowest* level that suppresses that
+      // line while still surfacing the diagnostics worth having: HTTP request errors and timeouts,
+      // the page-freeze warning that predicts a dropped connection, and an unhandled server->client
+      // method name.
+      //
+      // Deliberately not conditional on `import.meta.env.DEV`. The tempting shape - verbose locally,
+      // quiet in production - cannot work here: the token-bearing line sits at `Information`, which
+      // is *above* `Debug` and `Trace` on this library's ladder, so every level verbose enough to be
+      // worth switching to also prints the token. There is no dev setting that is both more
+      // informative and token-free, and the token is just as real locally as it is in production. A
+      // developer who genuinely needs transport-level tracing edits this one line for the duration of
+      // that debugging session - a deliberate act, not a default that ships.
+      .configureLogging(signalR.LogLevel.Warning)
       .withAutomaticReconnect({
         nextRetryDelayInMilliseconds: (context) =>
           jitteredDelayMs(context.previousRetryCount + 1, defaultBackoffOptions),
