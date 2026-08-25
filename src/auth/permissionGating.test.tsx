@@ -1,0 +1,231 @@
+import { useMemo, type ReactNode } from "react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { User } from "oidc-client-ts";
+import { AuthContext, type AuthState } from "./AuthContext.js";
+import { PermissionsProvider } from "./PermissionsProvider.js";
+import { OperatorShell } from "../shell/OperatorShell.js";
+import { AdminConversationsPage } from "../pages/AdminConversationsPage.js";
+import { WidgetConfigPage } from "../pages/WidgetConfigPage.js";
+import { all, byText, render, unmount } from "../testing/dom.js";
+
+/**
+ * `11-08`: **an operator without a permission is not offered the control.**
+ *
+ * `PermissionsContext`'s own comment is right that this is never the real gate - `17-01`'s
+ * server-side `IPermissionChecker` is - and that is exactly why this level exists rather than being
+ * skipped: showing an admin action to a non-admin is still a defect, and a frontend test is the only
+ * thing that can catch it. A 403 the operator receives after clicking is a worse product than a
+ * control that was never there, and neither the server's tests nor a typecheck can tell the two apart.
+ *
+ * The real `PermissionsProvider` is mounted with `GET /api/v1/operators/me` faked, rather than a
+ * hand-made context value: the answer travelling from the server's response to the rendered
+ * navigation is the whole path this is meant to protect, and a fabricated context value would skip
+ * the half of it that has actually broken before.
+ */
+vi.mock("../config.js", () => ({
+  config: {
+    apiBaseUrl: "https://api.test.invalid",
+    keycloakAuthority: "https://keycloak.test.invalid/realms/ago",
+    keycloakClientId: "ago-console",
+    isPublicDemo: false,
+  },
+}));
+
+const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
+const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
+const conversationsApi = vi.hoisted(() => ({ fetchAllConversationsForSite: vi.fn() }));
+const widgetConfigApi = vi.hoisted(() => ({ fetchWidgetConfig: vi.fn(), updateWidgetConfig: vi.fn() }));
+
+vi.mock("../api/operatorsApi.js", () => operatorsApi);
+vi.mock("../api/ownerApi.js", () => ownerApi);
+vi.mock("../api/conversationsApi.js", () => conversationsApi);
+vi.mock("../api/widgetConfigApi.js", async () => {
+  // `WidgetConfigError` is a real class the page does `instanceof` against, so the module keeps its
+  // own definition of it and only its two network calls are replaced.
+  const actual = await vi.importActual<typeof import("../api/widgetConfigApi.js")>("../api/widgetConfigApi.js");
+  return { ...actual, ...widgetConfigApi };
+});
+
+const SITE_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+
+function signedIn(): User {
+  return { access_token: "token", profile: { sub: "operator-sub", preferred_username: "kim" } } as unknown as User;
+}
+
+function Signed({ children }: { children: ReactNode }) {
+  const auth = useMemo<AuthState>(
+    () => ({ user: signedIn(), isLoading: false, login: () => Promise.resolve(), logout: () => Promise.resolve() }),
+    [],
+  );
+
+  return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
+}
+
+/** The operator layout as `App.tsx` wires it, reduced to the parts that decide what is offered. */
+function shellAt(path: string, page: ReactNode = null) {
+  return (
+    <MemoryRouter initialEntries={[path]}>
+      <Signed>
+        <PermissionsProvider>
+          <Routes>
+            <Route element={<OperatorShell />}>
+              <Route path={path} element={page} />
+            </Route>
+          </Routes>
+        </PermissionsProvider>
+      </Signed>
+    </MemoryRouter>
+  );
+}
+
+function pageOnly(path: string, page: ReactNode) {
+  return (
+    <MemoryRouter initialEntries={[path]}>
+      <Signed>
+        <PermissionsProvider>
+          <Routes>
+            <Route path={path} element={page} />
+          </Routes>
+        </PermissionsProvider>
+      </Signed>
+    </MemoryRouter>
+  );
+}
+
+function grants(permissions: string[]): void {
+  operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions, siteId: SITE_ID });
+}
+
+function navLabels(container: HTMLElement): string[] {
+  return all(container, ".ago-shell__nav a").map((link) => (link.textContent ?? "").trim());
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  grants([]);
+  ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
+  conversationsApi.fetchAllConversationsForSite.mockResolvedValue({ conversations: [] });
+  widgetConfigApi.fetchWidgetConfig.mockResolvedValue({ siteId: SITE_ID, primaryColorHex: null, position: "BottomRight" });
+});
+
+afterEach(async () => {
+  await unmount();
+});
+
+describe("the operator navigation", () => {
+  it("does not offer the site-wide sections to an operator the server gave no site:configure", async () => {
+    grants(["conversation:read"]);
+
+    const container = await render(shellAt("/"));
+
+    expect(navLabels(container)).toEqual(["Conversations"]);
+  });
+
+  it("offers them to an operator the server says holds site:configure", async () => {
+    grants(["site:configure"]);
+
+    const container = await render(shellAt("/"));
+
+    expect(navLabels(container)).toEqual(["Conversations", "All conversations", "Widget appearance"]);
+  });
+
+  it("offers nothing gated while the answer is still in flight", async () => {
+    // "Not yet known" is not "allowed" - `PermissionsContext`'s own rule. Rendering the links
+    // optimistically and removing them would flash an admin section at every operator on every load.
+    operatorsApi.fetchMyPermissions.mockReturnValue(new Promise(() => undefined));
+
+    const container = await render(shellAt("/"));
+
+    expect(navLabels(container)).toEqual(["Conversations"]);
+  });
+
+  it("offers nothing gated when the permissions call fails", async () => {
+    // Fail-closed: a console that cannot find out what an operator may do must not guess "everything".
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    operatorsApi.fetchMyPermissions.mockRejectedValue(new Error("network down"));
+
+    const container = await render(shellAt("/"));
+
+    expect(navLabels(container)).toEqual(["Conversations"]);
+    expect(logged).toHaveBeenCalled();
+  });
+
+  it("does not offer the platform-owner section to an operator the server refuses", async () => {
+    grants(["site:configure"]);
+    ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
+
+    const container = await render(shellAt("/"));
+
+    expect(navLabels(container)).not.toContain("Platform sites");
+  });
+
+  it("offers it to the one identity the server says is eligible", async () => {
+    grants([]);
+    ownerApi.probeOwnerEligibility.mockResolvedValue("eligible");
+
+    const container = await render(shellAt("/"));
+
+    expect(navLabels(container)).toContain("Platform sites");
+  });
+
+  it("does not offer the platform-owner section while the probe is unanswered", async () => {
+    ownerApi.probeOwnerEligibility.mockReturnValue(new Promise(() => undefined));
+
+    const container = await render(shellAt("/"));
+
+    expect(navLabels(container)).not.toContain("Platform sites");
+  });
+});
+
+describe("a gated page reached directly by URL", () => {
+  it("refuses the site-wide conversation list, and does not even ask the server for it", async () => {
+    grants(["conversation:read"]);
+
+    const container = await render(pageOnly("/admin", <AdminConversationsPage />));
+
+    expect(container.textContent).toContain("You do not have permission to view every conversation for this site.");
+    expect(container.querySelector("table")).toBeNull();
+    expect(conversationsApi.fetchAllConversationsForSite).not.toHaveBeenCalled();
+  });
+
+  it("renders the site-wide conversation list for an operator who holds the permission", async () => {
+    grants(["site:configure"]);
+
+    const container = await render(pageOnly("/admin", <AdminConversationsPage />));
+
+    expect(container.textContent).not.toContain("You do not have permission");
+    expect(conversationsApi.fetchAllConversationsForSite).toHaveBeenCalled();
+  });
+
+  it("says nothing either way while the permissions answer is in flight", async () => {
+    // Refusing before the answer arrives would accuse every operator of lacking a permission they
+    // may well hold, for as long as one HTTP round trip takes.
+    operatorsApi.fetchMyPermissions.mockReturnValue(new Promise(() => undefined));
+
+    const container = await render(pageOnly("/admin", <AdminConversationsPage />));
+
+    expect(container.textContent).not.toContain("You do not have permission");
+    expect(container.textContent).toContain("Checking your permissions");
+  });
+
+  it("refuses the widget configuration form, and does not load the site's config", async () => {
+    grants(["conversation:read"]);
+
+    const container = await render(pageOnly("/settings/widget", <WidgetConfigPage />));
+
+    expect(container.textContent).toContain("You do not have permission to configure this site");
+    expect(container.querySelector("form")).toBeNull();
+    expect(widgetConfigApi.fetchWidgetConfig).not.toHaveBeenCalled();
+  });
+
+  it("renders the widget configuration form for an operator who holds the permission", async () => {
+    grants(["site:configure"]);
+
+    const container = await render(pageOnly("/settings/widget", <WidgetConfigPage />));
+
+    expect(container.textContent).not.toContain("You do not have permission");
+    expect(widgetConfigApi.fetchWidgetConfig).toHaveBeenCalledWith("token", SITE_ID);
+    expect(byText(container, "button", "Save")).not.toBeNull();
+  });
+});
