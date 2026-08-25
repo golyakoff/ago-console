@@ -25,6 +25,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Added 2026-08-25: this step was missing while ago-widget's otherwise-identical workflow had
+      # it, so every test in this repository was unenforced on every PR - an omission rather than a
+      # decision, found while reviewing 8-06.
+      - name: Test
+        run: npm test
+
       # No real deployment target for this portfolio project (README's own note) - CI proves the
       # build succeeds against placeholder env values, matching ago-widget's own "no real hosted
       # deployment to default to" precedent (build.mjs's own refusal to guess one).
