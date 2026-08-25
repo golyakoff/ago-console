@@ -160,6 +160,40 @@
   color: var(--ago-ink-soft);
 }
 
+/* --- Public-demo notice (`8-06`) -------------------------------------------------------------
+
+   A full-bleed strip between the header and `<main>`, not an `Alert` inside a page. Three reasons:
+   an `Alert` lives in page content, so it would scroll away and would have to be repeated on every
+   screen; it carries a `role` for something that just happened, and this states a permanent fact; and
+   its rounded card shape reads as one more dismissible box. A strip that spans the window and cuts
+   the header off from the page reads as a property of the deployment, which is what it is.
+
+   `--ago-danger`/`--ago-danger-tint` rather than a new colour, so no unmeasured pair enters the
+   palette: `tokens.css` records that pairing at 6.90:1, comfortably past 4.5:1 at this 13px size.
+   Spending the danger colour on something that is not an error is deliberate - the item's own point
+   is that a polite notice is worth less than a blunt one, and this is the loudest thing the palette
+   already contains. `flex: 0 0 auto` keeps it out of the `100dvh` workspace variant's height
+   arithmetic (`.ago-shell--fixed` above): `<main>` absorbs the difference. */
+.ago-demo-notice {
+  flex: 0 0 auto;
+  background: var(--ago-danger-tint);
+  border-bottom: 1px solid var(--ago-danger);
+  color: var(--ago-danger);
+  font-size: var(--ago-text-sm);
+  font-weight: 700;
+  padding: var(--ago-space-2) 0;
+}
+
+/* The gutter lives on the inner block, not on the band, so the sentence starts on exactly the same
+   x as the wordmark above it - `.ago-shell__header-row` caps at `--ago-shell-max` and pads inside
+   that cap, and padding the band instead would leave this one gutter-width to the left of it. */
+.ago-demo-notice__text {
+  display: block;
+  max-width: var(--ago-shell-max);
+  margin: 0 auto;
+  padding: 0 var(--ago-gutter);
+}
+
 /* --- Page frame ----------------------------------------------------------------------------- */
 
 .ago-shell__main {
