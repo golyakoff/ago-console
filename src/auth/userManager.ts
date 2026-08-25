@@ -1,5 +1,6 @@
 import { OidcClient, UserManager, WebStorageStateStore } from "oidc-client-ts";
 import { config } from "../config.js";
+import { registrationUrlFrom } from "./registrationUrl.js";
 
 /**
  * `adr/0023`/`adr/0022`: Authorization Code + PKCE against Keycloak - `ago-console` is a public
@@ -41,8 +42,8 @@ export const userManager = new UserManager({
 });
 
 /**
- * `10-03`/`adr/0027`: redirects to Keycloak's own hosted registration form - the console never
- * collects a password (`adr/0027`'s reasoning, extended one step earlier than login: Keycloak already
+ * `10-03`/`adr/0028`: redirects to Keycloak's own hosted registration form - the console never
+ * collects a password (`adr/0028`'s reasoning, extended one step earlier than login: Keycloak already
  * solved account creation correctly, so this project does not rebuild it). Mechanically this is the
  * *identical* Authorization Code + PKCE request `userManager.signinRedirect()` already builds, just
  * landing on Keycloak's `/registrations` endpoint instead of `/auth` - both accept the same query
@@ -59,15 +60,15 @@ export const userManager = new UserManager({
  * logic (the same `stateStore` instance `signinRedirectCallback()` already reads from on return), so
  * only the destination URL differs. This is the same well-known trick `keycloak-js`'s own `register()`
  * helper uses internally against a vanilla Keycloak realm - not something invented for this project.
+ *
+ * The URL rewrite itself moved into `registrationUrl.ts` and now throws rather than silently
+ * returning the login URL when the authorization endpoint is not where it is expected - that file's
+ * own comment has the failure it prevents. Rejecting is what `SignupPage` renders as a message
+ * instead of a button that appears to do nothing.
  */
 export async function keycloakRegistrationRedirect(): Promise<void> {
   const oidcClient = new OidcClient(userManager.settings, userManager.metadataService);
   const signinRequest = await oidcClient.createSigninRequest({});
 
-  const registrationUrl = signinRequest.url.replace(
-    "/protocol/openid-connect/auth",
-    "/protocol/openid-connect/registrations",
-  );
-
-  window.location.assign(registrationUrl);
+  window.location.assign(registrationUrlFrom(signinRequest.url));
 }

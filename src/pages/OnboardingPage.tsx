@@ -65,6 +65,15 @@ export function OnboardingPage() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    // The disabled button is a *presentation* of this rule, not the rule. A form with a single
+    // text input still submits on Enter, and `10-02`'s endpoint deliberately rejects a second
+    // registration from the same identity with a `409` - so a double submit does not create two
+    // sites, it shows the visitor an error about the site they just successfully created.
+    if (submitting) {
+      return;
+    }
+
     setSubmitError(null);
 
     const error = validate();
@@ -86,6 +95,19 @@ export function OnboardingPage() {
       await registerSite(accessToken, { siteName: siteName.trim(), initialAllowedOrigin: origin });
       void navigate("/", { replace: true });
     } catch (err) {
+      // `Site.AlreadyRegistered` (`10-02`'s one-registration-per-identity `409`) is not a failure
+      // this visitor can act on - it is the server saying "you are already an operator", which is
+      // the *same answer* `resolveOperatorState` reads at the callback and the same destination it
+      // routes to. Reaching this page with a site already registered is an ordinary thing to do
+      // (a bookmarked `/onboarding`, the back button after finishing, a second tab that submitted
+      // first), and parking the caller on an error whose only exit is signing out would be a dead
+      // end built out of a success. Branching on the server's own stable `type` code - never on a
+      // client-side guess about whether an operator row exists.
+      if (err instanceof RegisterSiteError && err.code === "Site.AlreadyRegistered") {
+        void navigate("/", { replace: true });
+        return;
+      }
+
       setSubmitError(err instanceof RegisterSiteError ? err.message : "Failed to set up your site. Please try again.");
     } finally {
       setSubmitting(false);

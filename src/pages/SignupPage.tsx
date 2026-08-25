@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { keycloakRegistrationRedirect } from "../auth/userManager.js";
 import { AppShell, PageHead } from "../shell/AppShell.js";
+import { Alert } from "../components/Alert.js";
 import { Button } from "../components/Button.js";
 
 /**
@@ -19,9 +21,17 @@ import { Button } from "../components/Button.js";
  * framing: "a visitor with no `ago-console` session can reach a public 'Sign up' entry point," not
  * "clicks through from the console's own login redirect."
  *
- * The button itself only ever redirects - no form, no password field, matching `adr/0027`'s decision
+ * The button itself only ever redirects - no form, no password field, matching `adr/0028`'s decision
  * that Keycloak's own hosted registration page owns every field (email, password, confirm password,
  * reCAPTCHA) this console never re-implements.
+ *
+ * **The redirect can fail, and used to fail invisibly.** `keycloakRegistrationRedirect()` fetches
+ * Keycloak's discovery document before it can build the request, and derives the registration URL
+ * from what comes back (`registrationUrl.ts`); either step can reject - Keycloak down, a realm
+ * renamed, an authorization endpoint that has moved. This page fired it as `void` and rendered
+ * nothing either way, so the entire failure mode was "the Sign up button does nothing, forever."
+ * A visitor who cannot start an account is the one person with no way to report that. It is now a
+ * message they can read and repeat.
  *
  * `11-05`: renders `AppShell` directly, with no navigation and no identity block - this route mounts
  * outside `PermissionsProvider`/`OperatorConnectionProvider` (and outside `RequireAuth`), so there is
@@ -30,6 +40,27 @@ import { Button } from "../components/Button.js";
  * `10-03` note above about deferring "a full design pass" is now answered by this item.
  */
 export function SignupPage() {
+  const [redirecting, setRedirecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSignup = async () => {
+    setError(null);
+    setRedirecting(true);
+    try {
+      await keycloakRegistrationRedirect();
+      // No `finally` clearing `redirecting`: on the success path the browser is already leaving for
+      // Keycloak, and re-enabling the button underneath a navigation that is already in flight
+      // invites a second one. It is cleared only where the navigation did not happen.
+    } catch (err) {
+      setRedirecting(false);
+      setError(
+        err instanceof Error
+          ? `Could not open the sign-up page: ${err.message}`
+          : "Could not open the sign-up page. Please try again.",
+      );
+    }
+  };
+
   return (
     <AppShell>
       <PageHead
@@ -40,10 +71,12 @@ export function SignupPage() {
           full-width surface renders as a mostly-empty card - found by looking at the actual rendered
           page rather than at the markup. A panel groups things; one button is not a group. */}
       <div className="ago-row">
-        <Button variant="primary" onClick={() => void keycloakRegistrationRedirect()}>
-          Sign up
+        <Button variant="primary" disabled={redirecting} onClick={() => void handleSignup()}>
+          {redirecting ? "Opening sign-up…" : "Sign up"}
         </Button>
       </div>
+
+      {error && <Alert tone="danger">{error}</Alert>}
     </AppShell>
   );
 }
