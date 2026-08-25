@@ -26,6 +26,13 @@ import { useWorkspace } from "../workspace/workspaceContext.js";
 const PRESENCE_POLL_INTERVAL_MS = 10_000;
 const HISTORY_PAGE_SIZE = 50;
 
+/** `5-15`: how long the newest sequence has to hold still before the conversation is marked read.
+ * Not zero: during a rapid exchange every arriving message would otherwise be its own request, and
+ * marking read one message later is invisible to the operator while a request per message is not.
+ * Not seconds either - an operator who opens a conversation and immediately switches away should
+ * still have cleared it. */
+const MARK_READ_DEBOUNCE_MS = 500;
+
 interface FailedSend {
   clientMessageId: string;
   body: string;
@@ -88,7 +95,7 @@ export function ConversationPage() {
   const { user } = useAuth();
   const { hasPermission, siteId } = usePermissions();
   const { connection, connectionState } = useOperatorConnection();
-  const { conversation, now, timeZone, refreshQueue } = useWorkspace();
+  const { conversation, now, timeZone, refreshQueue, markRead } = useWorkspace();
   const [messages, setMessages] = useState<MessageDto[]>([]);
   const [nextBeforeSequence, setNextBeforeSequence] = useState<number | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -189,6 +196,50 @@ export function ConversationPage() {
     const interval = setInterval(() => void checkPresence(), PRESENCE_POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [connection, conversationId]);
+
+  // `5-15`: whether this tab is actually in front of the operator. The document-title unread count
+  // exists precisely so a *backgrounded* tab still tells the truth (`attention.ts`), so a
+  // conversation left open behind another tab must not go on silently marking itself read - that
+  // would clear the very number the title is there to show.
+  const [tabVisible, setTabVisible] = useState(() => document.visibilityState === "visible");
+  useEffect(() => {
+    const onVisibilityChange = () => setTabVisible(document.visibilityState === "visible");
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, []);
+
+  // `5-15`: the read position this console can honestly claim - the newest message it has actually
+  // rendered. Not `conversation.lastSequence` from the queue row: that is what the *server* has, which
+  // may already be ahead of what is on screen, and claiming it would mute a message the operator
+  // never saw. `Thread` auto-scrolls to the newest arrival whenever the operator is at the bottom
+  // (which they are on open), so "the newest message is loaded" and "the newest message is on screen"
+  // are the same thing here - which is what makes the simple "opening reads it" rule defensible
+  // rather than a stand-in for scroll tracking that does not exist.
+  const newestSequence = messages.reduce<number | null>(
+    (highest, message) => (highest === null || message.sequence > highest ? message.sequence : highest),
+    null,
+  );
+  const lastMarked = useRef<{ conversationId: string; sequence: number } | null>(null);
+
+  useEffect(() => {
+    if (!conversationId || newestSequence === null || !tabVisible) {
+      return;
+    }
+
+    // Already told the server about this exact position - re-sending is a no-op server-side (the
+    // handler skips the write entirely), but there is no reason to spend the round trip.
+    const marked = lastMarked.current;
+    if (marked?.conversationId === conversationId && marked.sequence >= newestSequence) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      lastMarked.current = { conversationId, sequence: newestSequence };
+      markRead(conversationId, newestSequence);
+    }, MARK_READ_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [conversationId, newestSequence, tabVisible, markRead]);
 
   const send = useCallback(
     async (body: string, clientMessageId: string, attachmentId: string | null) => {

@@ -29,6 +29,15 @@ export interface WorkspaceOutletContext {
   /** Re-reads `GET /api/v1/conversations/queue`. The conversation view calls it after a send, so the
    * rail's own row stops looking stale the moment the operator answers. */
   refreshQueue: () => void;
+  /** `5-15`: tells the server the operator has read this conversation up to `upToSequence` - the
+   * newest message actually on screen - and clears the rail's badge for it.
+   *
+   * Lives here rather than in the conversation view because the *badge* is the layout's business
+   * while the *sequence* is only known where the thread is: the view supplies the number, the layout
+   * owns the call and the resulting state. Fire-and-forget by design: a failed mark-read leaves the
+   * count as it was, which is the safe direction to be wrong in, and the next open re-issues it -
+   * there is nothing here worth interrupting an operator about. */
+  markRead: (conversationId: string, upToSequence: number) => void;
 }
 
 export function useWorkspace(): WorkspaceOutletContext {

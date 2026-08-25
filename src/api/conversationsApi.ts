@@ -1,6 +1,13 @@
 import { config } from "../config.js";
 import type { AllConversationsForSiteResponse, OperatorQueueResponse } from "../realtime/protocol/types.js";
 
+/** What `POST /api/v1/conversations/{id}/read` answers with: the conversation's unread state after
+ * the write, so the console never has to guess that it became zero. */
+export interface MarkConversationReadResult {
+  operatorUnreadCount: number;
+  operatorLastReadSequence: number;
+}
+
 /**
  * `5-07`: `GET /api/v1/conversations/queue` (`Ago.Chat.Api.Conversations.ConversationsEndpoints`,
  * an addition this item made to `ago-chat` - see that endpoint's own doc comment for why it exists:
@@ -46,4 +53,37 @@ export async function fetchAllConversationsForSite(
   }
 
   return (await response.json()) as AllConversationsForSiteResponse;
+}
+
+/**
+ * `5-15`: `POST /api/v1/conversations/{id}/read` - the write that finally makes `operatorUnreadCount`
+ * mean "messages you have not read" rather than "messages this conversation has ever received".
+ *
+ * `upToSequence` is the newest message the console actually has on screen, not a "clear it" flag.
+ * That is the whole point of the endpoint's shape: a visitor message arriving in the same instant is
+ * past that sequence, so the server still counts it (see `Conversation.MarkReadByOperator` in
+ * `ago-chat`). Passing something the operator has not seen would quietly mute it.
+ *
+ * REST rather than a hub method even though the console holds an open connection - the endpoint's own
+ * doc comment carries the argument: the failure modes (`403` for a conversation that is not yours,
+ * `409` for a doubly-raced write) are real status codes here and would be indistinguishable strings
+ * over SignalR, and this fires once per open plus a debounced call while one is on screen, which is
+ * nowhere near hot enough to trade that away.
+ */
+export async function markConversationRead(
+  accessToken: string,
+  conversationId: string,
+  upToSequence: number,
+): Promise<MarkConversationReadResult> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/conversations/${conversationId}/read`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ upToSequence }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to mark the conversation read: ${response.status}`);
+  }
+
+  return (await response.json()) as MarkConversationReadResult;
 }

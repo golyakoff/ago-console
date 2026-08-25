@@ -25,43 +25,67 @@ function conversation(
 }
 
 describe("unreadCountFor", () => {
-  it("falls back to the server's count for a conversation this session has never opened", () => {
+  it("uses the server's count as-is when nothing has happened since it was fetched", () => {
+    // `5-15`: this is no longer a "fallback" - the server's number is now the truth, because the
+    // server finally has a way to bring it down.
     const c = conversation("a", { operatorUnreadCount: 3 });
     expect(unreadCountFor(c, {})).toBe(3);
   });
 
-  it("drops the server's count once the operator has actually opened the conversation", () => {
-    // The server's counter is monotonic - nothing in ago-chat ever clears it - so continuing to
-    // trust it after the operator has read the thread is what would make the badge a lie.
+  it("ignores the snapshot's count once a mark-read has succeeded against it", () => {
+    // Opening alone no longer clears the badge - a confirmed server write does. Until the next queue
+    // fetch, the snapshot in hand still carries the pre-clear number, so it is the one ignored.
     const c = conversation("a", { operatorUnreadCount: 12 });
-    const states = applyAttentionEvent({}, { kind: "opened", conversationId: "a" });
+    const states = applyAttentionEvent({}, { kind: "cleared", conversationId: "a" });
 
     expect(unreadCountFor(c, states)).toBe(0);
   });
 
+  it("does not clear the badge on open alone, before the server has confirmed", () => {
+    const c = conversation("a", { operatorUnreadCount: 12 });
+    const states = applyAttentionEvent({}, { kind: "opened", conversationId: "a" });
+
+    expect(unreadCountFor(c, states)).toBe(12);
+  });
+
   it("counts messages that arrive while the operator is looking at a different conversation", () => {
     const c = conversation("a", { operatorUnreadCount: 12 });
-    let states = applyAttentionEvent({}, { kind: "opened", conversationId: "a" });
+    let states = applyAttentionEvent({}, { kind: "cleared", conversationId: "a" });
     states = applyAttentionEvent(states, { kind: "incoming", conversationId: "a" });
     states = applyAttentionEvent(states, { kind: "incoming", conversationId: "a" });
 
     expect(unreadCountFor(c, states)).toBe(2);
   });
 
-  it("adds arrivals on top of the server count for a conversation never opened here", () => {
+  it("adds arrivals on top of the server count for a conversation nothing has happened to here", () => {
     const c = conversation("a", { operatorUnreadCount: 1 });
     const states = applyAttentionEvent({}, { kind: "incoming", conversationId: "a" });
 
     expect(unreadCountFor(c, states)).toBe(2);
   });
 
-  it("clears again when the operator re-opens it", () => {
-    const c = conversation("a", { operatorUnreadCount: 4 });
-    let states = applyAttentionEvent({}, { kind: "opened", conversationId: "a" });
-    states = applyAttentionEvent(states, { kind: "incoming", conversationId: "a" });
-    states = applyAttentionEvent(states, { kind: "opened", conversationId: "a" });
+  it("stops double-counting an arrival once the queue snapshot has caught up with it", () => {
+    // The bug `11-06`'s version had and `5-15` fixes: a locally counted message stayed added on top
+    // of every later snapshot, including the ones that already contained it.
+    const before = conversation("a", { operatorUnreadCount: 1 });
+    const afterPoll = conversation("a", { operatorUnreadCount: 2 });
+    let states = applyAttentionEvent({}, { kind: "incoming", conversationId: "a" });
+    expect(unreadCountFor(before, states)).toBe(2);
 
-    expect(unreadCountFor(c, states)).toBe(0);
+    states = applyAttentionEvent(states, { kind: "refetched" });
+    expect(unreadCountFor(afterPoll, states)).toBe(2);
+  });
+
+  it("stops suppressing a cleared count once the queue snapshot reflects the clear", () => {
+    const stale = conversation("a", { operatorUnreadCount: 5 });
+    const fresh = conversation("a", { operatorUnreadCount: 0 });
+    let states = applyAttentionEvent({}, { kind: "cleared", conversationId: "a" });
+    expect(unreadCountFor(stale, states)).toBe(0);
+
+    states = applyAttentionEvent(states, { kind: "refetched" });
+    expect(unreadCountFor(fresh, states)).toBe(0);
+    // And a message that genuinely arrived after the clear is counted by the server, not hidden.
+    expect(unreadCountFor(conversation("a", { operatorUnreadCount: 1 }), states)).toBe(1);
   });
 });
 
@@ -71,12 +95,11 @@ describe("applyAttentionEvent", () => {
     expect(applyAttentionEvent(states, { kind: "opened", conversationId: "a" })).toBe(states);
   });
 
-  it("does not mark a conversation the operator is already looking at as newly assigned", () => {
-    const states = applyAttentionEvent({}, { kind: "opened", conversationId: "a" });
-    const after = applyAttentionEvent(states, { kind: "assigned", conversationId: "a" });
-
-    expect(isNewlyAssigned(conversation("a"), after)).toBe(false);
-    expect(after).toBe(states);
+  it("returns the identical state object for a redundant clear", () => {
+    // The console re-issues mark-read whenever the newest sequence moves; a repeat for a position
+    // already confirmed must not churn React state.
+    const states = applyAttentionEvent({}, { kind: "cleared", conversationId: "a" });
+    expect(applyAttentionEvent(states, { kind: "cleared", conversationId: "a" })).toBe(states);
   });
 
   it("marks an assignment that arrives for a conversation not on screen", () => {
@@ -90,6 +113,15 @@ describe("applyAttentionEvent", () => {
 
     expect(isNewlyAssigned(conversation("b"), states)).toBe(false);
   });
+
+  it("keeps the new marker across a queue refetch", () => {
+    // A snapshot says nothing about whether the operator has looked at a row, so a refetch is not
+    // evidence against the marker - unlike the two freshness adjustments, which it supersedes.
+    let states: ReadStateMap = applyAttentionEvent({}, { kind: "assigned", conversationId: "b" });
+    states = applyAttentionEvent(states, { kind: "refetched" });
+
+    expect(isNewlyAssigned(conversation("b"), states)).toBe(true);
+  });
 });
 
 describe("totalUnread", () => {
@@ -98,9 +130,9 @@ describe("totalUnread", () => {
     expect(totalUnread(assigned, {})).toBe(5);
   });
 
-  it("respects what has already been read", () => {
+  it("respects a conversation the server has confirmed read", () => {
     const assigned = [conversation("a", { operatorUnreadCount: 2 }), conversation("b", { operatorUnreadCount: 3 })];
-    const states = applyAttentionEvent({}, { kind: "opened", conversationId: "a" });
+    const states = applyAttentionEvent({}, { kind: "cleared", conversationId: "a" });
 
     expect(totalUnread(assigned, states)).toBe(3);
   });
