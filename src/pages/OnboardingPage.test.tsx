@@ -270,28 +270,60 @@ describe("what the server decides", () => {
 
 /**
  * `12-04`: the page the platform owner reaches by bookmark, back button or second tab - because
- * `CallbackPage` no longer sends them here, but nothing stops them arriving.
+ * `CallbackPage` no longer sends them here, but nothing stops them arriving. It withheld the form and
+ * said the server would refuse the submission anyway.
  *
- * What is tested here is that the *button is not offered*, which is a courtesy, not a gate. The gate
- * is `ago-chat`'s own `AuthorizationPolicies.NotThePlatformOwner` on `POST /api/v1/sites`
- * (`SiteRegistrationTests.RegisterSite_WithThePlatformOwnersToken_Is403AndWritesNothing`); this file
- * could not prove that if it wanted to, since it mocks the network away entirely. Both halves exist
- * on purpose and only one of them is authoritative.
+ * `12-05`: **the server does not refuse it any more** (`adr/0063`, "Reversed in 12-05"), so the form
+ * is offered - the owner is allowed to run a tenant of their own. What is asserted here is therefore
+ * the reverse of `12-04`'s assertion, plus the thing that did *not* change: the explanation is still
+ * shown, because arriving here by a stale bookmark is still the likelier reason to be here and the
+ * consequence of pressing the button is still permanent.
+ *
+ * None of this is a gate in either direction. `ago-chat` decides who may register
+ * (`PlatformOwnerAsTenantTests` is where that is proven, with real tokens against the real endpoint);
+ * this file mocks the network away entirely and could not prove it if it wanted to.
  */
 describe("what the platform owner sees here", () => {
   beforeEach(() => {
     ownerApi.probeOwnerEligibility.mockResolvedValue("eligible");
   });
 
-  it("explains why the form does not apply instead of offering it", async () => {
+  it("offers the form, because this identity may now register a site of its own", async () => {
     const container = await render(app());
 
-    expect(container.textContent).toContain("Registration is for tenants, not for the platform owner");
-    expect(container.querySelector("form")).toBeNull();
-    expect(byText(container, "button", "Finish setup")).toBeNull();
+    expect(container.querySelector("form")).not.toBeNull();
+    expect(byText(container, "button", "Finish setup")).not.toBeNull();
   });
 
-  it("offers the view this identity actually has, rather than a dead end", async () => {
+  it("still says which account this is, and what registering will do to it", async () => {
+    const container = await render(app());
+
+    expect(container.textContent).toContain("You are signed in as the platform owner");
+    // The sentence `12-04` could not have written, and the one that carries the whole reversal:
+    // registering is now something this identity *may* do, described by its consequence rather than
+    // by a refusal. Asserted in full for that reason - a shorter fragment would also match the text
+    // this replaced, which said the product could not take the operator row back either.
+    expect(container.textContent).toContain(
+      "Registering below additionally makes this account an operator of a new site of its own",
+    );
+  });
+
+  it("registers the site for the owner exactly as it does for anybody else", async () => {
+    // The behavioural half: not merely that the button is drawn, but that pressing it takes the same
+    // path with the same token and lands in the same place.
+    const container = await render(app());
+
+    await fill(container, "Owner's own shop", "https://owner-shop.example.com");
+    await submit(container);
+
+    expect(sitesApi.registerSite).toHaveBeenCalledWith("keycloak-token", {
+      siteName: "Owner's own shop",
+      initialAllowedOrigin: "https://owner-shop.example.com",
+    });
+    expect(container.textContent).toContain("the queue");
+  });
+
+  it("offers the view this identity actually has, rather than only the form", async () => {
     const container = await render(app());
 
     const onward = byText<HTMLAnchorElement>(container, "a", "Go to the platform operations view");
@@ -303,12 +335,13 @@ describe("what the platform owner sees here", () => {
     // Deliberate, and the opposite trade to `CallbackPage`'s spinner. This page's common reader is a
     // real self-registering shop; gating its form on a probe that exists for one person on the whole
     // deployment would strand that reader on a spinner every time `GET /api/v1/owner/sites` is slow
-    // or down. The glimpse is safe because the server refuses the submission independently.
+    // or down. Since `12-05` the cost of an unanswered probe is smaller still: a missing paragraph,
+    // not a hidden form.
     ownerApi.probeOwnerEligibility.mockReturnValue(new Promise(() => undefined));
 
     const container = await render(app());
 
     expect(container.querySelector("form")).not.toBeNull();
-    expect(container.textContent).not.toContain("Registration is for tenants");
+    expect(container.textContent).not.toContain("You are signed in as the platform owner");
   });
 });

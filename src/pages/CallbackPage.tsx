@@ -53,9 +53,19 @@ import { Spinner } from "../components/Spinner.js";
  * routing decision now uses the same probe `useOwnerEligibility` already made for the navigation link.
  *
  * **Its failure direction is `/onboarding`, not an error.** A probe that cannot answer leaves state
- * (b) exactly where it was before this item, which is the common case by an enormous margin. The
- * cost of being wrong that way is a form the server now refuses (`AuthorizationPolicies.
- * NotThePlatformOwner`) and a page that says why (`OnboardingPage`) - not a committed row.
+ * (b) exactly where it was before this item, which is the common case by an enormous margin.
+ *
+ * `12-05`: that last paragraph used to end "the cost of being wrong that way is a form the server now
+ * refuses". The server no longer refuses it - `adr/0063`'s "Reversed in 12-05" - so the cost is now a
+ * usable registration form shown to a platform owner who did not ask for one. That is a smaller cost
+ * than it sounds and the reason this item could relax the refusal at all: the form takes a site name
+ * and an embed origin and a deliberate press of "Finish setup", which is not something anybody does
+ * by accident, and `OnboardingPage` names the consequence in the owner's case before they do.
+ *
+ * **Nothing else about (d) changed.** In particular the precedence is untouched: an owner who is
+ * *also* an operator still lands in their queue, with "Platform sites" one click away - which is now
+ * a state a person can actually reach by registering a site, rather than only by the realm being
+ * hand-edited.
  */
 /**
  * `12-04`: the second question, asked only once `GET /api/v1/operators/me` has already answered "no
