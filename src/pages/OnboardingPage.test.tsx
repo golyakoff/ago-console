@@ -5,7 +5,7 @@ import type { User } from "oidc-client-ts";
 import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { RegisterSiteError } from "../api/sitesApi.js";
 import { OnboardingPage } from "./OnboardingPage.js";
-import { interact, one, render, unmount } from "../testing/dom.js";
+import { byText, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
  * `10-03`: the one-time detour a self-registered identity takes before joining the same queue every
@@ -33,6 +33,9 @@ vi.mock("../config.js", () => ({
 }));
 
 const sitesApi = vi.hoisted(() => ({ registerSite: vi.fn() }));
+const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn(), fetchOwnerSites: vi.fn() }));
+
+vi.mock("../api/ownerApi.js", () => ownerApi);
 
 vi.mock("../api/sitesApi.js", async () => {
   // `RegisterSiteError` is a real class the page does `instanceof` against, so the module keeps its
@@ -62,6 +65,7 @@ function app() {
         <Routes>
           <Route path="/onboarding" element={<OnboardingPage />} />
           <Route path="/" element={<p>the queue</p>} />
+          <Route path="/owner" element={<p>platform sites</p>} />
         </Routes>
       </Signed>
     </MemoryRouter>
@@ -91,6 +95,8 @@ function submit(container: HTMLElement): Promise<void> {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // `12-04`: the answer for everybody this page is actually for. The owner case sets its own.
+  ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
   sitesApi.registerSite.mockResolvedValue({
     siteId: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
     operatorId: "ffffffff-ffff-ffff-ffff-ffffffffffff",
@@ -232,6 +238,18 @@ describe("what the server decides", () => {
     expect(container.textContent).not.toContain("the queue");
   });
 
+  it("is unaffected by the owner probe answering no, which is the ordinary case", async () => {
+    // The pre-`12-04` behaviour, pinned: the probe is a new request this page makes on mount, and a
+    // "no" from it must leave the registration path exactly as it was.
+    const container = await render(app());
+
+    await fill(container, "Kim's shop", "https://shop.example.com");
+    await submit(container);
+
+    expect(sitesApi.registerSite).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toContain("the queue");
+  });
+
   it("lets the visitor try again after a refusal", async () => {
     sitesApi.registerSite.mockRejectedValueOnce(
       new RegisterSiteError("Site.InvalidName", "Site name must be at most 100 characters."),
@@ -247,5 +265,50 @@ describe("what the server decides", () => {
 
     expect(sitesApi.registerSite).toHaveBeenCalledTimes(2);
     expect(container.textContent).toContain("the queue");
+  });
+});
+
+/**
+ * `12-04`: the page the platform owner reaches by bookmark, back button or second tab - because
+ * `CallbackPage` no longer sends them here, but nothing stops them arriving.
+ *
+ * What is tested here is that the *button is not offered*, which is a courtesy, not a gate. The gate
+ * is `ago-chat`'s own `AuthorizationPolicies.NotThePlatformOwner` on `POST /api/v1/sites`
+ * (`SiteRegistrationTests.RegisterSite_WithThePlatformOwnersToken_Is403AndWritesNothing`); this file
+ * could not prove that if it wanted to, since it mocks the network away entirely. Both halves exist
+ * on purpose and only one of them is authoritative.
+ */
+describe("what the platform owner sees here", () => {
+  beforeEach(() => {
+    ownerApi.probeOwnerEligibility.mockResolvedValue("eligible");
+  });
+
+  it("explains why the form does not apply instead of offering it", async () => {
+    const container = await render(app());
+
+    expect(container.textContent).toContain("Registration is for tenants, not for the platform owner");
+    expect(container.querySelector("form")).toBeNull();
+    expect(byText(container, "button", "Finish setup")).toBeNull();
+  });
+
+  it("offers the view this identity actually has, rather than a dead end", async () => {
+    const container = await render(app());
+
+    const onward = byText<HTMLAnchorElement>(container, "a", "Go to the platform operations view");
+    expect(onward).not.toBeNull();
+    expect(onward?.getAttribute("href")).toBe("/owner");
+  });
+
+  it("shows the form until the server has answered, rather than blocking on the probe", async () => {
+    // Deliberate, and the opposite trade to `CallbackPage`'s spinner. This page's common reader is a
+    // real self-registering shop; gating its form on a probe that exists for one person on the whole
+    // deployment would strand that reader on a spinner every time `GET /api/v1/owner/sites` is slow
+    // or down. The glimpse is safe because the server refuses the submission independently.
+    ownerApi.probeOwnerEligibility.mockReturnValue(new Promise(() => undefined));
+
+    const container = await render(app());
+
+    expect(container.querySelector("form")).not.toBeNull();
+    expect(container.textContent).not.toContain("Registration is for tenants");
   });
 });

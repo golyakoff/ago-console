@@ -19,6 +19,24 @@ import { probeOwnerEligibility, type OwnerEligibility } from "../api/ownerApi.js
  * Mounted from `OperatorShell`, which is the layout route's element and therefore mounts once for
  * the whole session rather than once per page - so this is one extra request per sign-in, not one
  * per navigation.
+ *
+ * `12-04` gave it a second mount and a second job, and both are worth being precise about because
+ * the paragraph above stops being literally true:
+ *
+ * - `OnboardingPage` mounts it too. That route is outside the operator layout entirely (`App.tsx`),
+ *   so this is a *different* session-scoped mount, not a second one inside the first - a browser only
+ *   ever renders one of the two. The hook needs nothing but `useAuth`, which is what makes it legal
+ *   on a route with no `PermissionsProvider` around it.
+ * - Both shells now also feed the answer to `AppShell`'s `demoNoticeAudience`, so the `8-06` demo
+ *   strip stops telling the platform owner that their own login is published. Still UI-only, still
+ *   failing closed the same way: "unknown" and "ineligible" both produce the stricter wording.
+ *
+ * What did **not** happen is this hook growing a routing responsibility. `CallbackPage` calls
+ * `probeOwnerEligibility` directly instead, because at that moment there is no rendered session to
+ * hang a hook's lifetime on - it is deciding *where to send the browser*, inside the same promise
+ * chain that just exchanged the authorization code, and a hook's answer arrives one render too late
+ * to be part of that decision. Same server question, same function; two callers with genuinely
+ * different shapes.
  */
 export function useOwnerEligibility(): OwnerEligibility {
   const { user } = useAuth();

@@ -4,6 +4,17 @@ import { Button } from "../components/Button.js";
 import { config } from "../config.js";
 
 /**
+ * `12-04`: who the notice below is talking to. Two values, because the demo console has exactly two
+ * kinds of signed-in reader and one sentence that is true of only one of them.
+ *
+ * `"shared-login"` is the default everywhere, and that direction is the safe one on purpose: it is
+ * the stricter notice, so a caller that forgets to pass this - or a new route added later that never
+ * learns about it - understates nothing. The value is only ever narrowed by a caller that has the
+ * server's own answer in hand.
+ */
+export type DemoNoticeAudience = "shared-login" | "platform-owner";
+
+/**
  * `8-06`. The standing statement that this console is the public demo one, rendered by both shells
  * directly under the header - so it is on the sign-in screen, on the OIDC callback, and on every
  * operator screen afterwards.
@@ -24,8 +35,21 @@ import { config } from "../config.js";
  * property that lets `AppShell` serve `/signup` and `/callback` changes. The alternative, a prop,
  * would have to be passed correctly by every one of the shells' call sites for the notice to appear,
  * and a disclosure that goes missing when someone adds a route is worse than one this component owns.
+ *
+ * **`12-04`: *whether* it appears still reads `config`; *what it says* now takes a
+ * `DemoNoticeAudience` prop.** Those are different questions and the argument above only
+ * settles the first. "Its login is published on the demo pages, so anyone can sign in here" is false
+ * of the platform owner's account - that login is published nowhere and is held by one person - and a
+ * standing disclosure that is verifiably false to its reader is worth less than no disclosure,
+ * because it teaches them the strip is boilerplate. `8-11` made the widget's own notice follow the
+ * tenant rather than the page for the same reason, and an identity is the same kind of fact as a
+ * tenant here.
+ *
+ * The prop's failure mode is the inverse of the one the paragraph above rejects: forgetting to pass
+ * it shows the *stricter* text, never nothing at all. What no variant drops is the part that is true
+ * for every reader - the conversations are strangers', and nothing real should be typed here.
  */
-function PublicDemoNotice() {
+function PublicDemoNotice({ audience }: { audience: DemoNoticeAudience }) {
   if (!config.isPublicDemo) {
     return null;
   }
@@ -36,9 +60,20 @@ function PublicDemoNotice() {
           `--ago-shell-max` measure as the header row above, so it starts on the brand's own left
           edge instead of running the whole width of a 1440px monitor. */}
       <span className="ago-demo-notice__text">
-        This is a public demo console. Its login is published on the demo pages, so anyone can sign
-        in here - every conversation in it was typed by a stranger, who was told you can read it. Do
-        not type anything real.
+        {audience === "platform-owner" ? (
+          <>
+            This is a public demo console. You are signed in as the platform owner - your own login is
+            published nowhere, but the demo operator login is, so anyone can sign in here as one. Every
+            conversation in it was typed by a stranger, who was told an operator can read it. Do not
+            type anything real.
+          </>
+        ) : (
+          <>
+            This is a public demo console. Its login is published on the demo pages, so anyone can sign
+            in here - every conversation in it was typed by a stranger, who was told you can read it. Do
+            not type anything real.
+          </>
+        )}
       </span>
     </div>
   );
@@ -70,6 +105,14 @@ export interface AppShellProps {
    * is past the readable measure, which is why the cap exists at all.
    */
   wide?: boolean;
+  /**
+   * `12-04`: who the `8-06` demo strip is addressing, when this build is the public demo one. Passed
+   * only by the callers that hold the server's own answer about this identity - `OperatorShell` and
+   * `OnboardingPage` (from `useOwnerEligibility`) and `OwnerSitesPage` (from its own accepted
+   * request). Everything else omits it and gets the stricter shared-login wording, which is the
+   * correct thing to say to a reader nobody has established anything about.
+   */
+  demoNoticeAudience?: DemoNoticeAudience;
   children: ReactNode;
 }
 
@@ -87,7 +130,13 @@ export interface AppShellProps {
  * all from an accessibility standpoint: before this, every screen was a bare `<div>` and a
  * keyboard user had no way past the navigation.
  */
-export function AppShell({ nav, identity, wide = false, children }: AppShellProps) {
+export function AppShell({
+  nav,
+  identity,
+  wide = false,
+  demoNoticeAudience = "shared-login",
+  children,
+}: AppShellProps) {
   return (
     <div className={wide ? "ago-shell ago-shell--fixed" : "ago-shell"}>
       <a className="ago-skip-link" href="#ago-main">
@@ -126,7 +175,7 @@ export function AppShell({ nav, identity, wide = false, children }: AppShellProp
         </div>
       </header>
 
-      <PublicDemoNotice />
+      <PublicDemoNotice audience={demoNoticeAudience} />
 
       <main className={wide ? "ago-shell__main ago-shell__main--wide" : "ago-shell__main"} id="ago-main">
         {children}
@@ -198,6 +247,11 @@ export function PageHead({ title, description, aside }: PageHeadProps) {
 /**
  * A shell whose whole content is one centred message - the sign-in redirect, the OIDC callback, and
  * anything else with nothing to lay out. Also part of the frame rather than of the eleven.
+ *
+ * `12-04`: takes no `demoNoticeAudience`, deliberately. Every screen this renders is a screen where
+ * nothing has been established about the reader yet - `CallbackPage` is literally the place where the
+ * question is still being asked - so there is no answer to narrow the notice with, and the default is
+ * both the honest and the stricter thing to say for the second or two it is on screen.
  */
 export function CenteredShell({ children }: { children: ReactNode }) {
   return (
@@ -215,7 +269,7 @@ export function CenteredShell({ children }: { children: ReactNode }) {
           </span>
         </div>
       </header>
-      <PublicDemoNotice />
+      <PublicDemoNotice audience="shared-login" />
       <main className="ago-shell__centered" id="ago-main">
         {children}
       </main>
