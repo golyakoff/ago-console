@@ -127,7 +127,12 @@ describe("the operator navigation", () => {
 
     const container = await render(shellAt("/"));
 
-    expect(navLabels(container)).toEqual(["Conversations", "All conversations", "Widget appearance"]);
+    expect(navLabels(container)).toEqual([
+      "Conversations",
+      "All conversations",
+      "Widget appearance",
+      "Offline auto-reply",
+    ]);
   });
 
   it("offers nothing gated while the answer is still in flight", async () => {
@@ -186,6 +191,7 @@ describe("the operator navigation", () => {
       "Conversations",
       "All conversations",
       "Widget appearance",
+      "Offline auto-reply",
       "Platform sites",
     ]);
   });

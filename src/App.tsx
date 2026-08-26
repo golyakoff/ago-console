@@ -11,6 +11,7 @@ import { NoConversationSelected } from "./workspace/NoConversationSelected.js";
 import { ConversationPage } from "./pages/ConversationPage.js";
 import { AdminConversationsPage } from "./pages/AdminConversationsPage.js";
 import { WidgetConfigPage } from "./pages/WidgetConfigPage.js";
+import { OfflineAutoReplyPage } from "./pages/OfflineAutoReplyPage.js";
 import { OwnerSitesPage } from "./owner/OwnerSitesPage.js";
 
 /**
@@ -121,6 +122,9 @@ export function App() {
         </Route>
         <Route path="/admin" element={<AdminConversationsPage />} />
         <Route path="/settings/widget" element={<WidgetConfigPage />} />
+        {/* `14-04`: a second settings screen on the identical pattern - `OfflineAutoReplyPage` gates
+            itself on `site:configure` internally, exactly like the two routes above it. */}
+        <Route path="/settings/auto-reply" element={<OfflineAutoReplyPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -42,6 +42,8 @@ export function OperatorShell() {
   if (hasPermission("site:configure")) {
     nav.push({ to: "/admin", label: "All conversations" });
     nav.push({ to: "/settings/widget", label: "Widget appearance" });
+    // `14-04`: same permission, same place - one more tenant self-service setting.
+    nav.push({ to: "/settings/auto-reply", label: "Offline auto-reply" });
   }
 
   // `12-03`: the platform owner's own route, for the one identity on the deployment that holds it.
