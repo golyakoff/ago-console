@@ -40,6 +40,9 @@ const signalr = vi.hoisted(() => {
     args: unknown[];
   }
 
+  /** `5-18`: set by a test before the provider mounts; every hub built after it is refused. */
+  const refuseNextStart: { error: Error | null } = { error: null };
+
   class FakeHubConnection {
     state: string = HubConnectionState.Disconnected;
     readonly invocations: Invocation[] = [];
@@ -70,7 +73,16 @@ const signalr = vi.hoisted(() => {
       this.closeCallbacks.push(callback);
     }
 
+    /** `5-18`: settable so a test can reproduce the server refusing the connection - which is what
+     * `OperatorHub.OnConnectedAsync`'s abort looked like from here. */
+    startRejectsWith: Error | null = null;
+
     start(): Promise<void> {
+      if (this.startRejectsWith !== null) {
+        this.state = HubConnectionState.Disconnected;
+        return Promise.reject(this.startRejectsWith);
+      }
+
       this.state = HubConnectionState.Connected;
       return Promise.resolve();
     }
@@ -133,12 +145,15 @@ const signalr = vi.hoisted(() => {
 
     build(): FakeHubConnection {
       const hub = new FakeHubConnection(this.accessTokenFactory);
+      // `5-18`: a connection the server will refuse has to be refusable *before* it is built - the
+      // provider starts it in the same effect that creates it, so a test cannot reach in afterwards.
+      hub.startRejectsWith = refuseNextStart.error;
       hubs.push(hub);
       return hub;
     }
   }
 
-  return { hubs, HubConnectionState, LogLevel, HubConnectionBuilder };
+  return { hubs, HubConnectionState, LogLevel, HubConnectionBuilder, refuseNextStart };
 });
 
 vi.mock("@microsoft/signalr", () => ({
@@ -346,5 +361,38 @@ describe("OperatorConnection's subscription record", () => {
     await connection.start();
 
     expect(hub.invocationsOf("JoinConversationAsync")).toHaveLength(1);
+  });
+});
+
+/**
+ * `5-18`: what the console does when the server refuses the connection.
+ *
+ * The live failure this covers: `OperatorHub` aborted every operator's connection immediately after a
+ * successful SignalR handshake, and the console showed "Offline" with **nothing else anywhere** - no
+ * failed request in the network tab, no error in the browser console. SignalR itself logged nothing
+ * because a server-side abort is a *clean* close, and this provider's own `catch` discarded the only
+ * remaining evidence. Diagnosing it took hours that one log line would have saved.
+ */
+describe("a hub connection the server refuses", () => {
+  it("logs the reason instead of swallowing it", async () => {
+    const logged: string[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => {
+      logged.push(args.map(String).join(" "));
+    };
+    signalr.refuseNextStart.error = new Error("The connection was stopped during negotiation.");
+
+    try {
+      await render(<Harness accessToken="token-1" onMessage={() => undefined} />);
+      await act(async () => {
+        await flush();
+      });
+    } finally {
+      console.error = original;
+      signalr.refuseNextStart.error = null;
+    }
+
+    // Before `5-18` this was empty for exactly the failure that took the product down.
+    expect(logged.some((line) => line.includes("Operator hub connection failed to start"))).toBe(true);
   });
 });
