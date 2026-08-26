@@ -97,7 +97,17 @@ export function OperatorConnectionProvider({ children }: { children: ReactNode }
     // it (`linkStatus.ts`). The reconnect itself is still SignalR's own - this is the operator
     // finding out *why* their connection is about to blink, not a second reconnect mechanism.
     connection.onReconnectHint(() => setServerDraining(true));
-    connection.start().catch(() => setConnectionState("disconnected"));
+    connection.start().catch((error: unknown) => {
+      // `5-18`: logged, not swallowed. This `catch` used to discard the error and set the badge to
+      // "disconnected", which is how a total outage - every operator connection aborted by the server
+      // straight after a successful handshake - produced a console with **nothing at all** in it: no
+      // failed request, no error, just the word "Offline". The server's close was clean, so SignalR
+      // logged nothing either; this line was the only place the reason could have surfaced and it
+      // threw it away. `configureLogging(Warning)` in `operatorConnection.ts` keeps SignalR's own
+      // errors, and this keeps the one it does not raise.
+      console.error("Operator hub connection failed to start", error);
+      setConnectionState("disconnected");
+    });
 
     // Deliberately no `connection.stop()` here. This provider sits at the layout-route level
     // specifically so it survives every in-app navigation between QueuePage and ConversationPage

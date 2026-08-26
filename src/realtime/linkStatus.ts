@@ -78,7 +78,7 @@ const STATUSES: Record<LinkState, Omit<LinkStatus, "state">> = {
     tone: "danger",
     label: "Offline",
     detail:
-      "Not connected to the operator hub. Messages you send will fail until the connection returns; reload if this persists.",
+      "Not connected to the operator hub. Messages you send will fail until the connection returns. Reloading rarely helps - if this persists, the browser console carries the reason the connection was refused (5-18).",
     healthy: false,
   },
 };
