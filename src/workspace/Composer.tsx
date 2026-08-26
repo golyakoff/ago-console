@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type DragEvent,
+  type KeyboardEvent,
+  type RefObject,
+} from "react";
 import { Button } from "../components/Button.js";
 import { Textarea } from "../components/Textarea.js";
 import { Alert } from "../components/Alert.js";
@@ -15,6 +23,11 @@ export interface ComposerProps {
   pendingAttachment: { fileName: string } | null;
   uploadProgress: { fileName: string; percent: number } | null;
   uploadError: string | null;
+  /** `18-05`: optional, and supplied by the workspace so its `C` shortcut can focus this textarea.
+   * Optional rather than required because this component's own tests mount it with props alone and
+   * have no workspace to get one from - and because a composer that cannot be focused from a
+   * keyboard shortcut is still a working composer. */
+  inputRef?: RefObject<HTMLTextAreaElement | null>;
 }
 
 /** How tall the textarea is allowed to grow before it starts scrolling instead. Eight lines is about
@@ -65,8 +78,14 @@ export function Composer({
   pendingAttachment,
   uploadProgress,
   uploadError,
+  inputRef,
 }: ComposerProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // One ref object, either the caller's or this component's own. Not two refs kept in sync: the
+  // auto-grow effect below and the workspace's focus shortcut have to be looking at the same
+  // element, and "assign to both on every render" is one forgotten branch away from focusing a
+  // textarea that is no longer mounted.
+  const ownRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = inputRef ?? ownRef;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [tooManyFiles, setTooManyFiles] = useState(false);
@@ -82,7 +101,10 @@ export function Composer({
 
     element.style.height = "auto";
     element.style.height = `${Math.min(element.scrollHeight, MAX_COMPOSER_HEIGHT_PX)}px`;
-  }, [draft]);
+    // `textareaRef` is in the list because `18-05` made it a prop: it is now a value that can change
+    // identity between renders, which the previous `[draft]` alone would have missed. In practice
+    // the caller passes a stable ref, so this re-runs exactly as often as it did before.
+  }, [draft, textareaRef]);
 
   const canSend = draft.trim().length > 0;
 

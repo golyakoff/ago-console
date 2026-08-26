@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Outlet, useMatch } from "react-router-dom";
+import { Outlet, useMatch, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { useOperatorConnection } from "../realtime/OperatorConnectionContext.js";
 import { ConnectionStateBadge } from "../realtime/ConnectionStateBadge.js";
@@ -7,9 +7,16 @@ import { linkStatusOf } from "../realtime/linkStatus.js";
 import { fetchOperatorQueue, markConversationRead } from "../api/conversationsApi.js";
 import type { OperatorQueueResponse } from "../realtime/protocol/types.js";
 import { Alert } from "../components/Alert.js";
+import { Button } from "../components/Button.js";
+import { Dialog } from "../components/Dialog.js";
 import { resolveTimeZone } from "../time/format.js";
 import { ConversationList } from "./ConversationList.js";
-import { applyAttentionEvent, documentTitleFor, totalUnread, type ReadStateMap } from "./attention.js";
+import { applyAttentionEvent, documentTitleFor, oldestFirst, totalUnread, type ReadStateMap } from "./attention.js";
+import { AlertSettings } from "./AlertSettings.js";
+import { ShortcutsDialog } from "./ShortcutsDialog.js";
+import { conversationAfter } from "./shortcuts.js";
+import { useAlerts } from "./useAlerts.js";
+import { useShortcuts } from "./useShortcuts.js";
 import { useNow } from "./useNow.js";
 import type { WorkspaceOutletContext } from "./workspaceContext.js";
 
@@ -76,16 +83,23 @@ const BASE_DOCUMENT_TITLE = "AGO Chat operator console";
  * exist. Deliberate but non-interrupting is the middle the item asks for: the system decides *who*
  * (`4-02` owns that, and this item changes nothing about it), the operator decides *when*.
  *
- * Desktop notifications and sound - the loudest versions of the same idea - are named in the item's
- * own Out of scope list and are not here.
+ * Desktop notifications and sound - the loudest versions of the same idea - were named in `11-06`'s
+ * own Out of scope list and arrived in `18-05`, along with the keyboard shortcuts the same list
+ * deferred. Both extend the model above rather than replacing it: the badge, the count, the title and
+ * the live region are unchanged, and what `18-05` adds is the same information reaching an operator
+ * who is not looking at this screen. `alerts.ts` owns the rule for when that is true; `shortcuts.ts`
+ * owns the keyboard catalogue. Neither is decided in this file - what is here is the wiring.
  */
 export function WorkspaceLayout() {
   const { user } = useAuth();
   const { connection, connectionState, serverDraining } = useOperatorConnection();
+  const navigate = useNavigate();
   const [queue, setQueue] = useState<OperatorQueueResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attention, setAttention] = useState<ReadStateMap>({});
   const [announcement, setAnnouncement] = useState<string | null>(null);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [alertsOpen, setAlertsOpen] = useState(false);
   const now = useNow(ELAPSED_TICK_MS);
 
   // Resolved once per mount rather than per render: the operator's zone does not change while they
@@ -98,6 +112,38 @@ export function WorkspaceLayout() {
   // trap: `onAnyMessage` is a single-listener setter, so a stale closure would be the one running).
   const openConversationIdRef = useRef<string | null>(openConversationId);
   openConversationIdRef.current = openConversationId;
+
+  // `18-05`. The composer lives in the outlet (`ConversationPage` -> `Composer`), and the `C`
+  // shortcut lives here - so the layout owns the ref and hands it down through the context it
+  // already uses for the parent-to-outlet direction. The alternative, a `document.querySelector`
+  // from the shortcut handler, would work and would make the layout depend on a class name in a
+  // component it does not own.
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // The queue as the rail draws it, which is the order `J`/`K` have to walk: any other order would
+  // move the selection somewhere the operator's eye is not.
+  const assignedOrder = useMemo(
+    () => (queue === null ? [] : oldestFirst(queue.assignedToMe).map((c) => c.conversationId)),
+    [queue],
+  );
+  const assignedOrderRef = useRef<readonly string[]>(assignedOrder);
+  assignedOrderRef.current = assignedOrder;
+
+  const queueRef = useRef<OperatorQueueResponse | null>(queue);
+  queueRef.current = queue;
+
+  const alerts = useAlerts({
+    openConversationId,
+    onOpenConversation: (conversationId) => void navigate(`/conversations/${conversationId}`),
+  });
+
+  // Destructured, and the two hub effects below depend on *this* rather than on `alerts`. `fire` is
+  // stable for the life of the component; the object around it is not, because it also carries the
+  // settings and the permission, which change when the operator flips a switch. Depending on the
+  // object would re-run both effects on every settings change - and, more to the point, would put a
+  // value that changes identity into the dependency list of an effect whose whole design (see the
+  // `openConversationIdRef` note above) is that it installs its handlers exactly once.
+  const { fire } = alerts;
 
   const refreshQueue = useCallback(() => {
     if (!user?.access_token) {
@@ -155,9 +201,20 @@ export function WorkspaceLayout() {
       }
 
       setAnnouncement("A new conversation was assigned to you.");
+
+      // `18-05`. Called unconditionally: whether anything is actually loud is `decideAlert`'s
+      // decision, not this call site's, and duplicating the "is the operator looking at it" rule
+      // here is how the two would eventually disagree.
+      //
+      // No visitor id, and that is the DTO rather than an omission - `ConversationAssignedDto`
+      // carries the conversation, the operator and the time, and the queue row that knows the
+      // visitor has not been fetched yet. `alertTextFor` renders "A visitor" for this case rather
+      // than delaying the notification until after a round trip.
+      fire("assigned", dto.conversationId, null);
+
       refreshQueue();
     });
-  }, [connection, refreshQueue]);
+  }, [connection, refreshQueue, fire]);
 
   // `11-06`'s addition to `OperatorConnection`: every message push, for every conversation this
   // operator is assigned - not only the one on screen. Without it the console cannot know that a
@@ -177,8 +234,49 @@ export function WorkspaceLayout() {
       }
 
       setAttention((prev) => applyAttentionEvent(prev, { kind: "incoming", conversationId }));
+
+      // `18-05`, and a deliberate widening of what the item literally asked for. Its Scope names
+      // "desktop notifications for a newly assigned conversation"; its Goal is that an operator
+      // "finds out that a new one arrived without watching the tab". Notifying only on assignment
+      // would make the loudest signal in the console fire for the *least* urgent event - a
+      // conversation nobody is waiting on yet - and stay silent when a visitor who has already been
+      // answered replies. The suppression rule is identical for both, so this adds a trigger, not a
+      // second idea of what needs attention.
+      //
+      // Note the early return above: a message for the conversation on screen never reaches here at
+      // all. `decideAlert` would refuse it anyway, and the redundancy is `11-06`'s, not new.
+      const visitorId =
+        queueRef.current?.assignedToMe.find((c) => c.conversationId === conversationId)?.visitorId ?? null;
+      fire("message", conversationId, visitorId);
     });
-  }, [connection]);
+  }, [connection, fire]);
+
+  // `18-05`: the keyboard. Every handler here is one line of navigation or one line of state - the
+  // decisions (which key, whether the target is a text field, where J and K land) are `shortcuts.ts`
+  // and are unit-tested without a DOM.
+  useShortcuts({
+    nextConversation: () => {
+      const next = conversationAfter(assignedOrderRef.current, openConversationIdRef.current, 1);
+      if (next !== null) {
+        void navigate(`/conversations/${next}`);
+      }
+    },
+    previousConversation: () => {
+      const previous = conversationAfter(assignedOrderRef.current, openConversationIdRef.current, -1);
+      if (previous !== null) {
+        void navigate(`/conversations/${previous}`);
+      }
+    },
+    focusComposer: () => composerRef.current?.focus(),
+    closeThread: () => {
+      // Only when there is a thread to close. Escape on the empty workspace must not navigate to the
+      // route it is already on and push a history entry for it.
+      if (openConversationIdRef.current !== null) {
+        void navigate("/");
+      }
+    },
+    showHelp: () => setShortcutsOpen(true),
+  });
 
   // The announcement is an announcement, not a nag: it retires itself after a while, while the
   // `New` badge on the row stays until the conversation is actually opened. A banner that never
@@ -221,7 +319,7 @@ export function WorkspaceLayout() {
     null;
 
   const outletContext: WorkspaceOutletContext = useMemo(
-    () => ({ conversation, now, timeZone, refreshQueue, markRead }),
+    () => ({ conversation, now, timeZone, refreshQueue, markRead, composerRef }),
     [conversation, now, timeZone, refreshQueue, markRead],
   );
 
@@ -235,6 +333,24 @@ export function WorkspaceLayout() {
         <div className="ago-workspace__rail-head">
           <span className="ago-workspace__rail-title">Conversations</span>
           <ConnectionStateBadge state={connectionState} serverDraining={serverDraining} />
+        </div>
+
+        {/* `18-05`. Two buttons rather than a preferences page, and they live in the rail rather
+            than in the shell header for a reason worth stating: both are properties of *this
+            screen* - which conversation the keys move between, and what happens when one of them
+            needs the operator. A shell-level settings page would also put them next to the
+            site-wide settings, which they are not: these are this operator's, in this browser, and
+            nothing about them reaches the server or another operator.
+
+            The Shortcuts button is what makes `?` discoverable to somebody who has never pressed
+            `?`, which is the point the item's own wording insists on. */}
+        <div className="ago-workspace__rail-tools">
+          <Button size="sm" variant="ghost" onClick={() => setAlertsOpen(true)}>
+            Alerts
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setShortcutsOpen(true)}>
+            Shortcuts
+          </Button>
         </div>
 
         {/* The connection's own sentence, shown rather than hidden in a `title`, exactly when it is
@@ -264,6 +380,21 @@ export function WorkspaceLayout() {
       </aside>
 
       <Outlet context={outletContext} />
+
+      <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+
+      <Dialog
+        open={alertsOpen}
+        title="Alerts"
+        onClose={() => setAlertsOpen(false)}
+        footer={
+          <Button variant="primary" onClick={() => setAlertsOpen(false)}>
+            Done
+          </Button>
+        }
+      >
+        <AlertSettings alerts={alerts} />
+      </Dialog>
     </div>
   );
 }

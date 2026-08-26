@@ -1,4 +1,5 @@
 import { useOutletContext } from "react-router-dom";
+import type { RefObject } from "react";
 import type { ConversationSummaryDto } from "../realtime/protocol/types.js";
 
 /**
@@ -38,6 +39,18 @@ export interface WorkspaceOutletContext {
    * count as it was, which is the safe direction to be wrong in, and the next open re-issues it -
    * there is nothing here worth interrupting an operator about. */
   markRead: (conversationId: string, upToSequence: number) => void;
+  /**
+   * `18-05`: the composer's own textarea, so the layout's `C` shortcut can put the cursor in it.
+   *
+   * The ref is created by the layout and *filled in* by the outlet - the opposite direction to
+   * everything else on this interface, which is why it is a ref rather than a value. The layout
+   * cannot hold the element (it does not render it) and the outlet cannot hold the shortcut (the
+   * keys work with no conversation open at all), so the one thing they can share is the box.
+   *
+   * `null` whenever no conversation is open, which is exactly when the shortcut correctly does
+   * nothing.
+   */
+  composerRef: RefObject<HTMLTextAreaElement | null>;
 }
 
 export function useWorkspace(): WorkspaceOutletContext {

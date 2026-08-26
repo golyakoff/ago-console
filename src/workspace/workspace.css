@@ -608,3 +608,89 @@ a.ago-list__row--active:hover {
     max-width: 92%;
   }
 }
+
+/* `18-05`: the rail's own two buttons, the shortcut list and the alert switches.
+
+   All of it lives in this file rather than in `components.css` for the same reason `18-05` added no
+   twelfth shared component: a checkbox row and a `<kbd>` are this screen's markup, and `adr/0030`
+   closes the shared set at eleven. */
+
+.ago-workspace__rail-tools {
+  display: flex;
+  gap: var(--ago-space-2);
+  flex-wrap: wrap;
+}
+
+.ago-shortcuts {
+  margin: var(--ago-space-4) 0;
+  display: grid;
+  gap: var(--ago-space-2);
+}
+
+.ago-shortcuts__row {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  align-items: baseline;
+  gap: var(--ago-space-3);
+}
+
+.ago-shortcuts__row dd {
+  margin: 0;
+}
+
+.ago-kbd {
+  display: inline-block;
+  min-width: 1.75rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--ago-line-strong);
+  /* A key looks pressed in from below, which is the one bit of skeuomorphism worth keeping here: it
+     is how every operating system draws a key, so it reads as "press this" with no label. */
+  border-bottom-width: 2px;
+  border-radius: 0.3rem;
+  background: var(--ago-surface-sunken);
+  font-family: var(--ago-font-mono);
+  font-size: var(--ago-text-sm);
+  text-align: center;
+}
+
+.ago-alert-settings {
+  display: grid;
+  gap: var(--ago-space-4);
+  margin-top: var(--ago-space-3);
+}
+
+.ago-switch {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ago-space-3);
+  cursor: pointer;
+}
+
+/* The native checkbox, at a size a finger and a cursor can both hit. Not repainted as a styled
+   `<span>`: a real checkbox is what a screen reader announces as one and what Space toggles, and
+   restyling it would cost both to gain a shape. */
+.ago-switch input[type="checkbox"] {
+  margin-top: 0.2rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--ago-brand-deep);
+  flex: none;
+}
+
+.ago-switch__text {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.ago-switch__label {
+  font-weight: 600;
+}
+
+.ago-alert-settings__blocked {
+  margin: 0;
+  padding: var(--ago-space-3);
+  border-radius: var(--ago-radius-sm);
+  background: var(--ago-danger-tint);
+  color: var(--ago-danger);
+  font-size: var(--ago-text-sm);
+}
