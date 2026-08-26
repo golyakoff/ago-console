@@ -169,6 +169,27 @@ describe("the operator navigation", () => {
     expect(navLabels(container)).toContain("Platform sites");
   });
 
+  it("offers the tenant's own sections and the platform-owner one together, to an identity holding both", async () => {
+    // `12-05`. Until this item nobody could hold both on a fresh deployment - the owner had no
+    // `operators` row and `12-04` refused to let them get one - so "both entries appear" was never
+    // once observed, which is exactly how `12-04`'s bug survived a week. The two answers come from
+    // two independent servers-side sources (`GET /api/v1/operators/me` for the site-scoped
+    // permissions, `GET /api/v1/owner/sites` for the realm role) and this asserts the *whole* list
+    // rather than `toContain`, because the failure worth catching is one suppressing the other -
+    // which a containment check on either one alone would miss.
+    grants(["site:configure"]);
+    ownerApi.probeOwnerEligibility.mockResolvedValue("eligible");
+
+    const container = await render(shellAt("/"));
+
+    expect(navLabels(container)).toEqual([
+      "Conversations",
+      "All conversations",
+      "Widget appearance",
+      "Platform sites",
+    ]);
+  });
+
   it("does not offer the platform-owner section while the probe is unanswered", async () => {
     ownerApi.probeOwnerEligibility.mockReturnValue(new Promise(() => undefined));
 

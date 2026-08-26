@@ -32,18 +32,25 @@ import { Alert } from "../components/Alert.js";
  * outside `PermissionsProvider`, see above), which is exactly the case `AppShell`'s props-only,
  * context-free design exists for.
  *
- * `12-04`: **this page is not for the platform owner, and now says so instead of offering them the
- * button.** `CallbackPage` sends that identity to `/owner`, so arriving here means a bookmark, a back
- * button or a second tab - all ordinary things to do, and none of them a reason to show somebody a
- * form whose success would make them an operator of a tenant this product cannot remove them from
- * (`adr/0032`; `AuthorizationPolicies.NotThePlatformOwner` is what actually refuses).
+ * `12-04`: **this page is not where the platform owner lands, and it says so.** `CallbackPage` sends
+ * that identity to `/owner`, so arriving here means a bookmark, a back button or a second tab - all
+ * ordinary things to do, and none of them a request to register a shop.
  *
- * The form is what renders until the probe says otherwise, not a spinner. That ordering is the whole
- * decision here: the probe exists for one rare reader, and blocking the page on it would mean the
- * *common* reader - a real self-registering shop - stares at a spinner forever whenever
- * `GET /api/v1/owner/sites` has a bad minute. Trading a brief glimpse of a form for that would be
- * paying the common case's cost to tidy the rare one, and the glimpse is safe precisely because the
- * server refuses the submission independently of anything this page renders.
+ * `12-05`: **but the form now applies to them, so it is offered rather than withheld.** `12-04` hid
+ * it and said the server would refuse the submission; `adr/0063` ("Reversed in 12-05") took that
+ * refusal back, because platform owner and operator are orthogonal axes and one person is legitimately
+ * both - being your own customer is the cheapest dogfooding this product has. So the owner sees the
+ * same form as everybody else, preceded by what is now true instead of what used to be: this account
+ * is the platform owner, registering here gives it a tenant of its own, that cannot be undone, and
+ * `/owner` is over there if the form is not what they came for. The block is retained rather than
+ * deleted for the same reason `12-04` wrote it - somebody who reached this page by accident is owed
+ * an explanation - but it is an *explanation beside a usable form*, not a refusal in place of one.
+ *
+ * The form is what renders until the probe says otherwise, not a spinner. That ordering was already
+ * the decision here and `12-05` only makes it cheaper to be wrong about: the probe exists for one rare
+ * reader, and blocking the page on it would mean the *common* reader - a real self-registering shop -
+ * stares at a spinner forever whenever `GET /api/v1/owner/sites` has a bad minute. An unanswered probe
+ * now costs the owner a missing paragraph rather than a hidden form.
  *
  * This does mean a self-registering visitor's probe runs twice on the way in - once in `CallbackPage`
  * to route, once here on mount - exactly the same shape, and the same small stated cost, as the
@@ -148,81 +155,74 @@ export function OnboardingPage() {
       }
       demoNoticeAudience={isPlatformOwner ? "platform-owner" : "shared-login"}
     >
-      {isPlatformOwner ? (
-        <>
-          <PageHead
-            title="This account does not register a site"
-            description="You are signed in as the platform owner of this deployment."
-          />
-          {/* `tone="info"`, not `"danger"`: nothing has gone wrong and nothing has been refused. The
-              reader followed a link that does not apply to them, and what is useful to them is the
-              reason and the way onward, not an alarm. One flowing block rather than two `<p>`s -
-              `Alert` renders its children inside a `<span>`, and a paragraph nested in a span is
-              reparented by the browser. */}
-          <Alert
-            tone="info"
-            title="Registration is for tenants, not for the platform owner"
-            action={<Link to="/owner">Go to the platform operations view</Link>}
-          >
-            The platform owner is a Keycloak realm role, not a seat inside any one site - so this
-            identity holds no operator record anywhere, on purpose. Registering a site here would
-            create one permanently, and nothing in this product can take it back. The server refuses
-            this form for this account whatever the browser shows, so there is nothing to undo.
-          </Alert>
-        </>
-      ) : (
-        <>
-          <PageHead
-            title="Finish setting up your site"
-            description="Your Keycloak account is verified. Choose a display name and the one website origin your widget will be embedded on."
-          />
+      <PageHead
+        title="Finish setting up your site"
+        description="Your Keycloak account is verified. Choose a display name and the one website origin your widget will be embedded on."
+      />
 
-          <Panel>
-            <form className="ago-stack" onSubmit={(e) => void handleSubmit(e)}>
-              <Field label="Site display name">
-                {(controlProps) => (
-                  <Input
-                    {...controlProps}
-                    value={siteName}
-                    onChange={(e) => setSiteName(e.target.value)}
-                    disabled={submitting}
-                  />
-                )}
-              </Field>
-
-              <Field
-                label="Embed origin"
-                description="Scheme, host and port only - no path, e.g. https://shop.example.com."
-              >
-                {(controlProps) => (
-                  <Input
-                    {...controlProps}
-                    value={origin}
-                    onChange={(e) => setOrigin(e.target.value)}
-                    placeholder="https://shop.example.com"
-                    disabled={submitting}
-                  />
-                )}
-              </Field>
-
-              {/* Kept as two form-level messages rather than split onto the fields they came from.
-                  `validate()` returns one message at a time and stops at the first failure, and telling
-                  which field a message belongs to would mean either matching on its text - brittle - or
-                  changing `validate()`'s shape, which is code this presentation-only item has no reason
-                  to touch. `Alert tone="danger"` carries `role="alert"`, exactly as the two bare
-                  `<p role="alert">` paragraphs here did before `11-05`. */}
-              {validationError && <Alert tone="danger">{validationError}</Alert>}
-              {submitError && <Alert tone="danger">{submitError}</Alert>}
-
-              <div className="ago-row">
-                <Button type="submit" variant="primary" disabled={submitting}>
-                  {submitting ? "Setting up…" : "Finish setup"}
-                </Button>
-              </div>
-            </form>
-          </Panel>
-        </>
+      {isPlatformOwner && (
+        /* `tone="info"`, not `"danger"`: nothing has gone wrong and nothing is being refused. The
+           reader is either here on purpose - in which case the form below is theirs to use - or
+           arrived by a stale bookmark, in which case what is useful is the reason and the way
+           onward, not an alarm. One flowing block rather than two `<p>`s - `Alert` renders its
+           children inside a `<span>`, and a paragraph nested in a span is reparented by the
+           browser. */
+        <Alert
+          tone="info"
+          title="You are signed in as the platform owner"
+          action={<Link to="/owner">Go to the platform operations view</Link>}
+        >
+          Being the platform owner is a Keycloak realm role, not a seat inside any one site, and it
+          stays that way whatever you do here. Registering below additionally makes this account an
+          operator of a new site of its own - a normal thing to want, and the way to run a tenant on
+          your own deployment, but nothing in this product can take it back afterwards.
+        </Alert>
       )}
+
+      <Panel>
+        <form className="ago-stack" onSubmit={(e) => void handleSubmit(e)}>
+          <Field label="Site display name">
+            {(controlProps) => (
+              <Input
+                {...controlProps}
+                value={siteName}
+                onChange={(e) => setSiteName(e.target.value)}
+                disabled={submitting}
+              />
+            )}
+          </Field>
+
+          <Field
+            label="Embed origin"
+            description="Scheme, host and port only - no path, e.g. https://shop.example.com."
+          >
+            {(controlProps) => (
+              <Input
+                {...controlProps}
+                value={origin}
+                onChange={(e) => setOrigin(e.target.value)}
+                placeholder="https://shop.example.com"
+                disabled={submitting}
+              />
+            )}
+          </Field>
+
+          {/* Kept as two form-level messages rather than split onto the fields they came from.
+              `validate()` returns one message at a time and stops at the first failure, and telling
+              which field a message belongs to would mean either matching on its text - brittle - or
+              changing `validate()`'s shape, which is code this presentation-only item has no reason
+              to touch. `Alert tone="danger"` carries `role="alert"`, exactly as the two bare
+              `<p role="alert">` paragraphs here did before `11-05`. */}
+          {validationError && <Alert tone="danger">{validationError}</Alert>}
+          {submitError && <Alert tone="danger">{submitError}</Alert>}
+
+          <div className="ago-row">
+            <Button type="submit" variant="primary" disabled={submitting}>
+              {submitting ? "Setting up…" : "Finish setup"}
+            </Button>
+          </div>
+        </form>
+      </Panel>
     </AppShell>
   );
 }
