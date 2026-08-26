@@ -149,6 +149,10 @@ function Harness({ connection, permissions = [], markRead = () => undefined }: H
       timeZone: "UTC",
       refreshQueue: () => undefined,
       markRead,
+      // `18-05`: the layout's ref for the composer's textarea. A bare box here - nothing in this
+      // file exercises the `C` shortcut, which is the workspace's, and the page's only job is to
+      // hand it to `Composer`.
+      composerRef: { current: null },
     }),
     [markRead],
   );

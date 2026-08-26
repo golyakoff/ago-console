@@ -95,7 +95,7 @@ export function ConversationPage() {
   const { user } = useAuth();
   const { hasPermission, siteId } = usePermissions();
   const { connection, connectionState } = useOperatorConnection();
-  const { conversation, now, timeZone, refreshQueue, markRead } = useWorkspace();
+  const { conversation, now, timeZone, refreshQueue, markRead, composerRef } = useWorkspace();
   const [messages, setMessages] = useState<MessageDto[]>([]);
   const [nextBeforeSequence, setNextBeforeSequence] = useState<number | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -469,6 +469,10 @@ export function ConversationPage() {
             </Alert>
           )}
 
+          {/* `18-05`: `inputRef` is the workspace layout's own ref, filled in here. That is what
+              lets its `C` shortcut focus this textarea from anywhere on the screen, including with
+              no conversation open - see `workspaceContext.ts` for why this one field runs
+              outlet-to-layout while everything else on that interface runs the other way. */}
           <Composer
             draft={draft}
             onDraftChange={setDraft}
@@ -478,6 +482,7 @@ export function ConversationPage() {
             pendingAttachment={pendingAttachment}
             uploadProgress={uploadProgress}
             uploadError={uploadError}
+            inputRef={composerRef}
           />
         </div>
       </section>
