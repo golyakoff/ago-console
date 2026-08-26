@@ -59,6 +59,11 @@ export function OperatorShell() {
     <AppShell
       nav={nav}
       wide={isWorkspace}
+      // `12-04`: the `8-06` demo strip's claim that "its login is published on the demo pages" is
+      // false of the platform owner's account, and this shell is where the owner-who-is-also-an-
+      // operator spends their whole session. Taken from the eligibility answer already fetched above
+      // for the navigation link, so this costs no extra request and cannot disagree with the link.
+      demoNoticeAudience={ownerEligibility === "eligible" ? "platform-owner" : "shared-login"}
       identity={
         <ShellIdentity
           operator={user?.profile.preferred_username ?? user?.profile.sub ?? "Signed in"}

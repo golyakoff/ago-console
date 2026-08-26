@@ -153,6 +153,10 @@ export function OwnerSitesPage() {
       // console, and a link that lands on the operator workspace's hub connection would fail there
       // rather than here.
       nav={siteId ? [{ to: "/", label: "Back to the console", end: true }] : undefined}
+      // `12-04`: narrowed only once `12-02`'s endpoint has actually accepted this caller. While the
+      // answer is still `"unknown"`, and on a refusal, the reader is not demonstrably the owner, and
+      // the stricter shared-login wording is the true thing to say to them.
+      demoNoticeAudience={access === "granted" ? "platform-owner" : "shared-login"}
       identity={
         <ShellIdentity
           operator={user?.profile.preferred_username ?? user?.profile.sub ?? "Signed in"}
