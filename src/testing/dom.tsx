@@ -27,6 +27,33 @@ if (typeof Element.prototype.scrollIntoView !== "function") {
   Element.prototype.scrollIntoView = () => undefined;
 }
 
+// `11-09`: jsdom parses `<dialog>` and reflects its `open` attribute, but implements neither
+// `showModal()` nor `close()` - so `Dialog` (`11-05`) throws "element.showModal is not a function"
+// on the first render of any component that opens one. The same shape as the `scrollIntoView` patch
+// above, and for the same reason: the missing capability is a *browser* one, and its real behaviour
+// (focus trapping, the top layer, inertness, the backdrop) is the platform's own and not something a
+// DOM with no viewport could assert anything about.
+//
+// What is emulated is only the part a test can legitimately observe - `open`, and the `close` event
+// React binds `onClose` to. `18-05` already leans on `open` from the other side, since
+// `isTypingTarget` treats anything inside a `dialog[open]` as a text field.
+if (typeof HTMLDialogElement !== "undefined" && typeof HTMLDialogElement.prototype.showModal !== "function") {
+  HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
+    this.open = true;
+  };
+
+  HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
+    if (!this.open) {
+      return;
+    }
+
+    this.open = false;
+    // Non-bubbling, exactly as the real event is. React 19 attaches a direct listener for `onClose`
+    // rather than relying on delegation, so this reaches the component.
+    this.dispatchEvent(new Event("close"));
+  };
+}
+
 let container: HTMLDivElement | null = null;
 let root: Root | null = null;
 

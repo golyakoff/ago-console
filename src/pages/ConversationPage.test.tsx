@@ -8,6 +8,7 @@ import { OperatorConnectionContext, type OperatorConnectionState } from "../real
 import { NotConnectedError, SendOutcomeUnknownError, type OperatorConnection } from "../realtime/operatorConnection.js";
 import type { MessageDto } from "../realtime/protocol/types.js";
 import type { WorkspaceOutletContext } from "../workspace/workspaceContext.js";
+import { ApiProblemError } from "../api/problemDetails.js";
 import { ConversationPage } from "./ConversationPage.js";
 import { byText, interact, one, render, unmount } from "../testing/dom.js";
 
@@ -44,6 +45,14 @@ const attachmentsApi = vi.hoisted(() => ({
 }));
 
 vi.mock("../api/attachmentsApi.js", () => attachmentsApi);
+
+// `11-09`: the page's only use of this module is `closeConversation`, so the whole module is
+// replaced rather than partially mocked. `ApiProblemError` lives in `api/problemDetails.ts` and is
+// deliberately *not* mocked - `closeOutcome.ts` does an `instanceof` against it, and a mocked class
+// would fail that check for reasons that have nothing to do with the code under test.
+const conversationsApi = vi.hoisted(() => ({ closeConversation: vi.fn() }));
+
+vi.mock("../api/conversationsApi.js", () => conversationsApi);
 
 const CONVERSATION_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 const SITE_ID = "cccccccc-cccc-cccc-cccc-cccccccccccc";
@@ -119,9 +128,15 @@ interface HarnessOptions {
   connection: OperatorConnection;
   permissions?: string[];
   markRead?: (conversationId: string, upToSequence: number) => void;
+  refreshQueue?: () => void;
 }
 
-function Harness({ connection, permissions = [], markRead = () => undefined }: HarnessOptions) {
+function Harness({
+  connection,
+  permissions = [],
+  markRead = () => undefined,
+  refreshQueue = () => undefined,
+}: HarnessOptions) {
   const auth = useMemo<AuthState>(
     () => ({
       user: { access_token: "token", profile: { sub: "operator-sub" } } as unknown as User,
@@ -147,14 +162,14 @@ function Harness({ connection, permissions = [], markRead = () => undefined }: H
       conversation: null,
       now: new Date("2026-08-25T09:05:00Z"),
       timeZone: "UTC",
-      refreshQueue: () => undefined,
+      refreshQueue,
       markRead,
       // `18-05`: the layout's ref for the composer's textarea. A bare box here - nothing in this
       // file exercises the `C` shortcut, which is the workspace's, and the page's only job is to
       // hand it to `Composer`.
       composerRef: { current: null },
     }),
-    [markRead],
+    [markRead, refreshQueue],
   );
 
   return (
@@ -369,5 +384,79 @@ describe("the attachment actions on a message", () => {
     await interact(() => button?.click());
     expect(attachmentsApi.deleteAttachment).toHaveBeenCalledWith("token", ATTACHMENT_ID);
     expect(container.textContent).toContain("Attachment deleted");
+  });
+});
+
+/**
+ * `11-09`: what the open thread does once this tab has closed the conversation.
+ *
+ * The item asks for the thread to "reflect the new state without a reload", and the substance of
+ * that is the composer. A closed conversation leaves the operator queue entirely
+ * (`GetAssignedToOperatorAsync` filters on `State == Assigned`), so the server's own view can only
+ * ever say "no longer here" - which would leave a reply box that every send is refused by. That is
+ * why the page carries a local flag rather than reading `conversation.state`, and why this is a page
+ * test rather than a component one.
+ */
+describe("closing the conversation", () => {
+  it("replaces the composer with a notice, and refreshes the rail", async () => {
+    const fake = fakeConnection();
+    conversationsApi.closeConversation.mockResolvedValue(undefined);
+    const refreshQueue = vi.fn();
+
+    const container = await render(
+      <Harness connection={fake.connection} permissions={["conversation:close"]} refreshQueue={refreshQueue} />,
+    );
+
+    expect(container.querySelector("textarea")).not.toBeNull();
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Close conversation")?.click());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Close it")?.click());
+
+    expect(conversationsApi.closeConversation).toHaveBeenCalledWith("token", CONVERSATION_ID);
+    // The reply box is gone rather than disabled: a send would be refused by the server, and a
+    // composer that silently cannot work is worse than none.
+    expect(container.querySelector("textarea")).toBeNull();
+    expect(container.textContent).toContain("This conversation is closed");
+    // The rail drops the row on the next queue read, which the page asks for rather than waiting out
+    // the fifteen-second poll.
+    expect(refreshQueue).toHaveBeenCalled();
+  });
+
+  it("stops offering the control once it has been used", async () => {
+    // A second close is a `409` the operator could only be confused by.
+    const fake = fakeConnection();
+    conversationsApi.closeConversation.mockResolvedValue(undefined);
+
+    const container = await render(<Harness connection={fake.connection} permissions={["conversation:close"]} />);
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Close conversation")?.click());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Close it")?.click());
+
+    expect(byText(container, "button", "Close conversation")).toBeNull();
+  });
+
+  it("keeps the composer when the close was refused", async () => {
+    // Nothing changed server-side, so nothing changes on screen except the explanation.
+    const fake = fakeConnection();
+    conversationsApi.closeConversation.mockRejectedValue(
+      new ApiProblemError("Conversation.ConcurrencyConflict", "raced", 409),
+    );
+
+    const container = await render(<Harness connection={fake.connection} permissions={["conversation:close"]} />);
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Close conversation")?.click());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Close it")?.click());
+
+    expect(container.querySelector("textarea")).not.toBeNull();
+    expect(container.textContent).toContain("Try closing it again");
+  });
+
+  it("offers no control at all to an operator without conversation:close", async () => {
+    const fake = fakeConnection();
+
+    const container = await render(<Harness connection={fake.connection} permissions={["conversation:read"]} />);
+
+    expect(byText(container, "button", "Close conversation")).toBeNull();
+    expect(container.textContent).not.toContain("Close conversation");
   });
 });

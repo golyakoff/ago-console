@@ -1,4 +1,5 @@
 import { config } from "../config.js";
+import { problemDetailsFrom } from "./problemDetails.js";
 import type { AllConversationsForSiteResponse, OperatorQueueResponse } from "../realtime/protocol/types.js";
 
 /** What `POST /api/v1/conversations/{id}/read` answers with: the conversation's unread state after
@@ -86,4 +87,33 @@ export async function markConversationRead(
   }
 
   return (await response.json()) as MarkConversationReadResult;
+}
+
+/**
+ * `6-02`'s `POST /api/v1/conversations/{id}/close`, called for the first time.
+ *
+ * The endpoint has existed since Stage 6 and `6-09` made it the thing that hands an operator's
+ * capacity claim back to `4-02`'s assignment engine. Nothing in this repository had ever invoked it -
+ * which is the whole of `11-09`.
+ *
+ * <b>`204 No Content` on success</b>, so there is nothing to return. The console learns what changed
+ * by re-reading the queue, which is also how the rail drops the row: a closed conversation leaves
+ * `assignedToMe` entirely (`GetAssignedToOperatorAsync` filters on `State == Assigned`), so the
+ * server's own view can never say "closed" about it - only "no longer here".
+ *
+ * <b>Throws `ApiProblemError`</b> (`api/problemDetails.ts`) rather than a bare `Error` like the reads above, because this
+ * is the first call in this file whose caller has to branch on *which* failure it was - see
+ * `workspace/closeOutcome.ts`, which is where that branching lives.
+ */
+export async function closeConversation(accessToken: string, conversationId: string): Promise<void> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/conversations/${conversationId}/close`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (response.ok) {
+    return;
+  }
+
+  throw await problemDetailsFrom(response);
 }

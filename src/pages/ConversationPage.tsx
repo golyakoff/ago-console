@@ -18,6 +18,8 @@ import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
 import { Spinner } from "../components/Spinner.js";
+import { closeConversation } from "../api/conversationsApi.js";
+import { CloseConversationButton } from "../workspace/CloseConversationButton.js";
 import { Composer } from "../workspace/Composer.js";
 import { Thread } from "../workspace/Thread.js";
 import { VisitorPanel } from "../workspace/VisitorPanel.js";
@@ -106,6 +108,17 @@ export function ConversationPage() {
   const [uploadProgress, setUploadProgress] = useState<{ fileName: string; percent: number } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [attachmentDetails, setAttachmentDetails] = useState<Record<string, AttachmentDetail>>({});
+  /**
+   * `11-09`: this tab closed this conversation.
+   *
+   * Local state rather than something read off `conversation.state`, and that is forced rather than
+   * chosen: a closed conversation leaves the operator queue entirely (`GetAssignedToOperatorAsync`
+   * filters on `State == Assigned`), so `useWorkspace().conversation` goes to `null` the moment the
+   * rail refreshes. The server's own view can therefore only say "no longer here", which renders as
+   * a thread with no title and a live composer - the two things this flag exists to prevent. It is
+   * reset by the route effect below, so it never survives into a different conversation.
+   */
+  const [closed, setClosed] = useState(false);
   const joinedConversationId = useRef<string | null>(null);
   const requestedAttachmentIds = useRef<Set<string>>(new Set());
 
@@ -120,6 +133,7 @@ export function ConversationPage() {
     setPendingAttachment(null);
     setUploadError(null);
     setVisitorOnline(null);
+    setClosed(false);
   }, [conversationId]);
 
   useEffect(() => {
@@ -436,6 +450,28 @@ export function ConversationPage() {
               "Conversation"
             )}
           </h2>
+
+          {/* `11-09`. Absent once this tab has closed the conversation - a second close would be a
+              `409` the operator can only be confused by - and absent entirely for an operator
+              without `conversation:close`, which the component itself decides. */}
+          {!closed && (
+            <CloseConversationButton
+              onClose={async () => {
+                if (!user?.access_token || !conversationId) {
+                  return;
+                }
+
+                await closeConversation(user.access_token, conversationId);
+              }}
+              onClosed={() => {
+                setClosed(true);
+                // The rail drops the row on its own once the queue is re-read - the conversation is
+                // no longer `Assigned`, so it simply is not in the response any more.
+                refreshQueue();
+              }}
+              onStaleQueue={refreshQueue}
+            />
+          )}
         </header>
 
         {connectionState === "connected" ? null : (
@@ -454,6 +490,20 @@ export function ConversationPage() {
           onLoadOlder={() => void loadOlder()}
         />
 
+        {/* `11-09`: the thread stays readable and the composer goes.
+
+            Navigating back to `/` on a successful close was the obvious alternative and is wrong for
+            `11-06`'s own reason: the operator decides when to leave. What must not survive is the
+            composer, because the server will refuse every send to a closed conversation and a
+            reply box that silently cannot work is worse than no reply box. */}
+        {closed ? (
+          <div className="ago-workspace__composer">
+            <Alert tone="info" title="This conversation is closed">
+              Your capacity has been released, so a new conversation may be assigned to you at any
+              moment. The transcript above stays readable.
+            </Alert>
+          </div>
+        ) : (
         <div className="ago-workspace__composer">
           {failedSend && (
             <Alert
@@ -485,6 +535,7 @@ export function ConversationPage() {
             inputRef={composerRef}
           />
         </div>
+        )}
       </section>
 
       <VisitorPanel
