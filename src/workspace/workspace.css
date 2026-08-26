@@ -106,6 +106,15 @@
   font-size: var(--ago-text-lg);
 }
 
+/* `11-09`: the close action sits at the far end of the conversation header, pushed there rather
+   than ordered there - `margin-inline-start: auto` in a wrapping flex row keeps it last on a wide
+   screen and lets it drop onto its own line when the header wraps, without a media query and
+   without a second grid. The header's `align-items: baseline` is what keeps it sitting on the
+   title's baseline rather than floating above it. */
+.ago-workspace__main-head > .ago-btn {
+  margin-inline-start: auto;
+}
+
 .ago-workspace__main-note {
   margin: 0;
 }
