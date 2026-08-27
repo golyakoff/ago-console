@@ -15,7 +15,7 @@
 # commit, not of whoever ran `docker build`, so ago-console:<sha> is a function of the commit alone.
 # Nothing here may be turned into a build ARG without re-opening that decision - a VITE_* ARG would
 # let two different bundles claim one SHA tag.
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
