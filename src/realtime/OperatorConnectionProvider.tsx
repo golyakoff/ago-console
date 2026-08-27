@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "../auth/AuthContext.js";
+import { usePermissions } from "../auth/PermissionsContext.js";
 import { OperatorConnection, type ConnectionState } from "./operatorConnection.js";
 import { OperatorConnectionContext, type OperatorConnectionState } from "./OperatorConnectionContext.js";
 
@@ -53,6 +54,21 @@ import { OperatorConnectionContext, type OperatorConnectionState } from "./Opera
 export function OperatorConnectionProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const accessToken = user?.access_token;
+  // `13-07`/`adr/0068`: `PermissionsProvider` (this component's own parent, `App.tsx`) resolves the
+  // active-site signal asynchronously and writes it to `src/api/activeSite.ts`'s shared singleton
+  // before its own `operators/me` call - but React fires mount effects child-first, so this
+  // provider's effect below would otherwise run *before* that parent effect ever starts, negotiating
+  // the hub with whatever the singleton held at that instant. For every operator that existed before
+  // this item (exactly one tenancy), that is harmless: `ResolveOperatorIdentityHandler`'s own
+  // fallback resolves an absent signal identically to an explicit one when there is only one
+  // tenancy to resolve to. For a real multi-tenancy identity it is not - found live, once one
+  // finally existed to test against: the negotiate carried no signal, more than one tenancy existed
+  // to choose from, and the resolver correctly refused to guess (`403`, not a wrong-tenant
+  // connection - never the reverse). `tenancies` is `null` until `PermissionsProvider`'s first
+  // `.then()` has run, which is also the exact point the singleton is guaranteed set - so gating on
+  // it here removes the race without this provider needing to know anything about *how* the parent
+  // resolves it.
+  const { tenancies } = usePermissions();
   const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
   const [serverDraining, setServerDraining] = useState(false);
 
@@ -82,6 +98,13 @@ export function OperatorConnectionProvider({ children }: { children: ReactNode }
   const connection = useMemo(() => new OperatorConnection(() => accessTokenRef.current ?? ""), []);
 
   useEffect(() => {
+    if (tenancies === null) {
+      // Not yet known - see this component's own remarks above. Nothing to clean up: no listener
+      // was attached and no connection was started, so returning here is a plain no-op, not a
+      // skipped teardown.
+      return;
+    }
+
     connection.onStateChange((state) => {
       setConnectionState(state);
       // `11-06`: a successful (re)connect retires the drain hint. Safe to clear on *every*
@@ -120,7 +143,7 @@ export function OperatorConnectionProvider({ children }: { children: ReactNode }
     // already handled by the browser tearing down the WebSocket itself, and an explicit logout
     // (`AuthProvider`'s `signoutRedirect`) is a full-page redirect that unloads this component tree
     // anyway - neither needs this cleanup to run to behave correctly.
-  }, [connection]);
+  }, [connection, tenancies]);
 
   const value = useMemo<OperatorConnectionState>(
     () => ({ connection, connectionState, serverDraining }),

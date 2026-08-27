@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "oidc-client-ts";
 import { AuthContext, type AuthState } from "../auth/AuthContext.js";
+import { PermissionsContext, type PermissionsState } from "../auth/PermissionsContext.js";
 import { OperatorConnection } from "./operatorConnection.js";
 import { OperatorConnectionProvider } from "./OperatorConnectionProvider.js";
 import { useOperatorConnection } from "./OperatorConnectionContext.js";
@@ -221,6 +222,20 @@ function Subscriber({ conversationId, onMessage }: { conversationId: string; onM
   return null;
 }
 
+// `13-07`: `OperatorConnectionProvider` now waits on `usePermissions().tenancies` before starting the
+// hub (its own doc comment has the race this closes). A single already-resolved tenancy is all this
+// file's own tests need - none of them are about tenancy resolution, only about what happens to the
+// hub connection itself once it is allowed to start, which a `null` (not-yet-known) value would
+// simply delay forever and stall every test below.
+const SINGLE_TENANCY: PermissionsState = {
+  permissions: [],
+  siteId: "33333333-3333-3333-3333-333333333333",
+  hasPermission: () => false,
+  tenancies: [{ siteId: "33333333-3333-3333-3333-333333333333", siteName: "Test Site" }],
+  activeSiteId: "33333333-3333-3333-3333-333333333333",
+  switchTenancy: () => undefined,
+};
+
 function Harness({ accessToken, onMessage }: { accessToken: string; onMessage: (m: unknown) => void }) {
   const auth = useMemo<AuthState>(
     () => ({
@@ -234,9 +249,11 @@ function Harness({ accessToken, onMessage }: { accessToken: string; onMessage: (
 
   return (
     <AuthContext.Provider value={auth}>
-      <OperatorConnectionProvider>
-        <Subscriber conversationId={CONVERSATION_ID} onMessage={onMessage} />
-      </OperatorConnectionProvider>
+      <PermissionsContext.Provider value={SINGLE_TENANCY}>
+        <OperatorConnectionProvider>
+          <Subscriber conversationId={CONVERSATION_ID} onMessage={onMessage} />
+        </OperatorConnectionProvider>
+      </PermissionsContext.Provider>
     </AuthContext.Provider>
   );
 }
@@ -373,6 +390,49 @@ describe("OperatorConnection's subscription record", () => {
  * because a server-side abort is a *clean* close, and this provider's own `catch` discarded the only
  * remaining evidence. Diagnosing it took hours that one log line would have saved.
  */
+/**
+ * `13-07`: found live, against the real cluster, once a second real tenancy finally existed to test
+ * against - every operator before this item had exactly one tenancy, and `ResolveOperatorIdentityHandler`
+ * resolves an absent active-site signal identically to an explicit one in that case, so the race this
+ * closes was invisible in production and in every other test in this file (all of which fix
+ * `tenancies` to a resolved value before the provider ever mounts). This is the one test that leaves
+ * it unresolved on purpose, to prove the gate itself.
+ */
+describe("the hub waits for tenancy resolution before connecting", () => {
+  it("does not start a connection while tenancies is still null", async () => {
+    const auth: AuthState = {
+      user: signedInAs("token-1"),
+      isLoading: false,
+      login: () => Promise.resolve(),
+      logout: () => Promise.resolve(),
+    };
+    const unresolved: PermissionsState = { ...SINGLE_TENANCY, tenancies: null };
+
+    await render(
+      <AuthContext.Provider value={auth}>
+        <PermissionsContext.Provider value={unresolved}>
+          <OperatorConnectionProvider>
+            <Subscriber conversationId={CONVERSATION_ID} onMessage={() => undefined} />
+          </OperatorConnectionProvider>
+        </PermissionsContext.Provider>
+      </AuthContext.Provider>,
+    );
+
+    // `OperatorConnection`'s constructor builds the underlying SignalR object eagerly (client-side
+    // only, no network activity) - the fix gates `.start()`, the call that actually negotiates, so
+    // the fake hub existing is expected; it must never have moved off its initial state.
+    expect(signalr.hubs).toHaveLength(1);
+    expect(signalr.hubs[0].state).toBe(signalr.HubConnectionState.Disconnected);
+  });
+
+  it("starts the connection once tenancies resolves", async () => {
+    await render(<Harness accessToken="token-1" onMessage={() => undefined} />);
+
+    expect(signalr.hubs).toHaveLength(1);
+    expect(signalr.hubs[0].state).toBe(signalr.HubConnectionState.Connected);
+  });
+});
+
 describe("a hub connection the server refuses", () => {
   it("logs the reason instead of swallowing it", async () => {
     const logged: string[] = [];
