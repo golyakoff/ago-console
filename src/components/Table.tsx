@@ -9,8 +9,13 @@ export interface TableColumn<TRow> {
 }
 
 export interface TableProps<TRow> {
-  /** A real `<caption>`, not a visually-hidden one. A table in a tool needs to say what it is
-   * listing, and the heading above the panel is not programmatically associated with it. */
+  /** A real `<caption>`, kept in the DOM for assistive tech even though it renders visually hidden.
+   * `11-05` originally rendered it on screen too, because the heading above the panel was not
+   * programmatically associated with the table. That reasoning still holds - a caption is still the
+   * only way a screen-reader user gets "what am I listing" for this table specifically - but showing
+   * it sighted users as well stacked a third on-screen restatement of "every conversation for this
+   * site" on top of the page's own heading and description. One visible heading now carries that for
+   * sighted readers; the caption still carries it for everyone else. */
   caption: string;
   columns: TableColumn<TRow>[];
   rows: TRow[];
@@ -31,7 +36,7 @@ export function Table<TRow>({ caption, columns, rows, rowKey }: TableProps<TRow>
   return (
     <div className="ago-table-scroll">
       <table className="ago-table">
-        <caption>{caption}</caption>
+        <caption className="ago-visually-hidden">{caption}</caption>
         <thead>
           <tr>
             {columns.map((column) => (

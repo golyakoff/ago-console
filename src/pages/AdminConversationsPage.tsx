@@ -140,12 +140,16 @@ export function AdminConversationsPage() {
     <>
       <PageHead
         title="All conversations"
-        description="Every conversation for this site, not just the ones assigned to you. Read-only."
+        description={`Every conversation for this site (newest first, read-only, refreshed every ${REFRESH_INTERVAL_MS / 1000} seconds).`}
       />
 
       {error && <Alert tone="danger">{error}</Alert>}
 
-      <Panel title="Site conversations" description={`Refreshed every ${REFRESH_INTERVAL_MS / 1000} seconds.`}>
+      {/* No title/description here any more - `PageHead` above already says what this is and how
+          often it refreshes. A `Panel` with neither is a plain container (its own doc comment's
+          "correct for a panel that is only a container" case), which is exactly what a card holding
+          one table needs - three stacked headings for one table said the same thing three times. */}
+      <Panel>
         {conversations === null ? (
           <Skeleton lines={4} label="Loading conversations…" />
         ) : conversations.length === 0 ? (

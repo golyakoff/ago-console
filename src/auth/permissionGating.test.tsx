@@ -237,6 +237,49 @@ describe("a gated page reached directly by URL", () => {
     expect(conversationsApi.fetchAllConversationsForSite).toHaveBeenCalled();
   });
 
+  /** Found live, 2026-08-27: `/admin`'s table sat inside the reading-width `<main>` every ordinary
+   * document uses, which left a gap on both sides that lined up with nothing above or below it - a
+   * five-column table is not prose. Needs the real `OperatorShell` mounted (`shellAt`, not
+   * `pageOnly`, which the two tests above use precisely to skip it) because the wide/reading-width
+   * choice is `OperatorShell`'s own route match, not something `AdminConversationsPage` decides. */
+  it("renders in the shell's full width, the same as the workspace routes, not the reading-width one", async () => {
+    grants(["site:configure"]);
+
+    const container = await render(shellAt("/admin", <AdminConversationsPage />));
+
+    expect(container.querySelector(".ago-shell")?.classList.contains("ago-shell--fixed")).toBe(true);
+  });
+
+  /** Found the same day: `PageHead`'s own heading/description, the `Panel`'s title/description, and
+   * the `Table`'s own caption all said "every conversation for this site" in slightly different
+   * words, stacked. One visible heading now carries it; the table's caption still carries it for a
+   * screen-reader user, just no longer rendered on screen too. */
+  it("says what the table lists exactly once on screen, not three times", async () => {
+    grants(["site:configure"]);
+    // A table needs at least one row to render at all - `AdminConversationsPage` shows "No
+    // conversations yet." instead of a `<Table>` for an empty list, and this test is specifically
+    // about the caption `<Table>` itself renders.
+    conversationsApi.fetchAllConversationsForSite.mockResolvedValue({
+      conversations: [
+        {
+          conversationId: "c1",
+          visitorId: "v1",
+          state: "Waiting",
+          createdAt: "2026-08-27T00:00:00Z",
+          operatorUnreadCount: 0,
+          operatorId: null,
+        },
+      ],
+    });
+
+    const container = await render(pageOnly("/admin", <AdminConversationsPage />));
+
+    expect(container.textContent).toContain("Every conversation for this site");
+    expect(container.textContent).not.toContain("Site conversations");
+    const caption = container.querySelector("table caption");
+    expect(caption?.classList.contains("ago-visually-hidden")).toBe(true);
+  });
+
   it("says nothing either way while the permissions answer is in flight", async () => {
     // Refusing before the answer arrives would accuse every operator of lacking a permission they
     // may well hold, for as long as one HTTP round trip takes.

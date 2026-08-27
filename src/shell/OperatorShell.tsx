@@ -37,15 +37,19 @@ export function OperatorShell() {
   // the console's own English default until the real answer arrives).
   const strings = getStrings(parseConsoleLocale(locale));
 
-  // `11-06`: the two workspace routes want the full-width, viewport-height frame; `/admin` and
-  // `/settings/widget` are ordinary documents and keep the reading-width one. Asked as two route
-  // matches here rather than answered inside `AppShell`, which reads no context and knows no routes
-  // on purpose.
-  // Both hooks are called unconditionally and combined afterwards - `||` between two `useMatch`
-  // calls would short-circuit the second one and change the hook order between renders.
+  // `11-06`: the two workspace routes want the full-width, viewport-height frame. `/settings/widget`
+  // is an ordinary document and keeps the reading-width one. `/admin` joined the wide set later
+  // (found live: its content is a five-column data table, not prose, and capping it at the narrower
+  // `--ago-content-max` left a gap on both sides that lined up with nothing - the same "not a
+  // document" argument the workspace routes already made, just for a table instead of a two-pane
+  // layout). Asked as three route matches here rather than answered inside `AppShell`, which reads no
+  // context and knows no routes on purpose.
+  // All hooks are called unconditionally and combined afterwards - `||` between `useMatch` calls
+  // would short-circuit later ones and change the hook order between renders.
   const queueMatch = useMatch("/");
   const conversationMatch = useMatch("/conversations/:conversationId");
-  const isWorkspace = queueMatch !== null || conversationMatch !== null;
+  const adminMatch = useMatch("/admin");
+  const wide = queueMatch !== null || conversationMatch !== null || adminMatch !== null;
 
   const nav: AppShellNavItem[] = buildTenantNavItems(hasPermission, strings);
 
@@ -64,7 +68,7 @@ export function OperatorShell() {
     <StringsProvider value={strings}>
       <AppShell
         nav={nav}
-        wide={isWorkspace}
+        wide={wide}
         // `12-04`: the `8-06` demo strip's claim that "its login is published on the demo pages" is
         // false of the platform owner's account, and this shell is where the owner-who-is-also-an-
         // operator spends their whole session. Taken from the eligibility answer already fetched above
