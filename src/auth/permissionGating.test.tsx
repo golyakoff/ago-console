@@ -106,7 +106,12 @@ beforeEach(() => {
   grants([]);
   ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
   conversationsApi.fetchAllConversationsForSite.mockResolvedValue({ conversations: [] });
-  widgetConfigApi.fetchWidgetConfig.mockResolvedValue({ siteId: SITE_ID, primaryColorHex: null, position: "BottomRight" });
+  widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
+    siteId: SITE_ID,
+    primaryColorHex: null,
+    position: "BottomRight",
+    locale: "En",
+  });
 });
 
 afterEach(async () => {

@@ -7,6 +7,7 @@ import {
   updateWidgetConfig,
   WidgetConfigError,
   type WidgetConfigDto,
+  type WidgetLocale,
   type WidgetPosition,
 } from "../api/widgetConfigApi.js";
 import { isValidHexColor } from "./widgetConfigValidation.js";
@@ -22,6 +23,13 @@ import { Skeleton, Spinner } from "../components/Spinner.js";
 const POSITION_LABELS: Record<WidgetPosition, string> = {
   BottomRight: "Bottom right",
   BottomLeft: "Bottom left",
+};
+
+// `11-10`: the same closed-set-of-two shape `POSITION_LABELS` already established for this page's
+// only other `<select>` - see `Select.tsx`'s own comment on why this project has exactly two.
+const LOCALE_LABELS: Record<WidgetLocale, string> = {
+  En: "English",
+  Ru: "Russian",
 };
 
 const DEFAULT_SWATCH_COLOR = "#2f6fed";
@@ -53,6 +61,7 @@ export function WidgetConfigPage() {
   const [current, setCurrent] = useState<WidgetConfigDto | null>(null);
   const [colorInput, setColorInput] = useState("");
   const [position, setPosition] = useState<WidgetPosition>("BottomRight");
+  const [locale, setLocale] = useState<WidgetLocale>("En");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -70,6 +79,7 @@ export function WidgetConfigPage() {
         setCurrent(dto);
         setColorInput(dto.primaryColorHex ?? "");
         setPosition(dto.position);
+        setLocale(dto.locale);
         setLoadError(null);
       })
       .catch((err: unknown) =>
@@ -131,10 +141,12 @@ export function WidgetConfigPage() {
       const dto = await updateWidgetConfig(accessToken, siteId, {
         primaryColorHex: trimmed.length > 0 ? trimmed : null,
         position,
+        locale,
       });
       setCurrent(dto);
       setColorInput(dto.primaryColorHex ?? "");
       setPosition(dto.position);
+      setLocale(dto.locale);
       setSaved(true);
     } catch (err) {
       setSubmitError(err instanceof WidgetConfigError ? err.message : "Failed to save the widget configuration.");
@@ -150,8 +162,11 @@ export function WidgetConfigPage() {
       <PageHead
         title="Widget appearance"
         /* `adr/0029`: config is read once, at bootstrap - stated here so the operator making the
-           change knows why an already-open visitor tab will not reflect it immediately. */
-        description="Changes here take effect the next time a visitor's page loads the widget. A visitor who already has the widget open on their page will not see the new color or position until they reload it."
+           change knows why an already-open visitor tab will not reflect it immediately. `11-10`:
+           this sentence's scope already covered color/position and now covers language on the same
+           terms - the widget reads its language at the same bootstrap moment, not live, so the
+           existing "next page load" wording is extended rather than duplicated into a second notice. */
+        description="Changes here take effect the next time a visitor's page loads the widget. A visitor who already has the widget open on their page will not see the new color, position, or language until they reload it."
       />
 
       {loadError && <Alert tone="danger">{loadError}</Alert>}
@@ -201,6 +216,22 @@ export function WidgetConfigPage() {
                 >
                   <option value="BottomRight">{POSITION_LABELS.BottomRight}</option>
                   <option value="BottomLeft">{POSITION_LABELS.BottomLeft}</option>
+                </Select>
+              )}
+            </Field>
+
+            {/* `11-10`: modeled byte-for-byte on the launcher-position `Select` just above - the
+                same gate (this page's own `site:configure` check), no new permission. */}
+            <Field label="Widget language">
+              {(controlProps) => (
+                <Select
+                  {...controlProps}
+                  value={locale}
+                  onChange={(e) => setLocale(e.target.value as WidgetLocale)}
+                  disabled={submitting}
+                >
+                  <option value="En">{LOCALE_LABELS.En}</option>
+                  <option value="Ru">{LOCALE_LABELS.Ru}</option>
                 </Select>
               )}
             </Field>
