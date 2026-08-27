@@ -27,6 +27,16 @@ RUN npm run build
 # nginx equivalent): official image, not a bespoke build, with the dynamic modules this
 # static-file-only container never uses (image filter, mail proxy, stream) stripped out.
 FROM nginx:1.31-alpine-slim
+# `17-04`: the base tag names the image nginx's own maintainers published, not the Alpine packages
+# inside it *today* - Alpine ships security fixes into its package repositories continuously,
+# independent of when a base image was last rebuilt from them. `ci.yml`'s own Trivy scan caught
+# exactly this drift the first time it ran: CVE-2026-14456 (openssl, already `fixed` upstream per
+# Trivy's own report) present in this tag's frozen `libssl3`/`libcrypto3` layer. `apk upgrade`
+# reaches into the live package repository at build time and pulls whatever is patched *now*, so
+# this image stays current between nginx's own rebuilds instead of only at the moment this Dockerfile
+# happens to be edited. `--no-cache` skips the local index (so nothing here goes stale the way the
+# base layer just did) without leaving `/var/cache/apk` behind to bloat the image.
+RUN apk update && apk upgrade --no-cache
 # The commit this image is built from (`15-07`). Defaults to "unknown" rather than failing the
 # build: a local `docker build` for a quick check is a legitimate thing to do, and it should say
 # "unknown" out loud rather than lie or refuse.
