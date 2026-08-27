@@ -27,9 +27,12 @@ const POSITION_LABELS: Record<WidgetPosition, string> = {
 
 // `11-10`: the same closed-set-of-two shape `POSITION_LABELS` already established for this page's
 // only other `<select>` - see `Select.tsx`'s own comment on why this project has exactly two.
+// Found live: labelled in English exonyms ("Russian") rather than each language's own name for
+// itself - every language names itself the way its own speakers would recognise it, regardless of
+// which language the console's own chrome happens to be in today.
 const LOCALE_LABELS: Record<WidgetLocale, string> = {
   En: "English",
-  Ru: "Russian",
+  Ru: "Русский",
 };
 
 const DEFAULT_SWATCH_COLOR = "#2f6fed";
