@@ -31,6 +31,17 @@
   flex-wrap: wrap;
 }
 
+/* The nav's own row, directly under the identity row above - not a variant of it, a second row
+   entirely, so a wide nav (up to five items today) never competes with the identity cluster for the
+   same line. `border-top` reads as one continuous header rather than two stacked ones; the identity
+   row keeps its own bottom padding above this rule's top padding so the two rows do not touch. */
+.ago-shell__header-row--nav {
+  padding-top: var(--ago-space-1);
+  padding-bottom: var(--ago-space-2);
+  border-top: 1px solid var(--ago-line);
+  justify-content: flex-start;
+}
+
 /* --- Identity ------------------------------------------------------------------------------- */
 
 .ago-shell__brand {
@@ -84,7 +95,11 @@
   display: flex;
   align-items: center;
   gap: var(--ago-space-5);
-  flex-wrap: wrap;
+  /* Its own full-width row now (see .ago-shell__header-row--nav), so five items fit comfortably at
+     any desktop width. `nowrap` + horizontal scroll, not wrap, is the fallback below that: a nav
+     link broken across two lines mid-viewport is harder to scan than one that scrolls. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
 }
 
 .ago-shell__nav-link {
