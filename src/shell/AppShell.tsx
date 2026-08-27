@@ -191,6 +191,11 @@ export interface ShellIdentityProps {
   /** The operator's own site, when it is known. `null` on `/onboarding`, where the whole point is
    * that there is not one yet. */
   siteId?: string | null;
+  /** `13-07`/`adr/0068`: the tenancy switcher (`TenancySwitcher`), already gated by its caller
+   * (`OperatorShell`) to render only for a multi-tenant identity. `undefined` everywhere else, the
+   * same "renders nothing extra" default every other optional shell slot already has - a
+   * single-tenant operator's header is unchanged from before this item. */
+  tenancySwitcher?: ReactNode;
   onSignOut: () => void;
 }
 
@@ -202,9 +207,10 @@ export interface ShellIdentityProps {
  * Before `11-05` this was a `<button>` inside a `<p>` at the top of two page bodies, which is why
  * signing out looked like a sentence.
  */
-export function ShellIdentity({ operator, siteId, onSignOut }: ShellIdentityProps) {
+export function ShellIdentity({ operator, siteId, tenancySwitcher, onSignOut }: ShellIdentityProps) {
   return (
     <>
+      {tenancySwitcher}
       <span className="ago-shell__operator">
         <span className="ago-shell__operator-name">{operator}</span>
         {siteId && (

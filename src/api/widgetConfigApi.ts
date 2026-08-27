@@ -1,4 +1,5 @@
 import { config } from "../config.js";
+import { withActiveSiteHeader } from "./activeSite.js";
 
 /**
  * `11-01`'s exact wire shape (`WidgetConfigEndpoints.WidgetConfigResponse`/`UpdateWidgetConfigRequest`,
@@ -74,7 +75,7 @@ async function buildError(response: Response, fallbackCode: string, fallbackDeta
 
 export async function fetchWidgetConfig(accessToken: string, siteId: string): Promise<WidgetConfigDto> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/sites/${siteId}/widget-config`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
   });
 
   if (!response.ok) {
@@ -91,10 +92,10 @@ export async function updateWidgetConfig(
 ): Promise<WidgetConfigDto> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/sites/${siteId}/widget-config`, {
     method: "PUT",
-    headers: {
+    headers: withActiveSiteHeader({
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify(request),
   });
 

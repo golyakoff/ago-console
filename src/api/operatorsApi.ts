@@ -1,4 +1,5 @@
 import { config } from "../config.js";
+import { withActiveSiteHeader } from "./activeSite.js";
 
 /**
  * `5-08`: `GET /api/v1/operators/me` (`Ago.Chat.Api.Operators.OperatorsEndpoints`, an addition this
@@ -14,7 +15,7 @@ export interface OperatorPermissionsResponse {
 
 export async function fetchMyPermissions(accessToken: string): Promise<OperatorPermissionsResponse> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/operators/me`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
   });
 
   if (!response.ok) {
@@ -48,7 +49,7 @@ export type OperatorResolutionState = "operator" | "keycloak-identity-only";
  */
 export async function resolveOperatorState(accessToken: string): Promise<OperatorResolutionState> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/operators/me`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
   });
 
   if (response.ok) {

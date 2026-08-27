@@ -1,5 +1,6 @@
 import * as signalR from "@microsoft/signalr";
 import { config } from "../config.js";
+import { getActiveSiteId } from "../api/activeSite.js";
 import { defaultBackoffOptions, jitteredDelayMs } from "./protocol/backoff.js";
 import { SeenMessageIds } from "./protocol/dedup.js";
 import { SequenceTracker } from "./protocol/sequence.js";
@@ -92,8 +93,26 @@ export class OperatorConnection {
    * is what makes a reconnect after a long idle re-negotiate with a token that is still valid.
    */
   constructor(accessTokenFactory: () => string) {
+    // `13-07`/`adr/0068`: the active-site signal, read once at connect time - matches
+    // `PermissionsProvider`'s own "switching tenancy is a page reload" design, so this constructor
+    // always sees whichever tenancy is current for this page load. A header (`X-Ago-Active-Site`,
+    // what every REST call in this codebase carries via `withActiveSiteHeader`) does not reliably
+    // reach a WebSocket upgrade in a browser - the identical constraint that already put this app's
+    // own bearer token in the query string instead of an `Authorization` header for this exact
+    // connection (`accessTokenFactory` below; server-side, `Program.cs`'s own
+    // `HubTokenFromQueryString`) - so this appends the same kind of query-string parameter
+    // (`OperatorIdentityClaimsTransformation.ActiveSiteQueryParameterName` server-side,
+    // `"activeSite"`), verified against a real hub connection in `ago-chat`'s own
+    // `ActiveSiteHubResolutionTests`. Omitted entirely when no active site is known yet (a
+    // single-tenant operator, or the brief window before `PermissionsProvider`'s own fetch resolves
+    // one) - the resolver's existing no-signal fallback already handles that correctly.
+    const activeSiteId = getActiveSiteId();
+    const hubUrl = activeSiteId
+      ? `${config.apiBaseUrl}/hubs/operator?activeSite=${encodeURIComponent(activeSiteId)}`
+      : `${config.apiBaseUrl}/hubs/operator`;
+
     this.connection = new signalR.HubConnectionBuilder()
-      .withUrl(`${config.apiBaseUrl}/hubs/operator`, {
+      .withUrl(hubUrl, {
         accessTokenFactory,
         // api-design.md's "Shipped in `5-09`" note names this exact gotcha for "any other SignalR
         // client this project adds": `@microsoft/signalr` defaults to `withCredentials: true`, and

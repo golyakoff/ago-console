@@ -3,6 +3,7 @@ import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { useOwnerEligibility } from "../auth/useOwnerEligibility.js";
 import { AppShell, ShellIdentity, type AppShellNavItem } from "./AppShell.js";
+import { TenancySwitcher } from "./TenancySwitcher.js";
 
 /**
  * `11-05`. The layout route's element - the context-reading half of the shell, mounted inside
@@ -25,7 +26,7 @@ import { AppShell, ShellIdentity, type AppShellNavItem } from "./AppShell.js";
  */
 export function OperatorShell() {
   const { user, logout } = useAuth();
-  const { siteId, hasPermission } = usePermissions();
+  const { siteId, hasPermission, tenancies, activeSiteId, switchTenancy } = usePermissions();
   const ownerEligibility = useOwnerEligibility();
 
   // `11-06`: the two workspace routes want the full-width, viewport-height frame; `/admin` and
@@ -70,6 +71,13 @@ export function OperatorShell() {
         <ShellIdentity
           operator={user?.profile.preferred_username ?? user?.profile.sub ?? "Signed in"}
           siteId={siteId}
+          // `13-07`/`adr/0068`: only when there is a real choice to offer - a single-tenant
+          // operator's shell renders no switcher at all, exactly as it did before this item.
+          tenancySwitcher={
+            tenancies && tenancies.length > 1 ? (
+              <TenancySwitcher tenancies={tenancies} activeSiteId={activeSiteId} onSwitch={switchTenancy} />
+            ) : undefined
+          }
           onSignOut={() => void logout()}
         />
       }

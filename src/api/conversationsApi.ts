@@ -1,4 +1,5 @@
 import { config } from "../config.js";
+import { withActiveSiteHeader } from "./activeSite.js";
 import { problemDetailsFrom } from "./problemDetails.js";
 import type { AllConversationsForSiteResponse, OperatorQueueResponse } from "../realtime/protocol/types.js";
 
@@ -20,7 +21,7 @@ export interface MarkConversationReadResult {
  */
 export async function fetchOperatorQueue(accessToken: string): Promise<OperatorQueueResponse> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/conversations/queue`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
   });
 
   if (!response.ok) {
@@ -46,7 +47,7 @@ export async function fetchAllConversationsForSite(
   }
 
   const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
   });
 
   if (!response.ok) {
@@ -78,7 +79,7 @@ export async function markConversationRead(
 ): Promise<MarkConversationReadResult> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/conversations/${conversationId}/read`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }),
     body: JSON.stringify({ upToSequence }),
   });
 
@@ -108,7 +109,7 @@ export async function markConversationRead(
 export async function closeConversation(accessToken: string, conversationId: string): Promise<void> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/conversations/${conversationId}/close`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
   });
 
   if (response.ok) {

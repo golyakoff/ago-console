@@ -1,4 +1,5 @@
 import { createContext, useContext } from "react";
+import type { TenancyDto } from "../api/tenanciesApi.js";
 
 export interface PermissionsState {
   /** `null` while the first `GET /api/v1/operators/me` call is still in flight - callers that need
@@ -14,6 +15,23 @@ export interface PermissionsState {
    * `permissions` already follows. */
   siteId: string | null;
   hasPermission: (permission: string) => boolean;
+  /** `13-07`/`adr/0068`: every tenancy (`Site`) this signed-in identity administers, from
+   * `GET /api/v1/me/tenancies` - the new step `PermissionsProvider` takes before its existing
+   * `operators/me` call. `null` while that call is still in flight, `[]` once it resolves for an
+   * identity with none (the pre-onboarding case) - the same "not yet known is not the same as
+   * denied/empty" distinction `permissions` already draws. The switcher
+   * (`OperatorShell`/`TenancySwitcher`) renders only when this holds more than one entry. */
+  tenancies: TenancyDto[] | null;
+  /** The tenancy `PermissionsProvider` resolved as active for this session - the same value it
+   * attaches as `X-Ago-Active-Site` on every subsequent API/hub call
+   * (`src/api/activeSite.ts`). `null` only while unresolved. */
+  activeSiteId: string | null;
+  /** Switches the active tenancy: persists the new choice and reloads the page.
+   * `PermissionsProvider`'s own doc comment explains why a full reload, not a React-level remount,
+   * is this item's own time-boxed choice for "re-bootstrap everything that depends on the active
+   * site" (`13-07`'s backlog Scope explicitly allows it). A no-op when `tenancies` holds one entry
+   * or fewer - nothing to switch to. */
+  switchTenancy: (siteId: string) => void;
 }
 
 export const PermissionsContext = createContext<PermissionsState | null>(null);
