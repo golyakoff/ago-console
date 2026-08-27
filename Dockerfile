@@ -26,7 +26,7 @@ RUN npm run build
 # that actually exists for nginx (Chiseled itself is a .NET/Microsoft base-image family with no
 # nginx equivalent): official image, not a bespoke build, with the dynamic modules this
 # static-file-only container never uses (image filter, mail proxy, stream) stripped out.
-FROM nginx:1.27-alpine-slim
+FROM nginx:1.31-alpine-slim
 # The commit this image is built from (`15-07`). Defaults to "unknown" rather than failing the
 # build: a local `docker build` for a quick check is a legitimate thing to do, and it should say
 # "unknown" out loud rather than lie or refuse.
