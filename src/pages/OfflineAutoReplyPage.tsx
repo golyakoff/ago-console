@@ -210,7 +210,7 @@ export function OfflineAutoReplyPage() {
                 // Index as the key: these rows have no id of their own, and the list is only ever
                 // edited in place or truncated - never reordered by the UI - so an index key cannot
                 // mismatch state to a row here.
-                <div className="ago-row" key={index}>
+                <div className="ago-row ago-row--align-end" key={index}>
                   <Field label={`Keyword ${index + 1}`}>
                     {(controlProps) => (
                       <Input

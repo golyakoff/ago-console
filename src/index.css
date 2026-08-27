@@ -45,6 +45,15 @@
   flex-wrap: wrap;
 }
 
+.ago-row--align-end {
+  /* A row mixing `Field`s (label above the control, adding height) with a bare, label-less control
+   * - `OfflineAutoReplyPage`'s keyword-row Remove button is the case this exists for - looks
+   * "raised" under the default `center`, because the row centers each child's whole box rather than
+   * lining up the controls themselves. Bottom-aligning the row lines up every control's own baseline
+   * instead, which is what `center` was visually trying and failing to do here. */
+  align-items: flex-end;
+}
+
 .ago-row--tight {
   gap: var(--ago-space-2);
 }
