@@ -50,7 +50,19 @@ export function OperatorShell() {
   const queueMatch = useMatch("/");
   const conversationMatch = useMatch("/conversations/:conversationId");
   const adminMatch = useMatch("/admin");
+  const widgetSettingsMatch = useMatch("/settings/widget");
+  const autoReplySettingsMatch = useMatch("/settings/auto-reply");
   const wide = queueMatch !== null || conversationMatch !== null || adminMatch !== null;
+
+  // Found live: the header subtitle should name which *tab* is open, not who is signed in - even
+  // the platform owner, on their own operator seat, reads "operator console" on the messaging tab
+  // and "client console" on any tenant-management one, the identical text an ordinary operator sees
+  // there. `/admin`/`/settings/widget`/`/settings/auto-reply` are exactly the `site:configure`-gated
+  // tenant-management tabs `consoleNav.ts` groups together; `/`/`/conversations/:id` are the
+  // messaging tab and keep `AppShell`'s own default (`operatorConsoleTagline`), so this component
+  // only needs to say when to override it.
+  const isTenantManagementTab = adminMatch !== null || widgetSettingsMatch !== null || autoReplySettingsMatch !== null;
+  const tagline = isTenantManagementTab ? strings.consoleTaglineClient : undefined;
 
   const nav: AppShellNavItem[] = buildTenantNavItems(hasPermission, strings);
 
@@ -70,6 +82,7 @@ export function OperatorShell() {
       <AppShell
         nav={nav}
         wide={wide}
+        tagline={tagline}
         // `12-04`: the `8-06` demo strip's claim that "its login is published on the demo pages" is
         // false of the platform owner's account, and this shell is where the owner-who-is-also-an-
         // operator spends their whole session. Taken from the eligibility answer already fetched above

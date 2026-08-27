@@ -169,6 +169,9 @@ export function OwnerSitesPage() {
       // answer is still `"unknown"`, and on a refusal, the reader is not demonstrably the owner, and
       // the stricter shared-login wording is the true thing to say to them.
       demoNoticeAudience={access === "granted" ? "platform-owner" : "shared-login"}
+      // Found live: even an identity that also holds an operator seat should read "platform owner
+      // console" while it is on this page specifically - the header names the tab, not the person.
+      tagline={en.consoleTaglineOwner}
       identity={
         <ShellIdentity
           operator={operatorDisplayName(user)}

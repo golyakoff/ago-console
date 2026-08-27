@@ -3,6 +3,11 @@ import type { ConsoleStrings } from "./strings.js";
 export const ru: ConsoleStrings = {
   skipToContent: "Перейти к содержимому",
   operatorConsoleTagline: "Консоль оператора",
+  consoleTaglineClient: "Консоль клиента",
+  // Never actually rendered - `OwnerSitesPage` always reads the fixed `en` table for its own
+  // header (11-11's settled design call) - kept here only because `ConsoleStrings` requires every
+  // field on both tables.
+  consoleTaglineOwner: "Консоль владельца платформы",
   navSectionsAriaLabel: "Разделы консоли",
   navConversations: "Диалоги",
   navAllConversations: "Все диалоги",
