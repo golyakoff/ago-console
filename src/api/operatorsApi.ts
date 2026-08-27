@@ -11,6 +11,10 @@ export interface OperatorPermissionsResponse {
   operatorId: string;
   siteId: string;
   permissions: string[];
+  /** `11-11`(console): the active site's own `Locale` (`"En"`/`"Ru"`), added to this same response
+   * for the identical "no second network call" reason `siteId` already rides here - `Ago.Chat.
+   * Contracts.OperatorPermissionsResponse`'s own remarks. */
+  locale: string;
 }
 
 export async function fetchMyPermissions(accessToken: string): Promise<OperatorPermissionsResponse> {

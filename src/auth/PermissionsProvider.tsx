@@ -30,6 +30,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const accessToken = user?.access_token;
   const [permissions, setPermissions] = useState<string[] | null>(null);
   const [siteId, setSiteId] = useState<string | null>(null);
+  const [locale, setLocale] = useState<string | null>(null);
   const [tenancies, setTenancies] = useState<TenancyDto[] | null>(null);
   const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
 
@@ -66,6 +67,8 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         // `11-02`: the same response already carries `siteId` - one fetch, two pieces of state,
         // not a second call `WidgetConfigPage` would otherwise need to make on its own.
         setSiteId(response.siteId);
+        // `11-11`(console): same response, same reasoning, one more field.
+        setLocale(response.locale);
       })
       .catch((err: unknown) => {
         // A permissions fetch failing must not crash the console - every gated UI element (the admin
@@ -99,8 +102,8 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<PermissionsState>(
-    () => ({ permissions, siteId, hasPermission, tenancies, activeSiteId, switchTenancy }),
-    [permissions, siteId, hasPermission, tenancies, activeSiteId, switchTenancy],
+    () => ({ permissions, siteId, locale, hasPermission, tenancies, activeSiteId, switchTenancy }),
+    [permissions, siteId, locale, hasPermission, tenancies, activeSiteId, switchTenancy],
   );
 
   return <PermissionsContext.Provider value={value}>{children}</PermissionsContext.Provider>;

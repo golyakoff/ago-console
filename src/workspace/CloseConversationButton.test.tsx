@@ -24,6 +24,9 @@ function Permitted({ permissions, children }: { permissions: string[]; children:
     () => ({
       permissions,
       siteId: SITE_ID,
+      // `11-11`: this file is about the close button's own gating, not locale - `null` resolves to
+      // English.
+      locale: null,
       hasPermission: (permission: string) => permissions.includes(permission),
       // `13-07`: this file is about the close button's own gating, not the switcher - a single,
       // already-resolved tenancy, the same shape every operator before this item had.

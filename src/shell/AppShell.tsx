@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { Button } from "../components/Button.js";
 import { config } from "../config.js";
+import { useStrings } from "../i18n/StringsContext.js";
 
 /**
  * `12-04`: who the notice below is talking to. Two values, because the demo console has exactly two
@@ -50,6 +51,7 @@ export type DemoNoticeAudience = "shared-login" | "platform-owner";
  * for every reader - the conversations are strangers', and nothing real should be typed here.
  */
 function PublicDemoNotice({ audience }: { audience: DemoNoticeAudience }) {
+  const strings = useStrings();
   if (!config.isPublicDemo) {
     return null;
   }
@@ -60,20 +62,7 @@ function PublicDemoNotice({ audience }: { audience: DemoNoticeAudience }) {
           `--ago-shell-max` measure as the header row above, so it starts on the brand's own left
           edge instead of running the whole width of a 1440px monitor. */}
       <span className="ago-demo-notice__text">
-        {audience === "platform-owner" ? (
-          <>
-            This is a public demo console. You are signed in as the platform owner - your own login is
-            published nowhere, but the demo operator login is, so anyone can sign in here as one. Every
-            conversation in it was typed by a stranger, who was told an operator can read it. Do not
-            type anything real.
-          </>
-        ) : (
-          <>
-            This is a public demo console. Its login is published on the demo pages, so anyone can sign
-            in here - every conversation in it was typed by a stranger, who was told you can read it. Do
-            not type anything real.
-          </>
-        )}
+        {audience === "platform-owner" ? strings.publicDemoNoticePlatformOwner : strings.publicDemoNoticeSharedLogin}
       </span>
     </div>
   );
@@ -120,11 +109,20 @@ export interface AppShellProps {
  * `11-05`. The persistent frame every route renders inside: product identity, navigation with an
  * active state, the signed-in operator, and the page underneath.
  *
- * Deliberately presentational and prop-driven - it reads no context. That is what lets the same
- * header sit on `/signup` and `/callback`, which mount outside `PermissionsProvider` and
- * `OperatorConnectionProvider` entirely (`App.tsx` has the reasoning for why those routes are
- * outside the operator layout), where a shell that called `usePermissions()` would throw. The
- * context-reading half lives in `OperatorShell`, which is mounted only inside those providers.
+ * Deliberately presentational and prop-driven for everything that varies by *route* - it reads no
+ * context for `nav`/`identity`/`wide`. That is what lets the same header sit on `/signup` and
+ * `/callback`, which mount outside `PermissionsProvider` and `OperatorConnectionProvider` entirely
+ * (`App.tsx` has the reasoning for why those routes are outside the operator layout), where a shell
+ * that called `usePermissions()` would throw. The context-reading half of *that* lives in
+ * `OperatorShell`, which is mounted only inside those providers.
+ *
+ * `11-11`: this component's own chrome text (the skip link, the tagline, nav's aria-label, the demo
+ * notice) *does* read `useStrings()` now - safe specifically because that context is defaulted, not
+ * nullable (`StringsContext.tsx`'s own remarks): a caller with no `<StringsProvider>` above it (every
+ * pre-session route) gets the console's built-in English rather than a thrown error, so the "renders
+ * outside every provider" property this doc comment describes still holds. `nav`/`identity`/`wide`
+ * remain props, not context, because those genuinely vary by *route*, which this component still
+ * knows nothing about - `useStrings()` varies only by *tenant*, which a safe default can stand in for.
  *
  * The `<header>`/`<nav>`/`<main>` landmarks and the skip link are the point of having a shell at
  * all from an accessibility standpoint: before this, every screen was a bare `<div>` and a
@@ -137,10 +135,11 @@ export function AppShell({
   demoNoticeAudience = "shared-login",
   children,
 }: AppShellProps) {
+  const strings = useStrings();
   return (
     <div className={wide ? "ago-shell ago-shell--fixed" : "ago-shell"}>
       <a className="ago-skip-link" href="#ago-main">
-        Skip to content
+        {strings.skipToContent}
       </a>
       <header className="ago-shell__header">
         {/* `13-07`-era header found live to wrap onto a surprise second line once a fifth nav item
@@ -157,7 +156,7 @@ export function AppShell({
             </span>
             <span>
               <span className="ago-shell__wordmark">AGO</span>
-              <span className="ago-shell__product">Operator console</span>
+              <span className="ago-shell__product">{strings.operatorConsoleTagline}</span>
             </span>
           </span>
 
@@ -166,7 +165,7 @@ export function AppShell({
 
         {nav && nav.length > 0 && (
           <div className="ago-shell__header-row ago-shell__header-row--nav">
-            <nav className="ago-shell__nav" aria-label="Console sections">
+            <nav className="ago-shell__nav" aria-label={strings.navSectionsAriaLabel}>
               {nav.map((item) => (
                 <NavLink
                   key={item.to}
@@ -217,19 +216,20 @@ export interface ShellIdentityProps {
  * signing out looked like a sentence.
  */
 export function ShellIdentity({ operator, siteId, tenancySwitcher, onSignOut }: ShellIdentityProps) {
+  const strings = useStrings();
   return (
     <>
       {tenancySwitcher}
       <span className="ago-shell__operator">
         <span className="ago-shell__operator-name">{operator}</span>
         {siteId && (
-          <span className="ago-shell__operator-site" title="Site id">
-            site {siteId.slice(0, 8)}
+          <span className="ago-shell__operator-site" title={strings.siteIdTooltip}>
+            {strings.siteIdPrefix} {siteId.slice(0, 8)}
           </span>
         )}
       </span>
       <Button size="sm" variant="secondary" onClick={onSignOut}>
-        Sign out
+        {strings.signOut}
       </Button>
     </>
   );

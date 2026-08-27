@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchOwnerSites, type OwnerSiteSummary } from "../api/ownerApi.js";
+import { en } from "../i18n/en.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
 import { buildTenantNavItems } from "../shell/consoleNav.js";
 import { Alert } from "../components/Alert.js";
@@ -156,7 +157,13 @@ export function OwnerSitesPage() {
       // that whole block is absent, not merely unreachable, for that identity. "Platform sites" is
       // always last and always present: this page is itself what that link points at, so it renders
       // with the active state the console uses everywhere else for "you are here".
-      nav={[...(siteId ? buildTenantNavItems(hasPermission) : []), { to: "/owner", label: "Platform sites", end: true }]}
+      // `11-11`: `en` explicitly, never `useStrings()` - this page is deliberately English-only
+      // regardless of any tenant this identity also administers (confirmed with the author, `11-11`'s
+      // own backlog item: `/owner` is not scoped to one tenant, so it never follows one's language).
+      nav={[
+        ...(siteId ? buildTenantNavItems(hasPermission, en) : []),
+        { to: "/owner", label: en.navPlatformSites, end: true },
+      ]}
       // `12-04`: narrowed only once `12-02`'s endpoint has actually accepted this caller. While the
       // answer is still `"unknown"`, and on a refusal, the reader is not demonstrably the owner, and
       // the stricter shared-login wording is the true thing to say to them.
