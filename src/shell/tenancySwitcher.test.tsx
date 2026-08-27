@@ -118,6 +118,33 @@ describe("the tenancy switcher", () => {
     expect(switcherSelect(container)).toBeNull();
   });
 
+  /** Found live, 2026-08-27: for an unnamed site the switcher's own selected option reads
+   * "Unnamed (00000000)" - the identical string the plain site-id badge next to it would also show.
+   * The badge is `ShellIdentity`'s job for a single-tenant operator, who has no switcher to carry
+   * that information instead. */
+  it("suppresses the plain site-id badge once the switcher can carry that information itself", async () => {
+    tenanciesApi.fetchMyTenancies.mockResolvedValue({
+      tenancies: [
+        { siteId: SITE_A, siteName: "Acme Support" },
+        { siteId: SITE_B, siteName: "Widgets Inc" },
+      ],
+    });
+
+    const container = await render(shellAt("/"));
+
+    expect(switcherSelect(container)).not.toBeNull();
+    expect(container.querySelector(".ago-shell__operator-site")).toBeNull();
+  });
+
+  it("keeps the plain site-id badge for a single-tenant identity, which has no switcher at all", async () => {
+    tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [{ siteId: SITE_A, siteName: "Acme Support" }] });
+
+    const container = await render(shellAt("/"));
+
+    expect(switcherSelect(container)).toBeNull();
+    expect(container.querySelector(".ago-shell__operator-site")?.textContent).toContain(SITE_A.slice(0, 8));
+  });
+
   it("renders, listing every tenancy by name, for a multi-tenant identity", async () => {
     tenanciesApi.fetchMyTenancies.mockResolvedValue({
       tenancies: [

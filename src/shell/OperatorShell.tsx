@@ -1,5 +1,6 @@
 import { Outlet, useMatch } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
+import { operatorDisplayName } from "../auth/operatorDisplayName.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { useOwnerEligibility } from "../auth/useOwnerEligibility.js";
 import { getStrings, parseConsoleLocale } from "../i18n/resolve.js";
@@ -76,7 +77,7 @@ export function OperatorShell() {
         demoNoticeAudience={ownerEligibility === "eligible" ? "platform-owner" : "shared-login"}
         identity={
           <ShellIdentity
-            operator={user?.profile.preferred_username ?? user?.profile.sub ?? "Signed in"}
+            operator={operatorDisplayName(user)}
             siteId={siteId}
             // `13-07`/`adr/0068`: only when there is a real choice to offer - a single-tenant
             // operator's shell renders no switcher at all, exactly as it did before this item.

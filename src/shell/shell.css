@@ -10,10 +10,21 @@
   background: var(--ago-paper);
 }
 
-.ago-shell__header {
+/* Found live, 2026-08-27: the header alone was `position: sticky`, so on any page long enough to
+   scroll, the demo-notice band (`.ago-demo-notice`, directly below it in the DOM) scrolled out of
+   view while the header stayed pinned - one disclosure staying on screen and the other not, for no
+   reason a reader could tell apart from a bug. Both now live inside one sticky wrapper instead of
+   the header carrying its own `position: sticky` - stacking two independently-sticky siblings at the
+   same `top: 0` would overlap them rather than stack them, and computing the header's own height to
+   offset the second one is exactly the kind of number that silently goes stale the next time the
+   header's content changes. */
+.ago-shell__sticky {
   position: sticky;
   top: 0;
   z-index: var(--ago-z-header);
+}
+
+.ago-shell__header {
   background: rgba(251, 250, 247, 0.88); /* --ago-paper at 88%; a custom property cannot carry alpha here */
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);

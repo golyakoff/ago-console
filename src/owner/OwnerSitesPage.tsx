@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext.js";
+import { operatorDisplayName } from "../auth/operatorDisplayName.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchOwnerSites, type OwnerSiteSummary } from "../api/ownerApi.js";
 import { en } from "../i18n/en.js";
@@ -170,7 +171,7 @@ export function OwnerSitesPage() {
       demoNoticeAudience={access === "granted" ? "platform-owner" : "shared-login"}
       identity={
         <ShellIdentity
-          operator={user?.profile.preferred_username ?? user?.profile.sub ?? "Signed in"}
+          operator={operatorDisplayName(user)}
           siteId={siteId}
           onSignOut={() => void logout()}
         />
