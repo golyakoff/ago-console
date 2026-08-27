@@ -9,9 +9,19 @@ import { config } from "../config.js";
  */
 export type WidgetPosition = "BottomRight" | "BottomLeft";
 
+/**
+ * `11-10`: `Ago.Chat.Domain.Locale`'s own PascalCase member names on the wire
+ * (`WidgetConfigEndpoints.WidgetConfigResponse`/`UpdateWidgetConfigRequest`, `ago-chat`) - the
+ * identical convention `WidgetPosition` above already uses for its own enum. A named union, not a
+ * bare `string`, for the same reason `WidgetPosition` is one: a typo in this file cannot silently
+ * compile.
+ */
+export type WidgetLocale = "En" | "Ru";
+
 export interface WidgetConfigDto {
   primaryColorHex: string | null;
   position: WidgetPosition;
+  locale: WidgetLocale;
 }
 
 /**
