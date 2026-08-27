@@ -7,6 +7,7 @@ import { PermissionsProvider } from "./PermissionsProvider.js";
 import { OperatorShell } from "../shell/OperatorShell.js";
 import { AdminConversationsPage } from "../pages/AdminConversationsPage.js";
 import { WidgetConfigPage } from "../pages/WidgetConfigPage.js";
+import { OfflineAutoReplyPage } from "../pages/OfflineAutoReplyPage.js";
 import { all, byText, render, unmount } from "../testing/dom.js";
 
 /**
@@ -36,6 +37,7 @@ const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 const conversationsApi = vi.hoisted(() => ({ fetchAllConversationsForSite: vi.fn() }));
 const widgetConfigApi = vi.hoisted(() => ({ fetchWidgetConfig: vi.fn(), updateWidgetConfig: vi.fn() }));
+const offlineAutoReplyApi = vi.hoisted(() => ({ fetchOfflineAutoReply: vi.fn(), updateOfflineAutoReply: vi.fn() }));
 // `13-07`: `PermissionsProvider` now calls this before `fetchMyPermissions` - unmocked, it would hit
 // a real `fetch` and every scenario below (all of them single-tenant) would never reach
 // `fetchMyPermissions` at all. `grants`/`beforeEach` below seed the single-tenant default; the
@@ -51,6 +53,13 @@ vi.mock("../api/widgetConfigApi.js", async () => {
   // own definition of it and only its two network calls are replaced.
   const actual = await vi.importActual<typeof import("../api/widgetConfigApi.js")>("../api/widgetConfigApi.js");
   return { ...actual, ...widgetConfigApi };
+});
+vi.mock("../api/offlineAutoReplyApi.js", async () => {
+  // Same reasoning as widgetConfigApi.js above - OfflineAutoReplyError is a real class the page
+  // does `instanceof` against.
+  const actual =
+    await vi.importActual<typeof import("../api/offlineAutoReplyApi.js")>("../api/offlineAutoReplyApi.js");
+  return { ...actual, ...offlineAutoReplyApi };
 });
 
 const SITE_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
@@ -119,6 +128,7 @@ beforeEach(() => {
     position: "BottomRight",
     locale: "En",
   });
+  offlineAutoReplyApi.fetchOfflineAutoReply.mockResolvedValue({ enabled: false, fallbackReply: "", rules: [] });
 });
 
 afterEach(async () => {
@@ -242,10 +252,17 @@ describe("a gated page reached directly by URL", () => {
    * five-column table is not prose. Needs the real `OperatorShell` mounted (`shellAt`, not
    * `pageOnly`, which the two tests above use precisely to skip it) because the wide/reading-width
    * choice is `OperatorShell`'s own route match, not something `AdminConversationsPage` decides. */
-  it("renders in the shell's full width, the same as the workspace routes, not the reading-width one", async () => {
+  /** Found live, 2026-08-27: `/settings/widget` and `/settings/auto-reply` had the identical
+   * unexplained gap `/admin` did - a form is not meaningfully narrower than a table, and every route
+   * `OperatorShell` renders is wide now, unconditionally. */
+  it.each([
+    ["/admin", <AdminConversationsPage key="admin" />],
+    ["/settings/widget", <WidgetConfigPage key="widget" />],
+    ["/settings/auto-reply", <OfflineAutoReplyPage key="auto-reply" />],
+  ])("renders %s in the shell's full width, the same as the workspace routes", async (path, page) => {
     grants(["site:configure"]);
 
-    const container = await render(shellAt("/admin", <AdminConversationsPage />));
+    const container = await render(shellAt(path, page));
 
     expect(container.querySelector(".ago-shell")?.classList.contains("ago-shell--fixed")).toBe(true);
   });
@@ -278,6 +295,17 @@ describe("a gated page reached directly by URL", () => {
     expect(container.textContent).not.toContain("Site conversations");
     const caption = container.querySelector("table caption");
     expect(caption?.classList.contains("ago-visually-hidden")).toBe(true);
+  });
+
+  /** Found live, 2026-08-27: `.ago-table-scroll` already renders its own complete card (border,
+   * radius, background) - wrapping it in a titleless `Panel` nested a second card inside the first,
+   * and the outer one's padding was the "extra white container" around the table. */
+  it("does not nest the table inside a second Panel card", async () => {
+    grants(["site:configure"]);
+
+    const container = await render(pageOnly("/admin", <AdminConversationsPage />));
+
+    expect(container.querySelector(".ago-panel")).toBeNull();
   });
 
   it("says nothing either way while the permissions answer is in flight", async () => {

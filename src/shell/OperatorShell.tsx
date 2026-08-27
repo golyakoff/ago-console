@@ -38,21 +38,18 @@ export function OperatorShell() {
   // the console's own English default until the real answer arrives).
   const strings = getStrings(parseConsoleLocale(locale));
 
-  // `11-06`: the two workspace routes want the full-width, viewport-height frame. `/settings/widget`
-  // is an ordinary document and keeps the reading-width one. `/admin` joined the wide set later
-  // (found live: its content is a five-column data table, not prose, and capping it at the narrower
-  // `--ago-content-max` left a gap on both sides that lined up with nothing - the same "not a
-  // document" argument the workspace routes already made, just for a table instead of a two-pane
-  // layout). Asked as three route matches here rather than answered inside `AppShell`, which reads no
-  // context and knows no routes on purpose.
-  // All hooks are called unconditionally and combined afterwards - `||` between `useMatch` calls
-  // would short-circuit later ones and change the hook order between renders.
-  const queueMatch = useMatch("/");
-  const conversationMatch = useMatch("/conversations/:conversationId");
+  // `11-06`: the two workspace routes wanted the full-width, viewport-height frame first. `/admin`
+  // joined next (found live: its content is a five-column table, not prose, and the narrower
+  // `--ago-content-max` left a gap lining up with nothing). Found live again, 2026-08-27:
+  // `/settings/widget` and `/settings/auto-reply` had the identical problem - a form is not
+  // meaningfully narrower than a table, and the reading-width cap only ever made sense for something
+  // that reads like a document, which no route left inside this shell actually is any more. Every
+  // route `OperatorShell` renders is now wide, unconditionally - there is no route left to ask
+  // `useMatch` about for this, only for which tagline to show below.
+  const wide = true;
   const adminMatch = useMatch("/admin");
   const widgetSettingsMatch = useMatch("/settings/widget");
   const autoReplySettingsMatch = useMatch("/settings/auto-reply");
-  const wide = queueMatch !== null || conversationMatch !== null || adminMatch !== null;
 
   // Found live: the header subtitle should name which *tab* is open, not who is signed in - even
   // the platform owner, on their own operator seat, reads "operator console" on the messaging tab

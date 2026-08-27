@@ -5,7 +5,6 @@ import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchAllConversationsForSite } from "../api/conversationsApi.js";
 import type { ConversationSummaryDto } from "../realtime/protocol/types.js";
 import { PageHead } from "../shell/AppShell.js";
-import { Panel } from "../components/Panel.js";
 import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
 import { Table, type TableColumn } from "../components/Table.js";
@@ -145,24 +144,24 @@ export function AdminConversationsPage() {
 
       {error && <Alert tone="danger">{error}</Alert>}
 
-      {/* No title/description here any more - `PageHead` above already says what this is and how
-          often it refreshes. A `Panel` with neither is a plain container (its own doc comment's
-          "correct for a panel that is only a container" case), which is exactly what a card holding
-          one table needs - three stacked headings for one table said the same thing three times. */}
-      <Panel>
-        {conversations === null ? (
-          <Skeleton lines={4} label="Loading conversations…" />
-        ) : conversations.length === 0 ? (
-          <p className="ago-empty">No conversations yet.</p>
-        ) : (
-          <Table
-            caption="Every conversation for this site, newest first."
-            columns={COLUMNS}
-            rows={conversations}
-            rowKey={(c) => c.conversationId}
-          />
-        )}
-      </Panel>
+      {/* No `Panel` wrapper any more - found live: `.ago-table-scroll` already carries its own
+          complete card (border, radius, background), the identical treatment `.ago-panel` gives its
+          own `<section>`. Nesting one inside the other was two cards, and the outer one's padding was
+          the "extra white container" a titleless Panel had nothing left to justify - `PageHead` above
+          already says what this is. `Skeleton`/`.ago-empty` are equally self-contained (their own
+          border/background), the same bare-block pattern the workspace's queue lists already use. */}
+      {conversations === null ? (
+        <Skeleton lines={4} label="Loading conversations…" />
+      ) : conversations.length === 0 ? (
+        <p className="ago-empty">No conversations yet.</p>
+      ) : (
+        <Table
+          caption="Every conversation for this site, newest first."
+          columns={COLUMNS}
+          rows={conversations}
+          rowKey={(c) => c.conversationId}
+        />
+      )}
     </>
   );
 }

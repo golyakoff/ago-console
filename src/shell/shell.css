@@ -25,9 +25,14 @@
 }
 
 .ago-shell__header {
-  background: rgba(251, 250, 247, 0.88); /* --ago-paper at 88%; a custom property cannot carry alpha here */
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  /* Found live, 2026-08-27: 88% opacity + a 10px blur still let high-contrast page content
+     (numbers, bold text) scrolling directly underneath read through the header - a frosted-glass
+     look needs the glass to actually block most of what is behind it. 97% is barely translucent any
+     more, which is the point: keep the sticky-header-has-depth cue on close inspection, lose the
+     legible-bleed-through that reads as a bug from a normal viewing distance. */
+  background: rgba(251, 250, 247, 0.97); /* --ago-paper at 97%; a custom property cannot carry alpha here */
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--ago-line);
 }
 
