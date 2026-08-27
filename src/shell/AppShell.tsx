@@ -141,49 +141,54 @@ export function AppShell({
       <a className="ago-skip-link" href="#ago-main">
         {strings.skipToContent}
       </a>
-      <header className="ago-shell__header">
-        {/* `13-07`-era header found live to wrap onto a surprise second line once a fifth nav item
-            (`Platform sites`) joined the other four: one row asked `justify-content: space-between`
-            to fit brand + nav + identity at once, and nothing in that row could shrink, so the whole
-            row broke rather than any one piece of it. Split deliberately into two rows instead - "who
-            you are" (brand, tenancy switcher, operator, sign out) on top, "where you can go" (nav)
-            underneath, each free of the other's width - so wrapping stops being a function of how many
-            nav items happen to be gated on for this identity today. */}
-        <div className="ago-shell__header-row">
-          <span className="ago-shell__brand">
-            <span className="ago-shell__glyph" aria-hidden="true">
-              A
+      {/* `ago-shell__sticky` wraps the header and the demo notice together so both stay pinned as one
+          unit while the page scrolls - see `shell.css`'s own remarks on why this is a shared wrapper
+          rather than a second independently-sticky sibling. */}
+      <div className="ago-shell__sticky">
+        <header className="ago-shell__header">
+          {/* `13-07`-era header found live to wrap onto a surprise second line once a fifth nav item
+              (`Platform sites`) joined the other four: one row asked `justify-content: space-between`
+              to fit brand + nav + identity at once, and nothing in that row could shrink, so the whole
+              row broke rather than any one piece of it. Split deliberately into two rows instead - "who
+              you are" (brand, tenancy switcher, operator, sign out) on top, "where you can go" (nav)
+              underneath, each free of the other's width - so wrapping stops being a function of how many
+              nav items happen to be gated on for this identity today. */}
+          <div className="ago-shell__header-row">
+            <span className="ago-shell__brand">
+              <span className="ago-shell__glyph" aria-hidden="true">
+                A
+              </span>
+              <span>
+                <span className="ago-shell__wordmark">AGO</span>
+                <span className="ago-shell__product">{strings.operatorConsoleTagline}</span>
+              </span>
             </span>
-            <span>
-              <span className="ago-shell__wordmark">AGO</span>
-              <span className="ago-shell__product">{strings.operatorConsoleTagline}</span>
-            </span>
-          </span>
 
-          {identity && <div className="ago-shell__identity">{identity}</div>}
-        </div>
-
-        {nav && nav.length > 0 && (
-          <div className="ago-shell__header-row ago-shell__header-row--nav">
-            <nav className="ago-shell__nav" aria-label={strings.navSectionsAriaLabel}>
-              {nav.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  className={({ isActive }) =>
-                    isActive ? "ago-shell__nav-link ago-shell__nav-link--active" : "ago-shell__nav-link"
-                  }
-                >
-                  {item.label}
-                </NavLink>
-              ))}
-            </nav>
+            {identity && <div className="ago-shell__identity">{identity}</div>}
           </div>
-        )}
-      </header>
 
-      <PublicDemoNotice audience={demoNoticeAudience} />
+          {nav && nav.length > 0 && (
+            <div className="ago-shell__header-row ago-shell__header-row--nav">
+              <nav className="ago-shell__nav" aria-label={strings.navSectionsAriaLabel}>
+                {nav.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    className={({ isActive }) =>
+                      isActive ? "ago-shell__nav-link ago-shell__nav-link--active" : "ago-shell__nav-link"
+                    }
+                  >
+                    {item.label}
+                  </NavLink>
+                ))}
+              </nav>
+            </div>
+          )}
+        </header>
+
+        <PublicDemoNotice audience={demoNoticeAudience} />
+      </div>
 
       <main className={wide ? "ago-shell__main ago-shell__main--wide" : "ago-shell__main"} id="ago-main">
         {children}
@@ -193,8 +198,8 @@ export function AppShell({
 }
 
 export interface ShellIdentityProps {
-  /** `preferred_username`, falling back to the subject id - the same expression the pre-`11-05`
-   * pages already printed, unchanged. */
+  /** `operatorDisplayName(user)` - the identity's real name (Keycloak's `name` claim) when the
+   * provider has one, falling back through `preferred_username`/`sub`. */
   operator: string;
   /** The operator's own site, when it is known. `null` on `/onboarding`, where the whole point is
    * that there is not one yet. */
@@ -222,7 +227,12 @@ export function ShellIdentity({ operator, siteId, tenancySwitcher, onSignOut }: 
       {tenancySwitcher}
       <span className="ago-shell__operator">
         <span className="ago-shell__operator-name">{operator}</span>
-        {siteId && (
+        {/* Found live, 2026-08-27: for an unnamed site the switcher's own selected option already
+            reads "Без названия (00000000)" - the identical string this badge would show right next
+            to it. The switcher only renders for a multi-tenant identity (`tenancySwitcher`'s own
+            doc comment), so a single-tenant operator's header has nothing else naming their site and
+            keeps the badge; a multi-tenant one already has the switcher for that job. */}
+        {siteId && !tenancySwitcher && (
           <span className="ago-shell__operator-site" title={strings.siteIdTooltip}>
             {strings.siteIdPrefix} {siteId.slice(0, 8)}
           </span>
@@ -271,20 +281,22 @@ export function PageHead({ title, description, aside }: PageHeadProps) {
 export function CenteredShell({ children }: { children: ReactNode }) {
   return (
     <div className="ago-shell">
-      <header className="ago-shell__header">
-        <div className="ago-shell__header-row">
-          <span className="ago-shell__brand">
-            <span className="ago-shell__glyph" aria-hidden="true">
-              A
+      <div className="ago-shell__sticky">
+        <header className="ago-shell__header">
+          <div className="ago-shell__header-row">
+            <span className="ago-shell__brand">
+              <span className="ago-shell__glyph" aria-hidden="true">
+                A
+              </span>
+              <span>
+                <span className="ago-shell__wordmark">AGO</span>
+                <span className="ago-shell__product">Operator console</span>
+              </span>
             </span>
-            <span>
-              <span className="ago-shell__wordmark">AGO</span>
-              <span className="ago-shell__product">Operator console</span>
-            </span>
-          </span>
-        </div>
-      </header>
-      <PublicDemoNotice audience="shared-login" />
+          </div>
+        </header>
+        <PublicDemoNotice audience="shared-login" />
+      </div>
       <main className="ago-shell__centered" id="ago-main">
         {children}
       </main>

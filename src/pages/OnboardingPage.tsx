@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
+import { operatorDisplayName } from "../auth/operatorDisplayName.js";
 import { useOwnerEligibility } from "../auth/useOwnerEligibility.js";
 import { registerSite, RegisterSiteError } from "../api/sitesApi.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
@@ -147,7 +148,7 @@ export function OnboardingPage() {
     <AppShell
       identity={
         <ShellIdentity
-          operator={user?.profile.preferred_username ?? user?.profile.sub ?? "Signed in"}
+          operator={operatorDisplayName(user)}
           // No site yet - that is the entire reason this page exists.
           siteId={null}
           onSignOut={() => void logout()}
