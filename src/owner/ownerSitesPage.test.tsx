@@ -111,4 +111,15 @@ describe("the platform-sites page's own navigation", () => {
     const link = all(container, ".ago-shell__nav a").find((a) => (a.textContent ?? "").trim() === "Platform sites");
     expect(link?.classList.contains("ago-shell__nav-link--active")).toBe(true);
   });
+
+  /** Found live, 2026-08-27: this page's own site table had the identical reading-width gap
+   * `OperatorShell`'s tenant-management tabs did - a table is not prose. */
+  it("renders in the shell's full width, not the reading-width one", async () => {
+    tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [] });
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: [], siteId: null });
+
+    const container = await render(shellAt());
+
+    expect(container.querySelector(".ago-shell")?.classList.contains("ago-shell--fixed")).toBe(true);
+  });
 });
