@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { CloseConversationButton, CLOSE_PERMISSION } from "./CloseConversationButton.js";
 import { ApiProblemError } from "../api/problemDetails.js";
 import { PermissionsContext, type PermissionsState } from "../auth/PermissionsContext.js";
@@ -38,13 +38,17 @@ function Permitted({ permissions, children }: { permissions: string[]; children:
 }
 
 interface Handlers {
-  onClose: ReturnType<typeof vi.fn>;
-  onClosed: ReturnType<typeof vi.fn>;
-  onStaleQueue: ReturnType<typeof vi.fn>;
+  onClose: Mock<() => Promise<void>>;
+  onClosed: Mock<() => void>;
+  onStaleQueue: Mock<() => void>;
 }
 
+// vitest 4: `vi.fn()` with no type argument and no typed callee infers the generic
+// `Mock<Procedure | Constructable>` `ReturnType<typeof vi.fn>` used to paper over pre-4 - explicit
+// generics on the two no-callee calls are what `CloseConversationButtonProps`'s own `() => void`
+// signatures need to line up against.
 function handlers(onClose: () => Promise<void> = () => Promise.resolve()): Handlers {
-  return { onClose: vi.fn(onClose), onClosed: vi.fn(), onStaleQueue: vi.fn() };
+  return { onClose: vi.fn(onClose), onClosed: vi.fn<() => void>(), onStaleQueue: vi.fn<() => void>() };
 }
 
 async function mount(permissions: string[], h: Handlers): Promise<HTMLElement> {
