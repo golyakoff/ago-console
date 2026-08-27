@@ -19,11 +19,17 @@ import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
  * already covered by `permissionGating.test.tsx`.
  */
 function Permitted({ permissions, children }: { permissions: string[]; children: ReactNode }) {
+  const SITE_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
   const value = useMemo<PermissionsState>(
     () => ({
       permissions,
-      siteId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      siteId: SITE_ID,
       hasPermission: (permission: string) => permissions.includes(permission),
+      // `13-07`: this file is about the close button's own gating, not the switcher - a single,
+      // already-resolved tenancy, the same shape every operator before this item had.
+      tenancies: [{ siteId: SITE_ID, siteName: "Test Site" }],
+      activeSiteId: SITE_ID,
+      switchTenancy: () => undefined,
     }),
     [permissions],
   );

@@ -1,4 +1,5 @@
 import { config } from "../config.js";
+import { withActiveSiteHeader } from "./activeSite.js";
 
 /**
  * `14-04`'s exact wire shape (`OfflineAutoReplyEndpoints.OfflineAutoReplyResponse`/
@@ -67,7 +68,7 @@ function url(siteId: string): string {
 
 export async function fetchOfflineAutoReply(accessToken: string, siteId: string): Promise<OfflineAutoReplyDto> {
   const response = await fetch(url(siteId), {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
   });
 
   if (!response.ok) {
@@ -84,10 +85,10 @@ export async function updateOfflineAutoReply(
 ): Promise<OfflineAutoReplyDto> {
   const response = await fetch(url(siteId), {
     method: "PUT",
-    headers: {
+    headers: withActiveSiteHeader({
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify(request),
   });
 

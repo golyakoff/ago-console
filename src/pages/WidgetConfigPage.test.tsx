@@ -24,10 +24,16 @@ vi.mock("../config.js", () => ({
 
 const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
+// `13-07`: `PermissionsProvider` now calls this before `fetchMyPermissions` - unmocked, it would hit
+// a real `fetch` against `config.apiBaseUrl` and this file's own single-tenant fixture would never
+// reach the widget-config screen at all. One tenancy, matching every operator this file's own
+// fixtures already model.
+const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
 const widgetConfigApi = vi.hoisted(() => ({ fetchWidgetConfig: vi.fn(), updateWidgetConfig: vi.fn() }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
 vi.mock("../api/ownerApi.js", () => ownerApi);
+vi.mock("../api/tenanciesApi.js", () => tenanciesApi);
 vi.mock("../api/widgetConfigApi.js", async () => {
   const actual = await vi.importActual<typeof import("../api/widgetConfigApi.js")>("../api/widgetConfigApi.js");
   return { ...actual, ...widgetConfigApi };
@@ -77,6 +83,7 @@ function localeSelect(container: HTMLElement): HTMLSelectElement {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [{ siteId: SITE_ID, siteName: "Test Site" }] });
   operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID });
   ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
   widgetConfigApi.fetchWidgetConfig.mockResolvedValue({

@@ -1,4 +1,5 @@
 import { config } from "../config.js";
+import { withActiveSiteHeader } from "./activeSite.js";
 
 /**
  * `5-08`: the console's own calls onto `5-03`/`5-04`'s attachment REST surface
@@ -67,10 +68,10 @@ export async function createAttachment(
 ): Promise<CreateAttachmentResponse> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/conversations/${conversationId}/attachments`, {
     method: "POST",
-    headers: {
+    headers: withActiveSiteHeader({
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify({ contentType, sizeBytes }),
   });
 
@@ -85,6 +86,10 @@ export async function createAttachment(
  * browser-to-storage path every other client of this API takes. `onProgress` is called with a
  * 0-100 integer, driven by the browser's own `ProgressEvent.loaded`/`total` for the request body
  * actually leaving the client - not a timer, not a guess.
+ *
+ * `13-07`: deliberately never carries `withActiveSiteHeader` (or `Authorization` at all) - this PUT
+ * goes straight to object storage using the presigned URL, never to `Ago.Chat.Api`, so there is no
+ * `OperatorIdentityClaimsTransformation` on the other end for an active-site signal to reach.
  */
 export function uploadToPresignedUrl(
   uploadUrl: string,
@@ -120,7 +125,7 @@ export function uploadToPresignedUrl(
 export async function confirmAttachment(accessToken: string, attachmentId: string): Promise<void> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/attachments/${attachmentId}/confirm`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
   });
 
   await throwIfNotOk(response, "Failed to confirm the upload");
@@ -128,7 +133,7 @@ export async function confirmAttachment(accessToken: string, attachmentId: strin
 
 export async function getAttachmentDownload(accessToken: string, attachmentId: string): Promise<AttachmentDownloadResponse> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/attachments/${attachmentId}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
   });
 
   await throwIfNotOk(response, "Failed to load the attachment");
@@ -145,7 +150,7 @@ export async function getAttachmentDownload(accessToken: string, attachmentId: s
 export async function deleteAttachment(accessToken: string, attachmentId: string): Promise<void> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/attachments/${attachmentId}`, {
     method: "DELETE",
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
   });
 
   await throwIfNotOk(response, "Failed to delete the attachment");

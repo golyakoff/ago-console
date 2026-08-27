@@ -1,4 +1,5 @@
 import { config } from "../config.js";
+import { withActiveSiteHeader } from "./activeSite.js";
 
 /**
  * `12-02`'s wire shape, mirrored field for field from `Ago.Chat.Contracts.OwnerSiteSummaryDto`.
@@ -72,7 +73,7 @@ export async function fetchOwnerSites(accessToken: string, before?: string): Pro
   }
 
   const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
   });
 
   if (response.status === 401 || response.status === 403) {
@@ -120,7 +121,7 @@ export async function probeOwnerEligibility(accessToken: string): Promise<OwnerE
   url.searchParams.set("limit", "1");
 
   const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
   });
 
   if (response.ok) {

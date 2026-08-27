@@ -141,6 +141,27 @@
   flex-wrap: wrap;
 }
 
+/* `13-07`/`adr/0068`: the tenancy switcher - present only for a multi-tenant identity
+   (`OperatorShell`'s own gate), so a single-tenant operator's header is unchanged by this rule
+   existing at all. */
+.ago-shell__tenancy-switcher {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-2);
+}
+
+.ago-shell__tenancy-switcher-label {
+  font-size: var(--ago-text-xs);
+  color: var(--ago-ink-soft);
+}
+
+.ago-shell__tenancy-switcher .ago-control--select {
+  min-height: 2rem;
+  padding-top: var(--ago-space-1);
+  padding-bottom: var(--ago-space-1);
+  font-size: var(--ago-text-sm);
+}
+
 .ago-shell__operator {
   display: flex;
   flex-direction: column;

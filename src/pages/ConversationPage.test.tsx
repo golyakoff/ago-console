@@ -148,7 +148,16 @@ function Harness({
   );
 
   const permissionsValue = useMemo<PermissionsState>(
-    () => ({ permissions, siteId: SITE_ID, hasPermission: (p: string) => permissions.includes(p) }),
+    () => ({
+      permissions,
+      siteId: SITE_ID,
+      hasPermission: (p: string) => permissions.includes(p),
+      // `13-07`: this file is about permission gating, not the switcher - a single, already-resolved
+      // tenancy, the same shape every operator before this item had.
+      tenancies: [{ siteId: SITE_ID, siteName: "Test Site" }],
+      activeSiteId: SITE_ID,
+      switchTenancy: () => undefined,
+    }),
     [permissions],
   );
 

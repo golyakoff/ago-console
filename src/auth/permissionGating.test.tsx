@@ -36,10 +36,16 @@ const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 const conversationsApi = vi.hoisted(() => ({ fetchAllConversationsForSite: vi.fn() }));
 const widgetConfigApi = vi.hoisted(() => ({ fetchWidgetConfig: vi.fn(), updateWidgetConfig: vi.fn() }));
+// `13-07`: `PermissionsProvider` now calls this before `fetchMyPermissions` - unmocked, it would hit
+// a real `fetch` and every scenario below (all of them single-tenant) would never reach
+// `fetchMyPermissions` at all. `grants`/`beforeEach` below seed the single-tenant default; the
+// switcher's own multi-tenant behaviour is `tenancySwitcher.test.tsx`'s job, not this file's.
+const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
 vi.mock("../api/ownerApi.js", () => ownerApi);
 vi.mock("../api/conversationsApi.js", () => conversationsApi);
+vi.mock("../api/tenanciesApi.js", () => tenanciesApi);
 vi.mock("../api/widgetConfigApi.js", async () => {
   // `WidgetConfigError` is a real class the page does `instanceof` against, so the module keeps its
   // own definition of it and only its two network calls are replaced.
@@ -103,6 +109,7 @@ function navLabels(container: HTMLElement): string[] {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [{ siteId: SITE_ID, siteName: "Test Site" }] });
   grants([]);
   ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
   conversationsApi.fetchAllConversationsForSite.mockResolvedValue({ conversations: [] });
