@@ -1,3 +1,5 @@
+import { useStrings } from "../i18n/StringsContext.js";
+
 /**
  * `11-06`: what fills the thread region at `/` - the workspace with nothing open yet.
  *
@@ -11,17 +13,16 @@
  * missing feature.
  */
 export function NoConversationSelected() {
+  const strings = useStrings();
+
   return (
-    <section className="ago-workspace__main ago-workspace__main--empty" aria-label="No conversation open">
+    <section className="ago-workspace__main ago-workspace__main--empty" aria-label={strings.emptyStateAriaLabel}>
       <div className="ago-empty-state">
         <span className="ago-empty-state__glyph" aria-hidden="true">
           ⌘
         </span>
-        <h2 className="ago-empty-state__title">Pick a conversation</h2>
-        <p className="ago-empty-state__body">
-          Choose one of the conversations assigned to you on the left. New ones are assigned to you
-          automatically as visitors start chatting — nothing here needs claiming.
-        </p>
+        <h2 className="ago-empty-state__title">{strings.emptyStateTitle}</h2>
+        <p className="ago-empty-state__body">{strings.emptyStateBody}</p>
       </div>
     </section>
   );

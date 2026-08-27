@@ -1,4 +1,6 @@
 import { ApiProblemError } from "../api/problemDetails.js";
+import { en } from "../i18n/en.js";
+import type { ConsoleStrings } from "../i18n/strings.js";
 
 /**
  * `11-09`: what an operator is told when closing a conversation does not work, and whether trying
@@ -54,12 +56,21 @@ export interface CloseOutcome {
  * lane, and is reported rather than made. If that code ever arrives, this function is the one place
  * that changes.
  */
-export function closeOutcomeFor(reason: unknown, holdsClosePermission: boolean): CloseOutcome {
+/**
+ * `11-12`: every sentence below moved into `ConsoleStrings`, and `strings` is a parameter defaulted
+ * to `en` rather than a `useStrings()` call inside this function - because this function is not a
+ * component. It runs from `CloseConversationButton`'s `attempt()`, an event handler, and hooks only
+ * run during render; the caller (which *does* render, and *does* hold a `useStrings()` value) passes
+ * its own strings through instead. Defaulting to `en` rather than requiring the argument everywhere
+ * is what keeps `closeOutcome.test.ts`'s nine existing two-argument call sites - which assert the
+ * English sentences on purpose - green without editing a test file this item has no reason to touch.
+ */
+export function closeOutcomeFor(reason: unknown, holdsClosePermission: boolean, strings: ConsoleStrings = en): CloseOutcome {
   if (!(reason instanceof ApiProblemError)) {
     // A network failure, or a CORS refusal a page is deliberately told nothing about. Nothing was
     // necessarily written, so retrying is honest - and the queue may be fine, so leave it alone.
     return {
-      message: "The console could not reach the server. Check your connection and try again.",
+      message: strings.closeOutcomeNetworkError,
       retryable: true,
       refreshQueue: false,
     };
@@ -68,14 +79,14 @@ export function closeOutcomeFor(reason: unknown, holdsClosePermission: boolean):
   switch (reason.code) {
     case "Conversation.InvalidState":
       return {
-        message: "This conversation has already been closed.",
+        message: strings.closeOutcomeAlreadyClosed,
         retryable: false,
         refreshQueue: true,
       };
 
     case "Conversation.ConcurrencyConflict":
       return {
-        message: "Someone else was changing this conversation at the same moment. Try closing it again.",
+        message: strings.closeOutcomeConcurrencyConflict,
         retryable: true,
         // Deliberately not refreshed: nothing about the conversation is known to have changed, and a
         // queue re-read on a lost race would make the rail flicker for a failure that is about
@@ -85,7 +96,7 @@ export function closeOutcomeFor(reason: unknown, holdsClosePermission: boolean):
 
     case "Conversation.NotFound":
       return {
-        message: "This conversation no longer exists.",
+        message: strings.closeOutcomeNotFound,
         retryable: false,
         refreshQueue: true,
       };
@@ -93,7 +104,7 @@ export function closeOutcomeFor(reason: unknown, holdsClosePermission: boolean):
     case "Conversation.Forbidden":
       return holdsClosePermission
         ? {
-            message: "This conversation is no longer assigned to you — someone else has taken it.",
+            message: strings.closeOutcomeReassigned,
             retryable: false,
             refreshQueue: true,
           }
@@ -101,7 +112,7 @@ export function closeOutcomeFor(reason: unknown, holdsClosePermission: boolean):
             // Reachable despite the button being hidden: the permission snapshot this console holds
             // is from sign-in, and a permission revoked since then is a `403` for a control the
             // operator can still see on their screen.
-            message: "You do not have permission to close conversations for this site.",
+            message: strings.closeOutcomeNoPermission,
             retryable: false,
             refreshQueue: false,
           };
@@ -110,7 +121,7 @@ export function closeOutcomeFor(reason: unknown, holdsClosePermission: boolean):
       // A code this console has never heard of. The server's own wording reaches the operator
       // unedited rather than being replaced by a generic sentence that loses what happened -
       // `api-design.md`'s corollary to "branch on type": a message you do not branch on is a message
-      // you show.
+      // you show. Never translated - it is not this console's sentence to translate.
       return { message: reason.message, retryable: true, refreshQueue: true };
   }
 }

@@ -9,6 +9,7 @@ import type { OperatorQueueResponse } from "../realtime/protocol/types.js";
 import { Alert } from "../components/Alert.js";
 import { Button } from "../components/Button.js";
 import { Dialog } from "../components/Dialog.js";
+import { useStrings } from "../i18n/StringsContext.js";
 import { resolveTimeZone } from "../time/format.js";
 import { ConversationList } from "./ConversationList.js";
 import { applyAttentionEvent, documentTitleFor, oldestFirst, totalUnread, type ReadStateMap } from "./attention.js";
@@ -93,6 +94,7 @@ const BASE_DOCUMENT_TITLE = "AGO Chat operator console";
 export function WorkspaceLayout() {
   const { user } = useAuth();
   const { connection, connectionState, serverDraining } = useOperatorConnection();
+  const strings = useStrings();
   const navigate = useNavigate();
   const [queue, setQueue] = useState<OperatorQueueResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -159,8 +161,8 @@ export function WorkspaceLayout() {
         setAttention((prev) => applyAttentionEvent(prev, { kind: "refetched" }));
         setError(null);
       })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load the queue."));
-  }, [user?.access_token]);
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : strings.workspaceQueueLoadError));
+  }, [user?.access_token, strings]);
 
   // `5-15`: the real server-side clear. Deliberately not followed by a `refreshQueue()` - the
   // `cleared` event above already tells the rail what the server just told us, and forcing a queue
@@ -200,7 +202,7 @@ export function WorkspaceLayout() {
         setAttention((prev) => applyAttentionEvent(prev, { kind: "assigned", conversationId: dto.conversationId }));
       }
 
-      setAnnouncement("A new conversation was assigned to you.");
+      setAnnouncement(strings.workspaceNewAssignmentAnnouncement);
 
       // `18-05`. Called unconditionally: whether anything is actually loud is `decideAlert`'s
       // decision, not this call site's, and duplicating the "is the operator looking at it" rule
@@ -214,7 +216,7 @@ export function WorkspaceLayout() {
 
       refreshQueue();
     });
-  }, [connection, refreshQueue, fire]);
+  }, [connection, refreshQueue, fire, strings]);
 
   // `11-06`'s addition to `OperatorConnection`: every message push, for every conversation this
   // operator is assigned - not only the one on screen. Without it the console cannot know that a
@@ -323,15 +325,15 @@ export function WorkspaceLayout() {
     [conversation, now, timeZone, refreshQueue, markRead],
   );
 
-  const link = linkStatusOf(connectionState, serverDraining);
+  const link = linkStatusOf(connectionState, serverDraining, strings);
 
   return (
     <div className={`ago-workspace${openConversationId === null ? "" : " ago-workspace--conversation"}`}>
-      <h1 className="ago-visually-hidden">Operator workspace</h1>
+      <h1 className="ago-visually-hidden">{strings.workspaceHiddenHeading}</h1>
 
-      <aside className="ago-workspace__rail" aria-label="Conversations">
+      <aside className="ago-workspace__rail" aria-label={strings.workspaceConversationsLabel}>
         <div className="ago-workspace__rail-head">
-          <span className="ago-workspace__rail-title">Conversations</span>
+          <span className="ago-workspace__rail-title">{strings.workspaceConversationsLabel}</span>
           <ConnectionStateBadge state={connectionState} serverDraining={serverDraining} />
         </div>
 
@@ -346,10 +348,10 @@ export function WorkspaceLayout() {
             `?`, which is the point the item's own wording insists on. */}
         <div className="ago-workspace__rail-tools">
           <Button size="sm" variant="ghost" onClick={() => setAlertsOpen(true)}>
-            Alerts
+            {strings.workspaceAlertsLabel}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setShortcutsOpen(true)}>
-            Shortcuts
+            {strings.workspaceShortcutsButton}
           </Button>
         </div>
 
@@ -385,11 +387,11 @@ export function WorkspaceLayout() {
 
       <Dialog
         open={alertsOpen}
-        title="Alerts"
+        title={strings.workspaceAlertsLabel}
         onClose={() => setAlertsOpen(false)}
         footer={
           <Button variant="primary" onClick={() => setAlertsOpen(false)}>
-            Done
+            {strings.workspaceDoneButton}
           </Button>
         }
       >

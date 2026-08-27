@@ -1,3 +1,4 @@
+import { useStrings } from "../i18n/StringsContext.js";
 import type { AlertsApi } from "./useAlerts.js";
 
 export interface AlertSettingsProps {
@@ -43,26 +44,21 @@ export interface AlertSettingsProps {
  */
 export function AlertSettings({ alerts }: AlertSettingsProps) {
   const { settings, permission, setSound, enableNotifications } = alerts;
+  const strings = useStrings();
 
   return (
     <div className="ago-alert-settings">
-      <p className="ago-meta">
-        Both are off until you turn them on, and neither fires for the conversation you already have
-        open on a visible tab.
-      </p>
+      <p className="ago-meta">{strings.alertSettingsIntro}</p>
 
       {permission === "denied" && (
         <p className="ago-alert-settings__blocked" role="note">
-          Your browser is blocking notifications for this site. The console cannot ask again — turn
-          them back on in the browser&rsquo;s own site settings, then reload this page. The sound
-          below works regardless.
+          {strings.alertSettingsBlockedDenied}
         </p>
       )}
 
       {permission === "unsupported" && (
         <p className="ago-alert-settings__blocked" role="note">
-          This browser does not offer desktop notifications on this page. The sound below works
-          regardless.
+          {strings.alertSettingsBlockedUnsupported}
         </p>
       )}
 
@@ -74,11 +70,11 @@ export function AlertSettings({ alerts }: AlertSettingsProps) {
             onChange={(event) => enableNotifications(event.target.checked)}
           />
           <span className="ago-switch__text">
-            <span className="ago-switch__label">Desktop notifications</span>
+            <span className="ago-switch__label">{strings.alertSettingsDesktopLabel}</span>
             <span className="ago-meta">
               {permission === "default"
-                ? "Turning this on asks the browser for permission."
-                : "A card when a conversation needs you. Never the message text."}
+                ? strings.alertSettingsPermissionHintDefault
+                : strings.alertSettingsPermissionHintGranted}
             </span>
           </span>
         </label>
@@ -87,8 +83,8 @@ export function AlertSettings({ alerts }: AlertSettingsProps) {
       <label className="ago-switch">
         <input type="checkbox" checked={settings.sound} onChange={(event) => setSound(event.target.checked)} />
         <span className="ago-switch__text">
-          <span className="ago-switch__label">Sound</span>
-          <span className="ago-meta">A short chime. Needs no permission.</span>
+          <span className="ago-switch__label">{strings.alertSettingsSoundLabel}</span>
+          <span className="ago-meta">{strings.alertSettingsSoundHint}</span>
         </span>
       </label>
     </div>

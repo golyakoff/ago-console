@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import type { ConversationSummaryDto } from "../realtime/protocol/types.js";
 import { Badge } from "../components/Badge.js";
 import { Skeleton } from "../components/Spinner.js";
+import { useStrings } from "../i18n/StringsContext.js";
 import { formatAbsolute, formatElapsed, formatElapsedWords, parseInstant } from "../time/format.js";
 import { isNewlyAssigned, oldestFirst, unreadCountFor, type ReadStateMap } from "./attention.js";
 
@@ -52,23 +53,25 @@ export interface ConversationListProps {
  * "Open"), rather than one number pretending to be both.
  */
 export function ConversationList({ queue, attention, now, timeZone, waitingRefreshSeconds }: ConversationListProps) {
+  const strings = useStrings();
+
   return (
     <>
       <section className="ago-list-group" aria-labelledby="ago-list-assigned">
         <header className="ago-list-group__head">
           <h2 className="ago-list-group__title" id="ago-list-assigned">
-            Assigned to me
+            {strings.queueAssignedTitle}
             {queue && queue.assignedToMe.length > 0 && (
               <span className="ago-list-group__count">{queue.assignedToMe.length}</span>
             )}
           </h2>
-          <p className="ago-list-group__note">Live — a new assignment appears without a refresh.</p>
+          <p className="ago-list-group__note">{strings.queueAssignedNote}</p>
         </header>
 
         {queue === null ? (
-          <Skeleton lines={3} label="Loading your assigned conversations…" />
+          <Skeleton lines={3} label={strings.queueAssignedLoadingLabel} />
         ) : queue.assignedToMe.length === 0 ? (
-          <p className="ago-empty">Nothing assigned yet. New conversations arrive here automatically.</p>
+          <p className="ago-empty">{strings.queueAssignedEmpty}</p>
         ) : (
           <ul className="ago-list">
             {oldestFirst(queue.assignedToMe).map((c) => {
@@ -85,11 +88,14 @@ export function ConversationList({ queue, attention, now, timeZone, waitingRefre
                       <Badge tone="brand" mono>
                         {c.visitorId.slice(0, 8)}
                       </Badge>
-                      {isNewlyAssigned(c, attention) && <Badge tone="accent">New</Badge>}
+                      {isNewlyAssigned(c, attention) && <Badge tone="accent">{strings.queueNewBadge}</Badge>}
                       {unread > 0 && (
                         <Badge tone="danger">
                           {unread}
-                          <span className="ago-visually-hidden"> unread {unread === 1 ? "message" : "messages"}</span>
+                          <span className="ago-visually-hidden">
+                            {" "}
+                            {unread === 1 ? strings.queueUnreadMessageOne : strings.queueUnreadMessageOther}
+                          </span>
                         </Badge>
                       )}
                     </span>
@@ -97,12 +103,12 @@ export function ConversationList({ queue, attention, now, timeZone, waitingRefre
                       {started ? (
                         <span
                           className="ago-meta"
-                          title={`Conversation started ${formatAbsolute(started, timeZone)} — ${formatElapsedWords(started, now)} ago`}
+                          title={`${strings.queueConversationStartedTitle} ${formatAbsolute(started, timeZone)} — ${formatElapsedWords(started, now)} ${strings.agoSuffix}`}
                         >
-                          Open {formatElapsed(started, now)}
+                          {strings.queueOpenLabel} {formatElapsed(started, now)}
                         </span>
                       ) : (
-                        <span className="ago-meta">Start time unknown</span>
+                        <span className="ago-meta">{strings.queueStartUnknown}</span>
                       )}
                     </span>
                   </NavLink>
@@ -116,19 +122,18 @@ export function ConversationList({ queue, attention, now, timeZone, waitingRefre
       <section className="ago-list-group" aria-labelledby="ago-list-waiting">
         <header className="ago-list-group__head">
           <h2 className="ago-list-group__title" id="ago-list-waiting">
-            Waiting
+            {strings.queueWaitingTitle}
             {queue && queue.waiting.length > 0 && <span className="ago-list-group__count">{queue.waiting.length}</span>}
           </h2>
           <p className="ago-list-group__note">
-            Read-only — conversations are assigned automatically, never claimed here. Refreshed every{" "}
-            {waitingRefreshSeconds} seconds.
+            {strings.queueWaitingNotePrefix} {waitingRefreshSeconds} {strings.queueWaitingNoteSuffix}
           </p>
         </header>
 
         {queue === null ? (
-          <Skeleton lines={2} label="Loading the waiting list…" />
+          <Skeleton lines={2} label={strings.queueWaitingLoadingLabel} />
         ) : queue.waiting.length === 0 ? (
-          <p className="ago-empty">Nothing waiting.</p>
+          <p className="ago-empty">{strings.queueWaitingEmpty}</p>
         ) : (
           <ul className="ago-list">
             {oldestFirst(queue.waiting).map((c) => {
@@ -147,12 +152,12 @@ export function ConversationList({ queue, attention, now, timeZone, waitingRefre
                     {started ? (
                       <span
                         className="ago-meta"
-                        title={`Waiting since ${formatAbsolute(started, timeZone)} — ${formatElapsedWords(started, now)}`}
+                        title={`${strings.queueWaitingSinceTitle} ${formatAbsolute(started, timeZone)} — ${formatElapsedWords(started, now)}`}
                       >
-                        Waiting {formatElapsed(started, now)}
+                        {strings.queueWaitingTitle} {formatElapsed(started, now)}
                       </span>
                     ) : (
-                      <span className="ago-meta">Waiting since an unknown time</span>
+                      <span className="ago-meta">{strings.queueWaitingSinceUnknown}</span>
                     )}
                   </span>
                 </li>

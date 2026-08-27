@@ -1,6 +1,7 @@
 import { Dialog } from "../components/Dialog.js";
 import { Button } from "../components/Button.js";
-import { SHORTCUTS } from "./shortcuts.js";
+import { useStrings } from "../i18n/StringsContext.js";
+import { SHORTCUTS, shortcutDescription } from "./shortcuts.js";
 
 export interface ShortcutsDialogProps {
   open: boolean;
@@ -26,21 +27,20 @@ export interface ShortcutsDialogProps {
  * the close-the-thread shortcut behind it.
  */
 export function ShortcutsDialog({ open, onClose }: ShortcutsDialogProps) {
+  const strings = useStrings();
+
   return (
     <Dialog
       open={open}
-      title="Keyboard shortcuts"
+      title={strings.shortcutsDialogTitle}
       onClose={onClose}
       footer={
         <Button variant="primary" onClick={onClose}>
-          Close
+          {strings.shortcutsCloseButton}
         </Button>
       }
     >
-      <p className="ago-meta">
-        These work anywhere in the workspace except while you are typing — the composer, and any
-        other text field, keep every key to themselves.
-      </p>
+      <p className="ago-meta">{strings.shortcutsIntro}</p>
 
       <dl className="ago-shortcuts">
         {SHORTCUTS.map((shortcut) => (
@@ -48,15 +48,15 @@ export function ShortcutsDialog({ open, onClose }: ShortcutsDialogProps) {
             <dt>
               <kbd className="ago-kbd">{shortcut.label}</kbd>
             </dt>
-            <dd>{shortcut.description}</dd>
+            <dd>{shortcutDescription(shortcut.id, strings)}</dd>
           </div>
         ))}
       </dl>
 
       <p className="ago-meta">
-        Inside the composer: <kbd className="ago-kbd">Enter</kbd> sends,{" "}
-        <kbd className="ago-kbd">Shift</kbd>+<kbd className="ago-kbd">Enter</kbd> starts a new line,{" "}
-        <kbd className="ago-kbd">Esc</kbd> clears the draft.
+        {strings.shortcutsHintIntro} <kbd className="ago-kbd">Enter</kbd> {strings.shortcutsHintSends}{" "}
+        <kbd className="ago-kbd">Shift</kbd>+<kbd className="ago-kbd">Enter</kbd> {strings.shortcutsHintNewLine}{" "}
+        <kbd className="ago-kbd">Esc</kbd> {strings.shortcutsHintClears}
       </p>
     </Dialog>
   );

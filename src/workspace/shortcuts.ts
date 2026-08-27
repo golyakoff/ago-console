@@ -34,24 +34,51 @@
  * points at and costs nothing. The missing action is reported as a gap rather than smuggled in here.
  */
 
+import type { ConsoleStrings } from "../i18n/strings.js";
+
 export type ShortcutId = "nextConversation" | "previousConversation" | "focusComposer" | "closeThread" | "showHelp";
 
 export interface Shortcut {
   readonly id: ShortcutId;
   /** What a person reads in the help dialog. Not derived from `key`: `?` is `Shift+/` on most
-   * layouts and rendering it as such would be true and useless. */
+   * layouts and rendering it as such would be true and useless. A key label, not a sentence, so it
+   * is never translated - see `shortcutDescription` below for the part of the row that is. */
   readonly label: string;
-  readonly description: string;
 }
 
 /** The whole catalogue. Ordered as the help dialog lists it: movement, then action, then help. */
 export const SHORTCUTS: readonly Shortcut[] = [
-  { id: "nextConversation", label: "J", description: "Move to the next conversation assigned to you" },
-  { id: "previousConversation", label: "K", description: "Move to the previous one" },
-  { id: "focusComposer", label: "C", description: "Put the cursor in the composer" },
-  { id: "closeThread", label: "Esc", description: "Close the open thread and go back to the list" },
-  { id: "showHelp", label: "?", description: "Show this list" },
+  { id: "nextConversation", label: "J" },
+  { id: "previousConversation", label: "K" },
+  { id: "focusComposer", label: "C" },
+  { id: "closeThread", label: "Esc" },
+  { id: "showHelp", label: "?" },
 ];
+
+/**
+ * `11-12`: a shortcut's description used to live on `SHORTCUTS` itself - `18-05`'s own doc comment
+ * above states why: "the help dialog is generated from the same list the handler dispatches on...
+ * there is no second list to forget to update." A `string` field cannot hold two languages, so this
+ * item moves the sentence into `ConsoleStrings` (where every other sentence in the console lives) and
+ * replaces the field with this exhaustive switch. The property the original design was protecting
+ * survives: a `ShortcutId` with no case here is a compile error, so a new shortcut still cannot ship
+ * undocumented - the compiler is now the thing enforcing "no second list", where before it was a
+ * human reading the same array twice.
+ */
+export function shortcutDescription(id: ShortcutId, strings: ConsoleStrings): string {
+  switch (id) {
+    case "nextConversation":
+      return strings.shortcutNextConversation;
+    case "previousConversation":
+      return strings.shortcutPreviousConversation;
+    case "focusComposer":
+      return strings.shortcutFocusComposer;
+    case "closeThread":
+      return strings.shortcutCloseThread;
+    case "showHelp":
+      return strings.shortcutShowHelp;
+  }
+}
 
 /** The shape `matchShortcut` needs. A structural type rather than `KeyboardEvent`, so a test can
  * describe a keypress without constructing a DOM event and so the function has no DOM dependency at
