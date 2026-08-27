@@ -8,7 +8,10 @@
 export interface MessageDto {
   id: string;
   sequence: number;
-  authorKind: "Visitor" | "Operator";
+  /** `14-04`: `"System"` is a message AGO Chat authored on the tenant's behalf - today the offline
+   * auto-reply. Additive, per api-design.md's versioning rule. The thread renders it on the incoming
+   * side alongside the visitor, which is where a message nobody on this side wrote belongs. */
+  authorKind: "Visitor" | "Operator" | "System";
   authorId: string;
   body: string;
   createdAt: string;
