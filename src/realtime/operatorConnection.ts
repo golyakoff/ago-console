@@ -74,7 +74,12 @@ export class SendOutcomeUnknownError extends Error {
  * this connection comes back up - whatever it is - is covered without a second bolt-on.
  */
 export class OperatorConnection {
-  private readonly connection: signalR.HubConnection;
+  // `13-07`/`adr/0068`: not `readonly`, and not built in the constructor - see `ensureConnection`
+  // below for why. Still built at most once per `OperatorConnection` instance; every existing
+  // stop()-then-start() restart pattern this class already supports reuses the same built object,
+  // unchanged.
+  private connection: signalR.HubConnection | null = null;
+  private readonly accessTokenFactory: () => string;
   private seenMessageIds = new SeenMessageIds();
   private messageListener: ((message: MessageDto) => void) | null = null;
   private anyMessageListener: ((message: MessageDto) => void) | null = null;
@@ -93,27 +98,47 @@ export class OperatorConnection {
    * is what makes a reconnect after a long idle re-negotiate with a token that is still valid.
    */
   constructor(accessTokenFactory: () => string) {
-    // `13-07`/`adr/0068`: the active-site signal, read once at connect time - matches
-    // `PermissionsProvider`'s own "switching tenancy is a page reload" design, so this constructor
-    // always sees whichever tenancy is current for this page load. A header (`X-Ago-Active-Site`,
-    // what every REST call in this codebase carries via `withActiveSiteHeader`) does not reliably
-    // reach a WebSocket upgrade in a browser - the identical constraint that already put this app's
-    // own bearer token in the query string instead of an `Authorization` header for this exact
-    // connection (`accessTokenFactory` below; server-side, `Program.cs`'s own
-    // `HubTokenFromQueryString`) - so this appends the same kind of query-string parameter
-    // (`OperatorIdentityClaimsTransformation.ActiveSiteQueryParameterName` server-side,
-    // `"activeSite"`), verified against a real hub connection in `ago-chat`'s own
-    // `ActiveSiteHubResolutionTests`. Omitted entirely when no active site is known yet (a
-    // single-tenant operator, or the brief window before `PermissionsProvider`'s own fetch resolves
-    // one) - the resolver's existing no-signal fallback already handles that correctly.
+    this.accessTokenFactory = accessTokenFactory;
+  }
+
+  /**
+   * `13-07`/`adr/0068`: builds the underlying `signalR.HubConnection` on first use rather than in
+   * the constructor - the one change this item needed here. The constructor runs inside
+   * `OperatorConnectionProvider`'s `useMemo(..., [])`, at first render, unconditionally; the
+   * active-site signal (`getActiveSiteId()` below) is not reliably known that early for a
+   * multi-tenancy identity (`PermissionsProvider`'s own tenancy fetch is still async at that point).
+   * Reading it here instead - the first time `start()` actually runs a connect - means it is read at
+   * the one moment this class is guaranteed a settled answer, without this class needing to know
+   * *why* (`OperatorConnectionProvider`'s own gate on `usePermissions().tenancies` is what makes
+   * "first `start()`" also "after resolution" in practice).
+   *
+   * A header (`X-Ago-Active-Site`, what every REST call in this codebase carries via
+   * `withActiveSiteHeader`) does not reliably reach a WebSocket upgrade in a browser - the identical
+   * constraint that already put this app's own bearer token in the query string instead of an
+   * `Authorization` header for this exact connection (`accessTokenFactory` below; server-side,
+   * `Program.cs`'s own `HubTokenFromQueryString`) - so this appends the same kind of query-string
+   * parameter (`OperatorIdentityClaimsTransformation.ActiveSiteQueryParameterName` server-side,
+   * `"activeSite"`), verified against a real hub connection in `ago-chat`'s own
+   * `ActiveSiteHubResolutionTests`. Omitted entirely when no active site is known (a single-tenant
+   * operator) - the resolver's existing no-signal fallback already handles that correctly.
+   *
+   * Built at most once: every existing `stop()`-then-`start()` restart this class already supports
+   * (`5-16`'s own subscription-replay tests) reuses the same built object unchanged - only the very
+   * first `start()` a given instance ever sees reaches the `this.connection === null` branch.
+   */
+  private ensureConnection(): signalR.HubConnection {
+    if (this.connection !== null) {
+      return this.connection;
+    }
+
     const activeSiteId = getActiveSiteId();
     const hubUrl = activeSiteId
       ? `${config.apiBaseUrl}/hubs/operator?activeSite=${encodeURIComponent(activeSiteId)}`
       : `${config.apiBaseUrl}/hubs/operator`;
 
-    this.connection = new signalR.HubConnectionBuilder()
+    const connection = new signalR.HubConnectionBuilder()
       .withUrl(hubUrl, {
-        accessTokenFactory,
+        accessTokenFactory: this.accessTokenFactory,
         // api-design.md's "Shipped in `5-09`" note names this exact gotcha for "any other SignalR
         // client this project adds": `@microsoft/signalr` defaults to `withCredentials: true`, and
         // the console never uses cookies (identity travels entirely through this bearer token,
@@ -145,7 +170,7 @@ export class OperatorConnection {
       })
       .build();
 
-    this.connection.on("MessageReceived", (dto: MessageDto) => {
+    connection.on("MessageReceived", (dto: MessageDto) => {
       // Two listeners, deliberately in this order and deliberately independent: the unfiltered one
       // feeds the workspace's attention state for every assigned conversation, the filtered one
       // feeds whichever thread is on screen. See `onAnyMessage` for why the split exists.
@@ -155,18 +180,19 @@ export class OperatorConnection {
 
       this.handleIncoming(dto);
     });
-    this.connection.on("ConversationAssigned", (dto: ConversationAssignedDto) =>
-      this.conversationAssignedListener?.(dto),
-    );
+    connection.on("ConversationAssigned", (dto: ConversationAssignedDto) => this.conversationAssignedListener?.(dto));
     // realtime.md: the server may ask a client to reconnect on its own schedule before a draining
     // node shuts down - informational here (see `types.ts`'s `ReconnectHint` doc comment for the
     // doc/code drift this corrects), since the drain sequence's own subsequent disconnect is what
     // actually triggers `onreconnecting`/`onreconnected` below.
-    this.connection.on("Reconnect", (hint: ReconnectHint) => this.reconnectHintListener?.(hint));
+    connection.on("Reconnect", (hint: ReconnectHint) => this.reconnectHintListener?.(hint));
 
-    this.connection.onreconnecting(() => this.stateListener?.("reconnecting"));
-    this.connection.onreconnected(() => void this.resumeAfterReconnect());
-    this.connection.onclose(() => this.stateListener?.("disconnected"));
+    connection.onreconnecting(() => this.stateListener?.("reconnecting"));
+    connection.onreconnected(() => void this.resumeAfterReconnect());
+    connection.onclose(() => this.stateListener?.("disconnected"));
+
+    this.connection = connection;
+    return connection;
   }
 
   onMessage(listener: (message: MessageDto) => void): void {
@@ -206,6 +232,13 @@ export class OperatorConnection {
   }
 
   get state(): ConnectionState {
+    if (this.connection === null) {
+      // Never started yet - the same "not connected" answer a built-but-not-started signalR
+      // connection would give, so a caller reading this before the first `start()` sees nothing
+      // different from today.
+      return "disconnected";
+    }
+
     switch (this.connection.state) {
       case signalR.HubConnectionState.Connected:
         return "connected";
@@ -232,12 +265,19 @@ export class OperatorConnection {
    */
   async start(): Promise<void> {
     this.stateListener?.("connecting");
-    await this.connection.start();
+    const connection = this.ensureConnection();
+    await connection.start();
     await this.resumeSubscription();
     this.stateListener?.("connected");
   }
 
   async stop(): Promise<void> {
+    if (this.connection === null) {
+      // Nothing was ever started - a no-op, not an error; symmetrical with `state`'s own answer for
+      // the same case.
+      return;
+    }
+
     await this.connection.stop();
   }
 
@@ -255,7 +295,11 @@ export class OperatorConnection {
     this.sequenceTracker = new SequenceTracker();
     this.seenMessageIds = new SeenMessageIds();
 
-    const result = await this.connection.invoke<JoinConversationResult>("JoinConversationAsync", conversationId, null);
+    const result = await this.requireConnection().invoke<JoinConversationResult>(
+      "JoinConversationAsync",
+      conversationId,
+      null,
+    );
     for (const message of result.messages) {
       this.rememberSequence(message);
       this.seenMessageIds.markSeen(message.id);
@@ -285,14 +329,15 @@ export class OperatorConnection {
    * console simply never had a caller that had already uploaded and confirmed one until now.
    */
   async sendMessage(conversationId: string, body: string, clientMessageId: string, attachmentId: string | null = null): Promise<number> {
-    if (this.connection.state !== signalR.HubConnectionState.Connected) {
+    if (this.connection?.state !== signalR.HubConnectionState.Connected) {
       throw new NotConnectedError();
     }
 
+    const connection = this.connection;
     try {
-      return await this.connection.invoke<number>("SendMessageAsync", conversationId, body, attachmentId, clientMessageId);
+      return await connection.invoke<number>("SendMessageAsync", conversationId, body, attachmentId, clientMessageId);
     } catch (error) {
-      if (this.connection.state !== signalR.HubConnectionState.Connected) {
+      if (connection.state !== signalR.HubConnectionState.Connected) {
         throw new SendOutcomeUnknownError(error);
       }
 
@@ -301,7 +346,12 @@ export class OperatorConnection {
   }
 
   async loadOlderHistory(conversationId: string, beforeSequence: number, pageSize: number): Promise<HistoryPage> {
-    const page = await this.connection.invoke<HistoryPage>("GetHistoryAsync", conversationId, beforeSequence, pageSize);
+    const page = await this.requireConnection().invoke<HistoryPage>(
+      "GetHistoryAsync",
+      conversationId,
+      beforeSequence,
+      pageSize,
+    );
     for (const message of page.messages) {
       this.seenMessageIds.markSeen(message.id);
     }
@@ -312,7 +362,20 @@ export class OperatorConnection {
   /** `5-07`: a snapshot, not a subscription - see `GetVisitorPresenceHandler`'s own remarks
    * (`ago-chat`) for why a client re-call is the right shape here rather than a push. */
   async getVisitorPresence(conversationId: string): Promise<boolean> {
-    return this.connection.invoke<boolean>("GetVisitorPresenceAsync", conversationId);
+    return this.requireConnection().invoke<boolean>("GetVisitorPresenceAsync", conversationId);
+  }
+
+  /** Every caller below only ever runs once a connection is known to exist - `start()` builds one
+   * before doing anything else, and every other caller runs from inside code paths that only
+   * activate after `start()` has succeeded (a "connected" state, or `onreconnected`/`resumeSubscription`,
+   * which SignalR can only fire on a connection that already exists). A `null` here would mean one of
+   * those invariants broke, which is a real bug worth a thrown error, not a silently swallowed no-op. */
+  private requireConnection(): signalR.HubConnection {
+    if (this.connection === null) {
+      throw new Error("OperatorConnection: no connection has been started yet.");
+    }
+
+    return this.connection;
   }
 
   /**
@@ -349,7 +412,7 @@ export class OperatorConnection {
     }
 
     const lastKnownSequence = this.sequenceTracker.lastKnownSequence;
-    const result = await this.connection.invoke<JoinConversationResult>(
+    const result = await this.requireConnection().invoke<JoinConversationResult>(
       "JoinConversationAsync",
       conversationId,
       lastKnownSequence ?? undefined,

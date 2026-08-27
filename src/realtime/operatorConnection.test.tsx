@@ -418,11 +418,11 @@ describe("the hub waits for tenancy resolution before connecting", () => {
       </AuthContext.Provider>,
     );
 
-    // `OperatorConnection`'s constructor builds the underlying SignalR object eagerly (client-side
-    // only, no network activity) - the fix gates `.start()`, the call that actually negotiates, so
-    // the fake hub existing is expected; it must never have moved off its initial state.
-    expect(signalr.hubs).toHaveLength(1);
-    expect(signalr.hubs[0].state).toBe(signalr.HubConnectionState.Disconnected);
+    // `OperatorConnection` no longer builds the underlying SignalR object in its constructor -
+    // `ensureConnection`'s own doc comment explains why (the active-site signal is not reliably
+    // known that early). Nothing is built at all until a real `start()` runs, so the fake hub list
+    // stays empty rather than existing-but-disconnected.
+    expect(signalr.hubs).toHaveLength(0);
   });
 
   it("starts the connection once tenancies resolves", async () => {
