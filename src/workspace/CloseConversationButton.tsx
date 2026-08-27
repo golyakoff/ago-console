@@ -3,6 +3,7 @@ import { Button } from "../components/Button.js";
 import { Dialog } from "../components/Dialog.js";
 import { Alert } from "../components/Alert.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
+import { useStrings } from "../i18n/StringsContext.js";
 import { closeOutcomeFor } from "./closeOutcome.js";
 
 /** `6-02`'s dedicated permission (`conversation:close`), named once here rather than spelled out at
@@ -50,6 +51,7 @@ export interface CloseConversationButtonProps {
  */
 export function CloseConversationButton({ onClose, onClosed, onStaleQueue }: CloseConversationButtonProps) {
   const { hasPermission } = usePermissions();
+  const strings = useStrings();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<{ message: string; retryable: boolean } | null>(null);
@@ -66,7 +68,7 @@ export function CloseConversationButton({ onClose, onClosed, onStaleQueue }: Clo
       setConfirming(false);
       onClosed();
     } catch (reason) {
-      const outcome = closeOutcomeFor(reason, true);
+      const outcome = closeOutcomeFor(reason, true, strings);
       // The dialog stays open on failure. The operator is mid-decision, and dismissing it would put
       // the explanation somewhere they are no longer looking.
       setFailure({ message: outcome.message, retryable: outcome.retryable });
@@ -88,31 +90,28 @@ export function CloseConversationButton({ onClose, onClosed, onStaleQueue }: Clo
           setConfirming(true);
         }}
       >
-        Close conversation
+        {strings.closeConversationButton}
       </Button>
 
       <Dialog
         open={confirming}
-        title="Close this conversation?"
+        title={strings.closeConversationDialogTitle}
         onClose={() => setConfirming(false)}
         footer={
           <>
             <Button variant="ghost" onClick={() => setConfirming(false)} disabled={busy}>
-              Cancel
+              {strings.cancelButton}
             </Button>
             {/* `danger`, because this is the irreversible one. The label says what it does rather
                 than "OK" - a confirmation whose buttons are "OK" and "Cancel" makes the operator
                 re-read the question to work out which is which. */}
             <Button variant="danger" onClick={() => void attempt()} disabled={busy}>
-              {failure?.retryable === true ? "Try again" : "Close it"}
+              {failure?.retryable === true ? strings.closeTryAgainButton : strings.closeItButton}
             </Button>
           </>
         }
       >
-        <p>
-          The visitor&rsquo;s chat ends and this conversation cannot be reopened. Closing it also
-          frees your capacity, so you may be assigned a new conversation straight away.
-        </p>
+        <p>{strings.closeConversationDialogBody}</p>
 
         {failure && <Alert tone="danger">{failure.message}</Alert>}
       </Dialog>

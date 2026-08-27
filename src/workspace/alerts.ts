@@ -12,6 +12,9 @@
  * without a browser that can do either.
  */
 
+import { en } from "../i18n/en.js";
+import type { ConsoleStrings } from "../i18n/strings.js";
+
 /**
  * The browser's own answer, plus the state the `Notification` API does not have a value for.
  *
@@ -165,11 +168,21 @@ export type AlertReason = "assigned" | "message";
  * likely to hold something about a person; putting it there would move it somewhere nothing in this
  * system can erase it from. The visitor's short identifier is enough to know which conversation
  * needs answering, which is all a notification has to achieve - the words are one click away.
+ *
+ * `11-12`: the title and body moved into `ConsoleStrings`, `strings` defaulted to `en` for the same
+ * reason `closeOutcome.ts`'s `closeOutcomeFor` is - this runs from `useAlerts.ts`'s `fire()`, a hub
+ * push handler installed once outside render, not a component, so it cannot call `useStrings()`
+ * itself and takes the caller's strings value as a plain argument instead. The default keeps
+ * `alerts.test.ts`'s existing two-argument calls, which assert the English sentences, unedited.
  */
-export function alertTextFor(reason: AlertReason, visitorId: string | null): { title: string; body: string } {
-  const who = visitorId === null ? "A visitor" : `Visitor ${visitorId.slice(0, 8)}`;
+export function alertTextFor(
+  reason: AlertReason,
+  visitorId: string | null,
+  strings: ConsoleStrings = en,
+): { title: string; body: string } {
+  const who = visitorId === null ? strings.alertWhoUnknown : `${strings.alertVisitorPrefix} ${visitorId.slice(0, 8)}`;
 
   return reason === "assigned"
-    ? { title: "New conversation assigned", body: `${who} is waiting for you.` }
-    : { title: "New message", body: `${who} sent a message.` };
+    ? { title: strings.alertAssignedTitle, body: `${who} ${strings.alertAssignedBody}` }
+    : { title: strings.alertMessageTitle, body: `${who} ${strings.alertMessageBody}` };
 }

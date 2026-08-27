@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useStrings } from "../i18n/StringsContext.js";
 import {
   ALERTS_OFF,
   alertTextFor,
@@ -94,12 +95,17 @@ export function useAlerts({ openConversationId, onOpenConversation }: UseAlertsO
   // choice every time they reload.
   const [settings, setSettings] = useState<AlertSettings>(() => readAlertSettings(safeStorage()));
   const [permission, setPermission] = useState<NotificationPermissionState>(currentPermission);
+  // `11-12`: this hook itself is a render-time call, so `useStrings()` is safe here even though
+  // `fire` below (which is what actually reads it) is not - see this file's own `latest` ref, and
+  // `alertTextFor`'s own doc comment for why the notification text has to arrive as a value rather
+  // than through the hook that produced it.
+  const strings = useStrings();
 
   // `fire` is called from hub handlers that are installed once. Everything it reads therefore goes
   // through a ref, or it would close over the first render's values for the life of the connection -
   // the same trap `WorkspaceLayout` already documents for `openConversationIdRef`.
-  const latest = useRef({ settings, permission, openConversationId, onOpenConversation });
-  latest.current = { settings, permission, openConversationId, onOpenConversation };
+  const latest = useRef({ settings, permission, openConversationId, onOpenConversation, strings });
+  latest.current = { settings, permission, openConversationId, onOpenConversation, strings };
 
   const audioRef = useRef<AudioContext | null>(null);
   useEffect(() => {
@@ -195,7 +201,7 @@ export function useAlerts({ openConversationId, onOpenConversation }: UseAlertsO
       }
 
       try {
-        const { title, body } = alertTextFor(reason, visitorId);
+        const { title, body } = alertTextFor(reason, visitorId, state.strings);
         const notification = new Notification(title, {
           body,
           // One notification per conversation: a visitor sending four messages replaces its own card

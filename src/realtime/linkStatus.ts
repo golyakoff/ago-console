@@ -1,3 +1,5 @@
+import { en } from "../i18n/en.js";
+import type { ConsoleStrings } from "../i18n/strings.js";
 import type { ConnectionState } from "./operatorConnection.js";
 
 /**
@@ -47,49 +49,58 @@ export interface LinkStatus {
   healthy: boolean;
 }
 
-const STATUSES: Record<LinkState, Omit<LinkStatus, "state">> = {
-  connected: {
-    tone: "success",
-    label: "Live",
-    detail: "Connected to the operator hub. New messages arrive without a refresh.",
-    healthy: true,
-  },
-  connecting: {
-    tone: "neutral",
-    label: "Connecting…",
-    detail: "Opening the operator hub connection.",
-    healthy: false,
-  },
-  reconnecting: {
-    tone: "accent",
-    label: "Reconnecting…",
-    detail:
-      "The connection dropped and is being retried with backoff. Messages sent right now will fail and can be retried; nothing sent to you while you are away is lost - the reconnect resumes from your last received message.",
-    healthy: false,
-  },
-  draining: {
-    tone: "brand",
-    label: "Server restarting",
-    detail:
-      "The server asked this console to reconnect before it shuts down. You are still connected and can still send; expect a brief reconnect shortly.",
-    healthy: true,
-  },
-  disconnected: {
-    tone: "danger",
-    label: "Offline",
-    detail:
-      "Not connected to the operator hub. Messages you send will fail until the connection returns. Reloading rarely helps - if this persists, the browser console carries the reason the connection was refused (5-18).",
-    healthy: false,
-  },
-};
+/**
+ * `11-12`: a function of `strings` rather than a module-level constant, for the same reason
+ * `closeOutcome.ts`'s messages moved behind a parameter - this table used to be built once from
+ * hard-coded English, and a link-state sentence is exactly the kind of workspace text this item's
+ * scope names ("connection/reconnection indicator") explicitly.
+ */
+function statusesFor(strings: ConsoleStrings): Record<LinkState, Omit<LinkStatus, "state">> {
+  return {
+    connected: {
+      tone: "success",
+      label: strings.linkLiveLabel,
+      detail: strings.linkLiveDetail,
+      healthy: true,
+    },
+    connecting: {
+      tone: "neutral",
+      label: strings.linkConnectingLabel,
+      detail: strings.linkConnectingDetail,
+      healthy: false,
+    },
+    reconnecting: {
+      tone: "accent",
+      label: strings.linkReconnectingLabel,
+      detail: strings.linkReconnectingDetail,
+      healthy: false,
+    },
+    draining: {
+      tone: "brand",
+      label: strings.linkDrainingLabel,
+      detail: strings.linkDrainingDetail,
+      healthy: true,
+    },
+    disconnected: {
+      tone: "danger",
+      label: strings.linkDisconnectedLabel,
+      detail: strings.linkDisconnectedDetail,
+      healthy: false,
+    },
+  };
+}
 
 /**
  * `draining` outranks `connected` and nothing else: the drain hint means the *currently healthy*
  * connection is about to go away, so it is only interesting while the connection is in fact up. Once
  * the drop actually happens, `reconnecting` is the more useful, more urgent truth, and the hint has
  * done its job.
+ *
+ * `strings` is defaulted to `en`, matching `closeOutcomeFor`/`alertTextFor`: `WorkspaceLayout` calls
+ * this directly from render (and can pass its own `useStrings()` value), but `linkStatus.test.ts`'s
+ * existing two-argument calls assert the English sentences on purpose and this keeps them unedited.
  */
-export function linkStatusOf(connectionState: ConnectionState, serverDraining: boolean): LinkStatus {
+export function linkStatusOf(connectionState: ConnectionState, serverDraining: boolean, strings: ConsoleStrings = en): LinkStatus {
   const state: LinkState = serverDraining && connectionState === "connected" ? "draining" : connectionState;
-  return { state, ...STATUSES[state] };
+  return { state, ...statusesFor(strings)[state] };
 }

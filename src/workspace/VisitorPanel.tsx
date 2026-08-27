@@ -1,6 +1,22 @@
 import type { ConversationSummaryDto } from "../realtime/protocol/types.js";
 import { Badge } from "../components/Badge.js";
+import { useStrings } from "../i18n/StringsContext.js";
+import type { ConsoleStrings } from "../i18n/strings.js";
 import { formatAbsolute, formatElapsed, formatElapsedWords, parseInstant } from "../time/format.js";
+
+/** `ConversationSummaryDto.state`'s three values as the badge's visible text - `"Waiting"` reuses
+ * `queueWaitingTitle` (the identical English word already in the table for the queue's own "Waiting"
+ * heading), rather than adding a fourth field for a phrase this table already has. */
+function stateLabel(state: ConversationSummaryDto["state"], strings: ConsoleStrings): string {
+  switch (state) {
+    case "Waiting":
+      return strings.queueWaitingTitle;
+    case "Assigned":
+      return strings.conversationStateAssigned;
+    case "Closed":
+      return strings.conversationStateClosed;
+  }
+}
 
 export interface VisitorPanelProps {
   conversationId: string;
@@ -39,57 +55,66 @@ export function VisitorPanel({
   now,
   timeZone,
 }: VisitorPanelProps) {
+  const strings = useStrings();
   const started = parseInstant(conversation?.createdAt);
 
   return (
     <aside className="ago-workspace__aside" aria-labelledby="ago-visitor-panel-title">
       <h2 className="ago-aside__title" id="ago-visitor-panel-title">
-        Visitor
+        {strings.visitorPanelTitle}
       </h2>
 
       <div className="ago-aside__row">
         {visitorOnline === null ? (
-          <Badge tone="neutral">Presence unknown</Badge>
+          <Badge tone="neutral">{strings.visitorPresenceUnknown}</Badge>
         ) : visitorOnline ? (
           <Badge tone="success" dot>
-            Online
+            {strings.visitorOnline}
           </Badge>
         ) : (
           <Badge tone="neutral" dot>
-            Offline
+            {strings.visitorOffline}
           </Badge>
         )}
-        {conversation && <Badge tone={conversation.state === "Assigned" ? "brand" : "neutral"}>{conversation.state}</Badge>}
+        {conversation && (
+          <Badge tone={conversation.state === "Assigned" ? "brand" : "neutral"}>
+            {stateLabel(conversation.state, strings)}
+          </Badge>
+        )}
       </div>
 
       <dl className="ago-aside__facts">
-        <dt>Visitor id</dt>
-        <dd className="ago-mono ago-aside__id">{conversation?.visitorId ?? "Not in your queue"}</dd>
+        <dt>{strings.visitorIdLabel}</dt>
+        <dd className="ago-mono ago-aside__id">{conversation?.visitorId ?? strings.visitorNotInQueue}</dd>
 
-        <dt>Conversation started</dt>
+        <dt>{strings.queueConversationStartedTitle}</dt>
         <dd>
           {started ? (
             <>
               <span title={formatAbsolute(started, timeZone)}>{formatAbsolute(started, timeZone)}</span>
-              <span className="ago-meta"> ({formatElapsed(started, now)} ago)</span>
-              <span className="ago-visually-hidden">{formatElapsedWords(started, now)} ago</span>
+              <span className="ago-meta">
+                {" "}
+                ({formatElapsed(started, now)} {strings.agoSuffix})
+              </span>
+              <span className="ago-visually-hidden">
+                {formatElapsedWords(started, now)} {strings.agoSuffix}
+              </span>
             </>
           ) : (
-            <span className="ago-meta">Unknown</span>
+            <span className="ago-meta">{strings.visitorConversationStartedUnknown}</span>
           )}
         </dd>
 
-        <dt>Site</dt>
-        <dd className="ago-mono ago-aside__id">{siteId ?? <span className="ago-meta">Not known yet</span>}</dd>
+        <dt>{strings.visitorSiteLabel}</dt>
+        <dd className="ago-mono ago-aside__id">
+          {siteId ?? <span className="ago-meta">{strings.visitorSiteNotKnown}</span>}
+        </dd>
 
-        <dt>Conversation</dt>
+        <dt>{strings.visitorConversationLabel}</dt>
         <dd className="ago-mono ago-aside__id">{conversationId}</dd>
       </dl>
 
-      <p className="ago-aside__note">
-        This is everything the platform knows about a visitor today. Their current page, referrer and
-        earlier conversations are not collected yet.
-      </p>
+      <p className="ago-aside__note">{strings.visitorPanelNote}</p>
     </aside>
   );
 }

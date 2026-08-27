@@ -11,6 +11,7 @@ import { Button } from "../components/Button.js";
 import { Textarea } from "../components/Textarea.js";
 import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
+import { useStrings } from "../i18n/StringsContext.js";
 
 export interface ComposerProps {
   draft: string;
@@ -80,6 +81,7 @@ export function Composer({
   uploadError,
   inputRef,
 }: ComposerProps) {
+  const strings = useStrings();
   // One ref object, either the caller's or this component's own. Not two refs kept in sync: the
   // auto-grow effect below and the workspace's focus shortcut have to be looking at the same
   // element, and "assign to both on every render" is one forgotten branch away from focusing a
@@ -174,23 +176,23 @@ export function Composer({
         // `role="status"` (via `Alert`'s info tone) so the upload finishing is announced, not just
         // drawn - the same semantics `5-08`'s own progress line had.
         <Alert tone="info">
-          Uploading {uploadProgress.fileName} — {uploadProgress.percent}%
+          {strings.composerUploadingLabel} {uploadProgress.fileName} — {uploadProgress.percent}%
         </Alert>
       )}
 
       {pendingAttachment && (
         <div className="ago-composer__attachment">
-          <Badge tone="brand">Attached</Badge>
+          <Badge tone="brand">{strings.composerAttachedBadge}</Badge>
           <span className="ago-composer__attachment-name">{pendingAttachment.fileName}</span>
           <Button size="sm" variant="ghost" onClick={onRemoveAttachment}>
-            Remove
+            {strings.composerRemoveButton}
           </Button>
         </div>
       )}
 
       {tooManyFiles && (
         <p className="ago-meta" role="status">
-          Only the first file was attached — messages carry one attachment each.
+          {strings.composerTooManyFiles}
         </p>
       )}
 
@@ -203,8 +205,8 @@ export function Composer({
           onChange={(event) => onDraftChange(event.target.value)}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          placeholder="Write a reply — Enter to send, Shift+Enter for a new line"
-          aria-label="Message to send"
+          placeholder={strings.composerPlaceholder}
+          aria-label={strings.composerAriaLabel}
           aria-describedby="ago-composer-hint"
         />
 
@@ -213,7 +215,7 @@ export function Composer({
             ref={fileInputRef}
             className="ago-visually-hidden"
             type="file"
-            aria-label="Attach a file"
+            aria-label={strings.composerAttachAriaLabel}
             onChange={(event) => {
               takeFirstFile(event.target.files);
               // Cleared so choosing the same file twice in a row still fires `change` - `5-08`'s
@@ -228,16 +230,16 @@ export function Composer({
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadProgress !== null}
           >
-            Attach
+            {strings.composerAttachButton}
           </Button>
           <Button variant="primary" onClick={onSend} disabled={!canSend}>
-            Send
+            {strings.composerSendButton}
           </Button>
         </div>
       </div>
 
       <p className="ago-composer__hint" id="ago-composer-hint">
-        Enter sends · Shift+Enter starts a new line · Escape clears · drop or paste a file to attach
+        {strings.composerHint}
       </p>
     </div>
   );

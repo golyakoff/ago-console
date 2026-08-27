@@ -18,6 +18,7 @@ import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
 import { Spinner } from "../components/Spinner.js";
+import { useStrings } from "../i18n/StringsContext.js";
 import { closeConversation } from "../api/conversationsApi.js";
 import { CloseConversationButton } from "../workspace/CloseConversationButton.js";
 import { Composer } from "../workspace/Composer.js";
@@ -96,6 +97,7 @@ export function ConversationPage() {
   const { conversationId } = useParams<{ conversationId: string }>();
   const { user } = useAuth();
   const { hasPermission, siteId } = usePermissions();
+  const strings = useStrings();
   const { connection, connectionState } = useOperatorConnection();
   const { conversation, now, timeZone, refreshQueue, markRead, composerRef } = useWorkspace();
   const [messages, setMessages] = useState<MessageDto[]>([]);
@@ -328,7 +330,7 @@ export function ConversationPage() {
       await confirmAttachment(accessToken, created.attachmentId);
       setPendingAttachment({ attachmentId: created.attachmentId, fileName: file.name });
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Upload failed.");
+      setUploadError(err instanceof Error ? err.message : strings.conversationUploadFailed);
     } finally {
       setUploadProgress(null);
     }
@@ -375,17 +377,17 @@ export function ConversationPage() {
     const detail = attachmentDetails[attachmentId];
 
     if (detail === undefined || detail === "loading") {
-      return <Spinner label="Loading attachment…" />;
+      return <Spinner label={strings.conversationLoadingAttachment} />;
     }
 
     if (detail === "deleted") {
-      return <span className="ago-meta">Attachment deleted</span>;
+      return <span className="ago-meta">{strings.conversationAttachmentDeleted}</span>;
     }
 
     if (detail === "error") {
       return (
         <span className="ago-message__attachment" role="alert">
-          <Badge tone="danger">Attachment unavailable</Badge>
+          <Badge tone="danger">{strings.conversationAttachmentUnavailable}</Badge>
         </span>
       );
     }
@@ -396,16 +398,20 @@ export function ConversationPage() {
           // A real generated thumbnail (5-04) - the one case safe to render inline, unlike the raw
           // download below (this component's own doc comment has the reasoning).
           <a href={detail.url} target="_blank" rel="noopener noreferrer">
-            <img className="ago-message__thumb" src={detail.thumbnailUrl} alt="Attachment thumbnail" />
+            <img
+              className="ago-message__thumb"
+              src={detail.thumbnailUrl}
+              alt={strings.conversationAttachmentThumbnailAlt}
+            />
           </a>
         ) : (
           <a href={detail.url} target="_blank" rel="noopener noreferrer">
-            Download attachment ({detail.contentType})
+            {strings.conversationDownloadAttachmentLabel} ({detail.contentType})
           </a>
         )}
         {hasPermission("attachment:delete") && (
           <Button size="sm" variant="danger" onClick={() => void handleDeleteAttachment(attachmentId)}>
-            Delete attachment
+            {strings.conversationDeleteAttachmentButton}
           </Button>
         )}
       </span>
@@ -433,21 +439,21 @@ export function ConversationPage() {
 
   return (
     <>
-      <section className="ago-workspace__main" aria-label="Conversation">
+      <section className="ago-workspace__main" aria-label={strings.conversationTitleFallback}>
         <header className="ago-workspace__main-head">
           {/* Only visible in the single-column layout, where the rail is off screen - see
               `workspace.css`. On a laptop the list is right there and a back link would be a
               control that undoes nothing. */}
           <Link className="ago-workspace__back" to="/">
-            ← Conversations
+            {strings.conversationBackLink}
           </Link>
           <h2 className="ago-workspace__main-title">
             {conversation ? (
               <>
-                Conversation with <span className="ago-mono">{conversation.visitorId.slice(0, 8)}</span>
+                {strings.conversationWithPrefix} <span className="ago-mono">{conversation.visitorId.slice(0, 8)}</span>
               </>
             ) : (
-              "Conversation"
+              strings.conversationTitleFallback
             )}
           </h2>
 
@@ -476,7 +482,7 @@ export function ConversationPage() {
 
         {connectionState === "connected" ? null : (
           <p className="ago-meta ago-workspace__main-note" role="status">
-            Waiting for the operator hub before this thread can load or send.
+            {strings.conversationWaitingForHub}
           </p>
         )}
 
@@ -498,9 +504,8 @@ export function ConversationPage() {
             reply box that silently cannot work is worse than no reply box. */}
         {closed ? (
           <div className="ago-workspace__composer">
-            <Alert tone="info" title="This conversation is closed">
-              Your capacity has been released, so a new conversation may be assigned to you at any
-              moment. The transcript above stays readable.
+            <Alert tone="info" title={strings.conversationClosedTitle}>
+              {strings.conversationClosedBody}
             </Alert>
           </div>
         ) : (
@@ -508,10 +513,10 @@ export function ConversationPage() {
           {failedSend && (
             <Alert
               tone="danger"
-              title="Send failed or is unconfirmed"
+              title={strings.conversationSendFailedTitle}
               action={
                 <Button size="sm" variant="danger" onClick={handleRetry}>
-                  Retry
+                  {strings.conversationRetryButton}
                 </Button>
               }
             >

@@ -1,4 +1,5 @@
 import { Badge } from "../components/Badge.js";
+import { useStrings } from "../i18n/StringsContext.js";
 import { linkStatusOf } from "./linkStatus.js";
 import type { ConnectionState } from "./operatorConnection.js";
 
@@ -25,12 +26,13 @@ export function ConnectionStateBadge({
   state: ConnectionState;
   serverDraining?: boolean;
 }) {
-  const status = linkStatusOf(state, serverDraining);
+  const strings = useStrings();
+  const status = linkStatusOf(state, serverDraining, strings);
 
   return (
     <span title={status.detail}>
       <Badge tone={status.tone} dot>
-        <span className="ago-visually-hidden">Operator hub:</span>
+        <span className="ago-visually-hidden">{strings.connectionBadgeAriaPrefix}</span>
         {status.label}
       </Badge>
     </span>

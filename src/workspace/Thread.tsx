@@ -1,8 +1,26 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import type { MessageDto } from "../realtime/protocol/types.js";
 import { Button } from "../components/Button.js";
+import { useStrings } from "../i18n/StringsContext.js";
+import type { ConsoleStrings } from "../i18n/strings.js";
 import { formatAbsolute, formatClockTime, formatDayLabel } from "../time/format.js";
 import { buildThread } from "./threadModel.js";
+
+/** `MessageDto.authorKind`'s three values as the group's visible author label - a fixed mapping
+ * rather than rendering the DTO field directly, the same reasoning `VisitorPanel`'s
+ * `conversation.state` mapping below makes: the field is data from the server, but a `"Visitor"` or
+ * `"Operator"` label reads to an operator as UI chrome, not as a visitor-typed value, so it belongs
+ * in the string table like everything else on this screen. */
+function authorLabel(kind: MessageDto["authorKind"], strings: ConsoleStrings): string {
+  switch (kind) {
+    case "Visitor":
+      return strings.threadAuthorVisitor;
+    case "Operator":
+      return strings.threadAuthorOperator;
+    case "System":
+      return strings.threadAuthorSystem;
+  }
+}
 
 export interface ThreadProps {
   messages: MessageDto[];
@@ -49,6 +67,7 @@ export function Thread({
   loadingOlder,
   onLoadOlder,
 }: ThreadProps) {
+  const strings = useStrings();
   const items = buildThread(messages, timeZone);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -79,12 +98,12 @@ export function Thread({
       {canLoadOlder && (
         <div className="ago-thread__older">
           <Button size="sm" variant="secondary" onClick={onLoadOlder} disabled={loadingOlder}>
-            {loadingOlder ? "Loading…" : "Load older messages"}
+            {loadingOlder ? strings.threadLoadingOlder : strings.threadLoadOlderButton}
           </Button>
         </div>
       )}
 
-      <ol className="ago-thread" aria-label="Message thread">
+      <ol className="ago-thread" aria-label={strings.threadAriaLabel}>
         {items.map((item) =>
           item.kind === "day" ? (
             <li className="ago-thread__day" key={`day-${item.key}`}>
@@ -99,15 +118,17 @@ export function Thread({
                 item.startsGroup ? "ago-message--group-start" : "ago-message--grouped",
               ].join(" ")}
             >
-              {item.startsGroup && <span className="ago-message__author">{item.message.authorKind}</span>}
+              {item.startsGroup && (
+                <span className="ago-message__author">{authorLabel(item.message.authorKind, strings)}</span>
+              )}
               <div
                 className="ago-message__bubble"
                 // The sequence keeps a home in the DOM rather than disappearing: this is the
                 // affordance that stays in a production build.
                 title={
                   item.at
-                    ? `${formatAbsolute(item.at, timeZone)} · message #${item.message.sequence}`
-                    : `Message #${item.message.sequence}`
+                    ? `${formatAbsolute(item.at, timeZone)} · ${strings.threadMessageNumberLabel}${item.message.sequence}`
+                    : `${strings.threadMessageNumberOnlyLabel}${item.message.sequence}`
                 }
               >
                 <span className="ago-message__body">{item.message.body}</span>
@@ -116,7 +137,7 @@ export function Thread({
                   {item.at ? (
                     <time dateTime={item.message.createdAt}>{formatClockTime(item.at, timeZone)}</time>
                   ) : (
-                    <span className="ago-meta">no timestamp</span>
+                    <span className="ago-meta">{strings.threadNoTimestamp}</span>
                   )}
                   {import.meta.env.DEV && <span className="ago-message__sequence">#{item.message.sequence}</span>}
                 </span>
