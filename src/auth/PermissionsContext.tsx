@@ -14,6 +14,10 @@ export interface PermissionsState {
    * the endpoint itself does not assume that). `null` under the identical "not yet known" rule
    * `permissions` already follows. */
   siteId: string | null;
+  /** `11-11`(console): the active site's own `Locale`, from the same `GET /api/v1/operators/me`
+   * response `siteId` already rides - `null` under the identical "not yet known" rule. `StringsProvider`
+   * is the one consumer; nothing else needs the raw value. */
+  locale: string | null;
   hasPermission: (permission: string) => boolean;
   /** `13-07`/`adr/0068`: every tenancy (`Site`) this signed-in identity administers, from
    * `GET /api/v1/me/tenancies` - the new step `PermissionsProvider` takes before its existing

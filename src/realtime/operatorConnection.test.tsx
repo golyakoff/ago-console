@@ -230,6 +230,8 @@ function Subscriber({ conversationId, onMessage }: { conversationId: string; onM
 const SINGLE_TENANCY: PermissionsState = {
   permissions: [],
   siteId: "33333333-3333-3333-3333-333333333333",
+  // `11-11`: this file is about the hub connection, not locale - `null` resolves to English.
+  locale: null,
   hasPermission: () => false,
   tenancies: [{ siteId: "33333333-3333-3333-3333-333333333333", siteName: "Test Site" }],
   activeSiteId: "33333333-3333-3333-3333-333333333333",

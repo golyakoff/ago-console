@@ -2,6 +2,8 @@ import { Outlet, useMatch } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { useOwnerEligibility } from "../auth/useOwnerEligibility.js";
+import { getStrings, parseConsoleLocale } from "../i18n/resolve.js";
+import { StringsProvider } from "../i18n/StringsContext.js";
 import { AppShell, ShellIdentity, type AppShellNavItem } from "./AppShell.js";
 import { buildTenantNavItems } from "./consoleNav.js";
 import { TenancySwitcher } from "./TenancySwitcher.js";
@@ -27,8 +29,13 @@ import { TenancySwitcher } from "./TenancySwitcher.js";
  */
 export function OperatorShell() {
   const { user, logout } = useAuth();
-  const { siteId, hasPermission, tenancies, activeSiteId, switchTenancy } = usePermissions();
+  const { siteId, locale, hasPermission, tenancies, activeSiteId, switchTenancy } = usePermissions();
   const ownerEligibility = useOwnerEligibility();
+  // `11-11`: the one place a specific tenant's locale is ever known - resolved from the active
+  // site's own `Locale` (`usePermissions()`'s `locale`, the same "not yet known" `null` state
+  // `siteId` already has, which `parseConsoleLocale` treats identically to an unrecognised value:
+  // the console's own English default until the real answer arrives).
+  const strings = getStrings(parseConsoleLocale(locale));
 
   // `11-06`: the two workspace routes want the full-width, viewport-height frame; `/admin` and
   // `/settings/widget` are ordinary documents and keep the reading-width one. Asked as two route
@@ -40,7 +47,7 @@ export function OperatorShell() {
   const conversationMatch = useMatch("/conversations/:conversationId");
   const isWorkspace = queueMatch !== null || conversationMatch !== null;
 
-  const nav: AppShellNavItem[] = buildTenantNavItems(hasPermission);
+  const nav: AppShellNavItem[] = buildTenantNavItems(hasPermission, strings);
 
   // `12-03`: the platform owner's own route, for the one identity on the deployment that holds it.
   // Note what this is *not* gated on - `usePermissions()` carries site-scoped permissions and knows
@@ -50,34 +57,36 @@ export function OperatorShell() {
   // screen behind it re-asks the server before rendering a row. Labelled "Platform sites" rather
   // than anything containing "admin", which in this product means a tenant's own supervisor.
   if (ownerEligibility === "eligible") {
-    nav.push({ to: "/owner", label: "Platform sites" });
+    nav.push({ to: "/owner", label: strings.navPlatformSites });
   }
 
   return (
-    <AppShell
-      nav={nav}
-      wide={isWorkspace}
-      // `12-04`: the `8-06` demo strip's claim that "its login is published on the demo pages" is
-      // false of the platform owner's account, and this shell is where the owner-who-is-also-an-
-      // operator spends their whole session. Taken from the eligibility answer already fetched above
-      // for the navigation link, so this costs no extra request and cannot disagree with the link.
-      demoNoticeAudience={ownerEligibility === "eligible" ? "platform-owner" : "shared-login"}
-      identity={
-        <ShellIdentity
-          operator={user?.profile.preferred_username ?? user?.profile.sub ?? "Signed in"}
-          siteId={siteId}
-          // `13-07`/`adr/0068`: only when there is a real choice to offer - a single-tenant
-          // operator's shell renders no switcher at all, exactly as it did before this item.
-          tenancySwitcher={
-            tenancies && tenancies.length > 1 ? (
-              <TenancySwitcher tenancies={tenancies} activeSiteId={activeSiteId} onSwitch={switchTenancy} />
-            ) : undefined
-          }
-          onSignOut={() => void logout()}
-        />
-      }
-    >
-      <Outlet />
-    </AppShell>
+    <StringsProvider value={strings}>
+      <AppShell
+        nav={nav}
+        wide={isWorkspace}
+        // `12-04`: the `8-06` demo strip's claim that "its login is published on the demo pages" is
+        // false of the platform owner's account, and this shell is where the owner-who-is-also-an-
+        // operator spends their whole session. Taken from the eligibility answer already fetched above
+        // for the navigation link, so this costs no extra request and cannot disagree with the link.
+        demoNoticeAudience={ownerEligibility === "eligible" ? "platform-owner" : "shared-login"}
+        identity={
+          <ShellIdentity
+            operator={user?.profile.preferred_username ?? user?.profile.sub ?? "Signed in"}
+            siteId={siteId}
+            // `13-07`/`adr/0068`: only when there is a real choice to offer - a single-tenant
+            // operator's shell renders no switcher at all, exactly as it did before this item.
+            tenancySwitcher={
+              tenancies && tenancies.length > 1 ? (
+                <TenancySwitcher tenancies={tenancies} activeSiteId={activeSiteId} onSwitch={switchTenancy} />
+              ) : undefined
+            }
+            onSignOut={() => void logout()}
+          />
+        }
+      >
+        <Outlet />
+      </AppShell>
+    </StringsProvider>
   );
 }

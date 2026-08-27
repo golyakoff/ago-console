@@ -151,6 +151,9 @@ function Harness({
     () => ({
       permissions,
       siteId: SITE_ID,
+      // `11-11`: this file is about permission gating, not locale - `null` resolves to the console's
+      // built-in English default (`parseConsoleLocale`'s own remarks), same as an unset tenant today.
+      locale: null,
       hasPermission: (p: string) => permissions.includes(p),
       // `13-07`: this file is about permission gating, not the switcher - a single, already-resolved
       // tenancy, the same shape every operator before this item had.

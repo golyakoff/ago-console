@@ -1,3 +1,4 @@
+import type { ConsoleStrings } from "../i18n/strings.js";
 import type { AppShellNavItem } from "./AppShell.js";
 
 /**
@@ -14,14 +15,23 @@ import type { AppShellNavItem } from "./AppShell.js";
  * "offers nothing gated while the answer is still in flight" case: `hasPermission` alone gates the
  * other three, never a still-loading `siteId` - `OperatorShell` never had a `siteId` check on this
  * first item, and this keeps that exact behaviour rather than introducing one.
+ *
+ * `11-11`: takes `strings` explicitly rather than calling `useStrings()` itself - a plain function,
+ * not a component, cannot call a hook. `OperatorShell` passes its own resolved `useStrings()`;
+ * `OwnerSitesPage` deliberately passes the console's built-in `en` table regardless of any tenant's
+ * real locale, matching that page's own settled design call (confirmed with the author, `11-11`'s own
+ * backlog item): `/owner` is not scoped to one tenant, so it never follows one's language, the
+ * identical reasoning that already keeps `/onboarding`/`/signup`/`/callback` English.
  */
-export function buildTenantNavItems(hasPermission: (permission: string) => boolean): AppShellNavItem[] {
-  const items: AppShellNavItem[] = [{ to: "/", label: "Conversations", end: true }];
+export function buildTenantNavItems(
+  hasPermission: (permission: string) => boolean, strings: ConsoleStrings,
+): AppShellNavItem[] {
+  const items: AppShellNavItem[] = [{ to: "/", label: strings.navConversations, end: true }];
   if (hasPermission("site:configure")) {
-    items.push({ to: "/admin", label: "All conversations" });
-    items.push({ to: "/settings/widget", label: "Widget appearance" });
+    items.push({ to: "/admin", label: strings.navAllConversations });
+    items.push({ to: "/settings/widget", label: strings.navWidgetAppearance });
     // `14-04`: same permission, same place - one more tenant self-service setting.
-    items.push({ to: "/settings/auto-reply", label: "Offline auto-reply" });
+    items.push({ to: "/settings/auto-reply", label: strings.navOfflineAutoReply });
   }
 
   return items;

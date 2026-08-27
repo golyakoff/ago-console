@@ -1,5 +1,6 @@
 import type { TenancyDto } from "../api/tenanciesApi.js";
 import { Select } from "../components/Select.js";
+import { useStrings } from "../i18n/StringsContext.js";
 
 export interface TenancySwitcherProps {
   tenancies: TenancyDto[];
@@ -21,11 +22,16 @@ export interface TenancySwitcherProps {
  * doc comment for why picking a value here ends in a full page reload rather than an in-place update.
  */
 export function TenancySwitcher({ tenancies, activeSiteId, onSwitch }: TenancySwitcherProps) {
+  // `11-11`: the *active* tenant's own language, the same `StringsProvider` `OperatorShell` already
+  // wraps this component in - not each listed tenancy's own locale, which would have no coherent
+  // rendering for a single control's chrome anyway. Switching tenants reloads the page (this
+  // component's own longer-standing remarks), so the label simply re-resolves on the next render.
+  const strings = useStrings();
   return (
     <label className="ago-shell__tenancy-switcher">
-      <span className="ago-shell__tenancy-switcher-label">Site</span>
+      <span className="ago-shell__tenancy-switcher-label">{strings.tenancySwitcherLabel}</span>
       <Select
-        aria-label="Active site"
+        aria-label={strings.activeSiteAriaLabel}
         value={activeSiteId ?? ""}
         onChange={(event) => {
           const nextSiteId = event.target.value;
@@ -42,7 +48,7 @@ export function TenancySwitcher({ tenancies, activeSiteId, onSwitch }: TenancySw
                 rather than that column's styled "Unnamed" badge - but it needs the same
                 disambiguation for the same reason: two blank options in one dropdown would be
                 indistinguishable without the id suffix. */}
-            {tenancy.siteName.trim().length > 0 ? tenancy.siteName : `Unnamed (${tenancy.siteId.slice(0, 8)})`}
+            {tenancy.siteName.trim().length > 0 ? tenancy.siteName : `${strings.unnamedSite} (${tenancy.siteId.slice(0, 8)})`}
           </option>
         ))}
       </Select>
