@@ -5,6 +5,8 @@ import type { ConsoleStrings } from "./strings.js";
 export const en: ConsoleStrings = {
   skipToContent: "Skip to content",
   operatorConsoleTagline: "Operator console",
+  consoleTaglineClient: "Client console",
+  consoleTaglineOwner: "Platform owner console",
   navSectionsAriaLabel: "Console sections",
   navConversations: "Conversations",
   navAllConversations: "All conversations",

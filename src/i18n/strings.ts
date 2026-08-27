@@ -12,7 +12,18 @@
  */
 export interface ConsoleStrings {
   skipToContent: string;
+  /** The default header subtitle, shown wherever a caller does not pass `AppShell`'s own `tagline`
+   * prop - `CenteredShell`'s pre-auth/loading screens, and the operator's own messaging tab
+   * (`OperatorShell` passes this one explicitly there too, so the two never drift). */
   operatorConsoleTagline: string;
+  /** `OperatorShell`'s tenant-management tabs (`/admin`, `/settings/widget`,
+   * `/settings/auto-reply`) - found live: even the platform owner, on their own operator seat,
+   * should read "client console" there and "operator console" on the messaging tab, the same
+   * distinction an ordinary operator sees. Route-driven, not identity-driven. */
+  consoleTaglineClient: string;
+  /** `OwnerSitesPage`'s own header, always read from the fixed `en` table - `/owner` renders in
+   * English regardless of any signed-in identity's tenant locale (11-11's settled design call). */
+  consoleTaglineOwner: string;
   navSectionsAriaLabel: string;
   navConversations: string;
   navAllConversations: string;

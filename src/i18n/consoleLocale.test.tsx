@@ -147,9 +147,43 @@ describe("pages with no active site", () => {
       </MemoryRouter>,
     );
 
-    expect(container.querySelector(".ago-shell__product")?.textContent).toBe("Operator console");
+    expect(container.querySelector(".ago-shell__product")?.textContent).toBe("Platform owner console");
     const navLabels = all(container, ".ago-shell__nav a").map((a) => a.textContent?.trim());
     expect(navLabels).toContain("Conversations");
     expect(navLabels).not.toContain("Диалоги");
+  });
+});
+
+/** Found live, 2026-08-27: the header subtitle should name which tab is open, not who is signed in -
+ * even the platform owner, on their own operator seat, reads "operator console" on the messaging tab
+ * and "client console" on any tenant-management one, the same text an ordinary operator sees there.
+ * `/owner` itself is covered by the "renders English" test above (`consoleTaglineOwner`). */
+describe("the console header's role tagline", () => {
+  beforeEach(() => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID });
+  });
+
+  it("reads 'Operator console' on the messaging tab", async () => {
+    const container = await render(shellAt("/"));
+
+    expect(container.querySelector(".ago-shell__product")?.textContent).toBe("Operator console");
+  });
+
+  it("reads 'Client console' on the site-wide conversations tab", async () => {
+    const container = await render(shellAt("/admin"));
+
+    expect(container.querySelector(".ago-shell__product")?.textContent).toBe("Client console");
+  });
+
+  it("reads 'Client console' on the widget-appearance settings tab", async () => {
+    const container = await render(shellAt("/settings/widget"));
+
+    expect(container.querySelector(".ago-shell__product")?.textContent).toBe("Client console");
+  });
+
+  it("reads 'Client console' on the offline-auto-reply settings tab", async () => {
+    const container = await render(shellAt("/settings/auto-reply"));
+
+    expect(container.querySelector(".ago-shell__product")?.textContent).toBe("Client console");
   });
 });

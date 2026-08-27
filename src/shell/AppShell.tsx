@@ -102,6 +102,16 @@ export interface AppShellProps {
    * correct thing to say to a reader nobody has established anything about.
    */
   demoNoticeAudience?: DemoNoticeAudience;
+  /**
+   * Found live: the header subtitle read "Operator console" even for a platform owner sitting on
+   * `/settings/widget`, which is tenant-management work, not the personal messaging queue the
+   * default text describes - and the confusion did not go away just because the same identity also
+   * holds `/owner` elsewhere. The distinction is which *tab* is open, not who is signed in, so this
+   * is a prop like `wide` - the caller that already matches routes for `wide` is the one that knows
+   * this too. Defaults to `strings.operatorConsoleTagline` (the messaging-tab wording) when a caller
+   * has nothing more specific to say, which keeps every pre-`this item` caller unchanged.
+   */
+  tagline?: string;
   children: ReactNode;
 }
 
@@ -116,13 +126,15 @@ export interface AppShellProps {
  * that called `usePermissions()` would throw. The context-reading half of *that* lives in
  * `OperatorShell`, which is mounted only inside those providers.
  *
- * `11-11`: this component's own chrome text (the skip link, the tagline, nav's aria-label, the demo
- * notice) *does* read `useStrings()` now - safe specifically because that context is defaulted, not
- * nullable (`StringsContext.tsx`'s own remarks): a caller with no `<StringsProvider>` above it (every
- * pre-session route) gets the console's built-in English rather than a thrown error, so the "renders
- * outside every provider" property this doc comment describes still holds. `nav`/`identity`/`wide`
- * remain props, not context, because those genuinely vary by *route*, which this component still
- * knows nothing about - `useStrings()` varies only by *tenant*, which a safe default can stand in for.
+ * `11-11`: this component's own chrome text (the skip link, the default tagline, nav's aria-label,
+ * the demo notice) *does* read `useStrings()` now - safe specifically because that context is
+ * defaulted, not nullable (`StringsContext.tsx`'s own remarks): a caller with no `<StringsProvider>`
+ * above it (every pre-session route) gets the console's built-in English rather than a thrown error,
+ * so the "renders outside every provider" property this doc comment describes still holds.
+ * `nav`/`identity`/`wide`/`tagline` remain props, not context, because those genuinely vary by
+ * *route* (which identity, which nav items, full-width or not, which subtitle), and this component
+ * still knows nothing about routes - `useStrings()` varies only by *tenant*, which a safe default
+ * can stand in for.
  *
  * The `<header>`/`<nav>`/`<main>` landmarks and the skip link are the point of having a shell at
  * all from an accessibility standpoint: before this, every screen was a bare `<div>` and a
@@ -133,6 +145,7 @@ export function AppShell({
   identity,
   wide = false,
   demoNoticeAudience = "shared-login",
+  tagline,
   children,
 }: AppShellProps) {
   const strings = useStrings();
@@ -160,7 +173,7 @@ export function AppShell({
               </span>
               <span>
                 <span className="ago-shell__wordmark">AGO</span>
-                <span className="ago-shell__product">{strings.operatorConsoleTagline}</span>
+                <span className="ago-shell__product">{tagline ?? strings.operatorConsoleTagline}</span>
               </span>
             </span>
 
