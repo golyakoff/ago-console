@@ -3,6 +3,7 @@ import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { useOwnerEligibility } from "../auth/useOwnerEligibility.js";
 import { AppShell, ShellIdentity, type AppShellNavItem } from "./AppShell.js";
+import { buildTenantNavItems } from "./consoleNav.js";
 import { TenancySwitcher } from "./TenancySwitcher.js";
 
 /**
@@ -39,13 +40,7 @@ export function OperatorShell() {
   const conversationMatch = useMatch("/conversations/:conversationId");
   const isWorkspace = queueMatch !== null || conversationMatch !== null;
 
-  const nav: AppShellNavItem[] = [{ to: "/", label: "Conversations", end: true }];
-  if (hasPermission("site:configure")) {
-    nav.push({ to: "/admin", label: "All conversations" });
-    nav.push({ to: "/settings/widget", label: "Widget appearance" });
-    // `14-04`: same permission, same place - one more tenant self-service setting.
-    nav.push({ to: "/settings/auto-reply", label: "Offline auto-reply" });
-  }
+  const nav: AppShellNavItem[] = buildTenantNavItems(hasPermission);
 
   // `12-03`: the platform owner's own route, for the one identity on the deployment that holds it.
   // Note what this is *not* gated on - `usePermissions()` carries site-scoped permissions and knows

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchOwnerSites, type OwnerSiteSummary } from "../api/ownerApi.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
+import { buildTenantNavItems } from "../shell/consoleNav.js";
 import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
@@ -57,7 +57,7 @@ type OwnerAccess = "unknown" | "granted" | "refused";
  */
 export function OwnerSitesPage() {
   const { user, logout } = useAuth();
-  const { siteId } = usePermissions();
+  const { siteId, hasPermission } = usePermissions();
   const accessToken = user?.access_token;
 
   const [access, setAccess] = useState<OwnerAccess>("unknown");
@@ -148,11 +148,15 @@ export function OwnerSitesPage() {
 
   return (
     <AppShell
-      // Only offered when this caller demonstrably holds an operator seat as well (a `siteId` came
-      // back from `GET /api/v1/operators/me`). A platform owner without one has nowhere to go in the
-      // console, and a link that lands on the operator workspace's hub connection would fail there
-      // rather than here.
-      nav={siteId ? [{ to: "/", label: "Back to the console", end: true }] : undefined}
+      // `4-06`(console): the same flat nav `OperatorShell` builds - Conversations and, once
+      // `site:configure` says so, the site-scoped screens - only when this caller demonstrably holds
+      // an operator seat as well (a `siteId` came back from `GET /api/v1/operators/me`). A platform
+      // owner without one has nowhere else in the console to go, and a "Conversations" link that
+      // landed on the operator workspace's hub connection would fail there rather than here - so
+      // that whole block is absent, not merely unreachable, for that identity. "Platform sites" is
+      // always last and always present: this page is itself what that link points at, so it renders
+      // with the active state the console uses everywhere else for "you are here".
+      nav={[...(siteId ? buildTenantNavItems(hasPermission) : []), { to: "/owner", label: "Platform sites", end: true }]}
       // `12-04`: narrowed only once `12-02`'s endpoint has actually accepted this caller. While the
       // answer is still `"unknown"`, and on a refusal, the reader is not demonstrably the owner, and
       // the stricter shared-login wording is the true thing to say to them.
@@ -177,11 +181,10 @@ export function OwnerSitesPage() {
             This view is restricted to the platform owner. The server refused the request, so no site
             data was loaded.
           </Alert>
-          {siteId && (
-            <p>
-              <Link to="/">Back to the console</Link>
-            </p>
-          )}
+          {/* `4-06`(console): no separate "back" link here any more - the nav bar above already
+              offers "Conversations" whenever `siteId` says this identity has somewhere to go back
+              to, the same nav every other console screen shows. A second, differently-worded way to
+              say the same thing is exactly the inconsistency this item's redesign removes. */}
         </>
       )}
 

@@ -143,6 +143,13 @@ export function AppShell({
         Skip to content
       </a>
       <header className="ago-shell__header">
+        {/* `13-07`-era header found live to wrap onto a surprise second line once a fifth nav item
+            (`Platform sites`) joined the other four: one row asked `justify-content: space-between`
+            to fit brand + nav + identity at once, and nothing in that row could shrink, so the whole
+            row broke rather than any one piece of it. Split deliberately into two rows instead - "who
+            you are" (brand, tenancy switcher, operator, sign out) on top, "where you can go" (nav)
+            underneath, each free of the other's width - so wrapping stops being a function of how many
+            nav items happen to be gated on for this identity today. */}
         <div className="ago-shell__header-row">
           <span className="ago-shell__brand">
             <span className="ago-shell__glyph" aria-hidden="true">
@@ -154,7 +161,11 @@ export function AppShell({
             </span>
           </span>
 
-          {nav && nav.length > 0 && (
+          {identity && <div className="ago-shell__identity">{identity}</div>}
+        </div>
+
+        {nav && nav.length > 0 && (
+          <div className="ago-shell__header-row ago-shell__header-row--nav">
             <nav className="ago-shell__nav" aria-label="Console sections">
               {nav.map((item) => (
                 <NavLink
@@ -169,10 +180,8 @@ export function AppShell({
                 </NavLink>
               ))}
             </nav>
-          )}
-
-          {identity && <div className="ago-shell__identity">{identity}</div>}
-        </div>
+          </div>
+        )}
       </header>
 
       <PublicDemoNotice audience={demoNoticeAudience} />

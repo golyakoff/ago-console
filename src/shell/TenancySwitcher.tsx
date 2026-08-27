@@ -36,7 +36,13 @@ export function TenancySwitcher({ tenancies, activeSiteId, onSwitch }: TenancySw
       >
         {tenancies.map((tenancy) => (
           <option key={tenancy.siteId} value={tenancy.siteId}>
-            {tenancy.siteName}
+            {/* A site's name really can be the empty string - OwnerSitesPage's own "Site" column
+                already handles this (a seeded demo tenant predates `10-02`'s registration flow,
+                which requires one). An <option> can't nest a <span>, so this is a plain string
+                rather than that column's styled "Unnamed" badge - but it needs the same
+                disambiguation for the same reason: two blank options in one dropdown would be
+                indistinguishable without the id suffix. */}
+            {tenancy.siteName.trim().length > 0 ? tenancy.siteName : `Unnamed (${tenancy.siteId.slice(0, 8)})`}
           </option>
         ))}
       </Select>

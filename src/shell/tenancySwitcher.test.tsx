@@ -134,6 +134,24 @@ describe("the tenancy switcher", () => {
     expect(optionLabels).toEqual(["Acme Support", "Widgets Inc"]);
   });
 
+  it("falls back to a labelled placeholder for a tenancy with no name", async () => {
+    // A site's name really can be the empty string - `OwnerSitesPage`'s own "Site" column already
+    // handles this (a seeded demo tenant predates `10-02`'s registration flow, which requires a
+    // name). Found live: two blank-named tenancies rendered as two indistinguishable empty options.
+    tenanciesApi.fetchMyTenancies.mockResolvedValue({
+      tenancies: [
+        { siteId: SITE_A, siteName: "" },
+        { siteId: SITE_B, siteName: "" },
+      ],
+    });
+
+    const container = await render(shellAt("/"));
+
+    const select = switcherSelect(container);
+    const optionLabels = all(select, "option").map((option) => option.textContent);
+    expect(optionLabels).toEqual([`Unnamed (${SITE_A.slice(0, 8)})`, `Unnamed (${SITE_B.slice(0, 8)})`]);
+  });
+
   it("defaults to the first tenancy in the order the server returned, when nothing is stored", async () => {
     // `ListMyTenanciesHandler` (`ago-chat`) already orders by name server-side - the console trusts
     // that order rather than re-sorting, so this fixture lists them exactly as a real response would.
