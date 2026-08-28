@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
@@ -9,52 +9,80 @@ import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
 import { Table, type TableColumn } from "../components/Table.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
+import { useStrings } from "../i18n/StringsContext.js";
+import type { ConsoleStrings } from "../i18n/strings.js";
 
 /** The conversation lifecycle's three states, given the tones the palette reserves for them.
- * Declared outside the component so the mapping is a constant, not something rebuilt per render. */
+ * Declared outside the component so the mapping is a constant, not something rebuilt per render -
+ * a CSS tone name is not language-bearing text, so it needs no `strings` and stays exactly as it was. */
 const STATE_TONE: Record<ConversationSummaryDto["state"], "brand" | "success" | "neutral"> = {
   Waiting: "brand",
   Assigned: "success",
   Closed: "neutral",
 };
 
-const COLUMNS: TableColumn<ConversationSummaryDto>[] = [
-  {
-    key: "visitor",
-    header: "Visitor",
-    render: (c) => (
-      <Badge tone="neutral" mono>
-        {c.visitorId.slice(0, 8)}
-      </Badge>
-    ),
-  },
-  {
-    key: "state",
-    header: "State",
-    render: (c) => <Badge tone={STATE_TONE[c.state]}>{c.state}</Badge>,
-  },
-  {
-    key: "operator",
-    header: "Assigned operator",
-    render: (c) =>
-      c.operatorId ? (
-        <span className="ago-mono">{c.operatorId.slice(0, 8)}</span>
-      ) : (
-        <span className="ago-meta">Unassigned</span>
+/** `11-13`: the visible state word, reusing the three fields the operator workspace already has
+ * (`queueWaitingTitle`, `conversationStateAssigned`, `conversationStateClosed`) rather than adding a
+ * fourth trio that would only ever say the same three words - found live: this table rendered the raw
+ * `ConversationSummaryDto["state"]` wire value (`"Waiting"`/`"Assigned"`/`"Closed"`) unchanged, so a
+ * Russian tenant's admin table read three English words even on `ru.ts`. */
+function stateLabel(state: ConversationSummaryDto["state"], strings: ConsoleStrings): string {
+  switch (state) {
+    case "Waiting":
+      return strings.queueWaitingTitle;
+    case "Assigned":
+      return strings.conversationStateAssigned;
+    case "Closed":
+      return strings.conversationStateClosed;
+  }
+}
+
+/** `11-13`: moved from a module-level constant into a function of `strings`, called from a `useMemo`
+ * inside the component - the same "constant outside the component becomes a function of strings" move
+ * `11-12` already made for `shortcutDescription`/`closeOutcomeFor`/`linkStatusOf`. A plain array
+ * literal built at module scope cannot call `useStrings()`, and rebuilding it every render (skipping
+ * the `useMemo`) would remake the identical five-element array on every poll tick for no reason - the
+ * `useMemo`, keyed on `strings`, keeps the original "built once, not per render" property and only
+ * rebuilds when the locale itself changes. */
+function buildColumns(strings: ConsoleStrings): TableColumn<ConversationSummaryDto>[] {
+  return [
+    {
+      key: "visitor",
+      header: strings.adminColumnVisitor,
+      render: (c) => (
+        <Badge tone="neutral" mono>
+          {c.visitorId.slice(0, 8)}
+        </Badge>
       ),
-  },
-  {
-    key: "started",
-    header: "Started",
-    render: (c) => <span className="ago-meta">{new Date(c.createdAt).toLocaleString()}</span>,
-  },
-  {
-    key: "unread",
-    header: "Unread",
-    align: "end",
-    render: (c) => c.operatorUnreadCount,
-  },
-];
+    },
+    {
+      key: "state",
+      header: strings.adminColumnState,
+      render: (c) => <Badge tone={STATE_TONE[c.state]}>{stateLabel(c.state, strings)}</Badge>,
+    },
+    {
+      key: "operator",
+      header: strings.adminColumnOperator,
+      render: (c) =>
+        c.operatorId ? (
+          <span className="ago-mono">{c.operatorId.slice(0, 8)}</span>
+        ) : (
+          <span className="ago-meta">{strings.adminUnassigned}</span>
+        ),
+    },
+    {
+      key: "started",
+      header: strings.adminColumnStarted,
+      render: (c) => <span className="ago-meta">{new Date(c.createdAt).toLocaleString()}</span>,
+    },
+    {
+      key: "unread",
+      header: strings.adminColumnUnread,
+      align: "end",
+      render: (c) => c.operatorUnreadCount,
+    },
+  ];
+}
 
 /** Same poll interval the operator workspace uses for its own read-only "waiting" list (`11-06`'s
  * `WorkspaceLayout`, which is where `QueuePage`'s two lists moved) - see `ConversationList`'s own
@@ -90,8 +118,11 @@ const REFRESH_INTERVAL_MS = 15_000;
 export function AdminConversationsPage() {
   const { user } = useAuth();
   const { permissions, hasPermission } = usePermissions();
+  const strings = useStrings();
   const [conversations, setConversations] = useState<ConversationSummaryDto[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const columns = useMemo(() => buildColumns(strings), [strings]);
 
   const refresh = useCallback(() => {
     if (!user?.access_token) {
@@ -103,8 +134,8 @@ export function AdminConversationsPage() {
         setConversations(page.conversations);
         setError(null);
       })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load conversations."));
-  }, [user?.access_token]);
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : strings.adminLoadError));
+  }, [user?.access_token, strings]);
 
   useEffect(() => {
     if (!hasPermission("site:configure")) {
@@ -117,19 +148,19 @@ export function AdminConversationsPage() {
   }, [refresh, hasPermission]);
 
   if (permissions === null) {
-    return <Spinner label="Checking your permissions…" />;
+    return <Spinner label={strings.siteConfigCheckingPermissions} />;
   }
 
   if (!hasPermission("site:configure")) {
     return (
       <>
-        <PageHead title="All conversations" />
+        <PageHead title={strings.navAllConversations} />
         {/* `Alert tone="danger"` renders `role="alert"` - the same assertive live region the bare
             `<p role="alert">` here had before `11-05`, which this item's accessibility floor
             requires be preserved rather than lost in the restyle. */}
-        <Alert tone="danger">You do not have permission to view every conversation for this site.</Alert>
+        <Alert tone="danger">{strings.adminForbidden}</Alert>
         <p>
-          <Link to="/">Back to queue</Link>
+          <Link to="/">{strings.siteConfigBackToQueue}</Link>
         </p>
       </>
     );
@@ -138,8 +169,8 @@ export function AdminConversationsPage() {
   return (
     <>
       <PageHead
-        title="All conversations"
-        description={`Every conversation for this site (newest first, read-only, refreshed every ${REFRESH_INTERVAL_MS / 1000} seconds).`}
+        title={strings.navAllConversations}
+        description={`${strings.adminDescriptionPrefix} ${REFRESH_INTERVAL_MS / 1000} ${strings.adminDescriptionSuffix}`}
       />
 
       {error && <Alert tone="danger">{error}</Alert>}
@@ -151,13 +182,13 @@ export function AdminConversationsPage() {
           already says what this is. `Skeleton`/`.ago-empty` are equally self-contained (their own
           border/background), the same bare-block pattern the workspace's queue lists already use. */}
       {conversations === null ? (
-        <Skeleton lines={4} label="Loading conversations…" />
+        <Skeleton lines={4} label={strings.adminLoadingLabel} />
       ) : conversations.length === 0 ? (
-        <p className="ago-empty">No conversations yet.</p>
+        <p className="ago-empty">{strings.adminEmpty}</p>
       ) : (
         <Table
-          caption="Every conversation for this site, newest first."
-          columns={COLUMNS}
+          caption={strings.adminTableCaption}
+          columns={columns}
           rows={conversations}
           rowKey={(c) => c.conversationId}
         />

@@ -19,11 +19,20 @@ import { Select } from "../components/Select.js";
 import { Button } from "../components/Button.js";
 import { Alert } from "../components/Alert.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
+import { useStrings } from "../i18n/StringsContext.js";
+import type { ConsoleStrings } from "../i18n/strings.js";
 
-const POSITION_LABELS: Record<WidgetPosition, string> = {
-  BottomRight: "Bottom right",
-  BottomLeft: "Bottom left",
-};
+/** `11-13`: a function of `strings` rather than a module-level `Record`, for the same reason
+ * `AdminConversationsPage`'s `buildColumns` moved - a literal built outside the component cannot call
+ * `useStrings()`. Called inline from render rather than through a `useMemo`: it is a two-entry lookup
+ * built on every render either way, and a `useMemo` here would cost more to read than the allocation
+ * it avoids. */
+function positionLabels(strings: ConsoleStrings): Record<WidgetPosition, string> {
+  return {
+    BottomRight: strings.widgetPositionBottomRight,
+    BottomLeft: strings.widgetPositionBottomLeft,
+  };
+}
 
 // `11-10`: the same closed-set-of-two shape `POSITION_LABELS` already established for this page's
 // only other `<select>` - see `Select.tsx`'s own comment on why this project has exactly two.
@@ -61,6 +70,8 @@ const DEFAULT_SWATCH_COLOR = "#2f6fed";
 export function WidgetConfigPage() {
   const { user } = useAuth();
   const { permissions, siteId, hasPermission } = usePermissions();
+  const strings = useStrings();
+  const POSITION_LABELS = positionLabels(strings);
   const [current, setCurrent] = useState<WidgetConfigDto | null>(null);
   const [colorInput, setColorInput] = useState("");
   const [position, setPosition] = useState<WidgetPosition>("BottomRight");
@@ -86,9 +97,9 @@ export function WidgetConfigPage() {
         setLoadError(null);
       })
       .catch((err: unknown) =>
-        setLoadError(err instanceof WidgetConfigError ? err.message : "Failed to load the widget configuration."),
+        setLoadError(err instanceof WidgetConfigError ? err.message : strings.widgetLoadError),
       );
-  }, [user?.access_token, siteId]);
+  }, [user?.access_token, siteId, strings]);
 
   useEffect(() => {
     if (!hasPermission("site:configure")) {
@@ -98,18 +109,18 @@ export function WidgetConfigPage() {
   }, [load, hasPermission]);
 
   if (permissions === null) {
-    return <Spinner label="Checking your permissions…" />;
+    return <Spinner label={strings.siteConfigCheckingPermissions} />;
   }
 
   if (!hasPermission("site:configure")) {
     return (
       <>
-        <PageHead title="Widget appearance" />
+        <PageHead title={strings.navWidgetAppearance} />
         {/* `role="alert"` preserved through `Alert tone="danger"` - see `AdminConversationsPage`'s
             identical branch. */}
-        <Alert tone="danger">You do not have permission to configure this site&apos;s widget.</Alert>
+        <Alert tone="danger">{strings.widgetForbidden}</Alert>
         <p>
-          <Link to="/">Back to queue</Link>
+          <Link to="/">{strings.siteConfigBackToQueue}</Link>
         </p>
       </>
     );
@@ -126,7 +137,7 @@ export function WidgetConfigPage() {
     // override, use the widget's own built-in default", matching `WidgetConfig.PrimaryColorHex`'s own
     // nullable semantics (`Ago.Chat.Domain`).
     if (trimmed.length > 0 && !isValidHexColor(trimmed)) {
-      setValidationError("Color must look like a hex value, e.g. #2F6FED.");
+      setValidationError(strings.widgetColorValidation);
       return;
     }
     setValidationError(null);
@@ -152,7 +163,7 @@ export function WidgetConfigPage() {
       setLocale(dto.locale);
       setSaved(true);
     } catch (err) {
-      setSubmitError(err instanceof WidgetConfigError ? err.message : "Failed to save the widget configuration.");
+      setSubmitError(err instanceof WidgetConfigError ? err.message : strings.widgetSubmitError);
     } finally {
       setSubmitting(false);
     }
@@ -163,33 +174,33 @@ export function WidgetConfigPage() {
   return (
     <>
       <PageHead
-        title="Widget appearance"
+        title={strings.navWidgetAppearance}
         /* `adr/0029`: config is read once, at bootstrap - stated here so the operator making the
            change knows why an already-open visitor tab will not reflect it immediately. `11-10`:
            this sentence's scope already covered color/position and now covers language on the same
            terms - the widget reads its language at the same bootstrap moment, not live, so the
            existing "next page load" wording is extended rather than duplicated into a second notice. */
-        description="Changes here take effect the next time a visitor's page loads the widget. A visitor who already has the widget open on their page will not see the new color, position, or language until they reload it."
+        description={strings.widgetDescription}
       />
 
       {loadError && <Alert tone="danger">{loadError}</Alert>}
 
       {current === null && !loadError ? (
         <Panel>
-          <Skeleton lines={3} label="Loading the widget configuration…" />
+          <Skeleton lines={3} label={strings.widgetLoadingLabel} />
         </Panel>
       ) : (
-        <Panel title="Launcher">
+        <Panel title={strings.widgetPanelTitle}>
           <form className="ago-stack" onSubmit={(e) => void handleSubmit(e)}>
             <Field
-              label="Primary color (hex, optional)"
-              description="Leave empty to use the widget's own built-in default."
+              label={strings.widgetColorFieldLabel}
+              description={strings.widgetColorFieldDescription}
               error={validationError}
               adornment={
                 <span
                   className="ago-widget-swatch"
                   aria-hidden="true"
-                  title="Preview"
+                  title={strings.widgetColorPreviewTitle}
                   // The one inline style left in the console, and it has to be: the value is the
                   // operator's own live input, so it cannot come from a token or a class. Its
                   // dimensions and border moved into `.ago-widget-swatch` in `index.css`; only the
@@ -203,13 +214,16 @@ export function WidgetConfigPage() {
                   {...controlProps}
                   value={colorInput}
                   onChange={(e) => setColorInput(e.target.value)}
+                  // Not translated - a hex code (`#2F6FED`) is a format example, not language-bearing
+                  // text, the same reasoning `shortcuts.ts`'s own `Shortcut.label` gives for its key
+                  // names never going through `strings`.
                   placeholder="#2F6FED"
                   disabled={submitting}
                 />
               )}
             </Field>
 
-            <Field label="Launcher position">
+            <Field label={strings.widgetPositionFieldLabel}>
               {(controlProps) => (
                 <Select
                   {...controlProps}
@@ -225,7 +239,7 @@ export function WidgetConfigPage() {
 
             {/* `11-10`: modeled byte-for-byte on the launcher-position `Select` just above - the
                 same gate (this page's own `site:configure` check), no new permission. */}
-            <Field label="Widget language">
+            <Field label={strings.widgetLanguageFieldLabel}>
               {(controlProps) => (
                 <Select
                   {...controlProps}
@@ -233,6 +247,8 @@ export function WidgetConfigPage() {
                   onChange={(e) => setLocale(e.target.value as WidgetLocale)}
                   disabled={submitting}
                 >
+                  {/* `LOCALE_LABELS` itself is untouched - `11-13`'s own scope explicitly excludes it
+                      (`4-06` already fixed these to endonyms, correct in every UI language). */}
                   <option value="En">{LOCALE_LABELS.En}</option>
                   <option value="Ru">{LOCALE_LABELS.Ru}</option>
                 </Select>
@@ -243,11 +259,11 @@ export function WidgetConfigPage() {
             {/* Was a bare `<p>Saved.</p>` with no live-region role at all before `11-05` - `Alert
                 tone="success"` gives it `role="status"`, polite rather than assertive, so it is
                 announced without interrupting. */}
-            {saved && <Alert tone="success">Saved.</Alert>}
+            {saved && <Alert tone="success">{strings.siteConfigSavedAlert}</Alert>}
 
             <div className="ago-row">
               <Button type="submit" variant="primary" disabled={submitting}>
-                {submitting ? "Saving…" : "Save"}
+                {submitting ? strings.siteConfigSavingButton : strings.siteConfigSaveButton}
               </Button>
             </div>
           </form>
