@@ -365,6 +365,34 @@ export class OperatorConnection {
     return this.requireConnection().invoke<boolean>("GetVisitorPresenceAsync", conversationId);
   }
 
+  /**
+   * `18-07`: "open one" from the returning-visitor-history panel. `conversationId` is the
+   * operator's own standing - the conversation actually open in this console right now, which is
+   * what proves they may read *some* live conversation with this visitor; `historicalConversationId`
+   * is the different, past conversation of the same visitor they are asking to read.
+   *
+   * Deliberately not routed through `subscribedConversationId`/`handleIncoming` the way
+   * `joinConversation` is: this is a one-shot, read-only fetch for a dialog, not a live subscription
+   * a `MessageReceived` push should ever be attributed to (a closed historical conversation receives
+   * no further pushes at all). See `OperatorHub.GetVisitorHistoryConversationAsync`'s own remarks
+   * (`ago-chat`) for why the authorization rule is not simply `loadOlderHistory` called with a
+   * different id.
+   */
+  async getVisitorHistoryConversation(
+    conversationId: string,
+    historicalConversationId: string,
+    beforeSequence: number | null,
+    pageSize: number,
+  ): Promise<HistoryPage> {
+    return this.requireConnection().invoke<HistoryPage>(
+      "GetVisitorHistoryConversationAsync",
+      conversationId,
+      historicalConversationId,
+      beforeSequence,
+      pageSize,
+    );
+  }
+
   /** Every caller below only ever runs once a connection is known to exist - `start()` builds one
    * before doing anything else, and every other caller runs from inside code paths that only
    * activate after `start()` has succeeded (a "connected" state, or `onreconnected`/`resumeSubscription`,

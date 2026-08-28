@@ -1,7 +1,11 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
 import { problemDetailsFrom } from "./problemDetails.js";
-import type { AllConversationsForSiteResponse, OperatorQueueResponse } from "../realtime/protocol/types.js";
+import type {
+  AllConversationsForSiteResponse,
+  OperatorQueueResponse,
+  VisitorHistoryResponse,
+} from "../realtime/protocol/types.js";
 import type { ErasureCheckOutcome } from "../erasure/erasureCheck.js";
 
 /** What `POST /api/v1/conversations/{id}/read` answers with: the conversation's unread state after
@@ -188,4 +192,31 @@ export async function checkConversationErasure(
   }
 
   return "unknown";
+}
+
+/**
+ * `18-07`: `GET /api/v1/conversations/{id}/visitor-history` - the returning-visitor-history panel's
+ * own read, gated server-side on `conversation:read` plus "you are assigned to *this* conversation"
+ * (`GetVisitorHistoryHandler`'s own remarks, `Ago.Chat.Application`), same operator-scoped pattern as
+ * `markConversationRead`/`closeConversation` above, not a general lookup by visitor id.
+ */
+export async function fetchVisitorHistory(
+  accessToken: string,
+  conversationId: string,
+  beforeId?: string,
+): Promise<VisitorHistoryResponse> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/conversations/${conversationId}/visitor-history`);
+  if (beforeId) {
+    url.searchParams.set("beforeId", beforeId);
+  }
+
+  const response = await fetch(url, {
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load the visitor's prior conversations: ${response.status}`);
+  }
+
+  return (await response.json()) as VisitorHistoryResponse;
 }

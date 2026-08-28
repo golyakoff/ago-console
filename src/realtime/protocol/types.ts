@@ -78,3 +78,32 @@ export interface AllConversationsForSiteResponse {
 export interface ReconnectHint {
   after: string;
 }
+
+/**
+ * `18-07`: `Ago.Chat.Contracts.VisitorHistoryConversationDto` - one row of a channel-identified
+ * visitor's prior-conversation panel. `closedAt` is `null` both for a conversation still open and
+ * for one closed before `Conversation.ClosedAt` existed server-side - `state` already distinguishes
+ * the first case, and the wire cannot and need not distinguish the second from it.
+ */
+export interface VisitorHistoryConversationDto {
+  conversationId: string;
+  state: "Waiting" | "Assigned" | "Closed";
+  startedAt: string;
+  closedAt: string | null;
+  previewBody: string | null;
+  previewAuthorKind: "Visitor" | "Operator" | "System" | null;
+  previewCreatedAt: string | null;
+}
+
+/**
+ * `18-07`: `Ago.Chat.Contracts.VisitorHistoryResponse` -
+ * `GET /api/v1/conversations/{id}/visitor-history`'s body. `hasChannelIdentity` is the gate: `false`
+ * means this visitor has no channel identity at all (an ordinary widget visitor, `14-01`'s model) and
+ * the console must render no panel whatsoever - not an empty-state one, which would imply a returning
+ * widget visitor is a case that can occur. See `VisitorHistoryPanel`'s own doc comment.
+ */
+export interface VisitorHistoryResponse {
+  hasChannelIdentity: boolean;
+  conversations: VisitorHistoryConversationDto[];
+  nextBeforeId: string | null;
+}

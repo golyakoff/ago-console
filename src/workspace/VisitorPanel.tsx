@@ -1,8 +1,9 @@
-import type { ConversationSummaryDto } from "../realtime/protocol/types.js";
+import type { ConversationSummaryDto, VisitorHistoryResponse } from "../realtime/protocol/types.js";
 import { Badge } from "../components/Badge.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
 import { formatAbsolute, formatElapsed, formatElapsedWords, parseInstant } from "../time/format.js";
+import { VisitorHistoryPanel } from "./VisitorHistoryPanel.js";
 
 /** `ConversationSummaryDto.state`'s three values as the badge's visible text - `"Waiting"` reuses
  * `queueWaitingTitle` (the identical English word already in the table for the queue's own "Waiting"
@@ -28,6 +29,11 @@ export interface VisitorPanelProps {
   siteId: string | null;
   now: Date;
   timeZone: string | null;
+  /** `18-07`: this visitor's prior conversations - `null` while the fetch is in flight. See
+   * `VisitorHistoryPanel`'s own doc comment for the hard gate on `hasChannelIdentity`. */
+  visitorHistory: VisitorHistoryResponse | null;
+  visitorHistoryError: string | null;
+  accessToken: string | null;
 }
 
 /**
@@ -37,10 +43,18 @@ export interface VisitorPanelProps {
  * something the console already has: the visitor's identifier, their live presence
  * (`OperatorHub.GetVisitorPresenceAsync`, polled - a snapshot, not a subscription, per
  * `realtime.md`), when the conversation started, and which site it belongs to. The things an
- * operator actually wants next - the page the visitor is on, their referrer, their previous
- * conversations, their name or email - are **not** invented here as plausible-looking placeholders,
- * because none of them exists anywhere in `ago-chat` today. Each is a backend change with its own
- * schema, its own privacy question and its own backlog item.
+ * operator actually wants next - the page the visitor is on, their referrer, their name or email -
+ * are **not** invented here as plausible-looking placeholders, because none of them exists anywhere
+ * in `ago-chat` today. Each is a backend change with its own schema, its own privacy question and
+ * its own backlog item.
+ *
+ * `18-07`: **"their previous conversations" is the one item on that list that no longer belongs to
+ * it.** A channel-identified visitor's prior conversations are real data now
+ * (`GetVisitorHistoryHandler`, `Ago.Chat.Application`), and `VisitorHistoryPanel` renders them below
+ * - this component only threads the fetched data through, the same way it threads
+ * `conversation`/`visitorOnline` through without owning either of their fetches. For an ordinary
+ * widget visitor (no channel identity, `14-01`'s model), that section renders nothing at all rather
+ * than an empty state - see `VisitorHistoryPanel`'s own doc comment for why.
  *
  * The identifiers are rendered in full rather than truncated to eight characters the way the list
  * rows are: this is the one place an operator goes to *copy* an id into a support ticket or a log
@@ -54,6 +68,9 @@ export function VisitorPanel({
   siteId,
   now,
   timeZone,
+  visitorHistory,
+  visitorHistoryError,
+  accessToken,
 }: VisitorPanelProps) {
   const strings = useStrings();
   const started = parseInstant(conversation?.createdAt);
@@ -113,6 +130,15 @@ export function VisitorPanel({
         <dt>{strings.visitorConversationLabel}</dt>
         <dd className="ago-mono ago-aside__id">{conversationId}</dd>
       </dl>
+
+      <VisitorHistoryPanel
+        conversationId={conversationId}
+        history={visitorHistory}
+        historyError={visitorHistoryError}
+        now={now}
+        timeZone={timeZone}
+        accessToken={accessToken}
+      />
 
       <p className="ago-aside__note">{strings.visitorPanelNote}</p>
     </aside>

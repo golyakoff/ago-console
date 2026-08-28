@@ -19,7 +19,8 @@ import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
 import { Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
-import { closeConversation } from "../api/conversationsApi.js";
+import { closeConversation, fetchVisitorHistory } from "../api/conversationsApi.js";
+import type { VisitorHistoryResponse } from "../realtime/protocol/types.js";
 import { CloseConversationButton } from "../workspace/CloseConversationButton.js";
 import { Composer } from "../workspace/Composer.js";
 import { Thread } from "../workspace/Thread.js";
@@ -106,6 +107,8 @@ export function ConversationPage() {
   const [draft, setDraft] = useState("");
   const [failedSend, setFailedSend] = useState<FailedSend | null>(null);
   const [visitorOnline, setVisitorOnline] = useState<boolean | null>(null);
+  const [visitorHistory, setVisitorHistory] = useState<VisitorHistoryResponse | null>(null);
+  const [visitorHistoryError, setVisitorHistoryError] = useState<string | null>(null);
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ fileName: string; percent: number } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -135,6 +138,8 @@ export function ConversationPage() {
     setPendingAttachment(null);
     setUploadError(null);
     setVisitorOnline(null);
+    setVisitorHistory(null);
+    setVisitorHistoryError(null);
     setClosed(false);
   }, [conversationId]);
 
@@ -212,6 +217,34 @@ export function ConversationPage() {
     const interval = setInterval(() => void checkPresence(), PRESENCE_POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [connection, conversationId]);
+
+  // `18-07`: the returning-visitor-history panel's own read - one fetch per conversation open, not
+  // polled like presence above (a visitor's past-conversation list does not change while this one is
+  // on screen the way their online/offline status does). REST, not the hub: `fetchVisitorHistory`
+  // (`api/conversationsApi.ts`) is a plain authenticated GET, the same reasoning
+  // `fetchOperatorQueue`'s own doc comment already gives for the queue.
+  useEffect(() => {
+    if (!conversationId || !user?.access_token) {
+      return;
+    }
+
+    let cancelled = false;
+    fetchVisitorHistory(user.access_token, conversationId)
+      .then((response) => {
+        if (!cancelled) {
+          setVisitorHistory(response);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setVisitorHistoryError(err instanceof Error ? err.message : strings.visitorHistoryError);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, user?.access_token, strings]);
 
   // `5-15`: whether this tab is actually in front of the operator. The document-title unread count
   // exists precisely so a *backgrounded* tab still tells the truth (`attention.ts`), so a
@@ -550,6 +583,9 @@ export function ConversationPage() {
         siteId={siteId}
         now={now}
         timeZone={timeZone}
+        visitorHistory={visitorHistory}
+        visitorHistoryError={visitorHistoryError}
+        accessToken={user?.access_token ?? null}
       />
     </>
   );

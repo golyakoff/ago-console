@@ -42,6 +42,9 @@ const conversationsApi = vi.hoisted(() => ({
   fetchOperatorQueue: vi.fn(),
   markConversationRead: vi.fn(),
   closeConversation: vi.fn(),
+  // `18-07`: ConversationPage now fetches this on every render too - see
+  // ConversationPage.test.tsx's own note on the identical gap.
+  fetchVisitorHistory: vi.fn(),
 }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 
@@ -141,6 +144,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   conversationsApi.fetchOperatorQueue.mockResolvedValue(queue());
   conversationsApi.markConversationRead.mockResolvedValue({ operatorUnreadCount: 0, operatorLastReadSequence: 0 });
+  conversationsApi.fetchVisitorHistory.mockResolvedValue({ hasChannelIdentity: false, conversations: [], nextBeforeId: null });
   ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
 });
 

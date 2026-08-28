@@ -136,6 +136,19 @@ export interface ConsoleStrings {
   visitorConversationLabel: string;
   visitorPanelNote: string;
 
+  // VisitorHistoryPanel - `18-07`.
+  visitorHistoryTitle: string;
+  visitorHistoryLoadingLabel: string;
+  visitorHistoryEmpty: string;
+  visitorHistoryError: string;
+  visitorHistoryStartedLabel: string;
+  visitorHistoryClosedLabel: string;
+  visitorHistoryStillOpen: string;
+  visitorHistoryNoPreview: string;
+  visitorHistoryOpenLabel: string;
+  visitorHistoryDialogLoadingLabel: string;
+  visitorHistoryDialogError: string;
+
   // CloseConversationButton.
   closeConversationButton: string;
   closeConversationDialogTitle: string;
