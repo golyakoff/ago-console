@@ -1,5 +1,6 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
+import type { ErasureCheckOutcome } from "../erasure/erasureCheck.js";
 
 /**
  * `5-08`: `GET /api/v1/operators/me` (`Ago.Chat.Api.Operators.OperatorsEndpoints`, an addition this
@@ -65,4 +66,49 @@ export async function resolveOperatorState(accessToken: string): Promise<Operato
   }
 
   throw new Error(`Failed to resolve operator identity: ${response.status}`);
+}
+
+/**
+ * `16-02`: the completion poll for `sitesApi.ts#eraseSite` - `AccountDeletionPage` calls this on an
+ * interval (`erasure/usePollUntilErased.ts`) until it answers `"erased"`.
+ *
+ * Reuses `GET /api/v1/operators/me` rather than a purpose-built endpoint - the same call
+ * `fetchMyPermissions`/`resolveOperatorState` above already make, since the fact this needs to observe
+ * ("does the signed-in operator's own row still exist") is exactly what that endpoint already answers
+ * for every other caller.
+ *
+ * <b>The "gone" shape, reconciled against `ago-chat`'s actual shipped `16-02`.</b> This was open when
+ * this side was first built (both sides were handed the same contract independently and could not see
+ * each other's choice); confirmed afterwards by reading `OperatorsEndpoints.cs` directly.
+ * `GET /api/v1/operators/me` is gated by the plain `"RequireOperatorIdentity"` policy with no custom
+ * failure handler - so once erasure deletes the operator row, the exact same thing happens here that
+ * already happens for `resolveOperatorState` above on a Keycloak-identity-only token: ASP.NET Core's
+ * own default policy failure, a **bare `403` with no parseable body at all**, never a `404` and never a
+ * problem-details code to inspect. `resolveOperatorState` already treats a bare `403` from this route as
+ * "no operator row" - after this page's own erase request, that is precisely what `"erased"` means, so
+ * this function reuses that exact signal rather than a different, invented one.
+ *
+ * `401` stays separate and is never a completion signal - `resolveOperatorState`'s own doc comment
+ * already establishes it means "no valid token at all" (expired, revoked), which says nothing about
+ * whether the row still exists. A network failure is the same "say nothing, tick again" case.
+ */
+export async function checkOperatorErasure(accessToken: string): Promise<ErasureCheckOutcome> {
+  let response: Response;
+  try {
+    response = await fetch(`${config.apiBaseUrl}/api/v1/operators/me`, {
+      headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+    });
+  } catch {
+    return "unknown";
+  }
+
+  if (response.ok) {
+    return "pending";
+  }
+
+  if (response.status === 403) {
+    return "erased";
+  }
+
+  return "unknown";
 }

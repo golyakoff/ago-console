@@ -12,6 +12,7 @@ import { ConversationPage } from "./pages/ConversationPage.js";
 import { AdminConversationsPage } from "./pages/AdminConversationsPage.js";
 import { WidgetConfigPage } from "./pages/WidgetConfigPage.js";
 import { OfflineAutoReplyPage } from "./pages/OfflineAutoReplyPage.js";
+import { AccountDeletionPage } from "./pages/AccountDeletionPage.js";
 import { OwnerSitesPage } from "./owner/OwnerSitesPage.js";
 
 /**
@@ -125,6 +126,10 @@ export function App() {
         {/* `14-04`: a second settings screen on the identical pattern - `OfflineAutoReplyPage` gates
             itself on `site:configure` internally, exactly like the two routes above it. */}
         <Route path="/settings/auto-reply" element={<OfflineAutoReplyPage />} />
+        {/* `16-02`: a third settings screen, on the same "route stays outside the workspace layout,
+            page gates itself internally" shape - but on `site:erase`, not `site:configure`
+            (`AccountDeletionPage`'s own doc comment). */}
+        <Route path="/settings/delete-account" element={<AccountDeletionPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

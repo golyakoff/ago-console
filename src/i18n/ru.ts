@@ -14,6 +14,7 @@ export const ru: ConsoleStrings = {
   navWidgetAppearance: "Внешний вид виджета",
   navOfflineAutoReply: "Автоответ офлайн",
   navPlatformSites: "Сайты платформы",
+  navDeleteAccount: "Удалить аккаунт",
   signOut: "Выйти",
   siteIdTooltip: "ID сайта",
   siteIdPrefix: "сайт",
@@ -211,6 +212,8 @@ export const ru: ConsoleStrings = {
   adminDescriptionSuffix: "секунд).",
   adminEmpty: "Диалогов пока нет.",
   adminTableCaption: "Все диалоги для этого сайта, сначала новые.",
+  adminColumnActions: "Действия",
+  adminConversationErasedNotice: "Диалог удалён без возможности восстановления.",
 
   widgetLoadError: "Не удалось загрузить настройки виджета.",
   widgetSubmitError: "Не удалось сохранить настройки виджета.",
@@ -268,4 +271,32 @@ export const ru: ConsoleStrings = {
   autoReplyValidationKeywordTooLongSuffix: "символов.",
   autoReplyValidationReplyTooLongPrefix: "Ответ не может быть длиннее",
   autoReplyValidationReplyTooLongSuffix: "символов.",
+
+  eraseConversationButton: "Удалить",
+  eraseConversationDialogTitle: "Удалить этот диалог?",
+  eraseConversationDialogBody:
+    "Диалог, его сообщения и любые вложения будут удалены из всех хранилищ, где они есть. " +
+    "Это нельзя отменить, и другого подтверждения, кроме этого, не будет.",
+  eraseConversationConfirmButton: "Удалить",
+  eraseConversationErasingLabel: "Удаление…",
+  eraseConversationSubmitError: "Не удалось начать удаление этого диалога.",
+
+  accountDeletionTitle: "Удалить аккаунт",
+  accountDeletionDescription: "Безвозвратно удалить этот аккаунт и всё, что в нём есть.",
+  accountDeletionForbidden: "У вас нет права удалить этот аккаунт.",
+  accountDeletionPanelTitle: "Удалить этот аккаунт",
+  accountDeletionWarningBody:
+    "Будут удалены все диалоги, сообщения и вложения, настройки сайта, операторы и их учётные " +
+    "записи для входа. Это нельзя отменить, и другого подтверждения, кроме этого, не будет.",
+  accountDeletionButton: "Удалить этот аккаунт",
+  accountDeletionDialogTitle: "Удалить этот аккаунт?",
+  accountDeletionDialogBody:
+    "Аккаунт и всё, что в нём есть, будут удалены безвозвратно. Это нельзя отменить, и другого " +
+    "подтверждения, кроме этого, не будет.",
+  accountDeletionConfirmButton: "Удалить",
+  accountDeletionSubmitError: "Не удалось начать удаление этого аккаунта.",
+  accountDeletionInProgressTitle: "Идёт удаление",
+  accountDeletionInProgressBody:
+    "Аккаунт удаляется. Это может занять некоторое время — не закрывайте эту страницу. Как только " +
+    "удаление завершится, вы будете автоматически выведены из системы.",
 };

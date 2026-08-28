@@ -13,6 +13,7 @@ export const en: ConsoleStrings = {
   navWidgetAppearance: "Widget appearance",
   navOfflineAutoReply: "Offline auto-reply",
   navPlatformSites: "Platform sites",
+  navDeleteAccount: "Delete account",
   signOut: "Sign out",
   siteIdTooltip: "Site id",
   siteIdPrefix: "site",
@@ -210,6 +211,8 @@ export const en: ConsoleStrings = {
   adminDescriptionSuffix: "seconds).",
   adminEmpty: "No conversations yet.",
   adminTableCaption: "Every conversation for this site, newest first.",
+  adminColumnActions: "Actions",
+  adminConversationErasedNotice: "The conversation has been erased.",
 
   widgetLoadError: "Failed to load the widget configuration.",
   widgetSubmitError: "Failed to save the widget configuration.",
@@ -266,4 +269,33 @@ export const en: ConsoleStrings = {
   autoReplyValidationKeywordTooLongSuffix: "characters.",
   autoReplyValidationReplyTooLongPrefix: "A reply cannot exceed",
   autoReplyValidationReplyTooLongSuffix: "characters.",
+
+  eraseConversationButton: "Erase",
+  eraseConversationDialogTitle: "Erase this conversation?",
+  eraseConversationDialogBody:
+    "This removes the conversation, its messages and any attachments from every store that holds " +
+    "them. It cannot be undone, and there is no confirmation beyond this one.",
+  eraseConversationConfirmButton: "Erase it",
+  eraseConversationErasingLabel: "Erasing…",
+  eraseConversationSubmitError: "Failed to start erasing this conversation.",
+
+  accountDeletionTitle: "Delete account",
+  accountDeletionDescription: "Permanently delete this account and everything in it.",
+  accountDeletionForbidden: "You do not have permission to delete this account.",
+  accountDeletionPanelTitle: "Delete this account",
+  accountDeletionWarningBody:
+    "This deletes every conversation, message and attachment, the site's own configuration, its " +
+    "operators, and their sign-in accounts. It cannot be undone, and there is no confirmation " +
+    "beyond this one.",
+  accountDeletionButton: "Delete this account",
+  accountDeletionDialogTitle: "Delete this account?",
+  accountDeletionDialogBody:
+    "This permanently deletes the account and everything in it. It cannot be undone, and there is " +
+    "no confirmation beyond this one.",
+  accountDeletionConfirmButton: "Delete it",
+  accountDeletionSubmitError: "Failed to start deleting this account.",
+  accountDeletionInProgressTitle: "Deletion in progress",
+  accountDeletionInProgressBody:
+    "The account is being deleted. This can take a while - do not close this page. You will be " +
+    "signed out automatically once it is done.",
 };

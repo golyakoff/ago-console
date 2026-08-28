@@ -1,4 +1,6 @@
 import { config } from "../config.js";
+import { withActiveSiteHeader } from "./activeSite.js";
+import { problemDetailsFrom } from "./problemDetails.js";
 
 /**
  * `10-03`: the console's own caller for `10-02`'s bootstrap endpoint (`Ago.Chat.Api.Sites.
@@ -77,4 +79,38 @@ export async function registerSite(accessToken: string, request: RegisterSiteReq
   }
 
   return (await response.json()) as RegisterSiteResponse;
+}
+
+/**
+ * `16-02`: `POST /api/v1/sites/erase` - no path parameter, the site is resolved from the caller's own
+ * auth, the same `X-Ago-Active-Site` header/claim resolution every other authenticated call in this
+ * console already carries via `withActiveSiteHeader`. `registerSite` above is the one exception in
+ * this file, and deliberately so - it runs before any site/tenancy exists for this identity to
+ * resolve, which is not true here: erasing an account is only ever something an existing operator on
+ * an existing site does.
+ *
+ * `202 Accepted`, not `204` - this starts an async `Ago.Chat.Worker` job rather than deleting
+ * anything synchronously (`16-02`'s own Scope: "these touch many rows across several stores and can
+ * fail halfway; they belong in Ago.Chat.Worker... not in a synchronous HTTP call that a timeout can
+ * tear in half"). Nothing is actually gone when this promise resolves - `AccountDeletionPage` polls
+ * `checkOperatorErasure` (`operatorsApi.ts`) separately for real completion, and must not report
+ * success off this call alone.
+ *
+ * Throws `ApiProblemError` (`problemDetails.ts`), not this file's own older `RegisterSiteError` -
+ * `problemDetails.ts`'s own doc comment already names the duplication between the two as "worth
+ * folding in later" and asks that nothing new copy it forward. Nothing here currently branches on the
+ * failure's `type` (only the completion *poll*'s outcome drives this flow's behaviour), but the
+ * shared type is still the correct one for a new write to use.
+ */
+export async function eraseSite(accessToken: string): Promise<void> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/sites/erase`, {
+    method: "POST",
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (response.status === 202) {
+    return;
+  }
+
+  throw await problemDetailsFrom(response);
 }

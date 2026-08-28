@@ -30,6 +30,10 @@ export interface ConsoleStrings {
   navWidgetAppearance: string;
   navOfflineAutoReply: string;
   navPlatformSites: string;
+  /** `16-02`: gated on `site:erase`, deliberately separate from the `site:configure` block above -
+   * the backlog item's own scope note ("a single boolean that destroys a business is a plausible case
+   * for its own [permission]"). */
+  navDeleteAccount: string;
   signOut: string;
   /** The `title` attribute on the operator's own site-id badge - "Site id", not the badge's visible
    * text (`siteIdPrefix` below). */
@@ -270,6 +274,14 @@ export interface ConsoleStrings {
   adminDescriptionSuffix: string;
   adminEmpty: string;
   adminTableCaption: string;
+  /** `16-02`: the row-actions column header - present only when the signed-in operator holds
+   * `conversation:erase` (`AdminConversationsPage`'s own `buildColumns`), so an operator without it
+   * never sees an all-empty column. */
+  adminColumnActions: string;
+  /** Shown once at least one row in this list has actually been confirmed erased (the poll's own
+   * `"erased"` outcome, never the optimistic click) - `16-02`'s own Done-when: "the console must not
+   * claim it is done before it is." */
+  adminConversationErasedNotice: string;
 
   // WidgetConfigPage.
   widgetLoadError: string;
@@ -328,4 +340,37 @@ export interface ConsoleStrings {
   autoReplyValidationKeywordTooLongSuffix: string;
   autoReplyValidationReplyTooLongPrefix: string;
   autoReplyValidationReplyTooLongSuffix: string;
+
+  // `16-02`: EraseConversationButton, the row-action in `AdminConversationsPage` that erases one
+  // conversation on the visitor's own request. Modeled on `CloseConversationButton`'s own strings
+  // above - "hidden, not disabled" gate, a real confirmation for an irreversible action - but this
+  // one's confirm click starts an async Worker job rather than finishing synchronously, so it adds an
+  // in-progress label the close button never needed.
+  eraseConversationButton: string;
+  eraseConversationDialogTitle: string;
+  eraseConversationDialogBody: string;
+  eraseConversationConfirmButton: string;
+  /** Replaces the button once the `202 Accepted` is back and this row's own poll has started - `cancelButton`
+   * is reused for the dialog's own Cancel action, the same "one field, one word" convention
+   * `closeItButton`'s neighbours already follow. */
+  eraseConversationErasingLabel: string;
+  eraseConversationSubmitError: string;
+
+  // `16-02`: AccountDeletionPage - `/settings/delete-account`, the tenant's own account-and-everything-
+  // in-it deletion. Gated on `site:erase`, not `site:configure` (`consoleNav.ts`'s own remarks).
+  accountDeletionTitle: string;
+  accountDeletionDescription: string;
+  accountDeletionForbidden: string;
+  accountDeletionPanelTitle: string;
+  accountDeletionWarningBody: string;
+  accountDeletionButton: string;
+  accountDeletionDialogTitle: string;
+  accountDeletionDialogBody: string;
+  accountDeletionConfirmButton: string;
+  accountDeletionSubmitError: string;
+  /** Rendered once the `202 Accepted` is back - a persistent state (`16-02`'s own Done-when: "the
+   * console must not claim it is done before it is"), replacing the panel entirely rather than
+   * sitting beside a now-meaningless "Delete this account" button. */
+  accountDeletionInProgressTitle: string;
+  accountDeletionInProgressBody: string;
 }

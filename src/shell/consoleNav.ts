@@ -33,6 +33,13 @@ export function buildTenantNavItems(
     // `14-04`: same permission, same place - one more tenant self-service setting.
     items.push({ to: "/settings/auto-reply", label: strings.navOfflineAutoReply });
   }
+  // `16-02`: a distinct, deliberately narrower gate than the `site:configure` block above -
+  // `AccountDeletionPage`'s own doc comment has the "why its own permission" reasoning. An operator
+  // holding only `site:configure` sees the three items above but not this one; the reverse is equally
+  // possible, since the two permissions are independent grants.
+  if (hasPermission("site:erase")) {
+    items.push({ to: "/settings/delete-account", label: strings.navDeleteAccount });
+  }
 
   return items;
 }
