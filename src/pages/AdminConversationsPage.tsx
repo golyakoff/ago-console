@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
-import { fetchAllConversationsForSite } from "../api/conversationsApi.js";
+import { fetchAllConversationsForSite, eraseConversation, checkConversationErasure } from "../api/conversationsApi.js";
 import type { ConversationSummaryDto } from "../realtime/protocol/types.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Alert } from "../components/Alert.js";
@@ -11,6 +11,7 @@ import { Table, type TableColumn } from "../components/Table.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
+import { EraseConversationButton, CONVERSATION_ERASE_PERMISSION } from "./EraseConversationButton.js";
 
 /** The conversation lifecycle's three states, given the tones the palette reserves for them.
  * Declared outside the component so the mapping is a constant, not something rebuilt per render -
@@ -44,8 +45,19 @@ function stateLabel(state: ConversationSummaryDto["state"], strings: ConsoleStri
  * the `useMemo`) would remake the identical five-element array on every poll tick for no reason - the
  * `useMemo`, keyed on `strings`, keeps the original "built once, not per render" property and only
  * rebuilds when the locale itself changes. */
-function buildColumns(strings: ConsoleStrings): TableColumn<ConversationSummaryDto>[] {
-  return [
+/** `16-02`: `canErase`/`renderActions` add a sixth, row-actions column - but only when the caller
+ * holds `conversation:erase`. Kept out of the array entirely rather than always present with the
+ * cell's own `EraseConversationButton` returning `null` for every row: the button's own internal gate
+ * (its own doc comment) already gets that half right per row, but an "Actions" header sitting over a
+ * column of nothing for an operator who never holds the permission is still a dead column, the same
+ * "hidden, not disabled" reasoning `CloseConversationButton`/this file's own permission gate already
+ * apply at the level of a whole page - here it is one column instead. */
+function buildColumns(
+  strings: ConsoleStrings,
+  canErase: boolean,
+  renderActions: (row: ConversationSummaryDto) => ReactNode,
+): TableColumn<ConversationSummaryDto>[] {
+  const columns: TableColumn<ConversationSummaryDto>[] = [
     {
       key: "visitor",
       header: strings.adminColumnVisitor,
@@ -82,6 +94,17 @@ function buildColumns(strings: ConsoleStrings): TableColumn<ConversationSummaryD
       render: (c) => c.operatorUnreadCount,
     },
   ];
+
+  if (canErase) {
+    columns.push({
+      key: "actions",
+      header: strings.adminColumnActions,
+      align: "end",
+      render: renderActions,
+    });
+  }
+
+  return columns;
 }
 
 /** Same poll interval the operator workspace uses for its own read-only "waiting" list (`11-06`'s
@@ -114,6 +137,15 @@ const REFRESH_INTERVAL_MS = 15_000;
  * routes to the same place a few pixels apart is worse than one. It is kept on the permission-refusal
  * branch, where it is the only way out and where the shell's own "All conversations" item is
  * (correctly) absent for exactly the operator who lands there.
+ *
+ * `16-02`: gains one write action after being read-only since `5-08` - erasing a conversation on the
+ * visitor's own request, gated on the narrower `conversation:erase` (`EraseConversationButton.js`,
+ * not this page's own `site:configure`). `erasedIds` is this component's own record of which rows a
+ * poll has *actually confirmed* gone, kept separate from `conversations` (the last full re-fetch):
+ * removing a row happens only once `EraseConversationButton`'s `onErased` fires, never on the
+ * confirm click, matching the item's own "must not claim it is done before it is" rule. The next
+ * `REFRESH_INTERVAL_MS` re-fetch naturally stops listing an erased row too, at which point its id in
+ * `erasedIds` is simply inert - no code needs to clear it back out.
  */
 export function AdminConversationsPage() {
   const { user } = useAuth();
@@ -121,8 +153,28 @@ export function AdminConversationsPage() {
   const strings = useStrings();
   const [conversations, setConversations] = useState<ConversationSummaryDto[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [erasedIds, setErasedIds] = useState<ReadonlySet<string>>(new Set());
 
-  const columns = useMemo(() => buildColumns(strings), [strings]);
+  const accessToken = user?.access_token;
+  const canErase = hasPermission(CONVERSATION_ERASE_PERMISSION);
+  const columns = useMemo(
+    () =>
+      buildColumns(strings, canErase, (row) =>
+        accessToken ? (
+          <EraseConversationButton
+            onErase={() => eraseConversation(accessToken, row.conversationId)}
+            checkErased={() => checkConversationErasure(accessToken, row.conversationId)}
+            onErased={() => setErasedIds((prev) => new Set(prev).add(row.conversationId))}
+          />
+        ) : null,
+      ),
+    [strings, canErase, accessToken],
+  );
+
+  const visibleConversations = useMemo(
+    () => conversations?.filter((c) => !erasedIds.has(c.conversationId)) ?? null,
+    [conversations, erasedIds],
+  );
 
   const refresh = useCallback(() => {
     if (!user?.access_token) {
@@ -175,21 +227,28 @@ export function AdminConversationsPage() {
 
       {error && <Alert tone="danger">{error}</Alert>}
 
+      {/* `16-02`: shown once at least one row has been *confirmed* erased by its own poll, never on
+          the confirm click - `erasedIds` only ever grows from `EraseConversationButton`'s `onErased`.
+          `role="status"` (`Alert tone="success"`), not `"alert"`: this is a background job's own
+          confirmation arriving asynchronously, not a response to something the operator just did on
+          this exact render. */}
+      {erasedIds.size > 0 && <Alert tone="success">{strings.adminConversationErasedNotice}</Alert>}
+
       {/* No `Panel` wrapper any more - found live: `.ago-table-scroll` already carries its own
           complete card (border, radius, background), the identical treatment `.ago-panel` gives its
           own `<section>`. Nesting one inside the other was two cards, and the outer one's padding was
           the "extra white container" a titleless Panel had nothing left to justify - `PageHead` above
           already says what this is. `Skeleton`/`.ago-empty` are equally self-contained (their own
           border/background), the same bare-block pattern the workspace's queue lists already use. */}
-      {conversations === null ? (
+      {visibleConversations === null ? (
         <Skeleton lines={4} label={strings.adminLoadingLabel} />
-      ) : conversations.length === 0 ? (
+      ) : visibleConversations.length === 0 ? (
         <p className="ago-empty">{strings.adminEmpty}</p>
       ) : (
         <Table
           caption={strings.adminTableCaption}
           columns={columns}
-          rows={conversations}
+          rows={visibleConversations}
           rowKey={(c) => c.conversationId}
         />
       )}

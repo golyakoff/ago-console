@@ -2,6 +2,7 @@ import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
 import { problemDetailsFrom } from "./problemDetails.js";
 import type { AllConversationsForSiteResponse, OperatorQueueResponse } from "../realtime/protocol/types.js";
+import type { ErasureCheckOutcome } from "../erasure/erasureCheck.js";
 
 /** What `POST /api/v1/conversations/{id}/read` answers with: the conversation's unread state after
  * the write, so the console never has to guess that it became zero. */
@@ -117,4 +118,74 @@ export async function closeConversation(accessToken: string, conversationId: str
   }
 
   throw await problemDetailsFrom(response);
+}
+
+/**
+ * `16-02`: `POST /api/v1/conversations/{id}/erase` - erasure on the visitor's own request, initiated
+ * by the tenant (`16-02`'s own Scope: "the visitor has no account and no login - they ask the shop,
+ * the shop acts"). `202 Accepted`, the same "a Worker job started, nothing is gone yet" contract
+ * `sitesApi.ts#eraseSite` documents in full; `checkConversationErasure` below is this call's
+ * completion poll.
+ */
+export async function eraseConversation(accessToken: string, conversationId: string): Promise<void> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/conversations/${conversationId}/erase`, {
+    method: "POST",
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (response.status === 202) {
+    return;
+  }
+
+  throw await problemDetailsFrom(response);
+}
+
+/**
+ * `16-02`'s completion poll for `eraseConversation` above - <b>and the one place this item's own
+ * contract, as handed down, does not match this repository as it stands.</b>
+ *
+ * The contract names "the existing single-conversation admin-fetch endpoint" to poll until `404`,
+ * on the assumption stated alongside it that "it already exists, since `AdminConversationsPage` has
+ * to fetch individual conversations somehow." <b>It does not exist.</b> `fetchAllConversationsForSite`
+ * above is the only admin read in this file, and it fetches the *whole* site's list - there is no
+ * single-conversation `GET` anywhere in this console. Checked directly against `ago-chat`'s own
+ * `ConversationsEndpoints.cs`: it maps `GET /queue`, `GET /all`, `POST /{id}/close`,
+ * `POST /{id}/read` - no `GET /{id}`. The console's only other single-conversation read is
+ * `ConversationPage`'s `JoinConversationAsync`, a SignalR hub call that also *claims* the conversation
+ * for the calling operator as a side effect - wrong to poll from an admin screen, both because the
+ * conversation being erased may not be assigned to the caller at all, and because claiming a
+ * conversation mid-erasure is not a read.
+ *
+ * `GET /api/v1/conversations/{conversationId}` below is this worker's own best guess at the route the
+ * backend side is most likely to add for this need - the natural single-resource `GET` alongside the
+ * existing `/close` and `/read` writes on the same path - <b>not a confirmed contract.</b> Flagged
+ * here, and in this worker's own report, for the managing session to reconcile against whatever
+ * `ago-chat`'s `16-02` branch actually ships before either side merges.
+ *
+ * Shares `ErasureCheckOutcome`'s three-state shape with `operatorsApi.ts#checkOperatorErasure`: `ok`
+ * is `"pending"`, `404` is `"erased"`, anything else (including a network failure) is `"unknown"` and
+ * never mistaken for completion.
+ */
+export async function checkConversationErasure(
+  accessToken: string,
+  conversationId: string,
+): Promise<ErasureCheckOutcome> {
+  let response: Response;
+  try {
+    response = await fetch(`${config.apiBaseUrl}/api/v1/conversations/${conversationId}`, {
+      headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+    });
+  } catch {
+    return "unknown";
+  }
+
+  if (response.status === 404) {
+    return "erased";
+  }
+
+  if (response.ok) {
+    return "pending";
+  }
+
+  return "unknown";
 }
