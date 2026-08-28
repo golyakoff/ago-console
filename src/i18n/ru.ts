@@ -91,8 +91,21 @@ export const ru: ConsoleStrings = {
   visitorSiteNotKnown: "Пока неизвестно",
   visitorConversationLabel: "Диалог",
   visitorPanelNote:
-    "Это всё, что платформа сегодня знает о посетителе. Текущая страница, источник перехода и " +
-    "предыдущие диалоги пока не собираются.",
+    "Это всё, что платформа сегодня знает о посетителе. Текущая страница и источник перехода пока " +
+    "не собираются. Предыдущие диалоги показаны ниже, если этот посетитель был распознан в канале " +
+    "(MAX, Telegram или SMS).",
+
+  visitorHistoryTitle: "Предыдущие диалоги",
+  visitorHistoryLoadingLabel: "Загрузка предыдущих диалогов…",
+  visitorHistoryEmpty: "С этим посетителем пока не было диалогов.",
+  visitorHistoryError: "Не удалось загрузить предыдущие диалоги этого посетителя.",
+  visitorHistoryStartedLabel: "Начат",
+  visitorHistoryClosedLabel: "Закрыт",
+  visitorHistoryStillOpen: "Ещё открыт",
+  visitorHistoryNoPreview: "Нет сообщений",
+  visitorHistoryOpenLabel: "Открыть",
+  visitorHistoryDialogLoadingLabel: "Загрузка диалога…",
+  visitorHistoryDialogError: "Не удалось загрузить этот диалог.",
 
   closeConversationButton: "Закрыть диалог",
   closeConversationDialogTitle: "Закрыть этот диалог?",

@@ -496,6 +496,46 @@ a.ago-list__row--active:hover {
   color: var(--ago-ink-soft);
 }
 
+/* --- The visitor-history panel (`18-07`) --------------------------------------------------------- */
+
+.ago-aside__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-2);
+  padding-top: var(--ago-space-4);
+  border-top: 1px solid var(--ago-line);
+}
+
+.ago-aside__subtitle {
+  font-size: var(--ago-text-sm);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ago-ink-soft);
+}
+
+/* A real <button>, unlike ago-list__row's usual <a>/<li> shapes - this list opens a dialog rather
+   than navigating, so it resets the platform button chrome onto the same row look ConversationList
+   already established, rather than inventing a second row style for one more list. */
+.ago-list__row--history {
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ago-list__row--history:hover {
+  border-color: var(--ago-brand);
+  background: var(--ago-brand-tint);
+}
+
+.ago-list__preview {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* --- The empty state ---------------------------------------------------------------------------- */
 
 .ago-empty-state {

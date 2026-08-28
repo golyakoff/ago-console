@@ -90,8 +90,21 @@ export const en: ConsoleStrings = {
   visitorSiteNotKnown: "Not known yet",
   visitorConversationLabel: "Conversation",
   visitorPanelNote:
-    "This is everything the platform knows about a visitor today. Their current page, referrer and " +
-    "earlier conversations are not collected yet.",
+    "This is everything the platform knows about a visitor today. Their current page and referrer " +
+    "are not collected yet. Earlier conversations appear below when this visitor has been recognized " +
+    "on a channel such as MAX, Telegram or SMS.",
+
+  visitorHistoryTitle: "Previous conversations",
+  visitorHistoryLoadingLabel: "Loading previous conversations…",
+  visitorHistoryEmpty: "No prior conversations with this visitor yet.",
+  visitorHistoryError: "Could not load this visitor's previous conversations.",
+  visitorHistoryStartedLabel: "Started",
+  visitorHistoryClosedLabel: "Closed",
+  visitorHistoryStillOpen: "Still open",
+  visitorHistoryNoPreview: "No messages",
+  visitorHistoryOpenLabel: "Open",
+  visitorHistoryDialogLoadingLabel: "Loading conversation…",
+  visitorHistoryDialogError: "Could not load this conversation.",
 
   closeConversationButton: "Close conversation",
   closeConversationDialogTitle: "Close this conversation?",
