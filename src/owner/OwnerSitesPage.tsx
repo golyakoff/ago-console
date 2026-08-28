@@ -9,7 +9,6 @@ import { buildTenantNavItems } from "../shell/consoleNav.js";
 import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
-import { Panel } from "../components/Panel.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { Table, type TableColumn } from "../components/Table.js";
 import { formatAbsolute, formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
@@ -214,47 +213,58 @@ export function OwnerSitesPage() {
         <>
           <PageHead
             title="Platform sites"
-            description="Every site on this deployment, as the platform owner sees it. Read-only - this screen shows numbers, it changes nothing."
-          />
-
-          <Panel
-            title="Sites"
+            // Found live, 2026-08-28: the table below used to sit in its own titled `Panel` ("Sites"),
+            // whose description carried the one fact `PageHead` did not already say - the time window
+            // behind "message volume" and "last activity". That fact is real, not redundant (unlike
+            // `AdminConversationsPage`'s titleless `Panel`, which repeated what its own `PageHead`
+            // already said), so removing the `Panel` folds it in here rather than dropping it. The
+            // `recentWindowDays === null` guard mirrors `Panel`'s own defensive check even though
+            // `access` and `recentWindowDays` are set in the same state update and so become non-null
+            // together in practice.
             description={
               recentWindowDays === null
-                ? undefined
-                : `Message volume and last activity cover ${describeRecentWindow(recentWindowDays)} - the window the API itself reports. Seats, conversations and stored bytes are all-time.`
+                ? "Every site on this deployment, as the platform owner sees it. Read-only - this screen shows numbers, it changes nothing."
+                : `Every site on this deployment, as the platform owner sees it. Read-only - this screen shows numbers, it changes nothing. Message volume and last activity cover ${describeRecentWindow(recentWindowDays)} - the window the API itself reports; seats, conversations and stored bytes are all-time.`
             }
-          >
-            {sites === null ? (
-              <Skeleton lines={4} label="Loading platform sites…" />
-            ) : sites.length === 0 ? (
-              <p className="ago-empty">No sites yet.</p>
-            ) : (
-              <>
-                <Table
-                  // Not "newest first": `12-02` pages by site id descending, which is a stable
-                  // cursor order and not a chronological or a usage ranking. Saying so is the point
-                  // - a caption claiming an order the data does not have is how a reader ends up
-                  // believing the top row matters most.
-                  caption="Every site on this deployment, in the API's own cursor order (site id, descending) - not ranked by size or activity."
-                  columns={columns}
-                  rows={sites}
-                  rowKey={(site) => site.siteId}
-                />
-                <div className="ago-row">
-                  <span className="ago-meta">
-                    Showing {formatCount(sites.length)} {sites.length === 1 ? "site" : "sites"}
-                    {nextBefore === null ? "." : " so far."}
-                  </span>
-                  {nextBefore !== null && (
-                    <Button onClick={loadMore} disabled={loadingMore}>
-                      {loadingMore ? "Loading…" : "Load more"}
-                    </Button>
-                  )}
-                </div>
-              </>
-            )}
-          </Panel>
+          />
+
+          {/* No `Panel` wrapper any more - the identical fix `AdminConversationsPage` already got:
+              `.ago-table-scroll` (which `Table` renders) already carries its own complete card
+              (border, radius, background), the same treatment `.ago-panel` gives its own `<section>`.
+              Nesting one inside the other was two cards, and the outer one's padding was the "extra
+              white container" around the table that a titled `Panel` had nothing left to justify once
+              its title and description moved to `PageHead` above. `Skeleton`/`.ago-empty` are equally
+              self-contained (their own border/background), the same bare-block pattern
+              `AdminConversationsPage` and the workspace's queue lists already use. */}
+          {sites === null ? (
+            <Skeleton lines={4} label="Loading platform sites…" />
+          ) : sites.length === 0 ? (
+            <p className="ago-empty">No sites yet.</p>
+          ) : (
+            <>
+              <Table
+                // Not "newest first": `12-02` pages by site id descending, which is a stable
+                // cursor order and not a chronological or a usage ranking. Saying so is the point
+                // - a caption claiming an order the data does not have is how a reader ends up
+                // believing the top row matters most.
+                caption="Every site on this deployment, in the API's own cursor order (site id, descending) - not ranked by size or activity."
+                columns={columns}
+                rows={sites}
+                rowKey={(site) => site.siteId}
+              />
+              <div className="ago-row">
+                <span className="ago-meta">
+                  Showing {formatCount(sites.length)} {sites.length === 1 ? "site" : "sites"}
+                  {nextBefore === null ? "." : " so far."}
+                </span>
+                {nextBefore !== null && (
+                  <Button onClick={loadMore} disabled={loadingMore}>
+                    {loadingMore ? "Loading…" : "Load more"}
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
         </>
       )}
     </AppShell>

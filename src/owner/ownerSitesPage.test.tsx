@@ -123,3 +123,42 @@ describe("the platform-sites page's own navigation", () => {
     expect(container.querySelector(".ago-shell")?.classList.contains("ago-shell--fixed")).toBe(true);
   });
 });
+
+describe("the platform-sites page's own table", () => {
+  /** Found live, 2026-08-28: the identical bug `AdminConversationsPage` had (fixed the same day,
+   * `permissionGating.test.tsx`'s own "does not nest the table inside a second Panel card") -
+   * `.ago-table-scroll` (rendered by `Table`) already carries its own complete card (border, radius,
+   * background), so wrapping it in a titled `Panel` nested a second card inside the first, and the
+   * outer one's padding was the "extra white container" around the table. `Panel`'s title and
+   * description moved into `PageHead` instead of being dropped. */
+  it("does not nest the table inside a second Panel card", async () => {
+    tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [] });
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: [], siteId: null });
+    ownerApi.fetchOwnerSites.mockResolvedValue({
+      status: "ok",
+      page: {
+        sites: [
+          {
+            siteId: SITE_ID,
+            name: "Demo Shop One",
+            tier: "free",
+            createdAt: "2026-01-01T00:00:00Z",
+            seatCount: 2,
+            conversationCount: 5,
+            recentMessageCount: 10,
+            lastMessageAt: "2026-08-27T00:00:00Z",
+            attachmentBytes: 1024,
+          },
+        ],
+        nextBefore: null,
+        recentWindowDays: 30,
+      },
+    });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).toContain("Platform sites");
+    expect(container.textContent).toContain("Message volume and last activity cover");
+    expect(container.querySelector(".ago-panel")).toBeNull();
+  });
+});
