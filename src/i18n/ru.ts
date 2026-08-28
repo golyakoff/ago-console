@@ -191,4 +191,81 @@ export const ru: ConsoleStrings = {
   conversationAttachmentThumbnailAlt: "Миниатюра вложения",
   conversationDeleteAttachmentButton: "Удалить вложение",
   conversationUploadFailed: "Загрузка не удалась.",
+
+  siteConfigCheckingPermissions: "Проверка ваших прав…",
+  siteConfigBackToQueue: "Назад к очереди",
+  siteConfigSaveButton: "Сохранить",
+  siteConfigSavingButton: "Сохранение…",
+  siteConfigSavedAlert: "Сохранено.",
+
+  adminColumnVisitor: "Посетитель",
+  adminColumnState: "Статус",
+  adminColumnOperator: "Назначенный оператор",
+  adminUnassigned: "Не назначен",
+  adminColumnStarted: "Начат",
+  adminColumnUnread: "Непрочитано",
+  adminLoadError: "Не удалось загрузить диалоги.",
+  adminLoadingLabel: "Загрузка диалогов…",
+  adminForbidden: "У вас нет права просматривать все диалоги для этого сайта.",
+  adminDescriptionPrefix: "Все диалоги для этого сайта (сначала новые, только для чтения, обновляется каждые",
+  adminDescriptionSuffix: "секунд).",
+  adminEmpty: "Диалогов пока нет.",
+  adminTableCaption: "Все диалоги для этого сайта, сначала новые.",
+
+  widgetLoadError: "Не удалось загрузить настройки виджета.",
+  widgetSubmitError: "Не удалось сохранить настройки виджета.",
+  widgetForbidden: "У вас нет права настраивать виджет этого сайта.",
+  widgetDescription:
+    "Изменения вступят в силу при следующей загрузке страницы посетителем. Посетитель, у которого " +
+    "виджет уже открыт на странице, не увидит новый цвет, положение или язык, пока не перезагрузит " +
+    "страницу.",
+  widgetLoadingLabel: "Загрузка настроек виджета…",
+  widgetPanelTitle: "Кнопка запуска",
+  widgetColorFieldLabel: "Основной цвет (hex, необязательно)",
+  widgetColorFieldDescription: "Оставьте пустым, чтобы использовать встроенный цвет виджета по умолчанию.",
+  widgetColorPreviewTitle: "Предпросмотр",
+  widgetColorValidation: "Цвет должен быть в формате hex, например #2F6FED.",
+  widgetPositionFieldLabel: "Положение кнопки запуска",
+  widgetPositionBottomRight: "Внизу справа",
+  widgetPositionBottomLeft: "Внизу слева",
+  widgetLanguageFieldLabel: "Язык виджета",
+
+  autoReplyForbidden: "У вас нет права настраивать автоответ офлайн для этого сайта.",
+  autoReplyDescription:
+    "Когда это включено и никто из вашей команды не в сети, на первое сообщение посетителя " +
+    "автоматически отправляется ответ вместо тишины. Автоответ никогда не срабатывает, пока кто-то " +
+    "в сети — коллега, который просто занят, всё равно считается онлайн, — и никогда не отвечает в " +
+    "диалоге, который кто-то уже взял в работу.",
+  autoReplyLoadingLabel: "Загрузка автоответа офлайн…",
+  autoReplyLoadError: "Не удалось загрузить автоответ офлайн.",
+  autoReplySubmitError: "Не удалось сохранить автоответ офлайн.",
+  autoReplyPanelTitle: "Ответы, пока вас нет на месте",
+  autoReplyEnabledLabel: "Отвечать автоматически, когда никого нет в сети",
+  autoReplyDefaultFieldLabel: "Ответ по умолчанию",
+  autoReplyDefaultFieldDescription: "Отправляется, если ни одно ключевое слово ниже не подошло. Это то, что увидит большинство посетителей.",
+  autoReplyDefaultPlaceholder: "Спасибо за обращение — сейчас мы не работаем и ответим утром.",
+  autoReplyRulesLegend: "Правила по ключевым словам",
+  autoReplyRulesIntro:
+    "Если в сообщении посетителя есть ключевое слово, вместо ответа по умолчанию отправляется ответ " +
+    "из этого правила. Побеждает первое совпавшее правило, поэтому более конкретные ставьте выше. " +
+    "Чтобы убрать строку, оставьте её пустой.",
+  autoReplyKeywordLabelPrefix: "Ключевое слово",
+  autoReplyKeywordPlaceholder: "возврат",
+  autoReplyReplyLabelPrefix: "Ответ",
+  autoReplyReplyPlaceholder: "Возврат средств занимает три рабочих дня.",
+  autoReplyRemoveButton: "Удалить",
+  autoReplyRemoveButtonAriaPrefix: "Удалить правило",
+
+  autoReplyValidationNeedsDefault: "Включённому автоответу нужно что сказать — заполните ответ по умолчанию.",
+  autoReplyValidationDefaultTooLongPrefix: "Ответ по умолчанию не может быть длиннее",
+  autoReplyValidationDefaultTooLongSuffix: "символов.",
+  autoReplyValidationTooManyRulesPrefix: "У сайта не может быть больше",
+  autoReplyValidationTooManyRulesSuffix: "правил по ключевым словам.",
+  autoReplyValidationKeywordRequired: "У правила по ключевому слову должно быть ключевое слово.",
+  autoReplyValidationReplyRequiredPrefix: 'Для правила "',
+  autoReplyValidationReplyRequiredSuffix: '" нужен ответ.',
+  autoReplyValidationKeywordTooLongPrefix: "Ключевое слово не может быть длиннее",
+  autoReplyValidationKeywordTooLongSuffix: "символов.",
+  autoReplyValidationReplyTooLongPrefix: "Ответ не может быть длиннее",
+  autoReplyValidationReplyTooLongSuffix: "символов.",
 };

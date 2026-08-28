@@ -235,4 +235,97 @@ export interface ConsoleStrings {
   conversationAttachmentThumbnailAlt: string;
   conversationDeleteAttachmentButton: string;
   conversationUploadFailed: string;
+
+  // `11-13`: the last three `site:configure`-gated screens - `AdminConversationsPage` (`/admin`),
+  // `WidgetConfigPage` (`/settings/widget`), `OfflineAutoReplyPage` (`/settings/auto-reply`). Page
+  // titles reuse `navAllConversations`/`navWidgetAppearance`/`navOfflineAutoReply` above rather than
+  // duplicating the same word into a second field - the identical "one field, one word, everywhere it
+  // appears" convention `queueWaitingTitle`'s own doc comment already states. Text that is byte-for-byte
+  // identical across all three screens (the permission-check spinner, the "Back to queue" link, the
+  // save button, and the success alert on the two forms) is likewise one field, not three.
+
+  siteConfigCheckingPermissions: string;
+  siteConfigBackToQueue: string;
+  siteConfigSaveButton: string;
+  siteConfigSavingButton: string;
+  siteConfigSavedAlert: string;
+
+  // AdminConversationsPage - `COLUMNS` moved from a module-level constant into a `useMemo` keyed on
+  // `strings`, the same "constant outside the component becomes a function of strings" move `11-12`
+  // already made for `shortcutDescription`/`closeOutcomeFor`/`linkStatusOf`, because a plain object
+  // literal built outside a component cannot call `useStrings()`.
+  adminColumnVisitor: string;
+  adminColumnState: string;
+  adminColumnOperator: string;
+  adminUnassigned: string;
+  adminColumnStarted: string;
+  adminColumnUnread: string;
+  adminLoadError: string;
+  adminLoadingLabel: string;
+  adminForbidden: string;
+  /** `${adminDescriptionPrefix} ${seconds} ${adminDescriptionSuffix}` - the poll-interval sentence
+   * under the page heading. Fixed-fragment composition, the same convention `queueWaitingNotePrefix`/
+   * `Suffix` already use for an interpolated count. */
+  adminDescriptionPrefix: string;
+  adminDescriptionSuffix: string;
+  adminEmpty: string;
+  adminTableCaption: string;
+
+  // WidgetConfigPage.
+  widgetLoadError: string;
+  widgetSubmitError: string;
+  widgetForbidden: string;
+  widgetDescription: string;
+  widgetLoadingLabel: string;
+  widgetPanelTitle: string;
+  widgetColorFieldLabel: string;
+  widgetColorFieldDescription: string;
+  widgetColorPreviewTitle: string;
+  widgetColorValidation: string;
+  widgetPositionFieldLabel: string;
+  /** `POSITION_LABELS`' two values - moved from a module-level `Record` into a function of `strings`
+   * for the same reason `adminColumnVisitor`'s group above was moved. `WidgetLocale`'s own
+   * `LOCALE_LABELS` is the one label map in this screen this item does not touch (11-13's own scope). */
+  widgetPositionBottomRight: string;
+  widgetPositionBottomLeft: string;
+  widgetLanguageFieldLabel: string;
+
+  // OfflineAutoReplyPage.
+  autoReplyForbidden: string;
+  autoReplyDescription: string;
+  autoReplyLoadingLabel: string;
+  autoReplyLoadError: string;
+  autoReplySubmitError: string;
+  autoReplyPanelTitle: string;
+  autoReplyEnabledLabel: string;
+  autoReplyDefaultFieldLabel: string;
+  autoReplyDefaultFieldDescription: string;
+  autoReplyDefaultPlaceholder: string;
+  autoReplyRulesLegend: string;
+  autoReplyRulesIntro: string;
+  /** `${autoReplyKeywordLabelPrefix} ${index + 1}` - a rule row's two field labels, one per row. */
+  autoReplyKeywordLabelPrefix: string;
+  autoReplyKeywordPlaceholder: string;
+  autoReplyReplyLabelPrefix: string;
+  autoReplyReplyPlaceholder: string;
+  autoReplyRemoveButton: string;
+  /** `${autoReplyRemoveButtonAriaPrefix} ${index + 1}` - the same row-numbering composition as the
+   * two label prefixes above, for the button's own accessible name. */
+  autoReplyRemoveButtonAriaPrefix: string;
+
+  // offlineAutoReplyValidation.ts - `validateDraft` is a pure function like `closeOutcomeFor`/
+  // `shortcutDescription`, so it takes a `strings: ConsoleStrings = en` parameter rather than calling
+  // `useStrings()` itself (it runs from a submit handler, not a render).
+  autoReplyValidationNeedsDefault: string;
+  autoReplyValidationDefaultTooLongPrefix: string;
+  autoReplyValidationDefaultTooLongSuffix: string;
+  autoReplyValidationTooManyRulesPrefix: string;
+  autoReplyValidationTooManyRulesSuffix: string;
+  autoReplyValidationKeywordRequired: string;
+  autoReplyValidationReplyRequiredPrefix: string;
+  autoReplyValidationReplyRequiredSuffix: string;
+  autoReplyValidationKeywordTooLongPrefix: string;
+  autoReplyValidationKeywordTooLongSuffix: string;
+  autoReplyValidationReplyTooLongPrefix: string;
+  autoReplyValidationReplyTooLongSuffix: string;
 }

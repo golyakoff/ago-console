@@ -21,6 +21,7 @@ import { Textarea } from "../components/Textarea.js";
 import { Button } from "../components/Button.js";
 import { Alert } from "../components/Alert.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
+import { useStrings } from "../i18n/StringsContext.js";
 
 const EMPTY_RULE: DraftRule = { keyword: "", reply: "" };
 
@@ -42,6 +43,7 @@ const EMPTY_RULE: DraftRule = { keyword: "", reply: "" };
 export function OfflineAutoReplyPage() {
   const { user } = useAuth();
   const { permissions, siteId, hasPermission } = usePermissions();
+  const strings = useStrings();
   const [loaded, setLoaded] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [fallbackReply, setFallbackReply] = useState("");
@@ -68,10 +70,10 @@ export function OfflineAutoReplyPage() {
       })
       .catch((err: unknown) =>
         setLoadError(
-          err instanceof OfflineAutoReplyError ? err.message : "Failed to load the offline auto-reply.",
+          err instanceof OfflineAutoReplyError ? err.message : strings.autoReplyLoadError,
         ),
       );
-  }, [user?.access_token, siteId]);
+  }, [user?.access_token, siteId, strings]);
 
   useEffect(() => {
     if (!hasPermission("site:configure")) {
@@ -81,16 +83,16 @@ export function OfflineAutoReplyPage() {
   }, [load, hasPermission]);
 
   if (permissions === null) {
-    return <Spinner label="Checking your permissions…" />;
+    return <Spinner label={strings.siteConfigCheckingPermissions} />;
   }
 
   if (!hasPermission("site:configure")) {
     return (
       <>
-        <PageHead title="Offline auto-reply" />
-        <Alert tone="danger">You do not have permission to configure this site&apos;s offline auto-reply.</Alert>
+        <PageHead title={strings.navOfflineAutoReply} />
+        <Alert tone="danger">{strings.autoReplyForbidden}</Alert>
         <p>
-          <Link to="/">Back to queue</Link>
+          <Link to="/">{strings.siteConfigBackToQueue}</Link>
         </p>
       </>
     );
@@ -121,7 +123,7 @@ export function OfflineAutoReplyPage() {
     setSaved(false);
     setSubmitError(null);
 
-    const problem = validateDraft(enabled, fallbackReply, rules);
+    const problem = validateDraft(enabled, fallbackReply, rules, strings);
     setValidationError(problem);
     if (problem !== null) {
       return;
@@ -148,7 +150,7 @@ export function OfflineAutoReplyPage() {
       setSaved(true);
     } catch (err) {
       setSubmitError(
-        err instanceof OfflineAutoReplyError ? err.message : "Failed to save the offline auto-reply.",
+        err instanceof OfflineAutoReplyError ? err.message : strings.autoReplySubmitError,
       );
     } finally {
       setSubmitting(false);
@@ -158,20 +160,20 @@ export function OfflineAutoReplyPage() {
   return (
     <>
       <PageHead
-        title="Offline auto-reply"
+        title={strings.navOfflineAutoReply}
         /* Stated on the screen because it is the single most surprising property of the feature, and
            an operator who does not know it will read a missing reply as a bug. */
-        description="When this is on and nobody on your team is online, a visitor's first message gets an automatic reply instead of silence. It never replies while someone is online - a colleague who is simply busy still counts as online - and it never replies to a conversation somebody has already picked up."
+        description={strings.autoReplyDescription}
       />
 
       {loadError && <Alert tone="danger">{loadError}</Alert>}
 
       {!loaded && !loadError ? (
         <Panel>
-          <Skeleton lines={3} label="Loading the offline auto-reply…" />
+          <Skeleton lines={3} label={strings.autoReplyLoadingLabel} />
         </Panel>
       ) : (
-        <Panel title="Replies while you are away">
+        <Panel title={strings.autoReplyPanelTitle}>
           <form className="ago-stack" onSubmit={(e) => void handleSubmit(e)}>
             <label className="ago-row">
               <input
@@ -180,12 +182,12 @@ export function OfflineAutoReplyPage() {
                 onChange={(e) => setEnabled(e.target.checked)}
                 disabled={submitting}
               />
-              <span>Reply automatically when nobody is online</span>
+              <span>{strings.autoReplyEnabledLabel}</span>
             </label>
 
             <Field
-              label="Default reply"
-              description="Sent when no keyword below matches. This is what most visitors will see."
+              label={strings.autoReplyDefaultFieldLabel}
+              description={strings.autoReplyDefaultFieldDescription}
             >
               {(controlProps) => (
                 <Textarea
@@ -193,42 +195,38 @@ export function OfflineAutoReplyPage() {
                   rows={3}
                   value={fallbackReply}
                   onChange={(e) => setFallbackReply(e.target.value)}
-                  placeholder="Thanks for writing - we are closed right now and will reply in the morning."
+                  placeholder={strings.autoReplyDefaultPlaceholder}
                   disabled={submitting}
                 />
               )}
             </Field>
 
             <fieldset className="ago-stack">
-              <legend>Keyword rules</legend>
-              <p>
-                If the visitor&apos;s message contains a keyword, that rule&apos;s reply is sent instead of the
-                default. The first matching rule wins, so put the more specific ones first. Leave a row blank
-                to drop it.
-              </p>
+              <legend>{strings.autoReplyRulesLegend}</legend>
+              <p>{strings.autoReplyRulesIntro}</p>
               {rules.map((rule, index) => (
                 // Index as the key: these rows have no id of their own, and the list is only ever
                 // edited in place or truncated - never reordered by the UI - so an index key cannot
                 // mismatch state to a row here.
                 <div className="ago-row ago-row--align-end" key={index}>
-                  <Field label={`Keyword ${index + 1}`}>
+                  <Field label={`${strings.autoReplyKeywordLabelPrefix} ${index + 1}`}>
                     {(controlProps) => (
                       <Input
                         {...controlProps}
                         value={rule.keyword}
                         onChange={(e) => editRule(index, { keyword: e.target.value })}
-                        placeholder="refund"
+                        placeholder={strings.autoReplyKeywordPlaceholder}
                         disabled={submitting}
                       />
                     )}
                   </Field>
-                  <Field label={`Reply ${index + 1}`}>
+                  <Field label={`${strings.autoReplyReplyLabelPrefix} ${index + 1}`}>
                     {(controlProps) => (
                       <Input
                         {...controlProps}
                         value={rule.reply}
                         onChange={(e) => editRule(index, { reply: e.target.value })}
-                        placeholder="Refunds take three working days."
+                        placeholder={strings.autoReplyReplyPlaceholder}
                         disabled={submitting}
                       />
                     )}
@@ -237,9 +235,9 @@ export function OfflineAutoReplyPage() {
                     type="button"
                     onClick={() => removeRule(index)}
                     disabled={submitting}
-                    aria-label={`Remove keyword rule ${index + 1}`}
+                    aria-label={`${strings.autoReplyRemoveButtonAriaPrefix} ${index + 1}`}
                   >
-                    Remove
+                    {strings.autoReplyRemoveButton}
                   </Button>
                 </div>
               ))}
@@ -247,11 +245,11 @@ export function OfflineAutoReplyPage() {
 
             {validationError && <Alert tone="danger">{validationError}</Alert>}
             {submitError && <Alert tone="danger">{submitError}</Alert>}
-            {saved && <Alert tone="success">Saved.</Alert>}
+            {saved && <Alert tone="success">{strings.siteConfigSavedAlert}</Alert>}
 
             <div className="ago-row">
               <Button type="submit" variant="primary" disabled={submitting}>
-                {submitting ? "Saving…" : "Save"}
+                {submitting ? strings.siteConfigSavingButton : strings.siteConfigSaveButton}
               </Button>
             </div>
           </form>

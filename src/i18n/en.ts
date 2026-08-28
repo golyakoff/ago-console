@@ -190,4 +190,80 @@ export const en: ConsoleStrings = {
   conversationAttachmentThumbnailAlt: "Attachment thumbnail",
   conversationDeleteAttachmentButton: "Delete attachment",
   conversationUploadFailed: "Upload failed.",
+
+  siteConfigCheckingPermissions: "Checking your permissions…",
+  siteConfigBackToQueue: "Back to queue",
+  siteConfigSaveButton: "Save",
+  siteConfigSavingButton: "Saving…",
+  siteConfigSavedAlert: "Saved.",
+
+  adminColumnVisitor: "Visitor",
+  adminColumnState: "State",
+  adminColumnOperator: "Assigned operator",
+  adminUnassigned: "Unassigned",
+  adminColumnStarted: "Started",
+  adminColumnUnread: "Unread",
+  adminLoadError: "Failed to load conversations.",
+  adminLoadingLabel: "Loading conversations…",
+  adminForbidden: "You do not have permission to view every conversation for this site.",
+  adminDescriptionPrefix: "Every conversation for this site (newest first, read-only, refreshed every",
+  adminDescriptionSuffix: "seconds).",
+  adminEmpty: "No conversations yet.",
+  adminTableCaption: "Every conversation for this site, newest first.",
+
+  widgetLoadError: "Failed to load the widget configuration.",
+  widgetSubmitError: "Failed to save the widget configuration.",
+  widgetForbidden: "You do not have permission to configure this site's widget.",
+  widgetDescription:
+    "Changes here take effect the next time a visitor's page loads the widget. A visitor who already " +
+    "has the widget open on their page will not see the new color, position, or language until they " +
+    "reload it.",
+  widgetLoadingLabel: "Loading the widget configuration…",
+  widgetPanelTitle: "Launcher",
+  widgetColorFieldLabel: "Primary color (hex, optional)",
+  widgetColorFieldDescription: "Leave empty to use the widget's own built-in default.",
+  widgetColorPreviewTitle: "Preview",
+  widgetColorValidation: "Color must look like a hex value, e.g. #2F6FED.",
+  widgetPositionFieldLabel: "Launcher position",
+  widgetPositionBottomRight: "Bottom right",
+  widgetPositionBottomLeft: "Bottom left",
+  widgetLanguageFieldLabel: "Widget language",
+
+  autoReplyForbidden: "You do not have permission to configure this site's offline auto-reply.",
+  autoReplyDescription:
+    "When this is on and nobody on your team is online, a visitor's first message gets an automatic " +
+    "reply instead of silence. It never replies while someone is online - a colleague who is simply " +
+    "busy still counts as online - and it never replies to a conversation somebody has already picked " +
+    "up.",
+  autoReplyLoadingLabel: "Loading the offline auto-reply…",
+  autoReplyLoadError: "Failed to load the offline auto-reply.",
+  autoReplySubmitError: "Failed to save the offline auto-reply.",
+  autoReplyPanelTitle: "Replies while you are away",
+  autoReplyEnabledLabel: "Reply automatically when nobody is online",
+  autoReplyDefaultFieldLabel: "Default reply",
+  autoReplyDefaultFieldDescription: "Sent when no keyword below matches. This is what most visitors will see.",
+  autoReplyDefaultPlaceholder: "Thanks for writing - we are closed right now and will reply in the morning.",
+  autoReplyRulesLegend: "Keyword rules",
+  autoReplyRulesIntro:
+    "If the visitor's message contains a keyword, that rule's reply is sent instead of the default. " +
+    "The first matching rule wins, so put the more specific ones first. Leave a row blank to drop it.",
+  autoReplyKeywordLabelPrefix: "Keyword",
+  autoReplyKeywordPlaceholder: "refund",
+  autoReplyReplyLabelPrefix: "Reply",
+  autoReplyReplyPlaceholder: "Refunds take three working days.",
+  autoReplyRemoveButton: "Remove",
+  autoReplyRemoveButtonAriaPrefix: "Remove keyword rule",
+
+  autoReplyValidationNeedsDefault: "An enabled auto-reply needs something to say - fill in the default reply.",
+  autoReplyValidationDefaultTooLongPrefix: "The default reply cannot exceed",
+  autoReplyValidationDefaultTooLongSuffix: "characters.",
+  autoReplyValidationTooManyRulesPrefix: "A site cannot have more than",
+  autoReplyValidationTooManyRulesSuffix: "keyword rules.",
+  autoReplyValidationKeywordRequired: "A keyword rule needs a keyword.",
+  autoReplyValidationReplyRequiredPrefix: 'The rule for "',
+  autoReplyValidationReplyRequiredSuffix: '" needs a reply.',
+  autoReplyValidationKeywordTooLongPrefix: "A keyword cannot exceed",
+  autoReplyValidationKeywordTooLongSuffix: "characters.",
+  autoReplyValidationReplyTooLongPrefix: "A reply cannot exceed",
+  autoReplyValidationReplyTooLongSuffix: "characters.",
 };
