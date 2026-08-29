@@ -3,10 +3,12 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchAllConversationsForSite, eraseConversation, checkConversationErasure } from "../api/conversationsApi.js";
+import { fetchTags, type TagDto } from "../api/tagsApi.js";
 import type { ConversationSummaryDto } from "../realtime/protocol/types.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
+import { Select } from "../components/Select.js";
 import { Table, type TableColumn } from "../components/Table.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
@@ -149,11 +151,16 @@ const REFRESH_INTERVAL_MS = 15_000;
  */
 export function AdminConversationsPage() {
   const { user } = useAuth();
-  const { permissions, hasPermission } = usePermissions();
+  const { permissions, siteId, hasPermission } = usePermissions();
   const strings = useStrings();
   const [conversations, setConversations] = useState<ConversationSummaryDto[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [erasedIds, setErasedIds] = useState<ReadonlySet<string>>(new Set());
+  // `18-04`: the site's own tag vocabulary, fetched once for this page's filter dropdown - see
+  // `workspaceContext.ts`'s own `tags` remarks for the identical "fetched once, empty on failure"
+  // reasoning applied to a different screen.
+  const [tags, setTags] = useState<TagDto[]>([]);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
 
   const accessToken = user?.access_token;
   const canErase = hasPermission(CONVERSATION_ERASE_PERMISSION);
@@ -181,13 +188,13 @@ export function AdminConversationsPage() {
       return;
     }
 
-    fetchAllConversationsForSite(user.access_token)
+    fetchAllConversationsForSite(user.access_token, undefined, tagFilter ?? undefined)
       .then((page) => {
         setConversations(page.conversations);
         setError(null);
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : strings.adminLoadError));
-  }, [user?.access_token, strings]);
+  }, [user?.access_token, strings, tagFilter]);
 
   useEffect(() => {
     if (!hasPermission("site:configure")) {
@@ -198,6 +205,17 @@ export function AdminConversationsPage() {
     const interval = setInterval(refresh, REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [refresh, hasPermission]);
+
+  useEffect(() => {
+    const accessToken = user?.access_token;
+    if (!accessToken || !siteId || !hasPermission("site:configure")) {
+      return;
+    }
+
+    fetchTags(accessToken, siteId)
+      .then(setTags)
+      .catch((err: unknown) => console.warn("Failed to load tags", err));
+  }, [user?.access_token, siteId, hasPermission]);
 
   if (permissions === null) {
     return <Spinner label={strings.siteConfigCheckingPermissions} />;
@@ -224,6 +242,24 @@ export function AdminConversationsPage() {
         title={strings.navAllConversations}
         description={`${strings.adminDescriptionPrefix} ${REFRESH_INTERVAL_MS / 1000} ${strings.adminDescriptionSuffix}`}
       />
+
+      {/* `18-04`: the list's own tag filter - only rendered once a vocabulary exists. */}
+      {tags.length > 0 && (
+        <div className="ago-row">
+          <Select
+            aria-label={strings.workspaceTagFilterLabel}
+            value={tagFilter ?? ""}
+            onChange={(e) => setTagFilter(e.target.value === "" ? null : e.target.value)}
+          >
+            <option value="">{strings.workspaceTagFilterAll}</option>
+            {tags.map((tag) => (
+              <option key={tag.id} value={tag.id}>
+                {tag.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
 
       {error && <Alert tone="danger">{error}</Alert>}
 

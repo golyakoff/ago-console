@@ -25,8 +25,16 @@ export interface MarkConversationReadResult {
  * high-frequency or connection-scoped, so REST is the right shape (api-design.md), matching how
  * `AuthEndpoints`/`AttachmentEndpoints` are called rather than routed through a hub method.
  */
-export async function fetchOperatorQueue(accessToken: string): Promise<OperatorQueueResponse> {
-  const response = await fetch(`${config.apiBaseUrl}/api/v1/conversations/queue`, {
+/** `18-04`: `tagId` narrows both `assignedToMe` and `waiting` to conversations carrying that tag -
+ * `GetOperatorQueueHandler`'s own in-memory filter over its two already-small, unpaginated lists.
+ * Omitted or `undefined` means unfiltered. */
+export async function fetchOperatorQueue(accessToken: string, tagId?: string): Promise<OperatorQueueResponse> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/conversations/queue`);
+  if (tagId) {
+    url.searchParams.set("tag", tagId);
+  }
+
+  const response = await fetch(url, {
     headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
   });
 
@@ -43,13 +51,19 @@ export async function fetchOperatorQueue(accessToken: string): Promise<OperatorQ
  * `site:configure` (`GetAllConversationsForSiteHandler`'s own remarks). Keyset-paginated like
  * `loadOlderHistory`; `beforeId` is the previous page's `nextBeforeId`, omitted for the first page.
  */
+/** `18-04`: `tagId` is pushed into `GetAllConversationsForSiteHandler`'s own paginated read - see
+ * that method's own remarks on why this filter is server-side, unlike the queue's in-memory one. */
 export async function fetchAllConversationsForSite(
   accessToken: string,
   beforeId?: string,
+  tagId?: string,
 ): Promise<AllConversationsForSiteResponse> {
   const url = new URL(`${config.apiBaseUrl}/api/v1/conversations/all`);
   if (beforeId) {
     url.searchParams.set("beforeId", beforeId);
+  }
+  if (tagId) {
+    url.searchParams.set("tag", tagId);
   }
 
   const response = await fetch(url, {

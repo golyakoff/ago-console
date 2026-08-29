@@ -91,6 +91,7 @@ describe("the platform-sites page's own navigation", () => {
       "Widget appearance",
       "Offline auto-reply",
       "Canned responses",
+      "Tags",
       "Billing",
       "Platform sites",
     ]);

@@ -40,6 +40,8 @@ export function buildTenantNavItems(
     // separate concept from the auto-reply screen just above it (`CannedResponse`'s own doc comment,
     // `ago-chat`, has the reasoning).
     items.push({ to: "/settings/canned-responses", label: strings.navCannedResponses });
+    // `18-04`: same permission, same place - the tag vocabulary's own management surface.
+    items.push({ to: "/settings/tags", label: strings.navTags });
     // `13-04`: same permission, same place - the billing screen `13-02`'s checkout endpoint and
     // `13-03`'s cancel/seat-change endpoints already gate on `site:configure`.
     items.push({ to: "/settings/billing", label: strings.navBilling });
