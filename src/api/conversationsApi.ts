@@ -4,6 +4,7 @@ import { problemDetailsFrom } from "./problemDetails.js";
 import type {
   AllConversationsForSiteResponse,
   OperatorQueueResponse,
+  SearchConversationsResponse,
   VisitorHistoryResponse,
 } from "../realtime/protocol/types.js";
 import type { ErasureCheckOutcome } from "../erasure/erasureCheck.js";
@@ -219,4 +220,80 @@ export async function fetchVisitorHistory(
   }
 
   return (await response.json()) as VisitorHistoryResponse;
+}
+
+/** `18-01`: the query `searchConversations` below sends - a plain object rather than positional
+ * parameters, because `from`/`to`/`beforeMessageId` are all optional and a five-argument call with
+ * three of them routinely `undefined` reads worse than a caller building this shape once. */
+export interface SearchConversationsParams {
+  phrase: string;
+  /** ISO-8601, as `date-and-time.md` requires for anything crossing the wire. Omit to let the server
+   * default the window (`SearchConversationsHandler`'s own three-month default) - never inferred or
+   * pre-filled here, since the response's own `searchedFrom`/`searchedTo` is the only honest source
+   * for "what range did this actually search" (see this function's own doc comment). */
+  from?: string;
+  to?: string;
+  beforeMessageId?: string;
+  pageSize?: number;
+}
+
+/**
+ * `18-01`: `GET /api/v1/conversations/search` - full-text search across every conversation on the
+ * site, gated on `site:configure` server-side (`SearchConversationsHandler`'s own remarks, the same
+ * gate `fetchAllConversationsForSite` above already uses for the identical "site-wide oversight, not
+ * an ordinary operator's own view" reasoning). Throws `ApiProblemError`, not a bare `Error`, like
+ * `closeConversation`/`eraseConversation` above and unlike the plain reads earlier in this file -
+ * `SearchConversationsPage` has to branch on *which* failure this is
+ * (`Conversation.Forbidden` vs `Conversation.SearchInvalidQuery`), the same reason `closeOutcome.ts`
+ * exists for `closeConversation`.
+ *
+ * <b>Positioning a click-through at the matched message is not this function's job.</b> The backlog
+ * item's own contract note says opening a hit "re-uses the existing conversation-history read,
+ * positioned at `MessageId`" - but the only conversation-history read this console has
+ * (`OperatorConnection.joinConversation`/`loadOlderHistory`, both backed by
+ * `GetConversationHistoryHandler`) requires the caller to *already be the conversation's assigned
+ * operator* (`ago-chat`'s own `HandleAsOperatorAsync`: `conversation.OperatorId != query.RequestedBy`
+ * is a hard `Forbidden`, not something `site:configure` bypasses - confirmed by reading
+ * `GetConversationHistoryHandler.cs`, `OperatorHub.JoinConversationAsync` and
+ * `AssignConversationHandler.cs` directly in the `ago-chat` branch this item's backend shipped on).
+ * A site-wide search's whole point is surfacing conversations the searching operator is *not*
+ * assigned to, so most hits cannot be opened this way at all - `AdminConversationsPage`'s own doc
+ * comment already states the identical limitation for `/all`'s rows, from `5-08`, and this item's
+ * backend did not extend it. `ConversationPage` (`?at=<sequence>`) still attempts the real join for an
+ * `Assigned` hit - it succeeds exactly when that hit happens to be the searching operator's own
+ * conversation - and reports a plain failure otherwise, rather than this console inventing a
+ * site-wide read the backend does not offer. `Waiting` hits are never linked at all: joining one would
+ * silently *claim* it (`Conversation.AssignTo`'s only non-no-op path), which is a mutation this
+ * read-only search must not trigger as a side effect of being clicked, and `Closed` hits can never be
+ * (re)joined by anyone, ever (`AssignTo` throws for any non-`Waiting` state that is not already this
+ * operator's own).
+ */
+export async function searchConversations(
+  accessToken: string,
+  params: SearchConversationsParams,
+): Promise<SearchConversationsResponse> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/conversations/search`);
+  url.searchParams.set("phrase", params.phrase);
+  if (params.from) {
+    url.searchParams.set("from", params.from);
+  }
+  if (params.to) {
+    url.searchParams.set("to", params.to);
+  }
+  if (params.beforeMessageId) {
+    url.searchParams.set("beforeMessageId", params.beforeMessageId);
+  }
+  if (params.pageSize) {
+    url.searchParams.set("pageSize", String(params.pageSize));
+  }
+
+  const response = await fetch(url, {
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (response.ok) {
+    return (await response.json()) as SearchConversationsResponse;
+  }
+
+  throw await problemDetailsFrom(response);
 }

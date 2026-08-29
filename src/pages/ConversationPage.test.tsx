@@ -102,6 +102,15 @@ function fakeConnection() {
   return {
     connection: connection as unknown as OperatorConnection,
     sends,
+    // `18-01`: exposed as plain locals rather than reached for via `fake.connection.joinConversation`
+    // - `OperatorConnection` is a real class, so its method signatures trip
+    // `@typescript-eslint/unbound-method` the moment one is used as a value (`vi.mocked(...)`, a bare
+    // `expect(...)`) rather than called directly. Every other fake connection method in this file
+    // sidesteps the same rule by never being asserted on this way; these two are the first that need
+    // to be, for `?at=`'s own "no extra fetch when the target is already on the first page" /
+    // "pages backward with the cursor `loadOlderHistory` actually returned" tests.
+    joinConversation: connection.joinConversation,
+    loadOlderHistory: connection.loadOlderHistory,
     failNextSendWith(result: "unknown" | "not-connected") {
       nextSendResult = result;
     },
@@ -136,6 +145,10 @@ interface HarnessOptions {
   permissions?: string[];
   markRead?: (conversationId: string, upToSequence: number) => void;
   refreshQueue?: () => void;
+  /** `18-01`: lets a test navigate straight to `?at=<sequence>`, the way `SearchConversationsPage`'s
+   * own `Assigned`-hit link does - default unchanged from before this item (the plain conversation
+   * route, no query string). */
+  initialPath?: string;
 }
 
 function Harness({
@@ -143,6 +156,7 @@ function Harness({
   permissions = [],
   markRead = () => undefined,
   refreshQueue = () => undefined,
+  initialPath = `/conversations/${CONVERSATION_ID}`,
 }: HarnessOptions) {
   const auth = useMemo<AuthState>(
     () => ({
@@ -192,7 +206,7 @@ function Harness({
   );
 
   return (
-    <MemoryRouter initialEntries={[`/conversations/${CONVERSATION_ID}`]}>
+    <MemoryRouter initialEntries={[initialPath]}>
       <AuthContext.Provider value={auth}>
         <PermissionsContext.Provider value={permissionsValue}>
           <OperatorConnectionContext.Provider value={realtime}>
@@ -519,5 +533,65 @@ describe("the returning-visitor-history panel", () => {
 
     expect(container.textContent).toContain("Previous conversations");
     expect(container.textContent).toContain("thanks for your help");
+  });
+});
+
+/**
+ * `18-01`: `?at=<sequence>` - `SearchConversationsPage`'s own `Assigned`-hit link
+ * (`/conversations/:id?at=<sequence>`). `searchConversations`'s own doc comment in `conversationsApi.ts`
+ * has the full account of why this only ever attempts, never guarantees, the position: it re-uses the
+ * exact `joinConversation`/`loadOlderHistory` calls every other conversation open already makes, which
+ * is what makes "already on the freshly-joined page" and "found after paging back" both real,
+ * observable outcomes here rather than a third code path invented for search alone.
+ */
+describe("opening a conversation at a search hit's own position (?at=)", () => {
+  it("highlights the message immediately when it is already on the freshly-joined page", async () => {
+    const fake = fakeConnection();
+    fake.joinReturns([message("m2", 12), message("m1", 11)]);
+
+    const container = await render(
+      <Harness connection={fake.connection} initialPath={`/conversations/${CONVERSATION_ID}?at=11`} />,
+    );
+
+    const highlighted = one<HTMLLIElement>(container, '[data-sequence="11"]');
+    expect(highlighted.className).toContain("ago-message--highlighted");
+    // Already on the first page - no reason to page backward looking for it.
+    expect(fake.loadOlderHistory).not.toHaveBeenCalled();
+  });
+
+  it("pages backward automatically until the target sequence turns up, then highlights it", async () => {
+    const fake = fakeConnection();
+    fake.joinConversation.mockResolvedValue({
+      messages: [message("m20", 20), message("m19", 19)],
+      nextBeforeSequence: 19,
+    });
+    fake.loadOlderHistory.mockResolvedValueOnce({
+      messages: [message("m11", 11), message("m10", 10)],
+      nextBeforeSequence: 10,
+    });
+
+    const container = await render(
+      <Harness connection={fake.connection} initialPath={`/conversations/${CONVERSATION_ID}?at=11`} />,
+    );
+    await interact(() => undefined);
+
+    expect(fake.loadOlderHistory).toHaveBeenCalledWith(CONVERSATION_ID, 19, expect.any(Number));
+    const highlighted = one<HTMLLIElement>(container, '[data-sequence="11"]');
+    expect(highlighted.className).toContain("ago-message--highlighted");
+    // The message right before it, from the same fetched page, is on screen too - a real position in
+    // the thread, not a single message plucked out of context.
+    expect(container.textContent).toContain("message m10");
+  });
+
+  it("shows a plain failure and hides the composer when the join itself fails - most likely because this hit belongs to someone else's conversation", async () => {
+    const fake = fakeConnection();
+    fake.joinConversation.mockRejectedValue(new Error("Operator is not assigned to this conversation."));
+
+    const container = await render(
+      <Harness connection={fake.connection} initialPath={`/conversations/${CONVERSATION_ID}?at=11`} />,
+    );
+
+    expect(container.textContent).toContain("This conversation could not be opened here.");
+    expect(container.querySelector("textarea")).toBeNull();
   });
 });

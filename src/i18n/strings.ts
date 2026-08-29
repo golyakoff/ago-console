@@ -395,4 +395,52 @@ export interface ConsoleStrings {
    * sitting beside a now-meaningless "Delete this account" button. */
   accountDeletionInProgressTitle: string;
   accountDeletionInProgressBody: string;
+
+  // `18-01`: SearchConversationsPage (`/search`) - site-wide full-text search, gated on
+  // `site:configure` the same way `AdminConversationsPage`/`WidgetConfigPage` already are, so it reuses
+  // their `siteConfig*`/`adminForbidden`-shaped strings rather than duplicating "checking
+  // permissions"/"back to queue". `navSearch` sits beside `navAllConversations` in `consoleNav.ts`.
+  navSearch: string;
+  searchPageDescription: string;
+  /** Shown once, always - not only on an empty result - because it is a property of what this search
+   * covers, not a diagnosis of one query. `13-06` (retention archive) has not shipped, so today it
+   * only ever means "outside the range shown below"; the wording says that without naming `13-06`. */
+  searchArchiveNote: string;
+  searchPhraseFieldLabel: string;
+  searchPhrasePlaceholder: string;
+  searchFromFieldLabel: string;
+  searchToFieldLabel: string;
+  searchButton: string;
+  /** `${searchRangeLabel} ${fromDate} – ${toDate}` - the effective, server-echoed range, per this
+   * item's own Done-when ("the bound is visible, not silent"). */
+  searchRangeLabel: string;
+  searchForbiddenError: string;
+  searchInvalidQueryError: string;
+  searchLoadError: string;
+  searchLoadingLabel: string;
+  searchEmpty: string;
+  /** The link text on an `Assigned` hit - real click-through, attempted (`ConversationPage`'s own
+   * `?at=` handling), not guaranteed to succeed (`searchConversations`'s own doc comment). */
+  searchOpenLabel: string;
+  /** A `Waiting` hit's own inline note, replacing a link entirely - opening one here would silently
+   * *claim* it (`AssignTo`'s only non-no-op path), which a read-only search must never do as a side
+   * effect of a click. */
+  searchWaitingNote: string;
+  /** A `Closed` hit's own inline note - nobody can rejoin a closed conversation through the hub, ever
+   * (`Conversation.AssignTo`), so this is a structural fact, not a permission gap. */
+  searchClosedNote: string;
+  searchLoadMoreButton: string;
+  searchLoadingMoreLabel: string;
+
+  // ConversationPage's own `?at=<sequence>` handling (`18-01`) - what shows while the console is
+  // paging backward looking for a search hit's own message, and what shows when the join a search
+  // click attempted fails outright.
+  conversationLocatingMessageLabel: string;
+  /** Deliberately one message for every join failure, not three - `searchConversations`'s own doc
+   * comment is why this console cannot reliably tell "assigned to someone else" apart from "closed"
+   * apart from "the hub connection dropped mid-invoke": `HubException` carries only a string, no
+   * error code (`ConversationsEndpoints.cs`'s REST calls get RFC 7807 `type`s; `OperatorHub`'s hub
+   * methods do not), and guessing from that string's wording would be more likely to mislead than one
+   * honest "could not open" sentence naming the real possibilities. */
+  conversationOpenFailed: string;
 }

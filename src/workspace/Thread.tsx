@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import type { MessageDto } from "../realtime/protocol/types.js";
 import { Button } from "../components/Button.js";
+import { Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
 import { formatAbsolute, formatClockTime, formatDayLabel } from "../time/format.js";
@@ -33,6 +34,17 @@ export interface ThreadProps {
   canLoadOlder: boolean;
   loadingOlder: boolean;
   onLoadOlder: () => void;
+  /** `18-01`: a search hit's own `sequence`, once `ConversationPage`'s `?at=` handling has (or is
+   * still trying to get) it loaded - the matching message scrolls into view and gets a brief
+   * highlight (`workspace.css`'s own `ago-message--highlighted`) the first time it appears in
+   * `messages`. `null`/absent for every conversation opened the ordinary way, which is most of them -
+   * this prop existing costs nothing until a caller actually has a target sequence to reach. */
+  highlightSequence?: number | null;
+  /** `18-01`: `ConversationPage` is paging backward looking for `highlightSequence` because it was
+   * not on the freshly-joined page - distinct from `loadingOlder` above, which is the *manual* "Load
+   * older messages" button's own state and must not show a spinner for a fetch the operator did not
+   * ask for. */
+  locating?: boolean;
 }
 
 /**
@@ -66,12 +78,35 @@ export function Thread({
   canLoadOlder,
   loadingOlder,
   onLoadOlder,
+  highlightSequence = null,
+  locating = false,
 }: ThreadProps) {
   const strings = useStrings();
   const items = buildThread(messages, timeZone);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const pinnedToBottom = useRef(true);
+  // `18-01`: which `highlightSequence` this thread has already scrolled to - a ref, not state, purely
+  // to guard the effect below against re-scrolling on every unrelated re-render (an attachment detail
+  // resolving, a presence poll tick). Reset implicitly whenever `highlightSequence` itself changes,
+  // since the guard compares against the *current* value.
+  const scrolledToHighlight = useRef<number | null>(null);
+
+  // Scrolls the matched message into view the first time it actually appears in `messages` - which,
+  // for an older message `ConversationPage` is still paging backward to find, may be several renders
+  // after this component first receives `highlightSequence`. Keyed on `messages` as well as
+  // `highlightSequence` for exactly that reason: a new page arriving is what makes the target findable.
+  useEffect(() => {
+    if (highlightSequence === null || scrolledToHighlight.current === highlightSequence) {
+      return;
+    }
+
+    const element = scrollRef.current?.querySelector(`[data-sequence="${highlightSequence}"]`);
+    if (element) {
+      element.scrollIntoView({ block: "center" });
+      scrolledToHighlight.current = highlightSequence;
+    }
+  }, [highlightSequence, messages]);
 
   // Whether the operator is reading the newest messages or has scrolled up into history. Only the
   // former gets auto-scrolled on a new arrival - yanking someone back down while they are reading
@@ -95,6 +130,12 @@ export function Thread({
 
   return (
     <div className="ago-thread-scroll" ref={scrollRef} onScroll={handleScroll}>
+      {locating && (
+        <div className="ago-thread__older">
+          <Spinner label={strings.conversationLocatingMessageLabel} />
+        </div>
+      )}
+
       {canLoadOlder && (
         <div className="ago-thread__older">
           <Button size="sm" variant="secondary" onClick={onLoadOlder} disabled={loadingOlder}>
@@ -112,11 +153,15 @@ export function Thread({
           ) : (
             <li
               key={item.message.id}
+              data-sequence={item.message.sequence}
               className={[
                 "ago-message",
                 `ago-message--${item.message.authorKind === "Operator" ? "operator" : "visitor"}`,
                 item.startsGroup ? "ago-message--group-start" : "ago-message--grouped",
-              ].join(" ")}
+                item.message.sequence === highlightSequence ? "ago-message--highlighted" : null,
+              ]
+                .filter(Boolean)
+                .join(" ")}
             >
               {item.startsGroup && (
                 <span className="ago-message__author">{authorLabel(item.message.authorKind, strings)}</span>

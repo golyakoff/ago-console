@@ -85,7 +85,7 @@ describe("the console shell for an active site with Locale = Ru", () => {
     expect(container.querySelector(".ago-skip-link")?.textContent).toBe("Перейти к содержимому");
     expect(container.querySelector(".ago-shell__product")?.textContent).toBe("Консоль оператора");
     const navLabels = all(container, ".ago-shell__nav a").map((a) => a.textContent?.trim());
-    expect(navLabels).toEqual(["Диалоги", "Все диалоги", "Внешний вид виджета", "Автоответ офлайн"]);
+    expect(navLabels).toEqual(["Диалоги", "Все диалоги", "Поиск", "Внешний вид виджета", "Автоответ офлайн"]);
     expect(container.querySelector(".ago-shell__identity button")?.textContent).toBe("Выйти");
   });
 
@@ -117,7 +117,13 @@ describe("the console shell for an active site with no Locale set", () => {
     expect(container.querySelector(".ago-skip-link")?.textContent).toBe("Skip to content");
     expect(container.querySelector(".ago-shell__product")?.textContent).toBe("Operator console");
     const navLabels = all(container, ".ago-shell__nav a").map((a) => a.textContent?.trim());
-    expect(navLabels).toEqual(["Conversations", "All conversations", "Widget appearance", "Offline auto-reply"]);
+    expect(navLabels).toEqual([
+      "Conversations",
+      "All conversations",
+      "Search",
+      "Widget appearance",
+      "Offline auto-reply",
+    ]);
     expect(container.querySelector(".ago-shell__identity button")?.textContent).toBe("Sign out");
     expect(container.querySelector(".ago-demo-notice__text")?.textContent).toContain("This is a public demo console");
   });

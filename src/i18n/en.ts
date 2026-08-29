@@ -317,4 +317,33 @@ export const en: ConsoleStrings = {
   accountDeletionInProgressBody:
     "The account is being deleted. This can take a while - do not close this page. You will be " +
     "signed out automatically once it is done.",
+
+  navSearch: "Search",
+  searchPageDescription:
+    "Full-text search across every conversation on this site. Results are newest first - this is " +
+    "plain word matching, not a relevance ranking.",
+  searchArchiveNote:
+    "Only the date range shown below is searched. A conversation older than it may still exist but " +
+    "is not reachable from here.",
+  searchPhraseFieldLabel: "Search phrase",
+  searchPhrasePlaceholder: "refund, tracking number, cancel…",
+  searchFromFieldLabel: "From (optional)",
+  searchToFieldLabel: "To (optional)",
+  searchButton: "Search",
+  searchRangeLabel: "Searching",
+  searchForbiddenError: "You do not have permission to search this site's conversations.",
+  searchInvalidQueryError: "Enter a search phrase.",
+  searchLoadError: "Failed to search conversations.",
+  searchLoadingLabel: "Searching…",
+  searchEmpty: "No matches in this range.",
+  searchOpenLabel: "Open →",
+  searchWaitingNote: "Unclaimed — assign it from the queue to open it.",
+  searchClosedNote: "Closed — a closed conversation cannot be reopened as a live thread.",
+  searchLoadMoreButton: "Load more",
+  searchLoadingMoreLabel: "Loading more…",
+
+  conversationLocatingMessageLabel: "Locating the message…",
+  conversationOpenFailed:
+    "This conversation could not be opened here. It may be assigned to another operator, already " +
+    "closed, or the connection may have dropped - try again from the search results or the queue.",
 };

@@ -107,3 +107,38 @@ export interface VisitorHistoryResponse {
   conversations: VisitorHistoryConversationDto[];
   nextBeforeId: string | null;
 }
+
+/**
+ * `18-01`: `Ago.Chat.Contracts.ConversationSearchResultDto` - one full-text search hit. `MatchedBody`
+ * is the complete message body, not a snippet or a highlighted excerpt - `SearchConversationsHandler`'s
+ * own remarks are explicit that no highlight is computed server-side, so this console does not attempt
+ * to reconstruct one client-side either (a `plainto_tsquery` match is a stemmed token match, not a
+ * literal substring, so any client-side "find the phrase in the body" highlight would frequently point
+ * at the wrong word or nothing at all). `Sequence` is what makes "open this hit at the right position"
+ * buildable at all - see `conversationsApi.ts#searchConversations`'s own doc comment for how the console
+ * uses it and where that stops being possible.
+ */
+export interface ConversationSearchResultDto {
+  conversationId: string;
+  messageId: string;
+  sequence: number;
+  matchedBody: string;
+  authorKind: "Visitor" | "Operator" | "System";
+  createdAt: string;
+  conversationState: "Waiting" | "Assigned" | "Closed";
+}
+
+/**
+ * `18-01`: `Ago.Chat.Contracts.SearchConversationsResponse` - `GET /api/v1/conversations/search`'s
+ * body. `searchedFrom`/`searchedTo` are the range the server actually used, always present even when
+ * the caller sent neither and the handler defaulted them (`SearchConversationsHandler`'s own "the bound
+ * decision, made here and nowhere else") - the console reads these back rather than ever assuming its
+ * own request echoes the effective range, which is this item's own Done-when ("the bound is visible,
+ * not silent").
+ */
+export interface SearchConversationsResponse {
+  results: ConversationSearchResultDto[];
+  nextBeforeMessageId: string | null;
+  searchedFrom: string;
+  searchedTo: string;
+}
