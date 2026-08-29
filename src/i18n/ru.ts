@@ -31,6 +31,12 @@ export const ru: ConsoleStrings = {
     "угодно. Каждый разговор здесь написан незнакомцем, которому сказали, что оператор может его " +
     "прочитать. Не пишите сюда ничего настоящего.",
 
+  themeToggleLabel: "Тема",
+  themeToggleAriaLabel: "Цветовая тема",
+  themeOptionSystem: "Как в системе",
+  themeOptionLight: "Светлая",
+  themeOptionDark: "Тёмная",
+
   agoSuffix: "назад",
 
   queueAssignedTitle: "Назначено мне",

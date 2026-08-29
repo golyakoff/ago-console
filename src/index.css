@@ -9,10 +9,13 @@
  * from them, components and the shell style class names on top. Nothing downstream redeclares a
  * token.
  *
- * The `color-scheme: light dark` that used to sit in this file is gone. It made the browser paint
- * native form controls dark while nothing else in the console responded, which read as a rendering
- * bug rather than a theme. The console is light-only, deliberately (author's decision, 2026-08-24);
- * see `tokens.css` for what reinstating a dark theme would actually entail. */
+ * The `color-scheme: light dark` that used to sit in this file was removed in `11-05` because it
+ * made the browser paint native form controls dark while nothing else in the console responded -
+ * a rendering bug rather than a theme. Reinstated properly, dark-theme reversal of `adr/0030` point
+ * 4: `tokens.css` now declares a full measured dark palette, activated by `prefers-color-scheme`
+ * with a manual `data-theme` override (`src/design/theme.ts`) - see that file's own header comment
+ * for the palette design and the WCAG methodology, and `index.html` for the inline script that
+ * applies the stored override before first paint. */
 
 @import "./design/tokens.css";
 @import "./design/base.css";

@@ -30,7 +30,7 @@
      look needs the glass to actually block most of what is behind it. 97% is barely translucent any
      more, which is the point: keep the sticky-header-has-depth cue on close inspection, lose the
      legible-bleed-through that reads as a bug from a normal viewing distance. */
-  background: rgba(251, 250, 247, 0.97); /* --ago-paper at 97%; a custom property cannot carry alpha here */
+  background: rgba(var(--ago-paper-rgb), 0.97); /* --ago-paper at 97%, via its channel token - see tokens.css's --ago-paper-rgb comment */
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--ago-line);
@@ -187,6 +187,27 @@
 }
 
 .ago-shell__tenancy-switcher .ago-control--select {
+  min-height: 2rem;
+  padding-top: var(--ago-space-1);
+  padding-bottom: var(--ago-space-1);
+  font-size: var(--ago-text-sm);
+}
+
+/* Dark-theme reversal of `adr/0030` point 4 - same shape as the tenancy switcher immediately
+   above (it is the established precedent for "a small `Select`-backed control in this row"), minus
+   the conditional rendering: every operator has a theme choice to make, so this one always shows. */
+.ago-shell__theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-2);
+}
+
+.ago-shell__theme-toggle-label {
+  font-size: var(--ago-text-xs);
+  color: var(--ago-ink-soft);
+}
+
+.ago-shell__theme-toggle .ago-control--select {
   min-height: 2rem;
   padding-top: var(--ago-space-1);
   padding-bottom: var(--ago-space-1);

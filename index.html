@@ -3,8 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#fbfaf7" />
+    <meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#13121c" media="(prefers-color-scheme: dark)" />
     <title>AGO Chat operator console</title>
+    <!--
+      Applies a stored manual theme override (`src/design/theme.ts`'s own storage key) to `<html>`
+      before the stylesheet or React run, so a reader whose OS is light but who chose dark last
+      session does not see a flash of the wrong theme. Deliberately a plain, blocking inline script,
+      not a module: `main.tsx` is `type="module"`, which the browser defers until after HTML parsing
+      the same way `defer` does, so it and the `index.css` import inside it would both run *after*
+      first paint - too late for this. A classic script placed here in `<head>` runs synchronously
+      during parsing, before that. Reads no config and touches no token value itself - `tokens.css`
+      is still the only place a colour is declared; this only decides which of its two dark blocks
+      applies by setting the attribute both already key off (`:root[data-theme="dark"]`).
+    -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("ago-console:theme");
+          if (stored === "light" || stored === "dark") {
+            document.documentElement.setAttribute("data-theme", stored);
+          }
+        } catch (e) {
+          // Private-browsing/storage-disabled - falls through to `prefers-color-scheme` alone,
+          // the same fail-soft `theme.ts`'s own read/write helpers use.
+        }
+      })();
+    </script>
     <!--
       `11-05`: the same three families, fetched the same way, as `ago-landing/index.html` - Manrope
       for the interface, Unbounded for the shell's wordmark, JetBrains Mono for identifiers. Loading
