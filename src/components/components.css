@@ -56,7 +56,9 @@
 }
 
 .ago-btn--primary:hover:not(:disabled) {
-  background: var(--ago-brand-deep);
+  /* `--ago-brand-hover`, not `--ago-brand-deep` - the fill and the link/active-nav text colour are
+     the same token in light mode but split in dark, see `tokens.css`'s dark-block comment for why. */
+  background: var(--ago-brand-hover);
 }
 
 .ago-btn--secondary {

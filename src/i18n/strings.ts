@@ -49,6 +49,15 @@ export interface ConsoleStrings {
   publicDemoNoticeSharedLogin: string;
   publicDemoNoticePlatformOwner: string;
 
+  // Dark-theme reversal of `adr/0030` point 4 - `ThemeToggle` (`src/design/ThemeToggle.tsx`),
+  // rendered in `ShellIdentity` beside sign-out, the same three-state (system/light/dark) shape
+  // `src/design/theme.ts`'s `ThemeChoice` declares.
+  themeToggleLabel: string;
+  themeToggleAriaLabel: string;
+  themeOptionSystem: string;
+  themeOptionLight: string;
+  themeOptionDark: string;
+
   // `11-12`: the operator workspace - the queue, the open conversation, the composer, connection
   // state, alerts and shortcuts. Extends the same interface `11-11` opened rather than starting a
   // second table, per this item's own scope.

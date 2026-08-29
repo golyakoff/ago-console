@@ -30,6 +30,12 @@ export const en: ConsoleStrings = {
     "conversation in it was typed by a stranger, who was told an operator can read it. Do not " +
     "type anything real.",
 
+  themeToggleLabel: "Theme",
+  themeToggleAriaLabel: "Colour theme",
+  themeOptionSystem: "Match system",
+  themeOptionLight: "Light",
+  themeOptionDark: "Dark",
+
   agoSuffix: "ago",
 
   queueAssignedTitle: "Assigned to me",
