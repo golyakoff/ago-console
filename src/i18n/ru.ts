@@ -13,6 +13,7 @@ export const ru: ConsoleStrings = {
   navAllConversations: "Все диалоги",
   navWidgetAppearance: "Внешний вид виджета",
   navOfflineAutoReply: "Автоответ офлайн",
+  navCannedResponses: "Готовые ответы",
   navPlatformSites: "Сайты платформы",
   navDeleteAccount: "Удалить аккаунт",
   navBilling: "Оплата",
@@ -291,6 +292,40 @@ export const ru: ConsoleStrings = {
   autoReplyValidationKeywordTooLongSuffix: "символов.",
   autoReplyValidationReplyTooLongPrefix: "Ответ не может быть длиннее",
   autoReplyValidationReplyTooLongSuffix: "символов.",
+
+  cannedResponsesForbidden: "У вас нет права настраивать готовые ответы для этого сайта.",
+  cannedResponsesDescription:
+    "Готовые ответы, которые ваша команда может вставить в сообщение вместо того, чтобы печатать их " +
+    "заново. Введите «/» в поле сообщения, чтобы просмотреть их, не трогая мышь.",
+  cannedResponsesLoadingLabel: "Загрузка готовых ответов…",
+  cannedResponsesLoadError: "Не удалось загрузить готовые ответы.",
+  cannedResponsesSubmitError: "Не удалось сохранить готовые ответы.",
+  cannedResponsesPanelTitle: "Готовые ответы",
+  cannedResponsesListLegend: "Ответы",
+  cannedResponsesListIntro:
+    "Каждому нужен короткий заголовок, чтобы его находить, и текст, который будет вставлен в поле " +
+    "сообщения. Чтобы убрать строку, оставьте её пустой.",
+  cannedResponsesTitleLabelPrefix: "Заголовок",
+  cannedResponsesTitlePlaceholder: "Политика возврата",
+  cannedResponsesBodyLabelPrefix: "Текст",
+  cannedResponsesBodyPlaceholder: "Возврат средств занимает три рабочих дня после получения товара.",
+  cannedResponsesRemoveButton: "Удалить",
+  cannedResponsesRemoveButtonAriaPrefix: "Удалить готовый ответ",
+
+  cannedResponsesValidationTitleRequired: "У готового ответа должен быть заголовок.",
+  cannedResponsesValidationBodyRequiredPrefix: 'Для ответа с заголовком "',
+  cannedResponsesValidationBodyRequiredSuffix: '" нужен текст.',
+  cannedResponsesValidationTitleTooLongPrefix: "Заголовок не может быть длиннее",
+  cannedResponsesValidationTitleTooLongSuffix: "символов.",
+  cannedResponsesValidationBodyTooLongPrefix: "Текст ответа не может быть длиннее",
+  cannedResponsesValidationBodyTooLongSuffix: "символов.",
+  cannedResponsesValidationTooManyPrefix: "У сайта не может быть больше",
+  cannedResponsesValidationTooManySuffix: "готовых ответов.",
+
+  composerCannedResponsesAvailableHint: "Введите / для вставки готового ответа",
+  composerCannedResponsesListAriaLabel: "Готовые ответы",
+  composerCannedResponsesNoMatch: "Нет подходящих готовых ответов.",
+  composerCannedResponsesInsertHint: "↑↓ — выбор · Enter — вставить · Esc — отмена",
 
   eraseConversationButton: "Удалить",
   eraseConversationDialogTitle: "Удалить этот диалог?",

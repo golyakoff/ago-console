@@ -12,6 +12,7 @@ export const en: ConsoleStrings = {
   navAllConversations: "All conversations",
   navWidgetAppearance: "Widget appearance",
   navOfflineAutoReply: "Offline auto-reply",
+  navCannedResponses: "Canned responses",
   navPlatformSites: "Platform sites",
   navDeleteAccount: "Delete account",
   navBilling: "Billing",
@@ -289,6 +290,40 @@ export const en: ConsoleStrings = {
   autoReplyValidationKeywordTooLongSuffix: "characters.",
   autoReplyValidationReplyTooLongPrefix: "A reply cannot exceed",
   autoReplyValidationReplyTooLongSuffix: "characters.",
+
+  cannedResponsesForbidden: "You do not have permission to configure this site's canned responses.",
+  cannedResponsesDescription:
+    "Prepared answers your team can insert into a reply instead of typing them again. Type \"/\" in " +
+    "the composer to browse them without touching the mouse.",
+  cannedResponsesLoadingLabel: "Loading canned responses…",
+  cannedResponsesLoadError: "Failed to load the canned responses.",
+  cannedResponsesSubmitError: "Failed to save the canned responses.",
+  cannedResponsesPanelTitle: "Prepared answers",
+  cannedResponsesListLegend: "Responses",
+  cannedResponsesListIntro:
+    "Each one needs a short title to find it by, and the text that gets inserted into the composer. " +
+    "Leave a row blank to drop it.",
+  cannedResponsesTitleLabelPrefix: "Title",
+  cannedResponsesTitlePlaceholder: "Refund policy",
+  cannedResponsesBodyLabelPrefix: "Text",
+  cannedResponsesBodyPlaceholder: "Refunds take three working days once the item is back with us.",
+  cannedResponsesRemoveButton: "Remove",
+  cannedResponsesRemoveButtonAriaPrefix: "Remove canned response",
+
+  cannedResponsesValidationTitleRequired: "A canned response needs a title.",
+  cannedResponsesValidationBodyRequiredPrefix: 'The response titled "',
+  cannedResponsesValidationBodyRequiredSuffix: '" needs text.',
+  cannedResponsesValidationTitleTooLongPrefix: "A title cannot exceed",
+  cannedResponsesValidationTitleTooLongSuffix: "characters.",
+  cannedResponsesValidationBodyTooLongPrefix: "The response text cannot exceed",
+  cannedResponsesValidationBodyTooLongSuffix: "characters.",
+  cannedResponsesValidationTooManyPrefix: "A site cannot have more than",
+  cannedResponsesValidationTooManySuffix: "canned responses.",
+
+  composerCannedResponsesAvailableHint: "Type / to insert a canned response",
+  composerCannedResponsesListAriaLabel: "Canned responses",
+  composerCannedResponsesNoMatch: "No canned response matches.",
+  composerCannedResponsesInsertHint: "↑↓ to choose · Enter to insert · Esc to cancel",
 
   eraseConversationButton: "Erase",
   eraseConversationDialogTitle: "Erase this conversation?",

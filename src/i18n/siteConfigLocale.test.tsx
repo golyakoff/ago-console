@@ -8,6 +8,7 @@ import { OperatorShell } from "../shell/OperatorShell.js";
 import { AdminConversationsPage } from "../pages/AdminConversationsPage.js";
 import { WidgetConfigPage } from "../pages/WidgetConfigPage.js";
 import { OfflineAutoReplyPage } from "../pages/OfflineAutoReplyPage.js";
+import { CannedResponsesPage } from "../pages/CannedResponsesPage.js";
 import { all, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
@@ -37,6 +38,10 @@ const offlineAutoReplyApi = vi.hoisted(() => ({
   fetchOfflineAutoReply: vi.fn(),
   updateOfflineAutoReply: vi.fn(),
 }));
+const cannedResponsesApi = vi.hoisted(() => ({
+  fetchCannedResponses: vi.fn(),
+  updateCannedResponses: vi.fn(),
+}));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 
 vi.mock("../api/conversationsApi.js", () => conversationsApi);
@@ -52,6 +57,12 @@ vi.mock("../api/offlineAutoReplyApi.js", async () => {
     "../api/offlineAutoReplyApi.js",
   );
   return { ...actual, ...offlineAutoReplyApi };
+});
+vi.mock("../api/cannedResponsesApi.js", async () => {
+  const actual = await vi.importActual<typeof import("../api/cannedResponsesApi.js")>(
+    "../api/cannedResponsesApi.js",
+  );
+  return { ...actual, ...cannedResponsesApi };
 });
 vi.mock("../api/ownerApi.js", () => ownerApi);
 
@@ -98,6 +109,7 @@ function siteConfigAt(path: string, locale: string | null) {
             <Route path="/admin" element={<AdminConversationsPage />} />
             <Route path="/settings/widget" element={<WidgetConfigPage />} />
             <Route path="/settings/auto-reply" element={<OfflineAutoReplyPage />} />
+            <Route path="/settings/canned-responses" element={<CannedResponsesPage />} />
           </Route>
         </Routes>
       </Signed>
@@ -131,6 +143,7 @@ beforeEach(() => {
     fallbackReply: "",
     rules: [],
   });
+  cannedResponsesApi.fetchCannedResponses.mockResolvedValue([]);
 });
 
 afterEach(async () => {
@@ -184,6 +197,29 @@ describe("the site-configuration screens for an active site with Locale = Ru", (
       "Включённому автоответу нужно что сказать",
     );
   });
+
+  it("renders CannedResponsesPage's form in Russian, including a response row and its validation message", async () => {
+    const container = await render(siteConfigAt("/settings/canned-responses", "Ru"));
+
+    expect(container.querySelector(".ago-page-head__title")?.textContent).toBe("Готовые ответы");
+    expect(container.querySelector(".ago-panel__title")?.textContent).toBe("Готовые ответы");
+    expect(container.querySelector("legend")?.textContent).toBe("Ответы");
+    const labels = all(container, ".ago-field__label").map((l) => l.textContent?.trim());
+    expect(labels).toEqual(["Заголовок 1", "Текст 1"]);
+    const removeButton = one<HTMLButtonElement>(container, "button[aria-label='Удалить готовый ответ 1']");
+    expect(removeButton.textContent).toBe("Удалить");
+
+    // The pure `validateDraft` threaded through `strings` from the submit handler, not defaulted to
+    // English - a title with no text, the same "half-filled row" case `offlineAutoReplyValidation.ts`
+    // reports rather than silently drops.
+    const titleInput = one<HTMLInputElement>(container, "input");
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(titleInput, "Тест");
+    await interact(() => titleInput.dispatchEvent(new Event("input", { bubbles: true })));
+    const form = one<HTMLFormElement>(container, "form");
+    await interact(() => form.requestSubmit());
+
+    expect(container.querySelector(".ago-alert--danger")?.textContent).toContain('нужен текст');
+  });
 });
 
 describe("the site-configuration screens for an active site with no Locale set", () => {
@@ -219,6 +255,15 @@ describe("the site-configuration screens for an active site with no Locale set",
     expect(autoReply.querySelector(".ago-page-head__title")?.textContent).toBe("Offline auto-reply");
     expect(autoReply.querySelector("legend")?.textContent).toBe("Keyword rules");
     const removeButton = one<HTMLButtonElement>(autoReply, "button[aria-label='Remove keyword rule 1']");
+    expect(removeButton.textContent).toBe("Remove");
+  });
+
+  it("renders CannedResponsesPage's form unchanged, in English", async () => {
+    const cannedResponses = await render(siteConfigAt("/settings/canned-responses", null));
+
+    expect(cannedResponses.querySelector(".ago-page-head__title")?.textContent).toBe("Canned responses");
+    expect(cannedResponses.querySelector("legend")?.textContent).toBe("Responses");
+    const removeButton = one<HTMLButtonElement>(cannedResponses, "button[aria-label='Remove canned response 1']");
     expect(removeButton.textContent).toBe("Remove");
   });
 });

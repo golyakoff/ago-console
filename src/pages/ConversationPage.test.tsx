@@ -201,6 +201,9 @@ function Harness({
       // file exercises the `C` shortcut, which is the workspace's, and the page's only job is to
       // hand it to `Composer`.
       composerRef: { current: null },
+      // `18-03`: empty - nothing in this file exercises the picker, which is `Composer.test.tsx`'s own
+      // job; the page's only job is to hand the list to `Composer` unchanged.
+      cannedResponses: [],
     }),
     [markRead, refreshQueue],
   );
