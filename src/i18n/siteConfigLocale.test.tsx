@@ -137,6 +137,8 @@ beforeEach(() => {
     primaryColorHex: "#2F6FED",
     position: "BottomRight",
     locale: "En",
+    noticeText: null,
+    noticeUrl: null,
   });
   offlineAutoReplyApi.fetchOfflineAutoReply.mockResolvedValue({
     enabled: false,
@@ -170,7 +172,17 @@ describe("the site-configuration screens for an active site with Locale = Ru", (
     expect(container.querySelector(".ago-page-head__title")?.textContent).toBe("Внешний вид виджета");
     expect(container.querySelector(".ago-panel__title")?.textContent).toBe("Кнопка запуска");
     const labels = all(container, ".ago-field__label").map((l) => l.textContent?.trim());
-    expect(labels).toEqual(["Основной цвет (hex, необязательно)", "Положение кнопки запуска", "Язык виджета"]);
+    expect(labels).toEqual([
+      "Основной цвет (hex, необязательно)",
+      "Положение кнопки запуска",
+      "Язык виджета",
+      "Текст уведомления (необязательно)",
+      "Ссылка на уведомление (необязательно)",
+    ]);
+    // `16-04`: the second panel title, proving the notice fields render under their own Russian
+    // heading rather than silently inside "Кнопка запуска" above.
+    const panelTitles = all(container, ".ago-panel__title").map((t) => t.textContent?.trim());
+    expect(panelTitles).toEqual(["Кнопка запуска", "Уведомление об обработке данных"]);
     const saveButton = Array.from(container.querySelectorAll("button")).find((b) => b.type === "submit");
     expect(saveButton?.textContent).toBe("Сохранить");
   });

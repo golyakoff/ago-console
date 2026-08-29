@@ -23,6 +23,15 @@ export interface WidgetConfigDto {
   primaryColorHex: string | null;
   position: WidgetPosition;
   locale: WidgetLocale;
+  /**
+   * `16-04`: the tenant's own sentence about who processes what a visitor is about to write - never
+   * written by AGO. `null` (every site before this item, and any site that leaves it blank) means the
+   * widget shows no notice at all.
+   */
+  noticeText: string | null;
+  /** `16-04`: where the notice points for detail - the tenant's own policy page. `null` alongside
+   * `noticeText` is the same "show nothing" default; either field may be set without the other. */
+  noticeUrl: string | null;
 }
 
 /**

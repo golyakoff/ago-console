@@ -81,6 +81,48 @@ function localeSelect(container: HTMLElement): HTMLSelectElement {
   return select;
 }
 
+/** `16-04`: the notice text/url fields, found the same `<label>`-`htmlFor` way as `localeSelect`
+ * above, never by class name. */
+function noticeTextField(container: HTMLElement): HTMLTextAreaElement {
+  const label = byText<HTMLLabelElement>(container, ".ago-field__label", "Notice text (optional)");
+  if (label === null) {
+    throw new Error("no 'Notice text (optional)' field label found");
+  }
+
+  const id = label.getAttribute("for");
+  const field = id ? document.getElementById(id) : null;
+  if (!(field instanceof HTMLTextAreaElement)) {
+    throw new Error("'Notice text (optional)' field is not a <textarea>");
+  }
+
+  return field;
+}
+
+function noticeUrlField(container: HTMLElement): HTMLInputElement {
+  const label = byText<HTMLLabelElement>(container, ".ago-field__label", "Notice link (optional)");
+  if (label === null) {
+    throw new Error("no 'Notice link (optional)' field label found");
+  }
+
+  const id = label.getAttribute("for");
+  const field = id ? document.getElementById(id) : null;
+  if (!(field instanceof HTMLInputElement)) {
+    throw new Error("'Notice link (optional)' field is not an <input>");
+  }
+
+  return field;
+}
+
+// `ConversationPage.test.tsx`'s own precedent (its long comment has the full reasoning): a direct
+// `.value = x` assignment is swallowed by React's own tracked setter as "no change", so no `onChange`
+// ever fires - going through the *prototype's* setter, then dispatching a real "input" event (not
+// "change" - that is what a `<select>` uses, not a text `<input>`/`<textarea>`), is what makes it real.
+function setTextValue(element: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+  const prototype = element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(prototype, "value")?.set?.call(element, value);
+  element.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [{ siteId: SITE_ID, siteName: "Test Site" }] });
@@ -91,6 +133,8 @@ beforeEach(() => {
     primaryColorHex: null,
     position: "BottomRight",
     locale: "Ru",
+    noticeText: null,
+    noticeUrl: null,
   });
   widgetConfigApi.updateWidgetConfig.mockImplementation((_token: string, _siteId: string, dto: unknown) =>
     Promise.resolve(dto),
@@ -137,6 +181,106 @@ describe("the widget language field", () => {
     await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
 
     expect(localeSelect(container).value).toBe("En");
+    expect(container.textContent).toContain("Saved.");
+  });
+});
+
+/**
+ * `16-04`: the console half of the widget's processing notice - two more optional fields on the same
+ * screen, saved through the same one PUT `updateWidgetConfig` already makes. Modeled on "the widget
+ * language field" block above, which is `11-10`'s own precedent for adding a field to this screen.
+ */
+describe("the widget processing notice fields", () => {
+  it("loads the site's current notice text and link into the fields", async () => {
+    widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
+      siteId: SITE_ID,
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "En",
+      noticeText: "We read what you send us.",
+      noticeUrl: "https://tenant.example/privacy",
+    });
+    const container = await render(page());
+
+    expect(noticeTextField(container).value).toBe("We read what you send us.");
+    expect(noticeUrlField(container).value).toBe("https://tenant.example/privacy");
+  });
+
+  it("leaves both fields empty when the site has never configured a notice", async () => {
+    const container = await render(page());
+
+    expect(noticeTextField(container).value).toBe("");
+    expect(noticeUrlField(container).value).toBe("");
+  });
+
+  it("saves the notice text and link alongside color, position, and language, in one PUT", async () => {
+    const container = await render(page());
+
+    await interact(() => setTextValue(noticeTextField(container), "We use your messages to answer your questions."));
+    await interact(() => setTextValue(noticeUrlField(container), "https://tenant.example/privacy"));
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(widgetConfigApi.updateWidgetConfig).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({
+        position: "BottomRight",
+        noticeText: "We use your messages to answer your questions.",
+        noticeUrl: "https://tenant.example/privacy",
+      }),
+    );
+  });
+
+  it("sends null for both fields when left empty", async () => {
+    widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
+      siteId: SITE_ID,
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "En",
+      noticeText: "Was set before.",
+      noticeUrl: "https://tenant.example/privacy",
+    });
+    const container = await render(page());
+
+    await interact(() => setTextValue(noticeTextField(container), ""));
+    await interact(() => setTextValue(noticeUrlField(container), ""));
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(widgetConfigApi.updateWidgetConfig).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({ noticeText: null, noticeUrl: null }),
+    );
+  });
+
+  // `16-04`'s own Scope: the URL is validated `https://` only, UX-only (the server is the real gate,
+  // `widgetConfigValidation.ts`'s own doc comment) - a bad link is caught before the request is even
+  // sent, the same posture the color field's own validation test (not duplicated here) already proves.
+  it("rejects a non-https link before submitting, and sends nothing", async () => {
+    const container = await render(page());
+
+    await interact(() => setTextValue(noticeUrlField(container), "http://tenant.example/privacy"));
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(container.textContent).toContain("The link must be an absolute https:// URL.");
+    expect(widgetConfigApi.updateWidgetConfig).not.toHaveBeenCalled();
+  });
+
+  it("reflects the server's saved notice back into the fields", async () => {
+    const container = await render(page());
+    widgetConfigApi.updateWidgetConfig.mockResolvedValue({
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "En",
+      noticeText: "We read what you send us.",
+      noticeUrl: "https://tenant.example/privacy",
+    });
+
+    await interact(() => setTextValue(noticeTextField(container), "We read what you send us."));
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(noticeTextField(container).value).toBe("We read what you send us.");
+    expect(noticeUrlField(container).value).toBe("https://tenant.example/privacy");
     expect(container.textContent).toContain("Saved.");
   });
 });
