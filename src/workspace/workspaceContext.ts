@@ -2,6 +2,7 @@ import { useOutletContext } from "react-router-dom";
 import type { RefObject } from "react";
 import type { ConversationSummaryDto } from "../realtime/protocol/types.js";
 import type { CannedResponseDto } from "../api/cannedResponsesApi.js";
+import type { TagDto } from "../api/tagsApi.js";
 
 /**
  * `11-06`: what the workspace layout hands down to whichever conversation is open.
@@ -66,6 +67,17 @@ export interface WorkspaceOutletContext {
    * error is surfaced; this is not that screen.
    */
   cannedResponses: readonly CannedResponseDto[];
+  /**
+   * `18-04`: the site's tag vocabulary, fetched once when the workspace mounts - the identical
+   * "fetched once, not per conversation, empty rather than null on load failure" shape
+   * `cannedResponses` above already establishes, for the same reason: the vocabulary an operator
+   * picks from does not change mid-shift, and a load failure here should not block the workspace -
+   * `TagsPage` (`/settings/tags`) is where a real load error is surfaced.
+   */
+  tags: readonly TagDto[];
+  /** Re-fetches `tags` above - called after this operator creates a tag from within the workspace
+   * (the conversation tag picker's own "new tag" affordance), so it appears without a full reload. */
+  refreshTags: () => void;
 }
 
 export function useWorkspace(): WorkspaceOutletContext {

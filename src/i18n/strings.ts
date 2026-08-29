@@ -32,6 +32,9 @@ export interface ConsoleStrings {
   /** `18-03`: `site:configure`-gated, sits beside `navWidgetAppearance`/`navOfflineAutoReply` in
    * `consoleNav.ts` - the same permission group, one more tenant self-service screen. */
   navCannedResponses: string;
+  /** `18-04`: same permission group, sits beside `navCannedResponses` in `consoleNav.ts` - the tag
+   * vocabulary's own management surface (`/settings/tags`, `TagsPage`). */
+  navTags: string;
   navPlatformSites: string;
   /** `16-02`: gated on `site:erase`, deliberately separate from the `site:configure` block above -
    * the backlog item's own scope note ("a single boolean that destroys a business is a plausible case
@@ -407,6 +410,57 @@ export interface ConsoleStrings {
   // response to offer - see `Composer.tsx`'s own remarks for why advertising an empty feature is
   // worse than saying nothing.
   composerCannedResponsesAvailableHint: string;
+
+  // `18-04`: TagsPage - the tag vocabulary's own management surface, `site:configure`-gated like
+  // CannedResponsesPage right above it.
+  tagsForbidden: string;
+  tagsDescription: string;
+  tagsLoadingLabel: string;
+  tagsLoadError: string;
+  tagsCreateError: string;
+  tagsRenameError: string;
+  tagsDeleteError: string;
+  tagsPanelTitle: string;
+  tagsEmpty: string;
+  tagsNameLabel: string;
+  tagsSaveButton: string;
+  tagsCancelButton: string;
+  tagsRenameButton: string;
+  tagsDeleteButton: string;
+  tagsNewNameLabel: string;
+  tagsNewNamePlaceholder: string;
+  tagsCreatingButton: string;
+  tagsCreateButton: string;
+
+  // `18-04`: ConversationTagsPanel - the per-conversation half (applying an existing tag, not
+  // managing the vocabulary above).
+  tagsSectionTitle: string;
+  tagsNoneApplied: string;
+  tagsApplyError: string;
+  tagsRemoveError: string;
+  tagsApplyLabel: string;
+  tagsApplyPlaceholder: string;
+  tagsApplyButton: string;
+  /** `${tagsRemoveButtonAriaPrefix} ${tag.name}` - the applied-tag badge's own remove button. */
+  tagsRemoveButtonAriaPrefix: string;
+
+  // `18-04`: the workspace rail's own queue filter, and the identical control on
+  // `AdminConversationsPage` - both reuse this pair rather than each declaring its own.
+  workspaceTagFilterLabel: string;
+  workspaceTagFilterAll: string;
+
+  // `18-04`: ConversationNotesPanel - internal, operator-only notes on a conversation. Never
+  // reachable by a visitor, by construction (`ago-chat`'s `INoteRepository`'s own remarks) - this
+  // panel is the console's only reader/writer of that data.
+  notesTitle: string;
+  notesVisitorCannotSeeNote: string;
+  notesLoadingLabel: string;
+  notesLoadError: string;
+  notesEmpty: string;
+  notesAddPlaceholder: string;
+  notesAddingButton: string;
+  notesAddButton: string;
+  notesAddError: string;
   composerCannedResponsesListAriaLabel: string;
   composerCannedResponsesNoMatch: string;
   composerCannedResponsesInsertHint: string;

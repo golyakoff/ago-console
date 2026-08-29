@@ -92,6 +92,7 @@ describe("the console shell for an active site with Locale = Ru", () => {
       "Внешний вид виджета",
       "Автоответ офлайн",
       "Готовые ответы",
+      "Метки",
       "Оплата",
     ]);
     expect(container.querySelector(".ago-shell__identity button")?.textContent).toBe("Выйти");
@@ -132,6 +133,7 @@ describe("the console shell for an active site with no Locale set", () => {
       "Widget appearance",
       "Offline auto-reply",
       "Canned responses",
+      "Tags",
       "Billing",
     ]);
     expect(container.querySelector(".ago-shell__identity button")?.textContent).toBe("Sign out");

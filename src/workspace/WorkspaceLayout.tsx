@@ -7,10 +7,12 @@ import { ConnectionStateBadge } from "../realtime/ConnectionStateBadge.js";
 import { linkStatusOf } from "../realtime/linkStatus.js";
 import { fetchOperatorQueue, markConversationRead } from "../api/conversationsApi.js";
 import { fetchCannedResponses, type CannedResponseDto } from "../api/cannedResponsesApi.js";
+import { fetchTags, type TagDto } from "../api/tagsApi.js";
 import type { OperatorQueueResponse } from "../realtime/protocol/types.js";
 import { Alert } from "../components/Alert.js";
 import { Button } from "../components/Button.js";
 import { Dialog } from "../components/Dialog.js";
+import { Select } from "../components/Select.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { resolveTimeZone } from "../time/format.js";
 import { ConversationList } from "./ConversationList.js";
@@ -105,6 +107,10 @@ export function WorkspaceLayout() {
   // `null` before the fetch resolves and on a load failure alike: the composer's picker treats "not
   // loaded yet" and "nothing configured" identically, since either way it has nothing to offer.
   const [cannedResponses, setCannedResponses] = useState<CannedResponseDto[]>([]);
+  // `18-04`: the site's tag vocabulary, fetched once - see `workspaceContext.ts`'s own remarks on
+  // `tags`/`refreshTags`. `tagFilter` is this rail's own queue filter, `null` meaning unfiltered.
+  const [tags, setTags] = useState<TagDto[]>([]);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attention, setAttention] = useState<ReadStateMap>({});
   const [announcement, setAnnouncement] = useState<string | null>(null);
@@ -160,7 +166,7 @@ export function WorkspaceLayout() {
       return;
     }
 
-    fetchOperatorQueue(user.access_token)
+    fetchOperatorQueue(user.access_token, tagFilter ?? undefined)
       .then((next) => {
         setQueue(next);
         // `5-15`: the fresh snapshot already contains every arrival and every clear the overlay in
@@ -170,7 +176,7 @@ export function WorkspaceLayout() {
         setError(null);
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : strings.workspaceQueueLoadError));
-  }, [user?.access_token, strings]);
+  }, [user?.access_token, strings, tagFilter]);
 
   // `5-15`: the real server-side clear. Deliberately not followed by a `refreshQueue()` - the
   // `cleared` event above already tells the rail what the server just told us, and forcing a queue
@@ -219,6 +225,27 @@ export function WorkspaceLayout() {
         console.warn("Failed to load canned responses", err);
       });
   }, [user?.access_token, siteId]);
+
+  // `18-04`: the tag vocabulary, fetched once - the identical shape and reasoning as the
+  // canned-responses effect right above (`workspaceContext.ts`'s own remarks on `tags`).
+  const refreshTags = useCallback(() => {
+    const accessToken = user?.access_token;
+    if (!accessToken || !siteId) {
+      return;
+    }
+
+    fetchTags(accessToken, siteId)
+      .then(setTags)
+      .catch((err: unknown) => {
+        // Same "never surfaced here" posture as canned responses above - `/settings/tags` is where a
+        // real load failure is shown.
+        console.warn("Failed to load tags", err);
+      });
+  }, [user?.access_token, siteId]);
+
+  useEffect(() => {
+    refreshTags();
+  }, [refreshTags]);
 
   // `4-02`'s live assignment push. Still refetches the whole queue rather than merging one row in -
   // `5-07`'s own judgement for a list this small, unchanged - and additionally records the arrival
@@ -351,8 +378,8 @@ export function WorkspaceLayout() {
     null;
 
   const outletContext: WorkspaceOutletContext = useMemo(
-    () => ({ conversation, now, timeZone, refreshQueue, markRead, composerRef, cannedResponses }),
-    [conversation, now, timeZone, refreshQueue, markRead, cannedResponses],
+    () => ({ conversation, now, timeZone, refreshQueue, markRead, composerRef, cannedResponses, tags, refreshTags }),
+    [conversation, now, timeZone, refreshQueue, markRead, cannedResponses, tags, refreshTags],
   );
 
   const link = linkStatusOf(connectionState, serverDraining, strings);
@@ -392,6 +419,26 @@ export function WorkspaceLayout() {
           <Alert tone="danger" title={link.label}>
             {link.detail}
           </Alert>
+        )}
+
+        {/* `18-04`: the queue's own tag filter - narrows both "Assigned to me" and "Waiting" to
+            conversations carrying the chosen tag. Rendered only once a tag vocabulary exists; an
+            empty `<select>` with nothing to pick would be a control that does nothing. */}
+        {tags.length > 0 && (
+          <div className="ago-workspace__rail-tools">
+            <Select
+              aria-label={strings.workspaceTagFilterLabel}
+              value={tagFilter ?? ""}
+              onChange={(e) => setTagFilter(e.target.value === "" ? null : e.target.value)}
+            >
+              <option value="">{strings.workspaceTagFilterAll}</option>
+              {tags.map((tag) => (
+                <option key={tag.id} value={tag.id}>
+                  {tag.name}
+                </option>
+              ))}
+            </Select>
+          </div>
         )}
 
         {error && <Alert tone="danger">{error}</Alert>}

@@ -1,9 +1,12 @@
 import type { ConversationSummaryDto, VisitorHistoryResponse } from "../realtime/protocol/types.js";
+import type { TagDto } from "../api/tagsApi.js";
 import { Badge } from "../components/Badge.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
 import { formatAbsolute, formatElapsed, formatElapsedWords, parseInstant } from "../time/format.js";
 import { VisitorHistoryPanel } from "./VisitorHistoryPanel.js";
+import { ConversationNotesPanel } from "./ConversationNotesPanel.js";
+import { ConversationTagsPanel } from "./ConversationTagsPanel.js";
 
 /** `ConversationSummaryDto.state`'s three values as the badge's visible text - `"Waiting"` reuses
  * `queueWaitingTitle` (the identical English word already in the table for the queue's own "Waiting"
@@ -34,6 +37,9 @@ export interface VisitorPanelProps {
   visitorHistory: VisitorHistoryResponse | null;
   visitorHistoryError: string | null;
   accessToken: string | null;
+  /** `18-04`: the site's own tag vocabulary - `WorkspaceOutletContext.tags`, threaded through rather
+   * than fetched here. */
+  siteTags: readonly TagDto[];
 }
 
 /**
@@ -71,6 +77,7 @@ export function VisitorPanel({
   visitorHistory,
   visitorHistoryError,
   accessToken,
+  siteTags,
 }: VisitorPanelProps) {
   const strings = useStrings();
   const started = parseInstant(conversation?.createdAt);
@@ -139,6 +146,10 @@ export function VisitorPanel({
         timeZone={timeZone}
         accessToken={accessToken}
       />
+
+      {/* `18-04`: internal notes and tags - see each panel's own doc comment. */}
+      <ConversationTagsPanel conversationId={conversationId} siteTags={siteTags} accessToken={accessToken} />
+      <ConversationNotesPanel conversationId={conversationId} timeZone={timeZone} accessToken={accessToken} />
 
       <p className="ago-aside__note">{strings.visitorPanelNote}</p>
     </aside>
