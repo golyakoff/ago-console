@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { Button } from "../components/Button.js";
 import { config } from "../config.js";
+import { ThemeToggle } from "../design/ThemeToggle.js";
 import { useStrings } from "../i18n/StringsContext.js";
 
 /**
@@ -251,6 +252,11 @@ export function ShellIdentity({ operator, siteId, tenancySwitcher, onSignOut }: 
           </span>
         )}
       </span>
+      {/* Dark-theme reversal of `adr/0030` point 4: a per-operator preference, so it sits with the
+          rest of this identity cluster rather than inside `site:configure`-gated tenant settings -
+          renders for every operator, unlike `tenancySwitcher` above, which only appears for a
+          multi-tenant identity. */}
+      <ThemeToggle />
       <Button size="sm" variant="secondary" onClick={onSignOut}>
         {strings.signOut}
       </Button>

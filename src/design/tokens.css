@@ -16,17 +16,44 @@
        working density. The rule used is written next to each block, so the next person can check
        the arithmetic rather than guess at taste.
 
-   The console is LIGHT ONLY, deliberately and in writing (author's decision, 2026-08-24). There is
-   no `color-scheme: light dark` and no `prefers-color-scheme` block anywhere in this repository -
-   the seventeen-line `index.css` this replaced claimed a dark theme that only ever reached the
-   browser's native form controls, which read as a bug rather than a feature. Anyone reinstating it
-   owns building both themes properly, contrast checks included.
+   `adr/0030` point 4 shipped this console LIGHT ONLY, on the record that a dark theme "means
+   building both properly, contrast checks included" - reversed here, properly, per that same
+   sentence (author's decision, addendum dated below). What made the original `color-scheme: light
+   dark` a bug rather than a theme was that ONE property changed while nothing else responded, so
+   the browser painted native form controls dark on an otherwise-light page. This addendum is the
+   opposite shape: every colour token below gets a real, measured dark value, or an explicit note
+   for why it deliberately does not change.
+
+   Activation is three-state - system / light / dark - not a bare `color-scheme` toggle: `<html>`
+   defaults to `prefers-color-scheme`, and `data-theme="light"|"dark"` on the same element (written
+   by `useTheme`/`ThemeToggle`, `src/design/theme.ts`, persisted to `localStorage`) overrides it in
+   either direction. The cascade shape is the standard one for this pattern:
+
+     :root                                          { ...light values, the source of truth... }
+     @media (prefers-color-scheme: dark) {
+       :root:not([data-theme="light"])               { ...dark overrides... }
+     }
+     :root[data-theme="dark"]                        { ...the same dark overrides, repeated... }
+
+   The repetition in the last two blocks is deliberate, not an oversight - CSS custom properties
+   have no mixin/include mechanism, and this is the ordinary shape every `prefers-color-scheme` +
+   manual-override implementation takes. Keep the two dark blocks in sync by hand; a token added to
+   one and not the other is a defect the same way an un-measured colour is.
 
    Contrast: every foreground/background pair this file is meant to produce was measured (WCAG 2.1
-   relative luminance) rather than eyeballed, and the measured ratio is recorded inline. Text pairs
-   clear 4.5:1; non-text boundaries that a user has to perceive to operate a control (1.4.11) clear
-   3:1. Where a landing colour could not clear the bar at console sizes, the derived value that does
-   is declared alongside it and the original is demoted to decoration - see `--ago-lavender-ink`.
+   relative luminance) rather than eyeballed, and the measured ratio is recorded inline - light and
+   dark alike, computed by the same throwaway script (relative-luminance + contrast-ratio, no
+   library) for both palettes. Text pairs clear 4.5:1; non-text boundaries that a user has to
+   perceive to operate a control (1.4.11) clear 3:1. Where a landing colour could not clear the bar
+   at console sizes, the derived value that does is declared alongside it and the original is
+   demoted to decoration - see `--ago-lavender-ink` (light) and `--ago-lavender-ink`'s dark override
+   below (same role, different value).
+
+   `ago-deploy/k8s/check-theme-tokens.sh` vendors this file's tokens into the Keycloak login theme,
+   which stays light-only on purpose (`adr/0030`'s 2026-08-26 amendment - a public, unauthenticated,
+   first-touch page is not where to spend a dark theme). It now harvests only from the bare `:root`
+   selector, ignoring anything declared inside a `@media` block or under `:root[data-theme=...]`, so
+   the dark values below cannot leak into that stylesheet even though the token *names* repeat.
    =========================================================================================== */
 
 :root {
@@ -47,6 +74,11 @@
      dark demo card (`linear-gradient(160deg,#132321,#0c1a19 70%)`). */
   --ago-ink: #14141f;              /* 17.50:1 on --ago-paper, 18.27:1 on --ago-surface */
   --ago-ink-soft: #57546f;         /*  6.93:1 on --ago-paper,  7.23:1 on --ago-surface */
+  /* Not redeclared in either dark block, deliberately: its one consumer (`.ago-dialog::backdrop`'s
+     hard-coded `rgba(12, 26, 25, 0.45)`) is a page-dimming scrim that has to stay a literal colour
+     regardless of theme anyway - `::backdrop` does not inherit custom properties from the document
+     at all, the same limitation `--ago-paper-rgb`'s comment above works around for an ordinary
+     element. A scrim that darkens whatever is behind it needs no theme-specific value to do its job. */
   --ago-ink-deep: #0c1a19;         /* 17.15:1 on --ago-mint - the landing's own dark/mint pairing, inverted */
   /* Derived: `--ago-ink-soft` lightened until it still clears 4.5:1 on white, for placeholder text
      that must read as "not a value" without becoming unreadable. Measured 5.42:1 on --ago-surface. */
@@ -60,6 +92,11 @@
   --ago-surface: #ffffff;          /* panels, table bodies, form controls */
   --ago-surface-raised: #fdfcfa;   /* a panel that sits on another panel */
   --ago-surface-sunken: #f1efe9;   /* table headers, the shell's own inset areas, disabled controls */
+  /* `--ago-paper`'s own R,G,B, for the one place (`shell.css`'s sticky header) that needs the paper
+     colour *with* alpha - `rgba()` cannot take a custom property as its whole colour argument, only
+     as channels inside it, which is the same constraint `--ago-ink-deep`'s comment below notes for
+     `::backdrop`. Redeclared alongside `--ago-paper` in both dark blocks, and nowhere else. */
+  --ago-paper-rgb: 251, 250, 247;
 
   /* --- Lines ---------------------------------------------------------------------------------
      `--ago-line` is the landing's `--line`, carried over unchanged - it is a decorative separator
@@ -78,6 +115,13 @@
      screen, the active navigation item, links, and the focus ring. */
   --ago-brand: #4b3aff;            /* 6.27:1 against white, both directions - safe as a fill and as text */
   --ago-brand-deep: #3324c9;       /* 9.39:1 on --ago-surface - hover, and link text */
+  /* `--ago-brand-hover` didn't need to exist in light mode - `--ago-brand-deep` covered the button's
+     hover fill AND the link/active-nav text colour, because "darker" satisfies both a white-text
+     fill and body text on a light surface at once. The dark palette below is where the two jobs
+     split (see that block's own comment) - the token is declared here, aliased to `--ago-brand-deep`,
+     purely so light mode has zero behavioural change and `components.css` can read one name
+     regardless of theme. */
+  --ago-brand-hover: var(--ago-brand-deep);
   --ago-brand-tint: #ecebff;       /* 8.00:1 with --ago-brand-deep on top */
   --ago-lavender: #d9d6ff;         /* decoration only - halos, dividers inside tinted areas */
   /* The landing's `#8f8ac9` is 3.16:1 on white: fine as syntax colouring on its near-black code
@@ -179,4 +223,120 @@
 
   --ago-z-header: 40;   /* the landing's own sticky nav z-index */
   --ago-z-dialog: 100;
+}
+
+/* ===========================================================================================
+   DARK THEME - reverses `adr/0030` point 4 (this header's own addendum, above, has the full
+   reasoning and the activation shape). Only colour and elevation change; every spacing, radius,
+   type-scale, motion and layout token above is unchanged, because none of them encodes a colour.
+
+   Design of the palette, stated once here rather than per token: dark backgrounds carry the same
+   cool indigo undertone `--ago-ink` already has (hue ~248, so the identity survives the inversion -
+   "ink" and "paper" trade roles rather than the whole system going neutral grey); dark text carries
+   the same warm undertone the light `--ago-paper` family has, for the same reason in reverse. The
+   four background tokens keep the light palette's own relative order rather than being re-invented -
+   light theme's four are, darkest to lightest, `--ago-surface-sunken` < `--ago-paper` <
+   `--ago-surface-raised` < `--ago-surface` (all four are close, off-white variations); the dark
+   values below preserve that exact ordering, just recomputed at low lightness instead of high, so
+   "sunken reads as recessed" and "raised sits above a panel" mean the same thing in both themes.
+
+   `--ago-brand` and `--ago-brand-deep` needed real rework, not just relighting, and it is worth
+   being explicit about why: each one used to do two jobs at once - a white-text fill (button,
+   skip-link, glyph for `--ago-brand`; the button's hover fill for `--ago-brand-deep`) *and* a
+   colour that sits directly on the page as a ring or as text (`--ago-brand`'s focus ring;
+   `--ago-brand-deep`'s link/active-nav text). On a light page both jobs want the same thing - dark
+   enough to read against white/paper - so one token covered both without tension. On a near-black
+   page they want opposite things: a fill needs to stay dark enough that white text on it still
+   clears 4.5:1 (relative luminance <= ~0.18), while text/a ring sitting *on* the dark page needs to
+   be light enough to be seen at all (>= ~0.20 luminance against this palette's `--ago-paper`) - two
+   luminance ranges that do not overlap, not a tuning problem. `--ago-brand-deep` keeps the text job;
+   a new `--ago-brand-hover` (declared in the light `:root` above too, aliased there to
+   `--ago-brand-deep` so light mode's behaviour is byte-for-byte unchanged) takes the fill job.
+   `--ago-brand` itself keeps both its jobs, because its ring use only has to clear 3:1, not 4.5:1,
+   and one hue-245 lightness clears both bars with real margin - measured below.
+
+   Every pair is measured the same way the light palette states it is (WCAG 2.1 relative luminance,
+   a throwaway Node script, no library - not eyeballed), against every background it actually
+   appears on in `src/components/components.css` / `src/shell/shell.css` / `src/workspace/workspace.css`. */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    /* Ink */
+    --ago-ink: #f5f4ef;              /* 16.86:1 on --ago-paper, 14.49:1 on --ago-surface */
+    --ago-ink-soft: #b0b0bf;         /*  8.67:1 on --ago-paper,  7.46:1 on --ago-surface */
+    --ago-ink-faint: #9191a1;        /*  5.14:1 on --ago-surface - placeholder text */
+
+    /* Paper - relative order preserved from light: sunken < paper < raised < surface (see block
+       comment above). */
+    --ago-paper: #13121c;
+    --ago-paper-rgb: 19, 18, 28;
+    --ago-surface: #22202f;
+    --ago-surface-raised: #1c1b28;
+    --ago-surface-sunken: #0e0d14;
+
+    /* Lines */
+    --ago-line: #323040;             /* decorative separator, no bar to clear */
+    --ago-line-strong: #787396;      /* 3.57:1 on --ago-surface, 4.15:1 on --ago-paper, 4.32:1 on --ago-surface-sunken, 3.79:1 on --ago-surface-raised */
+
+    /* Brand - see the block comment above for why `--ago-brand-hover` exists at all here. */
+    --ago-brand: #6052ff;            /* fill+ring, dual role: 5.06:1 with #fff on top (fill), 3.67:1 on --ago-paper / 3.15:1 on --ago-surface / 3.30:1 on --ago-brand-tint / 3.82:1 on --ago-surface-sunken (ring, 1.4.11) */
+    --ago-brand-deep: #c3beff;       /* text-only now: 9.22:1 on --ago-surface, 10.73:1 on --ago-paper, 9.65:1 on --ago-brand-tint */
+    --ago-brand-hover: #1400f5;      /* fill-only: 8.94:1 with #fff on top - darker than resting --ago-brand, same "hover deepens" direction light mode uses */
+    --ago-brand-tint: #1d1a38;
+    --ago-lavender: #413a72;         /* decoration only, mirrors light's --ago-lavender role */
+    --ago-lavender-dim: #9089c9;     /* 5.02:1 on --ago-surface, 5.26:1 on --ago-brand-tint - borders/dots, non-text */
+    --ago-lavender-ink: #c9c5f2;     /* 9.69:1 on --ago-surface, 6.15:1 on --ago-lavender, 10.14:1 on --ago-brand-tint - anything with a glyph */
+
+    /* Status - --ago-live is unchanged: it is a decorative dot beside a real text label in both
+       themes (the light palette's own comment already exempts it from a text bar on the same
+       grounds), and its halo (`components.css`'s `rgba(51, 209, 122, 0.22)`) is unaffected. */
+    --ago-mint: #0f2b22;
+    --ago-success: #7fe0af;          /* 10.02:1 on --ago-surface, 9.49:1 on --ago-mint */
+    --ago-danger-tint: #3a1613;
+    --ago-danger: #ff8a80;           /* 6.99:1 on --ago-surface, 7.05:1 on --ago-danger-tint */
+
+    /* Elevation - a shadow's darkening reads far less on a page that is already near-black, so
+       elevation here is carried mainly by the surface-lightness ramp above; these stay dark
+       (matching the surrounding page rather than fighting it) with opacity raised so the 1px
+       contact edge is still visible against a panel that is itself dark. Not a WCAG-checked pair -
+       box-shadow is decorative, not a text/boundary colour. */
+    --ago-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 16px -12px rgba(0, 0, 0, 0.6);
+    --ago-shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 28px -18px rgba(0, 0, 0, 0.65);
+    --ago-shadow-lg: 0 1px 1px rgba(0, 0, 0, 0.4), 0 20px 44px -24px rgba(0, 0, 0, 0.7);
+  }
+}
+
+/* The manual override - `data-theme="dark"` wins over `prefers-color-scheme` in either direction.
+   Same values as the block above; see this file's header comment for why the repetition is
+   deliberate rather than a mistake. */
+:root[data-theme="dark"] {
+  --ago-ink: #f5f4ef;
+  --ago-ink-soft: #b0b0bf;
+  --ago-ink-faint: #9191a1;
+
+  --ago-paper: #13121c;
+  --ago-paper-rgb: 19, 18, 28;
+  --ago-surface: #22202f;
+  --ago-surface-raised: #1c1b28;
+  --ago-surface-sunken: #0e0d14;
+
+  --ago-line: #323040;
+  --ago-line-strong: #787396;
+
+  --ago-brand: #6052ff;
+  --ago-brand-deep: #c3beff;
+  --ago-brand-hover: #1400f5;
+  --ago-brand-tint: #1d1a38;
+  --ago-lavender: #413a72;
+  --ago-lavender-dim: #9089c9;
+  --ago-lavender-ink: #c9c5f2;
+
+  --ago-mint: #0f2b22;
+  --ago-success: #7fe0af;
+  --ago-danger-tint: #3a1613;
+  --ago-danger: #ff8a80;
+
+  --ago-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 16px -12px rgba(0, 0, 0, 0.6);
+  --ago-shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 28px -18px rgba(0, 0, 0, 0.65);
+  --ago-shadow-lg: 0 1px 1px rgba(0, 0, 0, 0.4), 0 20px 44px -24px rgba(0, 0, 0, 0.7);
 }
