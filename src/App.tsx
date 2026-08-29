@@ -13,6 +13,7 @@ import { AdminConversationsPage } from "./pages/AdminConversationsPage.js";
 import { SearchConversationsPage } from "./pages/SearchConversationsPage.js";
 import { WidgetConfigPage } from "./pages/WidgetConfigPage.js";
 import { OfflineAutoReplyPage } from "./pages/OfflineAutoReplyPage.js";
+import { CannedResponsesPage } from "./pages/CannedResponsesPage.js";
 import { BillingPage } from "./pages/BillingPage.js";
 import { AccountDeletionPage } from "./pages/AccountDeletionPage.js";
 import { OwnerSitesPage } from "./owner/OwnerSitesPage.js";
@@ -132,6 +133,9 @@ export function App() {
         {/* `14-04`: a second settings screen on the identical pattern - `OfflineAutoReplyPage` gates
             itself on `site:configure` internally, exactly like the two routes above it. */}
         <Route path="/settings/auto-reply" element={<OfflineAutoReplyPage />} />
+        {/* `18-03`: a fourth settings screen, same pattern again - `CannedResponsesPage` gates itself
+            on `site:configure` internally, exactly like the two routes above it. */}
+        <Route path="/settings/canned-responses" element={<CannedResponsesPage />} />
         {/* `13-04`: a third settings screen, same pattern again - `BillingPage` gates itself on
             `site:configure` internally, exactly like the two routes above it. */}
         <Route path="/settings/billing" element={<BillingPage />} />

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Composer, type ComposerProps } from "./Composer.js";
-import { byText, interact, one, render, unmount } from "../testing/dom.js";
+import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
  * `11-08`: **`11-06`'s composer contract**, which until now was a doc comment and a live check.
@@ -28,6 +28,9 @@ function props(overrides: Partial<ComposerProps> = {}): ComposerProps {
     ...overrides,
   };
 }
+
+const REFUND_RESPONSE = { title: "Refund policy", body: "Refunds take three working days." };
+const GREETING_RESPONSE = { title: "Greeting", body: "Hi, how can I help?" };
 
 function keyDown(element: Element, key: string, init: KeyboardEventInit = {}): KeyboardEvent {
   const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init });
@@ -114,6 +117,166 @@ describe("the composer's keyboard contract", () => {
 
     await render(<Composer {...props({ draft: "hello" })} />);
     expect(byText<HTMLButtonElement>(container, "button", "Send")?.disabled).toBe(false);
+  });
+});
+
+describe("the canned-response picker", () => {
+  it("stays closed with an ordinary draft, even one containing a slash mid-sentence", async () => {
+    const container = await render(
+      <Composer {...props({ draft: "see docs/readme.md", cannedResponses: [REFUND_RESPONSE] })} />,
+    );
+
+    expect(container.querySelector("[role=listbox]")).toBeNull();
+  });
+
+  it("stays closed when the site has no canned responses, even with a leading slash", async () => {
+    const container = await render(<Composer {...props({ draft: "/refund", cannedResponses: [] })} />);
+
+    expect(container.querySelector("[role=listbox]")).toBeNull();
+  });
+
+  it("opens on a leading slash and lists every response with nothing typed after it", async () => {
+    const container = await render(
+      <Composer {...props({ draft: "/", cannedResponses: [REFUND_RESPONSE, GREETING_RESPONSE] })} />,
+    );
+
+    const options = all(container, "[role=option]").map((o) => o.textContent);
+    expect(options).toEqual(["Refund policy", "Greeting"]);
+  });
+
+  it("filters by title as the query grows", async () => {
+    const container = await render(
+      <Composer {...props({ draft: "/ref", cannedResponses: [REFUND_RESPONSE, GREETING_RESPONSE] })} />,
+    );
+
+    const options = all(container, "[role=option]").map((o) => o.textContent);
+    expect(options).toEqual(["Refund policy"]);
+  });
+
+  it("says so, rather than showing an empty list, when nothing matches", async () => {
+    const container = await render(
+      <Composer {...props({ draft: "/nothing-like-this", cannedResponses: [REFUND_RESPONSE] })} />,
+    );
+
+    expect(container.querySelector("[role=listbox]")).toBeNull();
+    expect(container.textContent).toContain("No canned response matches");
+  });
+
+  it("moves the highlight with ArrowDown/ArrowUp and never past either end", async () => {
+    const container = await render(
+      <Composer {...props({ draft: "/", cannedResponses: [REFUND_RESPONSE, GREETING_RESPONSE] })} />,
+    );
+    const textarea = one(container, "textarea");
+    const highlightedTitle = () => one(container, "[role=option][aria-selected=true]").textContent;
+
+    expect(highlightedTitle()).toBe("Refund policy");
+
+    await interact(() => keyDown(textarea, "ArrowDown"));
+    expect(highlightedTitle()).toBe("Greeting");
+
+    // The end stops rather than wraps - `conversationAfter` (`shortcuts.ts`) makes the identical
+    // choice for `J`/`K`, for the identical reason: a boundary the operator can feel.
+    await interact(() => keyDown(textarea, "ArrowDown"));
+    expect(highlightedTitle()).toBe("Greeting");
+
+    await interact(() => keyDown(textarea, "ArrowUp"));
+    expect(highlightedTitle()).toBe("Refund policy");
+
+    await interact(() => keyDown(textarea, "ArrowUp"));
+    expect(highlightedTitle()).toBe("Refund policy");
+  });
+
+  it("resets the highlight to the top match whenever the filter changes", async () => {
+    const p = props({ draft: "/", cannedResponses: [REFUND_RESPONSE, GREETING_RESPONSE] });
+    const container = await render(<Composer {...p} />);
+    const textarea = one(container, "textarea");
+
+    await interact(() => keyDown(textarea, "ArrowDown"));
+    expect(one(container, "[role=option][aria-selected=true]").textContent).toBe("Greeting");
+
+    // A new render with a narrower query, the same "the parent already applied the typed text" shape
+    // this file's other tests use for a controlled `draft` - `Composer` never edits it itself.
+    await render(<Composer {...p} draft="/ref" />);
+
+    expect(one(container, "[role=option][aria-selected=true]").textContent).toBe("Refund policy");
+  });
+
+  it("inserts the highlighted response on Enter, and does not send", async () => {
+    const p = props({ draft: "/ref", cannedResponses: [REFUND_RESPONSE, GREETING_RESPONSE] });
+    const container = await render(<Composer {...p} />);
+
+    let event: KeyboardEvent | null = null;
+    await interact(() => {
+      event = keyDown(one(container, "textarea"), "Enter");
+    });
+
+    expect(p.onDraftChange).toHaveBeenCalledWith("Refunds take three working days.");
+    expect(p.onSend).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("does nothing on Enter when the query matches nothing, rather than sending the literal query", async () => {
+    const p = props({ draft: "/nothing-like-this", cannedResponses: [REFUND_RESPONSE] });
+    const container = await render(<Composer {...p} />);
+
+    await interact(() => {
+      keyDown(one(container, "textarea"), "Enter");
+    });
+
+    expect(p.onDraftChange).not.toHaveBeenCalled();
+    expect(p.onSend).not.toHaveBeenCalled();
+  });
+
+  it("closes on Escape without inserting anything, via the same clear-the-draft path", async () => {
+    const p = props({ draft: "/ref", cannedResponses: [REFUND_RESPONSE] });
+    const container = await render(<Composer {...p} />);
+
+    await interact(() => {
+      keyDown(one(container, "textarea"), "Escape");
+    });
+
+    expect(p.onDraftChange).toHaveBeenCalledWith("");
+    expect(p.onSend).not.toHaveBeenCalled();
+  });
+
+  it("inserts on a pointer click too, without losing focus first", async () => {
+    const p = props({ draft: "/", cannedResponses: [REFUND_RESPONSE, GREETING_RESPONSE] });
+    const container = await render(<Composer {...p} />);
+    const option = byText(container, "[role=option]", "Greeting");
+
+    let event: MouseEvent | null = null;
+    await interact(() => {
+      event = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+      option.dispatchEvent(event);
+    });
+
+    expect(p.onDraftChange).toHaveBeenCalledWith("Hi, how can I help?");
+    // `preventDefault` on `mousedown` is what stops the browser's own default focus-and-blur handling
+    // from firing before this component's own handler does - see `Composer.tsx`'s own remarks.
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("names the picker's own keys on the textarea via ARIA, only while it is open", async () => {
+    const closed = await render(<Composer {...props({ draft: "", cannedResponses: [REFUND_RESPONSE] })} />);
+    const closedTextarea = one(closed, "textarea");
+    expect(closedTextarea.getAttribute("aria-expanded")).toBe("false");
+    expect(closedTextarea.hasAttribute("aria-controls")).toBe(false);
+
+    const open = await render(<Composer {...props({ draft: "/ref", cannedResponses: [REFUND_RESPONSE] })} />);
+    const openTextarea = one(open, "textarea");
+    expect(openTextarea.getAttribute("aria-expanded")).toBe("true");
+    expect(openTextarea.getAttribute("aria-controls")).toBe(one(open, "[role=listbox]").id);
+    expect(openTextarea.getAttribute("aria-activedescendant")).toBe(one(open, "[role=option]").id);
+  });
+
+  it("advertises the trigger in the hint only when the site has something to offer", async () => {
+    const withResponses = await render(
+      <Composer {...props({ draft: "", cannedResponses: [REFUND_RESPONSE] })} />,
+    );
+    expect(withResponses.textContent).toContain("Type / to insert a canned response");
+
+    const withoutResponses = await render(<Composer {...props({ draft: "", cannedResponses: [] })} />);
+    expect(withoutResponses.textContent).not.toContain("Type / to insert a canned response");
   });
 });
 

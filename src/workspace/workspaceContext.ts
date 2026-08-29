@@ -1,6 +1,7 @@
 import { useOutletContext } from "react-router-dom";
 import type { RefObject } from "react";
 import type { ConversationSummaryDto } from "../realtime/protocol/types.js";
+import type { CannedResponseDto } from "../api/cannedResponsesApi.js";
 
 /**
  * `11-06`: what the workspace layout hands down to whichever conversation is open.
@@ -51,6 +52,20 @@ export interface WorkspaceOutletContext {
    * nothing.
    */
   composerRef: RefObject<HTMLTextAreaElement | null>;
+  /**
+   * `18-03`: the site's canned-response library, fetched once when the workspace mounts (the layout
+   * already fetches the queue the same way) rather than once per conversation opened - the library
+   * does not change while an operator is mid-shift any more the queue's own site-wide settings do, and
+   * a per-open fetch would be a request the picker pays for on every conversation switch for a value
+   * that is, in practice, the same answer every time.
+   *
+   * Empty (not `null`) before the fetch resolves and on a load failure alike - the composer's picker
+   * simply has nothing to offer in either case, the same "no error surfaced, just nothing to insert"
+   * posture the item's Scope implies by treating this as *speed*, not a feature an operator depends on
+   * being told about when it fails. The settings screen (`CannedResponsesPage`) is where a real load
+   * error is surfaced; this is not that screen.
+   */
+  cannedResponses: readonly CannedResponseDto[];
 }
 
 export function useWorkspace(): WorkspaceOutletContext {

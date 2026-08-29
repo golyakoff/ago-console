@@ -85,7 +85,15 @@ describe("the console shell for an active site with Locale = Ru", () => {
     expect(container.querySelector(".ago-skip-link")?.textContent).toBe("Перейти к содержимому");
     expect(container.querySelector(".ago-shell__product")?.textContent).toBe("Консоль оператора");
     const navLabels = all(container, ".ago-shell__nav a").map((a) => a.textContent?.trim());
-    expect(navLabels).toEqual(["Диалоги", "Все диалоги", "Поиск", "Внешний вид виджета", "Автоответ офлайн", "Оплата"]);
+    expect(navLabels).toEqual([
+      "Диалоги",
+      "Все диалоги",
+      "Поиск",
+      "Внешний вид виджета",
+      "Автоответ офлайн",
+      "Готовые ответы",
+      "Оплата",
+    ]);
     expect(container.querySelector(".ago-shell__identity button")?.textContent).toBe("Выйти");
   });
 
@@ -123,6 +131,7 @@ describe("the console shell for an active site with no Locale set", () => {
       "Search",
       "Widget appearance",
       "Offline auto-reply",
+      "Canned responses",
       "Billing",
     ]);
     expect(container.querySelector(".ago-shell__identity button")?.textContent).toBe("Sign out");

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Outlet, useMatch, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
+import { usePermissions } from "../auth/PermissionsContext.js";
 import { useOperatorConnection } from "../realtime/OperatorConnectionContext.js";
 import { ConnectionStateBadge } from "../realtime/ConnectionStateBadge.js";
 import { linkStatusOf } from "../realtime/linkStatus.js";
 import { fetchOperatorQueue, markConversationRead } from "../api/conversationsApi.js";
+import { fetchCannedResponses, type CannedResponseDto } from "../api/cannedResponsesApi.js";
 import type { OperatorQueueResponse } from "../realtime/protocol/types.js";
 import { Alert } from "../components/Alert.js";
 import { Button } from "../components/Button.js";
@@ -93,10 +95,16 @@ const BASE_DOCUMENT_TITLE = "AGO Chat operator console";
  */
 export function WorkspaceLayout() {
   const { user } = useAuth();
+  const { siteId } = usePermissions();
   const { connection, connectionState, serverDraining } = useOperatorConnection();
   const strings = useStrings();
   const navigate = useNavigate();
   const [queue, setQueue] = useState<OperatorQueueResponse | null>(null);
+  // `18-03`: fetched once, here, rather than by `ConversationPage`/`Composer` on every conversation
+  // opened - `workspaceContext.ts`'s own remarks on `cannedResponses` explain why. Empty rather than
+  // `null` before the fetch resolves and on a load failure alike: the composer's picker treats "not
+  // loaded yet" and "nothing configured" identically, since either way it has nothing to offer.
+  const [cannedResponses, setCannedResponses] = useState<CannedResponseDto[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [attention, setAttention] = useState<ReadStateMap>({});
   const [announcement, setAnnouncement] = useState<string | null>(null);
@@ -189,6 +197,28 @@ export function WorkspaceLayout() {
     const interval = setInterval(refreshQueue, WAITING_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [refreshQueue]);
+
+  // `18-03`: fetched once per mount, no refresh interval - unlike the queue, this list has no reason
+  // to change while an operator is mid-shift, and `CannedResponsesPage`'s own save does not push a
+  // live update here (`Site.UpdateCannedResponses`'s own remarks on why that write raises no event to
+  // push). An operator who edits the library in one tab sees it on this screen after their next
+  // reload, which is the same staleness window `GetWidgetConfigHandler`'s own admin-read precedent
+  // already accepts for a low-frequency settings value.
+  useEffect(() => {
+    const accessToken = user?.access_token;
+    if (!accessToken || !siteId) {
+      return;
+    }
+
+    fetchCannedResponses(accessToken, siteId)
+      .then(setCannedResponses)
+      .catch((err: unknown) => {
+        // Never surfaced here: a composer that cannot offer canned responses today is still a working
+        // composer, and an error banner for a convenience feature would outweigh the defect. A real
+        // load failure is still visible - on `/settings/canned-responses`, which does surface it.
+        console.warn("Failed to load canned responses", err);
+      });
+  }, [user?.access_token, siteId]);
 
   // `4-02`'s live assignment push. Still refetches the whole queue rather than merging one row in -
   // `5-07`'s own judgement for a list this small, unchanged - and additionally records the arrival
@@ -321,8 +351,8 @@ export function WorkspaceLayout() {
     null;
 
   const outletContext: WorkspaceOutletContext = useMemo(
-    () => ({ conversation, now, timeZone, refreshQueue, markRead, composerRef }),
-    [conversation, now, timeZone, refreshQueue, markRead],
+    () => ({ conversation, now, timeZone, refreshQueue, markRead, composerRef, cannedResponses }),
+    [conversation, now, timeZone, refreshQueue, markRead, cannedResponses],
   );
 
   const link = linkStatusOf(connectionState, serverDraining, strings);

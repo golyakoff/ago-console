@@ -111,7 +111,7 @@ export function ConversationPage() {
   const { hasPermission, siteId } = usePermissions();
   const strings = useStrings();
   const { connection, connectionState } = useOperatorConnection();
-  const { conversation, now, timeZone, refreshQueue, markRead, composerRef } = useWorkspace();
+  const { conversation, now, timeZone, refreshQueue, markRead, composerRef, cannedResponses } = useWorkspace();
   const [messages, setMessages] = useState<MessageDto[]>([]);
   const [nextBeforeSequence, setNextBeforeSequence] = useState<number | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -691,6 +691,7 @@ export function ConversationPage() {
             uploadProgress={uploadProgress}
             uploadError={uploadError}
             inputRef={composerRef}
+            cannedResponses={cannedResponses}
           />
         </div>
         )}

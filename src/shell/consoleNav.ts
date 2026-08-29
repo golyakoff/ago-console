@@ -36,6 +36,10 @@ export function buildTenantNavItems(
     items.push({ to: "/settings/widget", label: strings.navWidgetAppearance });
     // `14-04`: same permission, same place - one more tenant self-service setting.
     items.push({ to: "/settings/auto-reply", label: strings.navOfflineAutoReply });
+    // `18-03`: same permission, same place - one more tenant self-service setting, and a genuinely
+    // separate concept from the auto-reply screen just above it (`CannedResponse`'s own doc comment,
+    // `ago-chat`, has the reasoning).
+    items.push({ to: "/settings/canned-responses", label: strings.navCannedResponses });
     // `13-04`: same permission, same place - the billing screen `13-02`'s checkout endpoint and
     // `13-03`'s cancel/seat-change endpoints already gate on `site:configure`.
     items.push({ to: "/settings/billing", label: strings.navBilling });

@@ -463,6 +463,51 @@ a.ago-list__row--active:hover {
   color: var(--ago-ink-soft);
 }
 
+/* `18-03`: the canned-response picker. In normal flow rather than floating/absolutely positioned -
+   the composer already sits at the bottom of its column with nothing below it but this hint, so a
+   floating popup would buy overlap-avoidance this layout does not need at the cost of the positioning
+   logic every floating element carries. */
+.ago-composer__picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-1);
+  padding: var(--ago-space-2);
+  border: 1px solid var(--ago-line);
+  border-radius: var(--ago-radius-md);
+  background: var(--ago-surface);
+}
+
+.ago-composer__picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-1);
+  max-height: 12.5rem;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ago-composer__picker-option {
+  padding: var(--ago-space-1) var(--ago-space-2);
+  border-radius: var(--ago-radius-sm);
+  cursor: pointer;
+}
+
+/* The keyboard highlight and the pointer `:hover` state share this rule on purpose: `↑`/`↓` and
+   moving the mouse are two ways to reach the same "this one is about to be inserted" fact, and two
+   different treatments would suggest they mean different things. */
+.ago-composer__picker-option--active,
+.ago-composer__picker-option:hover {
+  background: var(--ago-brand-tint);
+}
+
+.ago-composer__picker-hint {
+  font-size: var(--ago-text-xs);
+  color: var(--ago-ink-soft);
+  margin: 0;
+}
+
 /* --- The visitor panel -------------------------------------------------------------------------- */
 
 .ago-aside__title {

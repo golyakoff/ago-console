@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ClipboardEvent,
@@ -12,6 +13,7 @@ import { Textarea } from "../components/Textarea.js";
 import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
 import { useStrings } from "../i18n/StringsContext.js";
+import type { CannedResponseDto } from "../api/cannedResponsesApi.js";
 
 export interface ComposerProps {
   draft: string;
@@ -29,11 +31,25 @@ export interface ComposerProps {
    * have no workspace to get one from - and because a composer that cannot be focused from a
    * keyboard shortcut is still a working composer. */
   inputRef?: RefObject<HTMLTextAreaElement | null>;
+  /** `18-03`: the site's canned-response library, or `[]` while it is loading or when the site has
+   * none - see `workspaceContext.ts`'s own remarks on why this is never `null`. Optional, defaulted to
+   * `[]`, for the identical reason `inputRef` is optional: this component's own tests mount it with
+   * props alone and a picker with nothing to offer is still a working composer. */
+  cannedResponses?: readonly CannedResponseDto[];
 }
 
 /** How tall the textarea is allowed to grow before it starts scrolling instead. Eight lines is about
  * a paragraph - past that the composer would start eating the thread it is meant to serve. */
 const MAX_COMPOSER_HEIGHT_PX = 200;
+
+/** `18-03`: the picker's own listbox id, and its options' id prefix - both referenced from the
+ * textarea's `aria-controls`/`aria-activedescendant` below, so a screen reader is told which list is
+ * open and which option is current without moving focus off the textarea itself. */
+const CANNED_RESPONSES_LISTBOX_ID = "ago-canned-responses-listbox";
+
+function cannedResponseOptionId(index: number): string {
+  return `ago-canned-response-option-${index}`;
+}
 
 /**
  * `11-06`: a real composer.
@@ -69,6 +85,32 @@ const MAX_COMPOSER_HEIGHT_PX = 200;
  * `Button` that fabricates a file dialog - it is still the element that opens the picker, still
  * focusable, and still the thing assistive technology understands. The `Button` beside it is a label
  * for it in the plain sense of the word.
+ *
+ * ## The canned-response picker (`18-03`)
+ *
+ * Typing `/` as the **first character** of the draft opens a filterable list of the site's canned
+ * responses; typing more filters it by title, `↑`/`↓` move the highlight, `Enter` inserts the
+ * highlighted response's text in place of the `/query` and closes the picker, and `Escape` closes it -
+ * for free, because it is already what Escape does to the whole draft, and a draft that is only ever
+ * `/query` at this point is exactly what "clear the draft" already means.
+ *
+ * **Why `/` as the first character, not anywhere in the message.** This is `11-06`'s Enter/Shift+Enter
+ * contract's own kind of decision: a small, fixed trigger an operator's hands learn once, not a
+ * command language. Restricting it to the first character means a visitor-facing sentence that happens
+ * to *contain* a slash later on (a URL, a fraction) is never misread as a command, at the cost of not
+ * being able to open the picker mid-sentence - a real, deliberate trade-off, not an oversight, and the
+ * same trade every chat product with slash commands (Slack among them) makes for the same reason.
+ *
+ * **Why this needs no change to `useShortcuts`/`shortcuts.ts`.** Every key here is handled inside this
+ * component's own `onKeyDown`, on the textarea itself - the exact element `isTypingTarget`
+ * (`shortcuts.ts`) already excludes from the workspace's global `J`/`K`/`C`/`Esc`/`?` catalogue. `/`,
+ * the letters that follow it, and the arrow keys were never workspace shortcuts to begin with, so there
+ * is nothing to collide with and nothing to register.
+ *
+ * **Why the picker is silent, not gated by permission or shown as an error, when there is nothing to
+ * offer.** `cannedResponses` defaults to `[]` for a site with none configured yet and while the
+ * workspace's own fetch is still in flight (`workspaceContext.ts`) - typing `/` in either case simply
+ * types a literal `/`, which is correct: there is nothing broken to report, only nothing to show.
  */
 export function Composer({
   draft,
@@ -80,6 +122,7 @@ export function Composer({
   uploadProgress,
   uploadError,
   inputRef,
+  cannedResponses = [],
 }: ComposerProps) {
   const strings = useStrings();
   // One ref object, either the caller's or this component's own. Not two refs kept in sync: the
@@ -91,6 +134,34 @@ export function Composer({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [tooManyFiles, setTooManyFiles] = useState(false);
+  const [highlightIndex, setHighlightIndex] = useState(0);
+
+  // `18-03`: the picker is a pure function of `draft` and `cannedResponses` - there is deliberately no
+  // "is the picker open" state of its own to fall out of sync with the draft it is reading.
+  const pickerOpen = cannedResponses.length > 0 && draft.startsWith("/");
+  const pickerQuery = pickerOpen ? draft.slice(1).trim().toLowerCase() : "";
+  const filteredResponses = useMemo(
+    () =>
+      pickerOpen
+        ? cannedResponses.filter((response) => response.title.toLowerCase().includes(pickerQuery))
+        : [],
+    [pickerOpen, pickerQuery, cannedResponses],
+  );
+  // Clamped rather than reset-on-every-render via a second `useEffect`: the highlight only needs to
+  // stay in range as the filtered list shrinks or grows, and clamping the read is one calculation
+  // instead of one more effect with its own dependency array to get wrong.
+  const activeIndex = Math.min(highlightIndex, Math.max(filteredResponses.length - 1, 0));
+
+  useEffect(() => {
+    // A fresh filter starts highlighting the top match - the same "cold start always does something
+    // sensible" reasoning `conversationAfter` (`shortcuts.ts`) states for `J`/`K` with nothing selected.
+    setHighlightIndex(0);
+  }, [pickerQuery]);
+
+  const insertCannedResponse = (response: CannedResponseDto) => {
+    onDraftChange(response.body);
+    textareaRef.current?.focus();
+  };
 
   // Grow with the content up to a cap. Reset to `auto` first, or the height only ever ratchets
   // upward: `scrollHeight` of an element already sized to its content is that same size, so a
@@ -112,9 +183,41 @@ export function Composer({
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Escape") {
+      // Also what closes the picker: `draft` becomes `""`, `pickerOpen` is a pure function of it, and
+      // there is nothing further to do - see this component's own doc comment.
       onDraftChange("");
       onRemoveAttachment();
       return;
+    }
+
+    if (pickerOpen) {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setHighlightIndex((i) => Math.min(i + 1, Math.max(filteredResponses.length - 1, 0)));
+        return;
+      }
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setHighlightIndex((i) => Math.max(i - 1, 0));
+        return;
+      }
+
+      if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+        event.preventDefault();
+        const chosen = filteredResponses[activeIndex];
+        // No match yet (still typing a query nothing fits) - Enter does nothing rather than sending
+        // the literal `/query` text, which is never what an operator meant by pressing it here.
+        if (chosen) {
+          insertCannedResponse(chosen);
+        }
+        return;
+      }
+
+      // Any other key - typing more of the filter, Backspace, Tab - is left to fall through below and
+      // behaves exactly as it would with the picker closed (Backspace can shrink `draft` below one
+      // character and close the picker on its own; that is `pickerOpen`'s own derivation doing its
+      // job, not a case this handler has to name).
     }
 
     if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) {
@@ -208,6 +311,20 @@ export function Composer({
           placeholder={strings.composerPlaceholder}
           aria-label={strings.composerAriaLabel}
           aria-describedby="ago-composer-hint"
+          // `18-03`: the standard editable-combobox-with-a-popup-listbox ARIA shape, applied to the
+          // textarea that already exists rather than a separate input - `role="combobox"` plus
+          // `aria-controls`/`aria-expanded` name the popup, and `aria-activedescendant` names the
+          // current option *without moving DOM focus off the textarea*, which is what lets typing to
+          // filter keep working while a screen reader tracks the highlight. All three are `undefined`
+          // (rendering no attribute at all) while the picker is closed, so an ordinary draft is an
+          // ordinary textarea.
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={pickerOpen}
+          aria-controls={pickerOpen ? CANNED_RESPONSES_LISTBOX_ID : undefined}
+          aria-activedescendant={
+            pickerOpen && filteredResponses[activeIndex] ? cannedResponseOptionId(activeIndex) : undefined
+          }
         />
 
         <div className="ago-composer__actions">
@@ -238,8 +355,51 @@ export function Composer({
         </div>
       </div>
 
+      {pickerOpen && (
+        <div className="ago-composer__picker">
+          {filteredResponses.length === 0 ? (
+            <p className="ago-meta">{strings.composerCannedResponsesNoMatch}</p>
+          ) : (
+            <ul
+              className="ago-composer__picker-list"
+              role="listbox"
+              id={CANNED_RESPONSES_LISTBOX_ID}
+              aria-label={strings.composerCannedResponsesListAriaLabel}
+            >
+              {filteredResponses.map((response, index) => (
+                <li
+                  // The response's title is not a stable id (nothing stops two rows sharing one on
+                  // the settings screen), so the position in this render's own filtered list is what
+                  // this option is keyed and identified by - consistent with `activeIndex` itself
+                  // being an index into the same array.
+                  key={index}
+                  id={cannedResponseOptionId(index)}
+                  role="option"
+                  aria-selected={index === activeIndex}
+                  className={`ago-composer__picker-option${index === activeIndex ? " ago-composer__picker-option--active" : ""}`}
+                  // `onMouseDown`, not `onClick`: a click blurs the textarea before its own `onClick`
+                  // fires, which would close the picker (its derivation reads `draft`, which is still
+                  // unchanged at that point) before this handler runs. `mousedown` fires first, so
+                  // `preventDefault` here stops the blur from ever happening and the textarea keeps
+                  // focus and its `aria-activedescendant` straight through the insert - the pointer
+                  // route to the same insert the keyboard path uses, not a second implementation of it.
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    insertCannedResponse(response);
+                  }}
+                >
+                  {response.title}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="ago-composer__picker-hint">{strings.composerCannedResponsesInsertHint}</p>
+        </div>
+      )}
+
       <p className="ago-composer__hint" id="ago-composer-hint">
         {strings.composerHint}
+        {!pickerOpen && cannedResponses.length > 0 && ` · ${strings.composerCannedResponsesAvailableHint}`}
       </p>
     </div>
   );

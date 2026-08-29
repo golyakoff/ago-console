@@ -8,6 +8,7 @@ import { OperatorShell } from "../shell/OperatorShell.js";
 import { AdminConversationsPage } from "../pages/AdminConversationsPage.js";
 import { WidgetConfigPage } from "../pages/WidgetConfigPage.js";
 import { OfflineAutoReplyPage } from "../pages/OfflineAutoReplyPage.js";
+import { CannedResponsesPage } from "../pages/CannedResponsesPage.js";
 import { all, byText, render, unmount } from "../testing/dom.js";
 
 /**
@@ -38,6 +39,7 @@ const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 const conversationsApi = vi.hoisted(() => ({ fetchAllConversationsForSite: vi.fn() }));
 const widgetConfigApi = vi.hoisted(() => ({ fetchWidgetConfig: vi.fn(), updateWidgetConfig: vi.fn() }));
 const offlineAutoReplyApi = vi.hoisted(() => ({ fetchOfflineAutoReply: vi.fn(), updateOfflineAutoReply: vi.fn() }));
+const cannedResponsesApi = vi.hoisted(() => ({ fetchCannedResponses: vi.fn(), updateCannedResponses: vi.fn() }));
 // `13-07`: `PermissionsProvider` now calls this before `fetchMyPermissions` - unmocked, it would hit
 // a real `fetch` and every scenario below (all of them single-tenant) would never reach
 // `fetchMyPermissions` at all. `grants`/`beforeEach` below seed the single-tenant default; the
@@ -60,6 +62,12 @@ vi.mock("../api/offlineAutoReplyApi.js", async () => {
   const actual =
     await vi.importActual<typeof import("../api/offlineAutoReplyApi.js")>("../api/offlineAutoReplyApi.js");
   return { ...actual, ...offlineAutoReplyApi };
+});
+vi.mock("../api/cannedResponsesApi.js", async () => {
+  // Same reasoning again - CannedResponsesError is a real class the page does `instanceof` against.
+  const actual =
+    await vi.importActual<typeof import("../api/cannedResponsesApi.js")>("../api/cannedResponsesApi.js");
+  return { ...actual, ...cannedResponsesApi };
 });
 
 const SITE_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
@@ -129,6 +137,7 @@ beforeEach(() => {
     locale: "En",
   });
   offlineAutoReplyApi.fetchOfflineAutoReply.mockResolvedValue({ enabled: false, fallbackReply: "", rules: [] });
+  cannedResponsesApi.fetchCannedResponses.mockResolvedValue([]);
 });
 
 afterEach(async () => {
@@ -155,6 +164,7 @@ describe("the operator navigation", () => {
       "Search",
       "Widget appearance",
       "Offline auto-reply",
+      "Canned responses",
       "Billing",
     ]);
   });
@@ -217,6 +227,7 @@ describe("the operator navigation", () => {
       "Search",
       "Widget appearance",
       "Offline auto-reply",
+      "Canned responses",
       "Billing",
       "Platform sites",
     ]);
@@ -263,6 +274,7 @@ describe("a gated page reached directly by URL", () => {
     ["/admin", <AdminConversationsPage key="admin" />],
     ["/settings/widget", <WidgetConfigPage key="widget" />],
     ["/settings/auto-reply", <OfflineAutoReplyPage key="auto-reply" />],
+    ["/settings/canned-responses", <CannedResponsesPage key="canned-responses" />],
   ])("renders %s in the shell's full width, the same as the workspace routes", async (path, page) => {
     grants(["site:configure"]);
 
@@ -340,6 +352,26 @@ describe("a gated page reached directly by URL", () => {
 
     expect(container.textContent).not.toContain("You do not have permission");
     expect(widgetConfigApi.fetchWidgetConfig).toHaveBeenCalledWith("token", SITE_ID);
+    expect(byText(container, "button", "Save")).not.toBeNull();
+  });
+
+  it("refuses the canned-responses form, and does not load the site's library", async () => {
+    grants(["conversation:read"]);
+
+    const container = await render(pageOnly("/settings/canned-responses", <CannedResponsesPage />));
+
+    expect(container.textContent).toContain("You do not have permission to configure this site's canned responses.");
+    expect(container.querySelector("form")).toBeNull();
+    expect(cannedResponsesApi.fetchCannedResponses).not.toHaveBeenCalled();
+  });
+
+  it("renders the canned-responses form for an operator who holds the permission", async () => {
+    grants(["site:configure"]);
+
+    const container = await render(pageOnly("/settings/canned-responses", <CannedResponsesPage />));
+
+    expect(container.textContent).not.toContain("You do not have permission");
+    expect(cannedResponsesApi.fetchCannedResponses).toHaveBeenCalledWith("token", SITE_ID);
     expect(byText(container, "button", "Save")).not.toBeNull();
   });
 });

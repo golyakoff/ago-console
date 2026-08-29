@@ -29,6 +29,9 @@ export interface ConsoleStrings {
   navAllConversations: string;
   navWidgetAppearance: string;
   navOfflineAutoReply: string;
+  /** `18-03`: `site:configure`-gated, sits beside `navWidgetAppearance`/`navOfflineAutoReply` in
+   * `consoleNav.ts` - the same permission group, one more tenant self-service screen. */
+  navCannedResponses: string;
   navPlatformSites: string;
   /** `16-02`: gated on `site:erase`, deliberately separate from the `site:configure` block above -
    * the backlog item's own scope note ("a single boolean that destroys a business is a plausible case
@@ -365,6 +368,48 @@ export interface ConsoleStrings {
   autoReplyValidationKeywordTooLongSuffix: string;
   autoReplyValidationReplyTooLongPrefix: string;
   autoReplyValidationReplyTooLongSuffix: string;
+
+  // `18-03`: CannedResponsesPage - the same list-editor shape `OfflineAutoReplyPage` established just
+  // above (one blank row to type into, dropped on save), reused for a genuinely different concept -
+  // see `CannedResponse`'s own doc comment (`ago-chat`) for why this is not that page's rules reused.
+  cannedResponsesForbidden: string;
+  cannedResponsesDescription: string;
+  cannedResponsesLoadingLabel: string;
+  cannedResponsesLoadError: string;
+  cannedResponsesSubmitError: string;
+  cannedResponsesPanelTitle: string;
+  cannedResponsesListLegend: string;
+  cannedResponsesListIntro: string;
+  /** `${cannedResponsesTitleLabelPrefix} ${index + 1}` - a response row's two field labels, one per
+   * row, the same composition `autoReplyKeywordLabelPrefix` uses. */
+  cannedResponsesTitleLabelPrefix: string;
+  cannedResponsesTitlePlaceholder: string;
+  cannedResponsesBodyLabelPrefix: string;
+  cannedResponsesBodyPlaceholder: string;
+  cannedResponsesRemoveButton: string;
+  /** `${cannedResponsesRemoveButtonAriaPrefix} ${index + 1}` - the row-numbering composition
+   * `autoReplyRemoveButtonAriaPrefix` uses, for this button's own accessible name. */
+  cannedResponsesRemoveButtonAriaPrefix: string;
+
+  // cannedResponsesValidation.ts - the same "pure function, `strings: ConsoleStrings = en` parameter"
+  // shape `offlineAutoReplyValidation.ts` uses, for the identical reason (runs from a submit handler).
+  cannedResponsesValidationTitleRequired: string;
+  cannedResponsesValidationBodyRequiredPrefix: string;
+  cannedResponsesValidationBodyRequiredSuffix: string;
+  cannedResponsesValidationTitleTooLongPrefix: string;
+  cannedResponsesValidationTitleTooLongSuffix: string;
+  cannedResponsesValidationBodyTooLongPrefix: string;
+  cannedResponsesValidationBodyTooLongSuffix: string;
+  cannedResponsesValidationTooManyPrefix: string;
+  cannedResponsesValidationTooManySuffix: string;
+
+  // Composer's canned-response picker (`18-03`). Shown only when the site has at least one canned
+  // response to offer - see `Composer.tsx`'s own remarks for why advertising an empty feature is
+  // worse than saying nothing.
+  composerCannedResponsesAvailableHint: string;
+  composerCannedResponsesListAriaLabel: string;
+  composerCannedResponsesNoMatch: string;
+  composerCannedResponsesInsertHint: string;
 
   // `16-02`: EraseConversationButton, the row-action in `AdminConversationsPage` that erases one
   // conversation on the visitor's own request. Modeled on `CloseConversationButton`'s own strings
