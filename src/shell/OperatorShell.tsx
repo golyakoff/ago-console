@@ -44,9 +44,20 @@ export function OperatorShell() {
   // `/settings/widget` and `/settings/auto-reply` had the identical problem - a form is not
   // meaningfully narrower than a table, and the reading-width cap only ever made sense for something
   // that reads like a document, which no route left inside this shell actually is any more. Every
-  // route `OperatorShell` renders is now wide, unconditionally - there is no route left to ask
-  // `useMatch` about for this, only for which tagline to show below.
+  // route `OperatorShell` renders is now wide, unconditionally.
   const wide = true;
+  // Found live, `2026-08-29`: the line above used to also decide `fixed` (viewport height,
+  // `overflow: hidden` `<main>`), and every one of the routes the paragraph above just made wide
+  // inherited that too - a settings form or a site table with no internal scroll region of its own,
+  // silently clipped past the fold with no scrollbar. `fixed` is its own question now, and the answer
+  // is still "only the three-region workspace" - the one layout actually built with the internal
+  // `overflow-y: auto` regions that mode assumes (`AppShell.tsx`'s `fixed` doc comment has the full
+  // account). `queueMatch`/`conversationMatch` are back for exactly this, not for `wide` any more.
+  // All hooks are called unconditionally and combined afterwards - `||` between `useMatch` calls
+  // would short-circuit later ones and change the hook order between renders.
+  const queueMatch = useMatch("/");
+  const conversationMatch = useMatch("/conversations/:conversationId");
+  const fixed = queueMatch !== null || conversationMatch !== null;
   const adminMatch = useMatch("/admin");
   const widgetSettingsMatch = useMatch("/settings/widget");
   const autoReplySettingsMatch = useMatch("/settings/auto-reply");
@@ -82,6 +93,7 @@ export function OperatorShell() {
       <AppShell
         nav={nav}
         wide={wide}
+        fixed={fixed}
         tagline={tagline}
         // `12-04`: the `8-06` demo strip's claim that "its login is published on the demo pages" is
         // false of the platform owner's account, and this shell is where the owner-who-is-also-an-

@@ -280,21 +280,39 @@
   gap: var(--ago-space-6);
 }
 
-/* `11-06`: the workspace variant (`AppShell`'s `wide`). Two changes, and both are needed together:
-   the shell takes an exact viewport height rather than a minimum, which is what finally bounds the
-   flex chain so a region inside `<main>` can scroll on its own; and `<main>` drops the reading-width
-   cap, because a three-region workspace is not a line of text. `100dvh` rather than `100vh` so a
-   mobile browser's collapsing address bar does not leave the composer under it. Every other screen
-   is untouched - it keeps `min-height` and keeps scrolling as a page. */
+/* `11-06`: the workspace variant (`AppShell`'s `fixed`). The shell takes an exact viewport height
+   rather than a minimum, which is what finally bounds the flex chain so a region inside `<main>` can
+   scroll on its own. `100dvh` rather than `100vh` so a mobile browser's collapsing address bar does
+   not leave the composer under it. Every other screen is untouched - it keeps `min-height` and keeps
+   scrolling as a page.
+
+   Found live, `2026-08-29`: this used to be tied to `wide` rather than its own flag, and every route
+   that asked for the full width (a settings form, a site table) got the viewport-bounded, no-page-
+   scroll treatment along with it - even though only the three-region workspace actually has an
+   internal region built to scroll on its own. The result was pages taller than the viewport with no
+   way to reach their own bottom - see `AppShell.tsx`'s `fixed` doc comment for the full account. */
 .ago-shell--fixed {
   height: 100dvh;
 }
 
+/* The width half of the old combined flag - drops the reading-width cap because a table or a form
+   is not a line of prose. No longer touches height or overflow: a `wide` page scrolls normally as a
+   page unless it also asks for `fixed`. */
 .ago-shell__main--wide {
   max-width: var(--ago-shell-max);
+  padding-bottom: var(--ago-space-6);
+}
+
+/* The height half, paired with `.ago-shell--fixed` above and applied only when a route's own content
+   scrolls internally (the workspace's rail/thread/aside - `workspace.css`). `min-height: 0` is what
+   lets a flex child shrink below its content size instead of refusing to and pushing overflow off
+   the bottom silently; `overflow: hidden` is then what turns "off the bottom" into "inside whichever
+   internal region claims it", rather than into content nobody can reach. Applied on its own to a
+   route with no such region, this is exactly the found-live bug: content clipped, no scrollbar
+   anywhere. */
+.ago-shell__main--fixed {
   min-height: 0;
   overflow: hidden;
-  padding-bottom: var(--ago-space-6);
 }
 
 /* Every screen opens with one of these: a title, an optional sentence, and whatever status the page

@@ -125,7 +125,22 @@ describe("the platform-sites page's own navigation", () => {
 
     const container = await render(shellAt());
 
-    expect(container.querySelector(".ago-shell")?.classList.contains("ago-shell--fixed")).toBe(true);
+    expect(container.querySelector(".ago-shell__main")?.classList.contains("ago-shell__main--wide")).toBe(true);
+  });
+
+  /** Found live, 2026-08-29: this page passes `wide` alone (no internal scroll region of its own -
+   * its content is a site table, and `.ago-table-scroll` only scrolls horizontally), so it must not
+   * pick up the fixed-height, `overflow: hidden` shell mode `wide` used to carry along with it before
+   * `AppShell.tsx` split `wide` and `fixed` into independent props - that combination is what clipped
+   * this table's own overflow with no scrollbar, on any site list longer than a screen. */
+  it("stays page-scrollable - it has no internal scroll region of its own", async () => {
+    tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [] });
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: [], siteId: null });
+
+    const container = await render(shellAt());
+
+    expect(container.querySelector(".ago-shell")?.classList.contains("ago-shell--fixed")).toBe(false);
+    expect(container.querySelector(".ago-shell__main")?.classList.contains("ago-shell__main--fixed")).toBe(false);
   });
 });
 

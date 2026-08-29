@@ -162,6 +162,25 @@ afterEach(async () => {
   await unmount();
 });
 
+/**
+ * `2026-08-29`: `AppShell.tsx`'s `wide` and `fixed` props used to be the same flag; splitting them
+ * (see that file's own doc comment) fixed every other route `OperatorShell` renders losing page
+ * scroll, but this layout is the one route that genuinely needs the fixed-height, `overflow: hidden`
+ * shell - its rail/thread/aside scroll internally (`workspace.css`), and without the shell bounding
+ * `<main>` to the viewport those regions never get a height to scroll within, and the composer walks
+ * off the bottom of the page (`workspace.css`'s own remarks on `.ago-shell--fixed`). This is the
+ * companion regression test to `permissionGating.test.tsx`'s "keeps ... page-scrollable" cases -
+ * proving the split did not also flip this route the other way.
+ */
+describe("the workspace's own shell mode", () => {
+  it("still gets the fixed-height, internally-scrolling shell at / and /conversations/:id", async () => {
+    const container = await render(workspaceAt(`/conversations/${CONVERSATION_ID}`));
+
+    expect(container.querySelector(".ago-shell")?.classList.contains("ago-shell--fixed")).toBe(true);
+    expect(container.querySelector(".ago-shell__main")?.classList.contains("ago-shell__main--fixed")).toBe(true);
+  });
+});
+
 describe("the workspace's canned-response wiring", () => {
   it("fetches the site's canned responses once when the workspace mounts", async () => {
     cannedResponsesApi.fetchCannedResponses.mockResolvedValue([{ title: "Refund policy", body: "Three days." }]);

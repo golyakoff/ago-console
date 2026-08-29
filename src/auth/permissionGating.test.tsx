@@ -284,7 +284,28 @@ describe("a gated page reached directly by URL", () => {
 
     const container = await render(shellAt(path, page));
 
-    expect(container.querySelector(".ago-shell")?.classList.contains("ago-shell--fixed")).toBe(true);
+    expect(container.querySelector(".ago-shell__main")?.classList.contains("ago-shell__main--wide")).toBe(true);
+  });
+
+  /** Found live, 2026-08-29: `4b6bec3` made the line above pass, and also made every one of these
+   * routes lose vertical scrolling entirely - `wide` and `fixed` (viewport-bounded, `overflow:
+   * hidden` `<main>`) were the same flag, and none of these pages owns an internal scroll region the
+   * way the workspace does (`.ago-table-scroll` on `/admin` only scrolls horizontally). Content taller
+   * than the viewport clipped silently, with no scrollbar anywhere - reproduced live on
+   * `/settings/tags` and `/analytics`. `wide` and `fixed` are independent props now
+   * (`AppShell.tsx`'s own doc comments); this is the regression test for that split staying split. */
+  it.each([
+    ["/admin", <AdminConversationsPage key="admin" />],
+    ["/settings/widget", <WidgetConfigPage key="widget" />],
+    ["/settings/auto-reply", <OfflineAutoReplyPage key="auto-reply" />],
+    ["/settings/canned-responses", <CannedResponsesPage key="canned-responses" />],
+  ])("keeps %s page-scrollable - it has no internal scroll region of its own", async (path, page) => {
+    grants(["site:configure"]);
+
+    const container = await render(shellAt(path, page));
+
+    expect(container.querySelector(".ago-shell")?.classList.contains("ago-shell--fixed")).toBe(false);
+    expect(container.querySelector(".ago-shell__main")?.classList.contains("ago-shell__main--fixed")).toBe(false);
   });
 
   /** Found the same day: `PageHead`'s own heading/description, the `Panel`'s title/description, and
