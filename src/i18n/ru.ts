@@ -15,6 +15,7 @@ export const ru: ConsoleStrings = {
   navOfflineAutoReply: "Автоответ офлайн",
   navPlatformSites: "Сайты платформы",
   navDeleteAccount: "Удалить аккаунт",
+  navBilling: "Оплата",
   signOut: "Выйти",
   siteIdTooltip: "ID сайта",
   siteIdPrefix: "сайт",
@@ -347,4 +348,50 @@ export const ru: ConsoleStrings = {
   conversationOpenFailed:
     "Не удалось открыть этот диалог здесь. Возможно, он назначен другому оператору, уже закрыт, " +
     "либо соединение оборвалось — попробуйте снова из результатов поиска или из очереди.",
+
+  billingTitle: "Оплата",
+  billingDescription: "Текущий тариф вашего сайта, использование мест и подписка.",
+  billingForbidden: "У вас нет права просматривать оплату этого сайта.",
+  billingLoadError: "Не удалось загрузить статус оплаты.",
+  billingLoadingLabel: "Загрузка статуса оплаты…",
+
+  billingPanelTitle: "Подписка",
+  billingTierLabel: "Тариф",
+  billingSeatsUsedLabel: "Занято мест",
+  billingSeatLimitLabel: "Лимит мест",
+
+  billingPendingTitle: "Подтверждение платежа",
+  billingPendingBody:
+    "Платёж отправлен в ЮKassa и ожидает подтверждения. Эта страница обновится автоматически, как " +
+    "только он будет подтверждён — пока это ещё не завершённая подписка.",
+  billingFailedTitle: "Платёж отклонён",
+  billingFailedBody: "ЮKassa отклонила этот платёж. Списания не было — вы можете попробовать снова ниже.",
+  billingPastDueTitle: "Повторная попытка оплаты",
+  billingPastDueBody:
+    "Повторное списание не удалось. Ваш текущий тариф и места сохраняются без изменений, пока в " +
+    "течение недели идут повторные попытки; изменение мест недоступно до успешной попытки.",
+
+  billingCancelRequestedTitle: "Подписка завершается",
+  billingCancelRequestedBody: "Автопродление отключено. Платный тариф остаётся активным без дальнейших списаний до",
+  billingPendingDowngradeTitle: "Изменение мест запланировано",
+  billingPendingDowngradeBody: "При следующем продлении количество мест изменится на",
+
+  billingSeatCountFieldLabel: "Количество мест",
+  billingSeatCountFieldDescription: "От 2 до 100 мест. Точный ценовой диапазон подтверждается сервером.",
+  billingSubscribeButton: "Оформить подписку",
+  billingSubscribingButton: "Переход в ЮKassa…",
+  billingChangeSeatsButton: "Изменить количество мест",
+  billingChangingSeatsButton: "Отправка…",
+  billingCheckoutError: "Не удалось начать оформление.",
+  billingSeatChangeError: "Не удалось изменить количество мест.",
+  billingUpgradeSuccessTitle: "Тариф повышен",
+  billingUpgradeSuccessBody: "Списано",
+
+  billingCancelButton: "Отменить подписку",
+  billingCancelDialogTitle: "Отменить эту подписку?",
+  billingCancelDialogBody:
+    "Платный тариф будет действовать до конца уже оплаченного периода, затем перейдёт на " +
+    "бесплатный тариф. Возврат средств за оставшееся время не производится.",
+  billingCancelConfirmButton: "Отменить подписку",
+  billingCancelError: "Не удалось отменить подписку.",
 };

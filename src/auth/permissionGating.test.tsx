@@ -155,6 +155,7 @@ describe("the operator navigation", () => {
       "Search",
       "Widget appearance",
       "Offline auto-reply",
+      "Billing",
     ]);
   });
 
@@ -216,6 +217,7 @@ describe("the operator navigation", () => {
       "Search",
       "Widget appearance",
       "Offline auto-reply",
+      "Billing",
       "Platform sites",
     ]);
   });

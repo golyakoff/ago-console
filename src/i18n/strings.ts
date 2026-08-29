@@ -34,6 +34,9 @@ export interface ConsoleStrings {
    * the backlog item's own scope note ("a single boolean that destroys a business is a plausible case
    * for its own [permission]"). */
   navDeleteAccount: string;
+  /** `13-04`: `site:configure`-gated, sits beside `navWidgetAppearance`/`navOfflineAutoReply` in
+   * `consoleNav.ts` - the same permission group, one more tenant self-service screen. */
+  navBilling: string;
   signOut: string;
   /** The `title` attribute on the operator's own site-id badge - "Site id", not the badge's visible
    * text (`siteIdPrefix` below). */
@@ -443,4 +446,63 @@ export interface ConsoleStrings {
    * methods do not), and guessing from that string's wording would be more likely to mislead than one
    * honest "could not open" sentence naming the real possibilities. */
   conversationOpenFailed: string;
+
+  // `13-04`: BillingPage - `/settings/billing`, gated on `site:configure` like `WidgetConfigPage`/
+  // `OfflineAutoReplyPage`/`AdminConversationsPage`, reusing `siteConfigCheckingPermissions`/
+  // `siteConfigBackToQueue` the same way those screens already do rather than duplicating them.
+  billingTitle: string;
+  billingDescription: string;
+  billingForbidden: string;
+  billingLoadError: string;
+  billingLoadingLabel: string;
+
+  billingPanelTitle: string;
+  billingTierLabel: string;
+  billingSeatsUsedLabel: string;
+  billingSeatLimitLabel: string;
+
+  /** Shown while `latestSubscription.status === "Pending"` - the screen's own honest "payment
+   * submitted, confirmation pending" state, polled via `usePollUntilCheckoutSettled` rather than
+   * ever claimed done off the ЮKassa redirect alone. */
+  billingPendingTitle: string;
+  billingPendingBody: string;
+  /** ЮKassa declined the payment (the webhook's own `payment.canceled`/failure outcome) - a settled,
+   * non-`"Pending"` state, never shown as success. */
+  billingFailedTitle: string;
+  billingFailedBody: string;
+  /** `decisions/0006`: a recurring re-charge failed; the paid tier's entitlements stay exactly as
+   * they are while daily retries run for up to a week - this is a warning, not an outage. */
+  billingPastDueTitle: string;
+  billingPastDueBody: string;
+
+  /** Trailing interpolation - `${billingCancelRequestedBody} ${date}.`, the same "fixed label, one
+   * value appended" shape `searchRangeLabel`'s own doc comment already establishes for this
+   * codebase's other date-carrying string. */
+  billingCancelRequestedTitle: string;
+  billingCancelRequestedBody: string;
+  /** Trailing interpolation - `${billingPendingDowngradeBody} ${seats} (${tier}).` */
+  billingPendingDowngradeTitle: string;
+  billingPendingDowngradeBody: string;
+
+  billingSeatCountFieldLabel: string;
+  billingSeatCountFieldDescription: string;
+  billingSubscribeButton: string;
+  billingSubscribingButton: string;
+  billingChangeSeatsButton: string;
+  billingChangingSeatsButton: string;
+  billingCheckoutError: string;
+  billingSeatChangeError: string;
+  /** Trailing interpolation - `${billingUpgradeSuccessBody} ₽${amount} · ${tier}, ${seats}.` The only
+   * one-off confirmation this screen shows for a write: the charged amount is not otherwise visible
+   * anywhere once the page reflects the new tier, unlike a downgrade or a cancellation, both of which
+   * this screen shows entirely through persistent state (`billingPendingDowngradeBody`/
+   * `billingCancelRequestedBody` above) rather than a second, redundant toast. */
+  billingUpgradeSuccessTitle: string;
+  billingUpgradeSuccessBody: string;
+
+  billingCancelButton: string;
+  billingCancelDialogTitle: string;
+  billingCancelDialogBody: string;
+  billingCancelConfirmButton: string;
+  billingCancelError: string;
 }
