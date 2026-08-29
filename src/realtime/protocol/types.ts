@@ -142,3 +142,40 @@ export interface SearchConversationsResponse {
   searchedFrom: string;
   searchedTo: string;
 }
+
+/**
+ * `18-08`: `Ago.Chat.Contracts.OperatorAnalyticsBucketDto` - one bucket's worth of the three numbers
+ * the analytics panel exists to show. `averageFirstResponseSeconds` is `null` when nothing in this
+ * bucket ever received an operator reply - never `0` and never inflated by the conversations counted
+ * in `missedCount`, which are excluded from the average entirely
+ * (`IOperatorAnalyticsReadStore`'s own remarks, `ago-chat`).
+ */
+export interface OperatorAnalyticsBucketDto {
+  conversationCount: number;
+  averageFirstResponseSeconds: number | null;
+  missedCount: number;
+}
+
+/**
+ * `18-08`: `Ago.Chat.Contracts.OperatorAnalyticsChannelBucketDto` - one channel's bucket, labelled
+ * with `Ago.Chat.Domain.ChannelKind`'s own member name (`"Max"`/`"Sms"`/`"Telegram"`/`"WhatsApp"`) or
+ * the literal `"Widget"` for a visitor with no external channel identity at all.
+ */
+export interface OperatorAnalyticsChannelBucketDto {
+  channel: string;
+  bucket: OperatorAnalyticsBucketDto;
+}
+
+/**
+ * `18-08`: `Ago.Chat.Contracts.OperatorAnalyticsResponse` - `GET /api/v1/conversations/analytics`'s
+ * body. `from`/`to` are the range the server actually used, always present even when the caller sent
+ * neither and the handler defaulted them (`GetOperatorAnalyticsForSiteHandler`'s own default window) -
+ * the same "the bound is visible, not silent" shape `SearchConversationsResponse.searchedFrom`/
+ * `searchedTo` already establishes for `18-01`.
+ */
+export interface OperatorAnalyticsResponse {
+  from: string;
+  to: string;
+  overall: OperatorAnalyticsBucketDto;
+  byChannel: OperatorAnalyticsChannelBucketDto[];
+}

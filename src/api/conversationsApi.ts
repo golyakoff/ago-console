@@ -3,6 +3,7 @@ import { withActiveSiteHeader } from "./activeSite.js";
 import { problemDetailsFrom } from "./problemDetails.js";
 import type {
   AllConversationsForSiteResponse,
+  OperatorAnalyticsResponse,
   OperatorQueueResponse,
   SearchConversationsResponse,
   VisitorHistoryResponse,
@@ -307,6 +308,49 @@ export async function searchConversations(
 
   if (response.ok) {
     return (await response.json()) as SearchConversationsResponse;
+  }
+
+  throw await problemDetailsFrom(response);
+}
+
+/** `18-08`: the query `fetchOperatorAnalytics` below sends - both bounds optional, the same "let the
+ * server default the window" shape `SearchConversationsParams` already establishes for `18-01`. */
+export interface OperatorAnalyticsParams {
+  /** ISO-8601, as `date-and-time.md` requires for anything crossing the wire. Omit to let the server
+   * default the window (`GetOperatorAnalyticsForSiteHandler`'s own thirty-day default) - never
+   * inferred or pre-filled here, since the response's own `from`/`to` is the only honest source for
+   * "what range did this actually report on" (the same reasoning `searchConversations`'s own doc
+   * comment gives for `searchedFrom`/`searchedTo`). */
+  from?: string;
+  to?: string;
+}
+
+/**
+ * `18-08`: `GET /api/v1/conversations/analytics` - the site owner's own basic self-service report,
+ * gated on `site:configure` server-side (`GetOperatorAnalyticsForSiteHandler`'s own remarks - the same
+ * gate `fetchAllConversationsForSite`/`searchConversations` above already use for the identical
+ * "site-wide oversight, not an ordinary operator's own view" reasoning). Throws `ApiProblemError`, not
+ * a bare `Error`, like `searchConversations` above - `OperatorAnalyticsPage` has to branch on *which*
+ * failure this is (`Conversation.Forbidden` vs `Analytics.InvalidRange`).
+ */
+export async function fetchOperatorAnalytics(
+  accessToken: string,
+  params: OperatorAnalyticsParams,
+): Promise<OperatorAnalyticsResponse> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/conversations/analytics`);
+  if (params.from) {
+    url.searchParams.set("from", params.from);
+  }
+  if (params.to) {
+    url.searchParams.set("to", params.to);
+  }
+
+  const response = await fetch(url, {
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (response.ok) {
+    return (await response.json()) as OperatorAnalyticsResponse;
   }
 
   throw await problemDetailsFrom(response);

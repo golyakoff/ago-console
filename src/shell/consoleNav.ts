@@ -33,6 +33,9 @@ export function buildTenantNavItems(
     // oversight capability, not an ordinary operator's own tool (`SearchConversationsPage`'s own doc
     // comment).
     items.push({ to: "/search", label: strings.navSearch });
+    // `18-08`: same gate as `/admin`/`/search` above - the site owner's own basic self-service report
+    // (`OperatorAnalyticsPage`'s own doc comment).
+    items.push({ to: "/analytics", label: strings.navAnalytics });
     items.push({ to: "/settings/widget", label: strings.navWidgetAppearance });
     // `14-04`: same permission, same place - one more tenant self-service setting.
     items.push({ to: "/settings/auto-reply", label: strings.navOfflineAutoReply });
