@@ -90,6 +90,7 @@ describe("the platform-sites page's own navigation", () => {
       "Search",
       "Widget appearance",
       "Offline auto-reply",
+      "Billing",
       "Platform sites",
     ]);
   });

@@ -14,6 +14,7 @@ export const en: ConsoleStrings = {
   navOfflineAutoReply: "Offline auto-reply",
   navPlatformSites: "Platform sites",
   navDeleteAccount: "Delete account",
+  navBilling: "Billing",
   signOut: "Sign out",
   siteIdTooltip: "Site id",
   siteIdPrefix: "site",
@@ -346,4 +347,50 @@ export const en: ConsoleStrings = {
   conversationOpenFailed:
     "This conversation could not be opened here. It may be assigned to another operator, already " +
     "closed, or the connection may have dropped - try again from the search results or the queue.",
+
+  billingTitle: "Billing",
+  billingDescription: "Your site's current tier, seat usage, and subscription.",
+  billingForbidden: "You do not have permission to view this site's billing.",
+  billingLoadError: "Failed to load billing status.",
+  billingLoadingLabel: "Loading billing status…",
+
+  billingPanelTitle: "Subscription",
+  billingTierLabel: "Tier",
+  billingSeatsUsedLabel: "Seats used",
+  billingSeatLimitLabel: "Seat limit",
+
+  billingPendingTitle: "Confirming payment",
+  billingPendingBody:
+    "Your payment was submitted to ЮKassa and is waiting for confirmation. This page will update " +
+    "automatically once it is confirmed - this is not yet a completed subscription.",
+  billingFailedTitle: "Payment declined",
+  billingFailedBody: "ЮKassa declined this payment. No charge was made - you can try again below.",
+  billingPastDueTitle: "Payment retry in progress",
+  billingPastDueBody:
+    "A recurring charge failed. Your current tier and seats stay exactly as they are while retries " +
+    "run for up to a week; seat changes are unavailable until the retry succeeds.",
+
+  billingCancelRequestedTitle: "Subscription ending",
+  billingCancelRequestedBody: "Auto-renewal is off. Your paid tier stays active, with no further charges, until",
+  billingPendingDowngradeTitle: "Seat change scheduled",
+  billingPendingDowngradeBody: "At your next renewal your seat count will change to",
+
+  billingSeatCountFieldLabel: "Seat count",
+  billingSeatCountFieldDescription: "2-100 seats. The exact price band is confirmed by the server.",
+  billingSubscribeButton: "Subscribe",
+  billingSubscribingButton: "Redirecting to ЮKassa…",
+  billingChangeSeatsButton: "Change seat count",
+  billingChangingSeatsButton: "Submitting…",
+  billingCheckoutError: "Failed to start checkout.",
+  billingSeatChangeError: "Failed to change the seat count.",
+  billingUpgradeSuccessTitle: "Upgraded",
+  billingUpgradeSuccessBody: "Charged",
+
+  billingCancelButton: "Cancel subscription",
+  billingCancelDialogTitle: "Cancel this subscription?",
+  billingCancelDialogBody:
+    "Your paid tier will keep running until the end of the period you already paid for, then drop " +
+    "to the free tier. No refund is given for the remaining time.",
+  billingCancelConfirmButton: "Cancel subscription",
+  billingCancelError: "Failed to cancel the subscription.",
 };

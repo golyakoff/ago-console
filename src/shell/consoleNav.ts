@@ -36,6 +36,9 @@ export function buildTenantNavItems(
     items.push({ to: "/settings/widget", label: strings.navWidgetAppearance });
     // `14-04`: same permission, same place - one more tenant self-service setting.
     items.push({ to: "/settings/auto-reply", label: strings.navOfflineAutoReply });
+    // `13-04`: same permission, same place - the billing screen `13-02`'s checkout endpoint and
+    // `13-03`'s cancel/seat-change endpoints already gate on `site:configure`.
+    items.push({ to: "/settings/billing", label: strings.navBilling });
   }
   // `16-02`: a distinct, deliberately narrower gate than the `site:configure` block above -
   // `AccountDeletionPage`'s own doc comment has the "why its own permission" reasoning. An operator
