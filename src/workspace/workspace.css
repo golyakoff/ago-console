@@ -357,6 +357,25 @@ a.ago-list__row--active:hover {
   font-family: var(--ago-font-mono);
 }
 
+/* `18-01`: a search hit `ConversationPage` successfully re-opened at (`?at=<sequence>`) - a brief
+   ring around the matched bubble so the operator can find it in an otherwise ordinary thread. A
+   `box-shadow`, not `background`, because the bubble's own background already differs by side
+   (`.ago-message--operator .ago-message__bubble` above) and a shadow composites over either without
+   needing to know which one. No `forwards`: the animation's own end state (a transparent ring) is
+   already indistinguishable from "no ring at all", so nothing has to hold or later remove a class. */
+.ago-message--highlighted .ago-message__bubble {
+  animation: ago-message-highlight 2.4s ease-out;
+}
+
+@keyframes ago-message-highlight {
+  0% {
+    box-shadow: 0 0 0 3px var(--ago-brand);
+  }
+  100% {
+    box-shadow: 0 0 0 3px transparent;
+  }
+}
+
 .ago-message__attachment {
   display: flex;
   align-items: center;

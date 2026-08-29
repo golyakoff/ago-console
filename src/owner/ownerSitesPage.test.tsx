@@ -87,6 +87,7 @@ describe("the platform-sites page's own navigation", () => {
     expect(navLabels(container)).toEqual([
       "Conversations",
       "All conversations",
+      "Search",
       "Widget appearance",
       "Offline auto-reply",
       "Platform sites",

@@ -29,6 +29,10 @@ export function buildTenantNavItems(
   const items: AppShellNavItem[] = [{ to: "/", label: strings.navConversations, end: true }];
   if (hasPermission("site:configure")) {
     items.push({ to: "/admin", label: strings.navAllConversations });
+    // `18-01`: same gate as `/admin` right above it - a site-wide search is the same admin/supervisor
+    // oversight capability, not an ordinary operator's own tool (`SearchConversationsPage`'s own doc
+    // comment).
+    items.push({ to: "/search", label: strings.navSearch });
     items.push({ to: "/settings/widget", label: strings.navWidgetAppearance });
     // `14-04`: same permission, same place - one more tenant self-service setting.
     items.push({ to: "/settings/auto-reply", label: strings.navOfflineAutoReply });

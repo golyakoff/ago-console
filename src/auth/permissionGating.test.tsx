@@ -152,6 +152,7 @@ describe("the operator navigation", () => {
     expect(navLabels(container)).toEqual([
       "Conversations",
       "All conversations",
+      "Search",
       "Widget appearance",
       "Offline auto-reply",
     ]);
@@ -212,6 +213,7 @@ describe("the operator navigation", () => {
     expect(navLabels(container)).toEqual([
       "Conversations",
       "All conversations",
+      "Search",
       "Widget appearance",
       "Offline auto-reply",
       "Platform sites",

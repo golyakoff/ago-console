@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { useOperatorConnection } from "../realtime/OperatorConnectionContext.js";
@@ -29,6 +29,16 @@ import { useWorkspace } from "../workspace/workspaceContext.js";
 
 const PRESENCE_POLL_INTERVAL_MS = 10_000;
 const HISTORY_PAGE_SIZE = 50;
+
+/** `18-01`: how many `loadOlderHistory` hops `locateSequence` below will take looking for a search
+ * hit's own message before giving up. A hard stop, not an unbounded loop - the ordinary case (a
+ * search hit inside a normal-length conversation) resolves in one or two hops, and this guards
+ * against a pathological one (a stale hit whose `sequence` no longer exists in this conversation at
+ * all) turning into thousands of requests instead of a bounded, honest "could not find it". 40 hops
+ * of `HISTORY_PAGE_SIZE` each is 2,000 messages - an operational ceiling, not a measurement
+ * (`CLAUDE.md`'s ban on invented figures applies to claims about *performance*, not to a defensive
+ * loop bound with no traffic to measure against). */
+const MAX_LOCATE_HOPS = 40;
 
 /** `5-15`: how long the newest sequence has to hold still before the conversation is marked read.
  * Not zero: during a rapid exchange every arriving message would otherwise be its own request, and
@@ -96,6 +106,7 @@ type AttachmentDetail = AttachmentDownloadResponse | "loading" | "deleted" | "er
  */
 export function ConversationPage() {
   const { conversationId } = useParams<{ conversationId: string }>();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { hasPermission, siteId } = usePermissions();
   const strings = useStrings();
@@ -124,6 +135,23 @@ export function ConversationPage() {
    * reset by the route effect below, so it never survives into a different conversation.
    */
   const [closed, setClosed] = useState(false);
+  /**
+   * `18-01`: set when this conversation's own join failed outright - see `searchConversations`'s own
+   * doc comment for why the console cannot reliably tell "assigned to someone else" apart from
+   * "closed" apart from a dropped connection (`HubException` carries only a string, no error code).
+   * Before this item, a join failure logged to the console and left an empty thread with a live
+   * composer on screen - a pre-existing gap this item's own `?at=` navigation makes routine rather
+   * than rare (most site-wide search hits are *not* the searching operator's own conversation, so
+   * their join is expected to fail - `searchConversations`'s doc comment), which is what makes fixing
+   * it in the same change the honest choice rather than scope creep.
+   */
+  const [joinError, setJoinError] = useState<string | null>(null);
+  /** `18-01`: the search hit's own `sequence`, from `?at=` - `null` for every conversation opened the
+   * ordinary way. Kept even after the target message is found (not cleared once located): the
+   * highlight itself is a one-shot CSS animation (`workspace.css`), so leaving this set costs nothing
+   * and re-deriving "have we already scrolled" would only duplicate `Thread`'s own guard. */
+  const [highlightSequence, setHighlightSequence] = useState<number | null>(null);
+  const [locatingMessage, setLocatingMessage] = useState(false);
   const joinedConversationId = useRef<string | null>(null);
   const requestedAttachmentIds = useRef<Set<string>>(new Set());
 
@@ -141,7 +169,54 @@ export function ConversationPage() {
     setVisitorHistory(null);
     setVisitorHistoryError(null);
     setClosed(false);
+    setJoinError(null);
+    setHighlightSequence(null);
+    setLocatingMessage(false);
   }, [conversationId]);
+
+  /**
+   * `18-01`: paging backward looking for a search hit's own message, when it was not already on the
+   * freshly-joined page - `JoinConversationAsync`'s own fresh-join page is always the newest
+   * `HISTORY_PAGE_SIZE`, unconditionally (`OperatorHub.cs`), so an older hit needs exactly the same
+   * `loadOlderHistory` walk the manual "Load older messages" button already does, just automatic and
+   * bounded (`MAX_LOCATE_HOPS`) rather than one click at a time. Stops the moment the target sequence
+   * shows up in a fetched page, or once the keyset cursor is exhausted (`nextBeforeSequence === null`,
+   * meaning the message genuinely is not in this conversation - a stale search hit for one since
+   * erased, say), or after `MAX_LOCATE_HOPS` hops, whichever comes first.
+   */
+  const locateSequence = useCallback(
+    async (
+      targetConversationId: string,
+      targetSequence: number,
+      initialMessages: MessageDto[],
+      initialNextBeforeSequence: number | null,
+    ) => {
+      if (initialMessages.some((message) => message.sequence === targetSequence)) {
+        return;
+      }
+
+      setLocatingMessage(true);
+      try {
+        let cursor = initialNextBeforeSequence;
+        for (let hop = 0; hop < MAX_LOCATE_HOPS && cursor !== null; hop++) {
+          const page = await connection.loadOlderHistory(targetConversationId, cursor, HISTORY_PAGE_SIZE);
+          const older = [...page.messages].reverse();
+          setMessages((prev) => [...older, ...prev]);
+          setNextBeforeSequence(page.nextBeforeSequence);
+          cursor = page.nextBeforeSequence;
+
+          if (page.messages.some((message) => message.sequence === targetSequence)) {
+            break;
+          }
+        }
+      } catch (err) {
+        console.error("Failed to locate the searched message", err);
+      } finally {
+        setLocatingMessage(false);
+      }
+    },
+    [connection],
+  );
 
   useEffect(() => {
     if (!conversationId) {
@@ -186,13 +261,31 @@ export function ConversationPage() {
         // `GetHistoryAsync` (`ConversationHistoryPage`'s own doc comment) - reversed once here so
         // the rest of this component can simply append. `Thread` re-sorts by `sequence` regardless,
         // which is the guarantee that actually holds (`date-and-time.md` rule 6).
-        setMessages([...page.messages].reverse());
+        const initialMessages = [...page.messages].reverse();
+        setMessages(initialMessages);
         setNextBeforeSequence(page.nextBeforeSequence);
+        setJoinError(null);
+
+        // `18-01`: `?at=<sequence>` is `SearchConversationsPage`'s own cue - a search hit's `Assigned`
+        // link (`searchConversations`'s own doc comment on why only that state gets one). Read once,
+        // right after a successful join, rather than kept in this effect's dependency array: the join
+        // above already re-runs whenever `conversationId` changes, which is the only time a new target
+        // sequence can matter, and reacting to the query string changing on its own (with the same
+        // conversation still open) is not a case this item needs to support.
+        const atParam = searchParams.get("at");
+        if (atParam !== null) {
+          const targetSequence = Number(atParam);
+          if (Number.isInteger(targetSequence)) {
+            setHighlightSequence(targetSequence);
+            void locateSequence(conversationId, targetSequence, initialMessages, page.nextBeforeSequence);
+          }
+        }
       })
       .catch((err: unknown) => {
         if (!cancelled) {
           joinedConversationId.current = null;
           console.error("Failed to join conversation", err);
+          setJoinError(strings.conversationOpenFailed);
         }
       });
 
@@ -200,6 +293,22 @@ export function ConversationPage() {
       cancelled = true;
       connection.leaveConversation();
     };
+    // `18-01`: `searchParams`, `strings` and `locateSequence` are read inside this effect but
+    // deliberately absent from its own dependency list, for a reason sharper than "keep the array
+    // small": the guard above (`joinedConversationId.current === conversationId`) is what stops a
+    // reconnect from discarding an already-open thread, and it only works because this effect's
+    // cleanup (which calls `leaveConversation()`) and its body run as a *pair* on every dependency
+    // change. Adding `strings` (which changes if the tenant's locale ever changes mid-session) or
+    // `searchParams` (which changes on every navigation, including ones unrelated to this page) would
+    // make React run that cleanup-then-guarded-no-op pair on an unrelated change - the cleanup calls
+    // `leaveConversation()`, the guard then sees `joinedConversationId.current` already equal to
+    // `conversationId` and returns before rejoining or re-registering `onMessage`, leaving the
+    // operator silently disconnected from a conversation they never navigated away from. `connection`
+    // is already a dependency, so `locateSequence` (a `useCallback` closing over only `connection`)
+    // changes exactly when this effect would already re-run for another reason, and both `strings`
+    // and `searchParams` are read fresh from the closure each time the join itself actually happens,
+    // which is the only moment either needs to be current.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connection, conversationId, connectionState]);
 
   useEffect(() => {
@@ -519,6 +628,12 @@ export function ConversationPage() {
           </p>
         )}
 
+        {/* `18-01`: the join this page's own effect just attempted failed outright - most often
+            because `?at=` sent it here for a search hit that is not, in fact, the searching
+            operator's own conversation (`searchConversations`'s own doc comment). Rendered instead of
+            an empty thread with a live composer, which is what happened here before this item. */}
+        {joinError && <Alert tone="danger">{joinError}</Alert>}
+
         <Thread
           messages={messages}
           now={now}
@@ -527,6 +642,8 @@ export function ConversationPage() {
           canLoadOlder={nextBeforeSequence !== null}
           loadingOlder={loadingOlder}
           onLoadOlder={() => void loadOlder()}
+          highlightSequence={highlightSequence}
+          locating={locatingMessage}
         />
 
         {/* `11-09`: the thread stays readable and the composer goes.
@@ -534,14 +651,17 @@ export function ConversationPage() {
             Navigating back to `/` on a successful close was the obvious alternative and is wrong for
             `11-06`'s own reason: the operator decides when to leave. What must not survive is the
             composer, because the server will refuse every send to a closed conversation and a
-            reply box that silently cannot work is worse than no reply box. */}
+            reply box that silently cannot work is worse than no reply box.
+
+            `18-01`: `joinError` gets the identical treatment - a composer that can never send because
+            the join itself failed is the same "silently cannot work" trap. */}
         {closed ? (
           <div className="ago-workspace__composer">
             <Alert tone="info" title={strings.conversationClosedTitle}>
               {strings.conversationClosedBody}
             </Alert>
           </div>
-        ) : (
+        ) : joinError ? null : (
         <div className="ago-workspace__composer">
           {failedSend && (
             <Alert

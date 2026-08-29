@@ -72,3 +72,34 @@
   border-radius: 50%;
   border: 1px solid var(--ago-line-strong);
 }
+
+/* --- Conversation search (`18-01`) -------------------------------------------------------------
+ * `SearchConversationsPage`'s own layout. Lives here rather than in `workspace.css` because this
+ * page is a standalone route (`AdminConversationsPage`'s own precedent), not one of the workspace's
+ * three grid regions - the same reasoning that already puts the widget-swatch rules above in this
+ * file instead of a `WidgetConfigPage`-specific stylesheet nobody else has. */
+
+.ago-search-form {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--ago-space-3);
+  flex-wrap: wrap;
+}
+
+.ago-search-form__phrase {
+  flex: 1;
+  min-width: 16rem;
+}
+
+/* The full matched message body (never a snippet - `searchConversations`'s own doc comment), so it
+   needs the identical wrapping `.ago-message__body` already gives the thread's own bubbles. */
+.ago-search-result__body {
+  font-size: var(--ago-text-base);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.ago-search-result__note {
+  font-size: var(--ago-text-xs);
+  color: var(--ago-ink-soft);
+}
