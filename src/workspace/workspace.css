@@ -12,7 +12,8 @@
    files would have left `index.css` owning half a screen it no longer describes. */
 
 /* --- The frame ---------------------------------------------------------------------------------
-   `.ago-shell--fixed` (AppShell's `wide`) is what bounds the height: without it the chain of
+   `.ago-shell--fixed` (AppShell's `fixed`, passed only for this layout - see its own doc comment for
+   why `wide` stopped being the same flag) is what bounds the height: without it the chain of
    `min-height` never resolves to a real number and `overflow: auto` on a child does nothing, so the
    page scrolls as a whole and the composer walks off the bottom of the screen. */
 

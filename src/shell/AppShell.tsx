@@ -84,17 +84,39 @@ export interface AppShellProps {
    * (`/signup`, `/callback`), where there is nobody to name. */
   identity?: ReactNode;
   /**
-   * `11-06`: the route below is a workspace, not a document - it should use the full shell width and
-   * fit the viewport, with its own regions scrolling internally rather than the page scrolling as a
-   * whole.
+   * `11-06`, narrowed `2026-08-29` (found live: pages were losing all vertical scrolling, see
+   * `fixed` below for the bug this split fixes). Controls width only now: the shell's reading-width
+   * cap (`--ago-content-max`, right for a line of prose) versus its full cap (`--ago-shell-max`,
+   * right for a table or a form that is not meaningfully narrower than one). The default is the
+   * reading-width layout every document-shaped screen wants; a 1180px-wide line of 15px text is past
+   * the readable measure, which is why the cap exists at all.
    *
    * It is a prop rather than something the shell works out for itself because `AppShell` reads no
    * context and knows no routes, deliberately (see this component's own doc comment) - the caller
-   * that already knows which route is rendering is the one that can answer this. The default is the
-   * reading-width, page-scrolling layout every other screen wants; a 1180px-wide line of 15px text
-   * is past the readable measure, which is why the cap exists at all.
+   * that already knows which route is rendering is the one that can answer this.
    */
   wide?: boolean;
+  /**
+   * `2026-08-29`, split out of `wide`. The route below is a *workspace*, not a document or a table:
+   * it owns its own internal scroll regions (the conversation rail, the thread, the visitor panel -
+   * `workspace.css`) and needs the shell bounded to the viewport (`100dvh`, `overflow: hidden` on
+   * `<main>`) so those regions - not the page - are what scrolls.
+   *
+   * **Found live, `2026-08-29`: this used to be the same flag as `wide`, and that was the bug.**
+   * `4b6bec3` made `wide` unconditional across every route `OperatorShell` renders, to fix a real
+   * width complaint (a settings form or a site table pinned to the narrow reading-width cap). But
+   * `wide` carried `fixed`'s viewport-bounded, `overflow: hidden` behaviour along with it, and every
+   * one of those newly-wide routes - `/admin`, `/owner`, `/settings/widget`, `/settings/auto-reply`,
+   * `/settings/canned-responses`, `/settings/tags`, `/settings/billing`, `/search`, `/analytics` - is
+   * an ordinary page with no internal scroll region of its own. `.ago-table-scroll` (`Table.tsx`)
+   * only scrolls *horizontally*. The result: any of those pages taller than the viewport clipped its
+   * own overflow silently, with no scrollbar anywhere - reported live, reproduced on `/settings/tags`
+   * and `/analytics` first. Only the workspace layout (`WorkspaceLayout`, mounted at `/` and
+   * `/conversations/:id`) was ever built with the internal `overflow-y: auto` regions this mode
+   * assumes, so it is now the only caller that passes `fixed`. Every other `wide` page keeps normal,
+   * page-level scrolling - `wide` alone no longer touches height or overflow at all.
+   */
+  fixed?: boolean;
   /**
    * `12-04`: who the `8-06` demo strip is addressing, when this build is the public demo one. Passed
    * only by the callers that hold the server's own answer about this identity - `OperatorShell` and
@@ -145,13 +167,14 @@ export function AppShell({
   nav,
   identity,
   wide = false,
+  fixed = false,
   demoNoticeAudience = "shared-login",
   tagline,
   children,
 }: AppShellProps) {
   const strings = useStrings();
   return (
-    <div className={wide ? "ago-shell ago-shell--fixed" : "ago-shell"}>
+    <div className={fixed ? "ago-shell ago-shell--fixed" : "ago-shell"}>
       <a className="ago-skip-link" href="#ago-main">
         {strings.skipToContent}
       </a>
@@ -204,7 +227,16 @@ export function AppShell({
         <PublicDemoNotice audience={demoNoticeAudience} />
       </div>
 
-      <main className={wide ? "ago-shell__main ago-shell__main--wide" : "ago-shell__main"} id="ago-main">
+      <main
+        className={[
+          "ago-shell__main",
+          wide ? "ago-shell__main--wide" : null,
+          fixed ? "ago-shell__main--fixed" : null,
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        id="ago-main"
+      >
         {children}
       </main>
     </div>
