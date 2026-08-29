@@ -204,6 +204,10 @@ function Harness({
       // `18-03`: empty - nothing in this file exercises the picker, which is `Composer.test.tsx`'s own
       // job; the page's only job is to hand the list to `Composer` unchanged.
       cannedResponses: [],
+      // `18-04`: same reasoning - nothing in this file exercises the tag panels, which is
+      // `VisitorPanel`'s own concern; the page's only job is to hand the list through unchanged.
+      tags: [],
+      refreshTags: () => {},
     }),
     [markRead, refreshQueue],
   );

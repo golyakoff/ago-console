@@ -165,6 +165,7 @@ describe("the operator navigation", () => {
       "Widget appearance",
       "Offline auto-reply",
       "Canned responses",
+      "Tags",
       "Billing",
     ]);
   });
@@ -228,6 +229,7 @@ describe("the operator navigation", () => {
       "Widget appearance",
       "Offline auto-reply",
       "Canned responses",
+      "Tags",
       "Billing",
       "Platform sites",
     ]);
