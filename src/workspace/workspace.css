@@ -658,6 +658,25 @@ a.ago-list__row--active:hover {
   }
 }
 
+/* Below 40rem (`shell.css`'s own narrow-phone threshold, reused rather than a second number for the
+   same class of screen): `.ago-composer__row`'s fixed-width actions column (Attach + Send, ~235px)
+   leaves the textarea too little room to be usable - measured 28.5px wide at a 375px viewport,
+   wrapping text one character per line. Stacking the row turns the actions into their own row below
+   the textarea, which gets the full width instead. 52.5rem's single-column switch is not narrow
+   enough on its own: the composer stays usable in a one-column *tablet* layout (294px wide at 640px,
+   407px at 768px, both measured directly against the live console) - this is a second, narrower
+   threshold for the one element that breaks earlier than the rest of the workspace does. */
+@media (max-width: 40rem) {
+  .ago-composer__row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ago-composer__actions {
+    justify-content: flex-end;
+  }
+}
+
 /* `18-05`: the rail's own two buttons, the shortcut list and the alert switches.
 
    All of it lives in this file rather than in `components.css` for the same reason `18-05` added no
