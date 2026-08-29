@@ -615,4 +615,49 @@ export interface ConsoleStrings {
   billingCancelDialogBody: string;
   billingCancelConfirmButton: string;
   billingCancelError: string;
+
+  // `18-08`: OperatorAnalyticsPage (`/analytics`) - the site owner's own basic self-service report,
+  // gated on `site:configure` the same way `SearchConversationsPage`/`AdminConversationsPage` already
+  // are, so it reuses their "checking permissions"/"back to queue" shape rather than duplicating it.
+  // `navAnalytics` sits beside `navSearch`/`navAllConversations` in `consoleNav.ts`.
+  navAnalytics: string;
+  analyticsPageDescription: string;
+  analyticsFromFieldLabel: string;
+  analyticsToFieldLabel: string;
+  analyticsApplyButton: string;
+  /** `${analyticsRangeLabel} ${fromDate} – ${toDate}` - the effective, server-echoed range, the same
+   * "the bound is visible, not silent" shape `searchRangeLabel`'s own doc comment already establishes
+   * (`GetOperatorAnalyticsForSiteHandler`'s own default window is never assumed client-side). */
+  analyticsRangeLabel: string;
+  analyticsForbiddenError: string;
+  /** `Analytics.InvalidRange` - the caller's own `from`/`to` failed `from < to`, the one validation
+   * `GetOperatorAnalyticsForSiteHandler` does before reaching the read store. */
+  analyticsInvalidRangeError: string;
+  analyticsLoadError: string;
+  analyticsLoadingLabel: string;
+  /** Shown when `overall.conversationCount` is `0` - a real, honest state (`OperatorAnalyticsReadStore`'s
+   * own remarks: `GROUPING SETS` over zero rows returns zero rows, substituted with an explicit zero
+   * bucket), not a loading or error state. */
+  analyticsEmpty: string;
+  analyticsChannelColumn: string;
+  analyticsConversationCountColumn: string;
+  analyticsAverageFirstResponseColumn: string;
+  analyticsMissedCountColumn: string;
+  /** The table's own first row, before the per-channel breakdown - every conversation in the window,
+   * regardless of channel (`OperatorAnalyticsResult.Overall`, `ago-chat`). */
+  analyticsOverallRowLabel: string;
+  /** Shown in the average-first-response column when a bucket's own value is `null` - no conversation
+   * in it ever received an operator reply, so there is nothing to average
+   * (`OperatorAnalyticsBucket.AverageFirstResponseSeconds`'s own remarks: never zero, never inflated).
+   * An em dash, not "0s" or "N/A" - `0s` would read as "answered instantly", which is the one thing
+   * this value must never imply here. */
+  analyticsNoResponsesValue: string;
+  /** The four `Ago.Chat.Domain.ChannelKind` members' own display labels, plus `Widget` for a visitor
+   * with no external channel identity at all (`IOperatorAnalyticsReadStore`'s own remarks) - the wire
+   * value is the CLR member name, never shown to an operator unlabelled. */
+  analyticsChannelWidget: string;
+  analyticsChannelSms: string;
+  analyticsChannelMax: string;
+  analyticsChannelTelegram: string;
+  analyticsChannelWhatsApp: string;
 }

@@ -10,6 +10,7 @@ import { WorkspaceLayout } from "./workspace/WorkspaceLayout.js";
 import { NoConversationSelected } from "./workspace/NoConversationSelected.js";
 import { ConversationPage } from "./pages/ConversationPage.js";
 import { AdminConversationsPage } from "./pages/AdminConversationsPage.js";
+import { OperatorAnalyticsPage } from "./pages/OperatorAnalyticsPage.js";
 import { SearchConversationsPage } from "./pages/SearchConversationsPage.js";
 import { WidgetConfigPage } from "./pages/WidgetConfigPage.js";
 import { OfflineAutoReplyPage } from "./pages/OfflineAutoReplyPage.js";
@@ -130,6 +131,9 @@ export function App() {
             right above it - `SearchConversationsPage` checks `site:configure` itself, exactly like
             `AdminConversationsPage` does. */}
         <Route path="/search" element={<SearchConversationsPage />} />
+        {/* `18-08`: same "outside the workspace layout, page gates itself internally" shape as
+            `/admin`/`/search` above - `OperatorAnalyticsPage` checks `site:configure` itself. */}
+        <Route path="/analytics" element={<OperatorAnalyticsPage />} />
         <Route path="/settings/widget" element={<WidgetConfigPage />} />
         {/* `14-04`: a second settings screen on the identical pattern - `OfflineAutoReplyPage` gates
             itself on `site:configure` internally, exactly like the two routes above it. */}

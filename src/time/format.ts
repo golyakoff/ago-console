@@ -180,6 +180,32 @@ export function formatElapsed(since: Date, now: Date): string {
   return hours === 0 ? `${days}d` : `${days}d ${hours}h`;
 }
 
+/**
+ * `18-08`: a span of seconds, not "time since now" - the analytics panel's own average
+ * first-response time, which is a duration between two message timestamps and has no "now" in it at
+ * all. Deliberately not built from `formatElapsed` above: that function's signature (`since`, `now`)
+ * only ever expresses "how long ago", and faking a `now` to borrow it would be a stranger reading than
+ * a five-line sibling. Same fixed-locale, unit-letter shape (`m`/`h`), the same "interface i18n is out
+ * of scope for this file" call this file's own header already states.
+ */
+export function formatDurationSeconds(totalSeconds: number): string {
+  const seconds = Math.max(0, Math.round(totalSeconds));
+
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+
+  if (seconds < 3600) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return remainingSeconds === 0 ? `${minutes}m` : `${minutes}m ${remainingSeconds}s`;
+  }
+
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
+}
+
 /** The same duration spelled out - for a `title`, where `2d 3h` is too terse to be a real
  * explanation, and for anything a screen reader has to read aloud. */
 export function formatElapsedWords(since: Date, now: Date): string {
