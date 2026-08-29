@@ -254,6 +254,16 @@ export const ru: ConsoleStrings = {
   widgetPositionBottomRight: "Внизу справа",
   widgetPositionBottomLeft: "Внизу слева",
   widgetLanguageFieldLabel: "Язык виджета",
+  widgetNoticePanelTitle: "Уведомление об обработке данных",
+  widgetNoticeTextFieldLabel: "Текст уведомления (необязательно)",
+  widgetNoticeTextFieldDescription:
+    "Показывается посетителю до того, как он начнёт печатать. Это ваша собственная формулировка о том, " +
+    "как вы обрабатываете то, что он напишет, - AGO не пишет её за вас, а если оставить поле пустым, " +
+    "уведомление не показывается вовсе.",
+  widgetNoticeTextPlaceholder: "Мы используем ваши сообщения, чтобы отвечать на ваши вопросы.",
+  widgetNoticeUrlFieldLabel: "Ссылка на уведомление (необязательно)",
+  widgetNoticeUrlFieldDescription: "Ссылка на вашу собственную страницу с политикой. Должна начинаться с https://.",
+  widgetNoticeUrlValidation: "Ссылка должна быть абсолютным адресом https://.",
 
   autoReplyForbidden: "У вас нет права настраивать автоответ офлайн для этого сайта.",
   autoReplyDescription:

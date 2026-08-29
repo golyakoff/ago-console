@@ -10,11 +10,12 @@ import {
   type WidgetLocale,
   type WidgetPosition,
 } from "../api/widgetConfigApi.js";
-import { isValidHexColor } from "./widgetConfigValidation.js";
+import { isValidHexColor, isValidNoticeUrl } from "./widgetConfigValidation.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Field } from "../components/Field.js";
 import { Input } from "../components/Input.js";
+import { Textarea } from "../components/Textarea.js";
 import { Select } from "../components/Select.js";
 import { Button } from "../components/Button.js";
 import { Alert } from "../components/Alert.js";
@@ -76,8 +77,11 @@ export function WidgetConfigPage() {
   const [colorInput, setColorInput] = useState("");
   const [position, setPosition] = useState<WidgetPosition>("BottomRight");
   const [locale, setLocale] = useState<WidgetLocale>("En");
+  const [noticeTextInput, setNoticeTextInput] = useState("");
+  const [noticeUrlInput, setNoticeUrlInput] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [noticeUrlValidationError, setNoticeUrlValidationError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -94,6 +98,8 @@ export function WidgetConfigPage() {
         setColorInput(dto.primaryColorHex ?? "");
         setPosition(dto.position);
         setLocale(dto.locale);
+        setNoticeTextInput(dto.noticeText ?? "");
+        setNoticeUrlInput(dto.noticeUrl ?? "");
         setLoadError(null);
       })
       .catch((err: unknown) =>
@@ -142,6 +148,18 @@ export function WidgetConfigPage() {
     }
     setValidationError(null);
 
+    // `16-04`: the same UX-only posture as the color check above - `Ago.Chat.Domain.WidgetConfig`'s
+    // own constructor is the real, authoritative gate (`widgetConfigValidation.ts`'s own doc comment
+    // on `isValidNoticeUrl`). Notice text has no client-side format to check beyond what the textarea
+    // itself already enforces (nothing) - a whitespace-only or over-length value is left to the
+    // server's own `WidgetConfig.InvalidNoticeText`, surfaced as `submitError` like any other rejection.
+    const trimmedNoticeUrl = noticeUrlInput.trim();
+    if (trimmedNoticeUrl.length > 0 && !isValidNoticeUrl(trimmedNoticeUrl)) {
+      setNoticeUrlValidationError(strings.widgetNoticeUrlValidation);
+      return;
+    }
+    setNoticeUrlValidationError(null);
+
     const accessToken = user?.access_token;
     if (!accessToken || !siteId) {
       // `RequireAuth` guarantees a signed-in session, and `siteId` arrives on the same response
@@ -150,17 +168,23 @@ export function WidgetConfigPage() {
       return;
     }
 
+    const trimmedNoticeText = noticeTextInput.trim();
+
     setSubmitting(true);
     try {
       const dto = await updateWidgetConfig(accessToken, siteId, {
         primaryColorHex: trimmed.length > 0 ? trimmed : null,
         position,
         locale,
+        noticeText: trimmedNoticeText.length > 0 ? trimmedNoticeText : null,
+        noticeUrl: trimmedNoticeUrl.length > 0 ? trimmedNoticeUrl : null,
       });
       setCurrent(dto);
       setColorInput(dto.primaryColorHex ?? "");
       setPosition(dto.position);
       setLocale(dto.locale);
+      setNoticeTextInput(dto.noticeText ?? "");
+      setNoticeUrlInput(dto.noticeUrl ?? "");
       setSaved(true);
     } catch (err) {
       setSubmitError(err instanceof WidgetConfigError ? err.message : strings.widgetSubmitError);
@@ -190,84 +214,131 @@ export function WidgetConfigPage() {
           <Skeleton lines={3} label={strings.widgetLoadingLabel} />
         </Panel>
       ) : (
-        <Panel title={strings.widgetPanelTitle}>
-          <form className="ago-stack" onSubmit={(e) => void handleSubmit(e)}>
-            <Field
-              label={strings.widgetColorFieldLabel}
-              description={strings.widgetColorFieldDescription}
-              error={validationError}
-              adornment={
-                <span
-                  className="ago-widget-swatch"
-                  aria-hidden="true"
-                  title={strings.widgetColorPreviewTitle}
-                  // The one inline style left in the console, and it has to be: the value is the
-                  // operator's own live input, so it cannot come from a token or a class. Its
-                  // dimensions and border moved into `.ago-widget-swatch` in `index.css`; only the
-                  // colour itself stays here.
-                  style={{ background: swatchColor }}
-                />
-              }
-            >
-              {(controlProps) => (
-                <Input
-                  {...controlProps}
-                  value={colorInput}
-                  onChange={(e) => setColorInput(e.target.value)}
-                  // Not translated - a hex code (`#2F6FED`) is a format example, not language-bearing
-                  // text, the same reasoning `shortcuts.ts`'s own `Shortcut.label` gives for its key
-                  // names never going through `strings`.
-                  placeholder="#2F6FED"
-                  disabled={submitting}
-                />
-              )}
-            </Field>
+        // `16-04`: one `<form>` now spans both panels below - a single PUT still writes every field
+        // (`Ago.Chat.Api.WidgetConfig.WidgetConfigEndpoints`), and one `<form>`/one Save button is what
+        // makes that visible instead of implying two independent saves. `Panel` stays split in two
+        // regardless: "Launcher" is an appearance choice, "Processing notice" is the tenant's own
+        // statement about data handling, and a reviewer scanning panel titles should be able to tell
+        // the two apart at a glance even though saving either one saves both.
+        <form className="ago-stack" onSubmit={(e) => void handleSubmit(e)}>
+          <Panel title={strings.widgetPanelTitle}>
+            <div className="ago-stack">
+              <Field
+                label={strings.widgetColorFieldLabel}
+                description={strings.widgetColorFieldDescription}
+                error={validationError}
+                adornment={
+                  <span
+                    className="ago-widget-swatch"
+                    aria-hidden="true"
+                    title={strings.widgetColorPreviewTitle}
+                    // The one inline style left in the console, and it has to be: the value is the
+                    // operator's own live input, so it cannot come from a token or a class. Its
+                    // dimensions and border moved into `.ago-widget-swatch` in `index.css`; only the
+                    // colour itself stays here.
+                    style={{ background: swatchColor }}
+                  />
+                }
+              >
+                {(controlProps) => (
+                  <Input
+                    {...controlProps}
+                    value={colorInput}
+                    onChange={(e) => setColorInput(e.target.value)}
+                    // Not translated - a hex code (`#2F6FED`) is a format example, not language-bearing
+                    // text, the same reasoning `shortcuts.ts`'s own `Shortcut.label` gives for its key
+                    // names never going through `strings`.
+                    placeholder="#2F6FED"
+                    disabled={submitting}
+                  />
+                )}
+              </Field>
 
-            <Field label={strings.widgetPositionFieldLabel}>
-              {(controlProps) => (
-                <Select
-                  {...controlProps}
-                  value={position}
-                  onChange={(e) => setPosition(e.target.value as WidgetPosition)}
-                  disabled={submitting}
-                >
-                  <option value="BottomRight">{POSITION_LABELS.BottomRight}</option>
-                  <option value="BottomLeft">{POSITION_LABELS.BottomLeft}</option>
-                </Select>
-              )}
-            </Field>
+              <Field label={strings.widgetPositionFieldLabel}>
+                {(controlProps) => (
+                  <Select
+                    {...controlProps}
+                    value={position}
+                    onChange={(e) => setPosition(e.target.value as WidgetPosition)}
+                    disabled={submitting}
+                  >
+                    <option value="BottomRight">{POSITION_LABELS.BottomRight}</option>
+                    <option value="BottomLeft">{POSITION_LABELS.BottomLeft}</option>
+                  </Select>
+                )}
+              </Field>
 
-            {/* `11-10`: modeled byte-for-byte on the launcher-position `Select` just above - the
-                same gate (this page's own `site:configure` check), no new permission. */}
-            <Field label={strings.widgetLanguageFieldLabel}>
-              {(controlProps) => (
-                <Select
-                  {...controlProps}
-                  value={locale}
-                  onChange={(e) => setLocale(e.target.value as WidgetLocale)}
-                  disabled={submitting}
-                >
-                  {/* `LOCALE_LABELS` itself is untouched - `11-13`'s own scope explicitly excludes it
-                      (`4-06` already fixed these to endonyms, correct in every UI language). */}
-                  <option value="En">{LOCALE_LABELS.En}</option>
-                  <option value="Ru">{LOCALE_LABELS.Ru}</option>
-                </Select>
-              )}
-            </Field>
-
-            {submitError && <Alert tone="danger">{submitError}</Alert>}
-            {/* Was a bare `<p>Saved.</p>` with no live-region role at all before `11-05` - `Alert
-                tone="success"` gives it `role="status"`, polite rather than assertive, so it is
-                announced without interrupting. */}
-            {saved && <Alert tone="success">{strings.siteConfigSavedAlert}</Alert>}
-
-            <div className="ago-row">
-              <Button type="submit" variant="primary" disabled={submitting}>
-                {submitting ? strings.siteConfigSavingButton : strings.siteConfigSaveButton}
-              </Button>
+              {/* `11-10`: modeled byte-for-byte on the launcher-position `Select` just above - the
+                  same gate (this page's own `site:configure` check), no new permission. */}
+              <Field label={strings.widgetLanguageFieldLabel}>
+                {(controlProps) => (
+                  <Select
+                    {...controlProps}
+                    value={locale}
+                    onChange={(e) => setLocale(e.target.value as WidgetLocale)}
+                    disabled={submitting}
+                  >
+                    {/* `LOCALE_LABELS` itself is untouched - `11-13`'s own scope explicitly excludes it
+                        (`4-06` already fixed these to endonyms, correct in every UI language). */}
+                    <option value="En">{LOCALE_LABELS.En}</option>
+                    <option value="Ru">{LOCALE_LABELS.Ru}</option>
+                  </Select>
+                )}
+              </Field>
             </div>
-          </form>
-        </Panel>
+          </Panel>
+
+          <Panel title={strings.widgetNoticePanelTitle}>
+            <div className="ago-stack">
+              <Field
+                label={strings.widgetNoticeTextFieldLabel}
+                description={strings.widgetNoticeTextFieldDescription}
+              >
+                {(controlProps) => (
+                  <Textarea
+                    {...controlProps}
+                    rows={3}
+                    value={noticeTextInput}
+                    onChange={(e) => setNoticeTextInput(e.target.value)}
+                    placeholder={strings.widgetNoticeTextPlaceholder}
+                    disabled={submitting}
+                  />
+                )}
+              </Field>
+
+              <Field
+                label={strings.widgetNoticeUrlFieldLabel}
+                description={strings.widgetNoticeUrlFieldDescription}
+                error={noticeUrlValidationError}
+              >
+                {(controlProps) => (
+                  <Input
+                    {...controlProps}
+                    type="url"
+                    value={noticeUrlInput}
+                    onChange={(e) => setNoticeUrlInput(e.target.value)}
+                    // Not translated - an example URL is a format example, not language-bearing text,
+                    // the same reasoning the hex-color placeholder above already gives.
+                    placeholder="https://example.com/privacy"
+                    disabled={submitting}
+                  />
+                )}
+              </Field>
+            </div>
+          </Panel>
+
+          {submitError && <Alert tone="danger">{submitError}</Alert>}
+          {/* Was a bare `<p>Saved.</p>` with no live-region role at all before `11-05` - `Alert
+              tone="success"` gives it `role="status"`, polite rather than assertive, so it is
+              announced without interrupting. */}
+          {saved && <Alert tone="success">{strings.siteConfigSavedAlert}</Alert>}
+
+          <div className="ago-row">
+            <Button type="submit" variant="primary" disabled={submitting}>
+              {submitting ? strings.siteConfigSavingButton : strings.siteConfigSaveButton}
+            </Button>
+          </div>
+        </form>
       )}
     </>
   );

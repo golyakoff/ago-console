@@ -332,6 +332,17 @@ export interface ConsoleStrings {
   widgetPositionBottomRight: string;
   widgetPositionBottomLeft: string;
   widgetLanguageFieldLabel: string;
+  /** `16-04`: a second panel on the same screen, same terms every field above already uses - the
+   * tenant's own sentence about who processes what a visitor is about to write, and a link to their
+   * own policy. Both optional; the widget renders nothing when both are empty (never an AGO-authored
+   * default - `Ago.Chat.Domain.WidgetConfig`'s own remarks). */
+  widgetNoticePanelTitle: string;
+  widgetNoticeTextFieldLabel: string;
+  widgetNoticeTextFieldDescription: string;
+  widgetNoticeTextPlaceholder: string;
+  widgetNoticeUrlFieldLabel: string;
+  widgetNoticeUrlFieldDescription: string;
+  widgetNoticeUrlValidation: string;
 
   // OfflineAutoReplyPage.
   autoReplyForbidden: string;

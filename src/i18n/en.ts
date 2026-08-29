@@ -253,6 +253,15 @@ export const en: ConsoleStrings = {
   widgetPositionBottomRight: "Bottom right",
   widgetPositionBottomLeft: "Bottom left",
   widgetLanguageFieldLabel: "Widget language",
+  widgetNoticePanelTitle: "Processing notice",
+  widgetNoticeTextFieldLabel: "Notice text (optional)",
+  widgetNoticeTextFieldDescription:
+    "Shown to a visitor before they type anything. This is your own sentence about how you handle " +
+    "what they write - AGO does not write it for you, and leaving it empty shows no notice at all.",
+  widgetNoticeTextPlaceholder: "We use your messages to answer your questions.",
+  widgetNoticeUrlFieldLabel: "Notice link (optional)",
+  widgetNoticeUrlFieldDescription: "A link to your own policy page. Must start with https://.",
+  widgetNoticeUrlValidation: "The link must be an absolute https:// URL.",
 
   autoReplyForbidden: "You do not have permission to configure this site's offline auto-reply.",
   autoReplyDescription:
