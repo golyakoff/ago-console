@@ -3,6 +3,7 @@ import { usePermissions } from "../auth/PermissionsContext.js";
 import {
   fetchChannelIdentities,
   requestChannelLink,
+  setPreferredChannelIdentity,
   unlinkChannelIdentity,
   type ChannelIdentityDto,
 } from "../api/channelIdentitiesApi.js";
@@ -36,17 +37,19 @@ export interface ChannelIdentitiesPanelProps {
 }
 
 /**
- * `14-12`/`adr/0079`: the visitor's own verified channel identities, a "link a channel" action that
- * starts the console-initiated confirmation flow, and an "unlink" action per row - the fourth "operator
- * manages a small piece of state about this visitor" panel in this aside, beside
+ * `14-12`/`14-13`/`adr/0079`: the visitor's own verified channel identities, a "link a channel" action
+ * that starts the console-initiated confirmation flow, an "unlink" action per row, and (`14-13`) a
+ * "prefer this channel" radio-shaped control per row - the fourth "operator manages a small piece of
+ * state about this visitor" panel in this aside, beside
  * `ConversationOutcomePanel`/`ConversationTagsPanel`/`ConversationNotesPanel`.
  *
- * Listing and requesting a link are both gated on `conversation:read`/`conversation:send` - the same
- * permissions every other panel here already requires to view or act on this conversation at all
- * (`RequestChannelLinkFromConsoleHandler`'s own remarks on why requesting a link needs no new,
- * channel-specific permission). Unlinking needs the new, tenant-granted `channel_identity:unlink`
- * instead - hidden, not shown disabled, for an operator without it, the same posture
- * `ConversationTagsPanel`'s own apply control already uses.
+ * Listing, requesting a link, and setting the preference are all gated on `conversation:read`/
+ * `conversation:send` - the same permissions every other panel here already requires to view or act on
+ * this conversation at all (`RequestChannelLinkFromConsoleHandler`'s own remarks on why requesting a
+ * link needs no new, channel-specific permission; `SetPreferredChannelIdentityHandler`'s own remarks
+ * give the identical reasoning for the preference). Unlinking needs the new, tenant-granted
+ * `channel_identity:unlink` instead - hidden, not shown disabled, for an operator without it, the same
+ * posture `ConversationTagsPanel`'s own apply control already uses.
  */
 export function ChannelIdentitiesPanel({
   conversationId,
@@ -97,6 +100,9 @@ export function ChannelIdentitiesPanel({
 
   const canRequestLink = hasPermission("conversation:send");
   const canUnlink = hasPermission("channel_identity:unlink");
+  // `14-13`: the identical permission `canRequestLink` already checks - see this component's own doc
+  // comment for why setting the preference reuses `conversation:send` rather than a new permission.
+  const canPrefer = canRequestLink;
 
   const handleRequestLink = async () => {
     if (!accessToken) {
@@ -140,6 +146,28 @@ export function ChannelIdentitiesPanel({
     }
   };
 
+  /** `14-13`: `channelIdentityId: null` clears back to "automatic" (today's most-recently-seen rule) -
+   * the same single action `ChannelIdentityEndpoints`' own `PUT .../preference` route accepts either
+   * way, so this one handler covers both the "prefer this row" and "clear the preference" buttons. */
+  const handleSetPreference = async (channelIdentityId: string | null) => {
+    if (!accessToken) {
+      return;
+    }
+
+    setBusy(true);
+    setActionError(null);
+    try {
+      await setPreferredChannelIdentity(accessToken, conversationId, channelIdentityId);
+      setIdentities((prev) =>
+        (prev ?? []).map((i) => ({ ...i, isPreferred: i.channelIdentityId === channelIdentityId })),
+      );
+    } catch (err) {
+      setActionError(err instanceof ApiProblemError ? err.message : strings.channelIdentitiesPreferError);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <section className="ago-aside__section" aria-labelledby="ago-channel-identities-title">
       <h3 className="ago-aside__subtitle" id="ago-channel-identities-title">
@@ -158,6 +186,34 @@ export function ChannelIdentitiesPanel({
             <li key={identity.channelIdentityId} className="ago-aside__row">
               <Badge tone="neutral">{identity.kind}</Badge>
               <span className="ago-mono">{identity.address}</span>
+              {identity.isPreferred ? (
+                <>
+                  <Badge tone="brand">{strings.channelIdentitiesPreferredBadge}</Badge>
+                  {canPrefer && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => void handleSetPreference(null)}
+                      disabled={busy}
+                    >
+                      {strings.channelIdentitiesClearPreferenceButton}
+                    </Button>
+                  )}
+                </>
+              ) : (
+                canPrefer && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => void handleSetPreference(identity.channelIdentityId)}
+                    disabled={busy}
+                  >
+                    {strings.channelIdentitiesPreferButton}
+                  </Button>
+                )
+              )}
               {canUnlink && (
                 <Button
                   type="button"

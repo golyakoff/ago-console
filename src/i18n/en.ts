@@ -384,6 +384,10 @@ export const en: ConsoleStrings = {
   channelIdentitiesRequestLinkError: "Failed to generate a link code.",
   channelIdentitiesUnlinkButton: "Unlink",
   channelIdentitiesUnlinkError: "Failed to unlink.",
+  channelIdentitiesPreferredBadge: "Preferred",
+  channelIdentitiesPreferButton: "Prefer",
+  channelIdentitiesClearPreferenceButton: "Clear",
+  channelIdentitiesPreferError: "Failed to set the preferred channel.",
   channelIdentitiesCodeGeneratedPrefix: "Code generated for",
 
   contactDetailsSectionTitle: "Unverified contact details",
