@@ -463,10 +463,33 @@ export interface ConsoleStrings {
   /** `${tagsRemoveButtonAriaPrefix} ${tag.name}` - the applied-tag badge's own remove button. */
   tagsRemoveButtonAriaPrefix: string;
 
+  // `19-02`: the AI-applied-tag marker - `ConversationTagsPanel`'s own visible trust signal
+  // (`adr/0078`'s kind 2 Done-when), never colour alone.
+  tagsAiAppliedMarker: string;
+  /** `${tagsAiAppliedAriaPrefix} ${tag.name}` - read by a screen reader in place of the marker's own
+   * bare text, the same `aria-label` shape `tagsRemoveButtonAriaPrefix` already uses. */
+  tagsAiAppliedAriaPrefix: string;
+
   // `18-04`: the workspace rail's own queue filter, and the identical control on
   // `AdminConversationsPage` - both reuse this pair rather than each declaring its own.
   workspaceTagFilterLabel: string;
   workspaceTagFilterAll: string;
+
+  // `14-12`/`adr/0079`: ChannelIdentitiesPanel - verified channel-identity linking/unlinking. See
+  // that component's own doc comment for why the generated relay instruction itself is not one of
+  // these (deliberately unlocalized, matching the backend's own hardcoded reply text).
+  channelIdentitiesSectionTitle: string;
+  channelIdentitiesLoadingLabel: string;
+  channelIdentitiesLoadError: string;
+  channelIdentitiesNone: string;
+  channelIdentitiesLinkKindLabel: string;
+  channelIdentitiesLinkButton: string;
+  channelIdentitiesRequestLinkError: string;
+  channelIdentitiesUnlinkButton: string;
+  channelIdentitiesUnlinkError: string;
+  /** `${channelIdentitiesCodeGeneratedPrefix} ${kind}: ${code}` - the success message shown after a
+   * link request is generated. */
+  channelIdentitiesCodeGeneratedPrefix: string;
 
   // `18-04`: ConversationNotesPanel - internal, operator-only notes on a conversation. Never
   // reachable by a visitor, by construction (`ago-chat`'s `INoteRepository`'s own remarks) - this

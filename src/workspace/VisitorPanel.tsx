@@ -5,6 +5,7 @@ import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
 import { formatAbsolute, formatElapsed, formatElapsedWords, parseInstant } from "../time/format.js";
 import { VisitorHistoryPanel } from "./VisitorHistoryPanel.js";
+import { ChannelIdentitiesPanel } from "./ChannelIdentitiesPanel.js";
 import { ConversationNotesPanel } from "./ConversationNotesPanel.js";
 import { ConversationOutcomePanel } from "./ConversationOutcomePanel.js";
 import { ConversationTagsPanel } from "./ConversationTagsPanel.js";
@@ -41,6 +42,8 @@ export interface VisitorPanelProps {
   /** `18-04`: the site's own tag vocabulary - `WorkspaceOutletContext.tags`, threaded through rather
    * than fetched here. */
   siteTags: readonly TagDto[];
+  /** `14-12`: `ChannelIdentitiesPanel`'s own composer quick-insert - see that component's doc comment. */
+  onInsertIntoComposer: (text: string) => void;
 }
 
 /**
@@ -79,6 +82,7 @@ export function VisitorPanel({
   visitorHistoryError,
   accessToken,
   siteTags,
+  onInsertIntoComposer,
 }: VisitorPanelProps) {
   const strings = useStrings();
   const started = parseInstant(conversation?.createdAt);
@@ -154,6 +158,13 @@ export function VisitorPanel({
       {/* `18-10`: what this conversation led to - see the panel's own doc comment for why it lives
           here rather than in `ConversationPage`'s header next to `CloseConversationButton`. */}
       <ConversationOutcomePanel conversationId={conversationId} accessToken={accessToken} />
+      {/* `14-12`: verified channel-identity linking/unlinking - see the panel's own doc comment. */}
+      <ChannelIdentitiesPanel
+        conversationId={conversationId}
+        siteId={siteId}
+        accessToken={accessToken}
+        onInsertIntoComposer={onInsertIntoComposer}
+      />
 
       <p className="ago-aside__note">{strings.visitorPanelNote}</p>
     </aside>

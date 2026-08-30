@@ -5,6 +5,7 @@ import {
   applyTagToConversation,
   removeTagFromConversation,
   type TagDto,
+  type ConversationTagDto,
 } from "../api/tagsApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
 import { Alert } from "../components/Alert.js";
@@ -32,7 +33,7 @@ export interface ConversationTagsPanelProps {
 export function ConversationTagsPanel({ conversationId, siteTags, accessToken }: ConversationTagsPanelProps) {
   const { hasPermission } = usePermissions();
   const strings = useStrings();
-  const [applied, setApplied] = useState<TagDto[] | null>(null);
+  const [applied, setApplied] = useState<ConversationTagDto[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pickerValue, setPickerValue] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
@@ -85,7 +86,10 @@ export function ConversationTagsPanel({ conversationId, siteTags, accessToken }:
       await applyTagToConversation(accessToken, conversationId, pickerValue);
       const tag = siteTags.find((t) => t.id === pickerValue);
       if (tag) {
-        setApplied((prev) => [...(prev ?? []), tag]);
+        // `19-02`: an operator's own action through this exact picker - always "Operator", the
+        // identical value the real write (`TagConversationHandler`) always uses server-side, so this
+        // optimistic update can never disagree with what a re-fetch would show.
+        setApplied((prev) => [...(prev ?? []), { ...tag, source: "Operator" }]);
       }
       setPickerValue("");
     } catch (err) {
@@ -127,7 +131,18 @@ export function ConversationTagsPanel({ conversationId, siteTags, accessToken }:
       ) : (
         <div className="ago-aside__row">
           {applied?.map((tag) => (
-            <Badge key={tag.id} tone="neutral">
+            <Badge key={tag.id} tone={tag.source === "Ai" ? "accent" : "neutral"}>
+              {tag.source === "Ai" && (
+                <>
+                  {/* Visible marker, hidden from assistive tech - the sr-only span right after it
+                   * carries the equivalent announcement once, prefixed rather than appended so a
+                   * screen reader says "AI-applied tag X" instead of restating the marker text. */}
+                  <span className="ago-badge__ai-marker" aria-hidden="true">
+                    {strings.tagsAiAppliedMarker}
+                  </span>
+                  <span className="ago-visually-hidden">{strings.tagsAiAppliedAriaPrefix}</span>
+                </>
+              )}
               {tag.name}
               {canTag && (
                 <button

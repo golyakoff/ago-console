@@ -369,8 +369,22 @@ export const en: ConsoleStrings = {
   tagsApplyButton: "Apply",
   tagsRemoveButtonAriaPrefix: "Remove tag",
 
+  tagsAiAppliedMarker: "AI",
+  tagsAiAppliedAriaPrefix: "AI-applied tag",
+
   workspaceTagFilterLabel: "Filter by tag",
   workspaceTagFilterAll: "All tags",
+
+  channelIdentitiesSectionTitle: "Linked channels",
+  channelIdentitiesLoadingLabel: "Loading linked channels…",
+  channelIdentitiesLoadError: "Failed to load linked channels.",
+  channelIdentitiesNone: "No channels linked yet.",
+  channelIdentitiesLinkKindLabel: "Channel to link",
+  channelIdentitiesLinkButton: "Generate code",
+  channelIdentitiesRequestLinkError: "Failed to generate a link code.",
+  channelIdentitiesUnlinkButton: "Unlink",
+  channelIdentitiesUnlinkError: "Failed to unlink.",
+  channelIdentitiesCodeGeneratedPrefix: "Code generated for",
 
   notesTitle: "Notes",
   notesVisitorCannotSeeNote: "The visitor never sees these.",

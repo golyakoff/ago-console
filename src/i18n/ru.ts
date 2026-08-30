@@ -372,8 +372,22 @@ export const ru: ConsoleStrings = {
   tagsApplyButton: "Применить",
   tagsRemoveButtonAriaPrefix: "Убрать метку",
 
+  tagsAiAppliedMarker: "ИИ",
+  tagsAiAppliedAriaPrefix: "Метка, применённая ИИ",
+
   workspaceTagFilterLabel: "Фильтр по метке",
   workspaceTagFilterAll: "Все метки",
+
+  channelIdentitiesSectionTitle: "Связанные каналы",
+  channelIdentitiesLoadingLabel: "Загрузка связанных каналов…",
+  channelIdentitiesLoadError: "Не удалось загрузить связанные каналы.",
+  channelIdentitiesNone: "Каналы ещё не связаны.",
+  channelIdentitiesLinkKindLabel: "Канал для связывания",
+  channelIdentitiesLinkButton: "Сгенерировать код",
+  channelIdentitiesRequestLinkError: "Не удалось сгенерировать код для связывания.",
+  channelIdentitiesUnlinkButton: "Отвязать",
+  channelIdentitiesUnlinkError: "Не удалось отвязать.",
+  channelIdentitiesCodeGeneratedPrefix: "Код сгенерирован для",
 
   notesTitle: "Заметки",
   notesVisitorCannotSeeNote: "Посетитель их никогда не видит.",
