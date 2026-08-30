@@ -39,6 +39,10 @@ export function buildTenantNavItems(
     // `18-10`: same gate again - the conversion report, a sibling page to `/analytics` rather than a
     // tab within it (`ConversionReportPage`'s own doc comment).
     items.push({ to: "/analytics/conversion", label: strings.navConversionReport });
+    // `18-14`: same gate again - the chat-to-booking conversion report, its own nav entry rather than
+    // a link buried inside `/analytics` (`BookingFlowConversionPage`'s own doc comment on why it is a
+    // sibling page, not a block on that one).
+    items.push({ to: "/analytics/booking-flow", label: strings.navBookingFlow });
     items.push({ to: "/settings/widget", label: strings.navWidgetAppearance });
     // `14-04`: same permission, same place - one more tenant self-service setting.
     items.push({ to: "/settings/auto-reply", label: strings.navOfflineAutoReply });

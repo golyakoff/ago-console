@@ -90,6 +90,7 @@ describe("the platform-sites page's own navigation", () => {
       "Search",
       "Analytics",
       "Conversion",
+      "Booking flow",
       "Widget appearance",
       "Offline auto-reply",
       "Canned responses",

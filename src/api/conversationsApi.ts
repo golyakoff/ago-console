@@ -3,6 +3,7 @@ import { withActiveSiteHeader } from "./activeSite.js";
 import { problemDetailsFrom } from "./problemDetails.js";
 import type {
   AllConversationsForSiteResponse,
+  BookingFlowReportResponse,
   ConversationOutcomeResponse,
   ConversionReportResponse,
   OperatorAnalyticsResponse,
@@ -368,6 +369,13 @@ export interface ConversionReportParams {
   to?: string;
 }
 
+/** `18-14`: the query `fetchBookingFlowReport` below sends - the same "both bounds optional, let the
+ * server default the window" shape `OperatorAnalyticsParams` already establishes. */
+export interface BookingFlowReportParams {
+  from?: string;
+  to?: string;
+}
+
 /**
  * `18-10`: `GET /api/v1/conversations/conversion-report` - the site owner's own conversion report,
  * gated on `site:configure` server-side, the identical shape `fetchOperatorAnalytics` above already
@@ -437,6 +445,37 @@ export async function setConversationOutcome(
 
   if (response.ok) {
     return;
+  }
+
+  throw await problemDetailsFrom(response);
+}
+
+/**
+ * `18-14`: `GET /api/v1/conversations/module-flow-report` - the console's own chat-to-booking
+ * conversion block, gated on `site:configure` server-side
+ * (`GetModuleFlowReportForSiteHandler`'s own remarks, `ago-chat`) - the same gate
+ * `fetchOperatorAnalytics` above already uses. Throws `ApiProblemError`, not a bare `Error`, like
+ * `fetchOperatorAnalytics` - `BookingFlowConversionPage` has to branch on *which* failure this is
+ * (`Conversation.Forbidden` vs `ModuleFlow.InvalidRange`).
+ */
+export async function fetchBookingFlowReport(
+  accessToken: string,
+  params: BookingFlowReportParams,
+): Promise<BookingFlowReportResponse> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/conversations/module-flow-report`);
+  if (params.from) {
+    url.searchParams.set("from", params.from);
+  }
+  if (params.to) {
+    url.searchParams.set("to", params.to);
+  }
+
+  const response = await fetch(url, {
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (response.ok) {
+    return (await response.json()) as BookingFlowReportResponse;
   }
 
   throw await problemDetailsFrom(response);
