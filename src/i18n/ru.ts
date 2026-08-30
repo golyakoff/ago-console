@@ -504,6 +504,7 @@ export const ru: ConsoleStrings = {
   analyticsChannelColumn: "Канал",
   analyticsConversationCountColumn: "Диалогов",
   analyticsAverageFirstResponseColumn: "Ср. время ответа",
+  analyticsAverageDurationColumn: "Ср. длительность",
   analyticsMissedCountColumn: "Без ответа",
   analyticsOverallRowLabel: "Все каналы",
   analyticsNoResponsesValue: "—",

@@ -650,6 +650,11 @@ export interface ConsoleStrings {
   analyticsChannelColumn: string;
   analyticsConversationCountColumn: string;
   analyticsAverageFirstResponseColumn: string;
+  /** `18-13`: how long a conversation takes from start to close, averaged - a different question from
+   * `analyticsAverageFirstResponseColumn`'s "how fast did someone pick this up", shown as its own
+   * column rather than folded into that one. Rendered with the same `formatDurationSeconds` helper and
+   * the same `analyticsNoResponsesValue` em dash for a bucket where nothing has closed yet. */
+  analyticsAverageDurationColumn: string;
   analyticsMissedCountColumn: string;
   /** The table's own first row, before the per-channel breakdown - every conversation in the window,
    * regardless of channel (`OperatorAnalyticsResult.Overall`, `ago-chat`). */
