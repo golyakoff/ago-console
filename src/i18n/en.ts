@@ -369,6 +369,9 @@ export const en: ConsoleStrings = {
   tagsApplyButton: "Apply",
   tagsRemoveButtonAriaPrefix: "Remove tag",
 
+  tagsAiAppliedMarker: "AI",
+  tagsAiAppliedAriaPrefix: "AI-applied tag",
+
   workspaceTagFilterLabel: "Filter by tag",
   workspaceTagFilterAll: "All tags",
 

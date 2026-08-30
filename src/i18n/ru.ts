@@ -372,6 +372,9 @@ export const ru: ConsoleStrings = {
   tagsApplyButton: "Применить",
   tagsRemoveButtonAriaPrefix: "Убрать метку",
 
+  tagsAiAppliedMarker: "ИИ",
+  tagsAiAppliedAriaPrefix: "Метка, применённая ИИ",
+
   workspaceTagFilterLabel: "Фильтр по метке",
   workspaceTagFilterAll: "Все метки",
 
