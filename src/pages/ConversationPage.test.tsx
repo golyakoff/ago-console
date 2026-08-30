@@ -9,6 +9,7 @@ import { NotConnectedError, SendOutcomeUnknownError, type OperatorConnection } f
 import type { MessageDto } from "../realtime/protocol/types.js";
 import type { WorkspaceOutletContext } from "../workspace/workspaceContext.js";
 import { ApiProblemError } from "../api/problemDetails.js";
+import { ReplyDraftError } from "../api/replyDraftApi.js";
 import { ConversationPage } from "./ConversationPage.js";
 import { byText, interact, one, render, unmount } from "../testing/dom.js";
 
@@ -60,6 +61,17 @@ vi.mock("../api/attachmentsApi.js", () => attachmentsApi);
 const conversationsApi = vi.hoisted(() => ({ closeConversation: vi.fn(), fetchVisitorHistory: vi.fn() }));
 
 vi.mock("../api/conversationsApi.js", () => conversationsApi);
+
+// `19-01`: `ReplyDraftError` is deliberately *not* mocked away, the identical reasoning
+// `ApiProblemError`'s own comment above gives - `handleSuggestReply` does `err instanceof
+// ReplyDraftError` to branch on `err.code`, and a mocked class would fail that check for reasons
+// that have nothing to do with the code under test.
+const replyDraftApi = vi.hoisted(() => ({ generateReplyDraft: vi.fn() }));
+
+vi.mock("../api/replyDraftApi.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../api/replyDraftApi.js")>()),
+  generateReplyDraft: replyDraftApi.generateReplyDraft,
+}));
 
 const CONVERSATION_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 const SITE_ID = "cccccccc-cccc-cccc-cccc-cccccccccccc";
@@ -600,5 +612,81 @@ describe("opening a conversation at a search hit's own position (?at=)", () => {
 
     expect(container.textContent).toContain("This conversation could not be opened here.");
     expect(container.querySelector("textarea")).toBeNull();
+  });
+});
+
+/**
+ * `19-01`: what the page does around "Suggest a reply" - the composer only renders the button and
+ * fires `onSuggestReply` (`Composer.test.tsx`'s own job); this file covers the request it triggers,
+ * what lands in the draft, and - the property this feature exists to keep - that a suggestion never
+ * reaches `OperatorConnection.sendMessage` on its own.
+ */
+describe("suggesting a reply (19-01)", () => {
+  /** The button's own label swaps to "Generating a suggestion…" while a request is in flight
+   * (`Composer.tsx`'s own `suggestingReply` branch) - found by either label rather than by the
+   * "Suggest a reply" text alone, so a test can still reach the (disabled) button mid-request. */
+  function suggestButton(container: HTMLElement) {
+    return (
+      byText<HTMLButtonElement>(container, "button", "Suggest a reply") ??
+      byText<HTMLButtonElement>(container, "button", "Generating a suggestion…")
+    );
+  }
+
+  it("fills the draft with the generated text, replacing whatever was typed, and never sends it", async () => {
+    const fake = fakeConnection();
+    replyDraftApi.generateReplyDraft.mockResolvedValue({ draftText: "Sure, happy to help with that." });
+    const container = await render(<Harness connection={fake.connection} />);
+
+    await interact(() => {
+      const textarea = one<HTMLTextAreaElement>(container, "textarea");
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set?.call(textarea, "half-typed reply");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    await interact(() => suggestButton(container)?.click());
+
+    expect(replyDraftApi.generateReplyDraft).toHaveBeenCalledWith("token", CONVERSATION_ID);
+    expect(one<HTMLTextAreaElement>(container, "textarea").value).toBe("Sure, happy to help with that.");
+    expect(fake.sends).toHaveLength(0);
+  });
+
+  it("disables the button while a request is in flight, so a double click cannot fire a second real-money call", async () => {
+    const fake = fakeConnection();
+    let resolveDraft!: (value: { draftText: string }) => void;
+    replyDraftApi.generateReplyDraft.mockReturnValue(new Promise((resolve) => (resolveDraft = resolve)));
+    const container = await render(<Harness connection={fake.connection} />);
+
+    await interact(() => suggestButton(container)?.click());
+    expect(suggestButton(container)?.disabled).toBe(true);
+
+    await interact(() => resolveDraft({ draftText: "an answer" }));
+    expect(replyDraftApi.generateReplyDraft).toHaveBeenCalledTimes(1);
+    expect(suggestButton(container)?.disabled).toBe(false);
+  });
+
+  it("shows a rate-limit-specific message and leaves the draft untouched when the cap is exceeded", async () => {
+    const fake = fakeConnection();
+    replyDraftApi.generateReplyDraft.mockRejectedValue(
+      new ReplyDraftError("ReplyDraft.RateLimited", "Too many reply-draft requests - retry after 300.0s."),
+    );
+    const container = await render(<Harness connection={fake.connection} />);
+
+    await interact(() => suggestButton(container)?.click());
+
+    expect(container.textContent).toContain("Too many AI suggestions requested");
+    expect(one<HTMLTextAreaElement>(container, "textarea").value).toBe("");
+  });
+
+  it("shows an unavailable-specific message when the provider is down, distinct from the rate-limit one", async () => {
+    const fake = fakeConnection();
+    replyDraftApi.generateReplyDraft.mockRejectedValue(
+      new ReplyDraftError("ReplyDraft.Unavailable", "The reply-draft suggestion is temporarily unavailable."),
+    );
+    const container = await render(<Harness connection={fake.connection} />);
+
+    await interact(() => suggestButton(container)?.click());
+
+    expect(container.textContent).toContain("temporarily unavailable");
+    expect(container.textContent).not.toContain("Too many AI suggestions requested");
   });
 });

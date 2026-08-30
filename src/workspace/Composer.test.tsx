@@ -326,3 +326,57 @@ describe("the composer's file paths", () => {
     expect(container.textContent).toContain("Only the first file was attached");
   });
 });
+
+/**
+ * `19-01`: "Suggest a reply" - absent when the caller supplies no `onSuggestReply` (the same
+ * "omit rather than render a disabled dead control" shape every other optional prop here follows),
+ * present and wired to the callback otherwise, disabled while `suggestingReply`, and showing whatever
+ * error text the caller hands it. `ConversationPage.test.tsx` covers what actually happens when it is
+ * clicked for real (the request, the draft it fills, the trust boundary it never crosses).
+ */
+describe("the suggest-a-reply control", () => {
+  it("is absent when the caller supplies no onSuggestReply", async () => {
+    const p = props();
+    const container = await render(<Composer {...p} />);
+
+    expect(byText(container, "button", "Suggest a reply")).toBeNull();
+  });
+
+  it("calls onSuggestReply when clicked", async () => {
+    const onSuggestReply = vi.fn();
+    const p = props({ onSuggestReply });
+    const container = await render(<Composer {...p} />);
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Suggest a reply")?.click());
+
+    expect(onSuggestReply).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the generating label and disables itself while suggestingReply is true", async () => {
+    const p = props({ onSuggestReply: vi.fn(), suggestingReply: true });
+    const container = await render(<Composer {...p} />);
+
+    expect(byText(container, "button", "Suggest a reply")).toBeNull();
+    const generating = byText<HTMLButtonElement>(container, "button", "Generating a suggestion…");
+    expect(generating).not.toBeNull();
+    expect(generating?.disabled).toBe(true);
+  });
+
+  it("shows the caller's own error text", async () => {
+    const p = props({ onSuggestReply: vi.fn(), suggestReplyError: "The AI suggestion is temporarily unavailable." });
+    const container = await render(<Composer {...p} />);
+
+    expect(container.textContent).toContain("The AI suggestion is temporarily unavailable.");
+  });
+
+  it("never touches the draft on its own - only ConversationPage's onSuggestReply callback may", async () => {
+    const onSuggestReply = vi.fn();
+    const p = props({ draft: "what the operator already typed", onSuggestReply });
+    const container = await render(<Composer {...p} />);
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Suggest a reply")?.click());
+
+    expect(p.onDraftChange).not.toHaveBeenCalled();
+    expect(one<HTMLTextAreaElement>(container, "textarea").value).toBe("what the operator already typed");
+  });
+});

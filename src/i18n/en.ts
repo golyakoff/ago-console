@@ -331,6 +331,12 @@ export const en: ConsoleStrings = {
   cannedResponsesValidationTooManySuffix: "canned responses.",
 
   composerCannedResponsesAvailableHint: "Type / to insert a canned response",
+
+  composerSuggestReplyButton: "Suggest a reply",
+  composerSuggestReplyGenerating: "Generating a suggestion…",
+  replyDraftRateLimitedError: "Too many AI suggestions requested — try again in a moment.",
+  replyDraftUnavailableError: "The AI suggestion is temporarily unavailable.",
+  replyDraftFailedError: "Could not generate a suggestion.",
   composerCannedResponsesListAriaLabel: "Canned responses",
   composerCannedResponsesNoMatch: "No canned response matches.",
   composerCannedResponsesInsertHint: "↑↓ to choose · Enter to insert · Esc to cancel",

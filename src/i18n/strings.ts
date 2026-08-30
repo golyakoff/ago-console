@@ -422,6 +422,14 @@ export interface ConsoleStrings {
   // worse than saying nothing.
   composerCannedResponsesAvailableHint: string;
 
+  // `19-01`: the composer's "Suggest a reply" control - populates the draft, never sends it
+  // (`replyDraftApi.ts`'s own remarks on the trust boundary this stays behind).
+  composerSuggestReplyButton: string;
+  composerSuggestReplyGenerating: string;
+  replyDraftRateLimitedError: string;
+  replyDraftUnavailableError: string;
+  replyDraftFailedError: string;
+
   // `18-04`: TagsPage - the tag vocabulary's own management surface, `site:configure`-gated like
   // CannedResponsesPage right above it.
   tagsForbidden: string;
