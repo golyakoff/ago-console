@@ -6,6 +6,7 @@ import type { ConsoleStrings } from "../i18n/strings.js";
 import { formatAbsolute, formatElapsed, formatElapsedWords, parseInstant } from "../time/format.js";
 import { VisitorHistoryPanel } from "./VisitorHistoryPanel.js";
 import { ChannelIdentitiesPanel } from "./ChannelIdentitiesPanel.js";
+import { ContactDetailsPanel } from "./ContactDetailsPanel.js";
 import { ConversationNotesPanel } from "./ConversationNotesPanel.js";
 import { ConversationOutcomePanel } from "./ConversationOutcomePanel.js";
 import { ConversationTagsPanel } from "./ConversationTagsPanel.js";
@@ -165,6 +166,10 @@ export function VisitorPanel({
         accessToken={accessToken}
         onInsertIntoComposer={onInsertIntoComposer}
       />
+      {/* `14-14`/`adr/0079` section 6: unverified contact details - a materially different trust level
+          than ChannelIdentitiesPanel above, deliberately styled and worded to look like it, not merged
+          into that panel - see ContactDetailsPanel's own doc comment. */}
+      <ContactDetailsPanel conversationId={conversationId} accessToken={accessToken} />
 
       <p className="ago-aside__note">{strings.visitorPanelNote}</p>
     </aside>
