@@ -6,6 +6,7 @@ import type { ConsoleStrings } from "../i18n/strings.js";
 import { formatAbsolute, formatElapsed, formatElapsedWords, parseInstant } from "../time/format.js";
 import { VisitorHistoryPanel } from "./VisitorHistoryPanel.js";
 import { ConversationNotesPanel } from "./ConversationNotesPanel.js";
+import { ConversationOutcomePanel } from "./ConversationOutcomePanel.js";
 import { ConversationTagsPanel } from "./ConversationTagsPanel.js";
 
 /** `ConversationSummaryDto.state`'s three values as the badge's visible text - `"Waiting"` reuses
@@ -150,6 +151,9 @@ export function VisitorPanel({
       {/* `18-04`: internal notes and tags - see each panel's own doc comment. */}
       <ConversationTagsPanel conversationId={conversationId} siteTags={siteTags} accessToken={accessToken} />
       <ConversationNotesPanel conversationId={conversationId} timeZone={timeZone} accessToken={accessToken} />
+      {/* `18-10`: what this conversation led to - see the panel's own doc comment for why it lives
+          here rather than in `ConversationPage`'s header next to `CloseConversationButton`. */}
+      <ConversationOutcomePanel conversationId={conversationId} accessToken={accessToken} />
 
       <p className="ago-aside__note">{strings.visitorPanelNote}</p>
     </aside>

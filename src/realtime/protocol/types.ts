@@ -195,3 +195,54 @@ export interface OperatorAnalyticsResponse {
   byChannel: OperatorAnalyticsChannelBucketDto[];
   byOperator: OperatorAnalyticsOperatorBucketDto[];
 }
+
+/**
+ * `18-10`: `Ago.Chat.Contracts.ConversationOutcomeResponse` - the CLR member name of
+ * `Ago.Chat.Domain.ConversationOutcome`, always one of `"Unset"`/`"Converted"`/`"NotConverted"`/
+ * `"FollowUpNeeded"`.
+ */
+export interface ConversationOutcomeResponse {
+  outcome: string;
+}
+
+/**
+ * `18-10`: `Ago.Chat.Contracts.ConversionBucketDto` - one bucket's worth of outcome counts and the
+ * rate computed from them. `conversionRate` is `null` when `recordedCount` is zero - never `0` itself.
+ * `unsetCount` is the load-bearing number this report exists to keep visible next to the rate: how
+ * much of this bucket has no operator-recorded opinion at all, and is therefore excluded from the
+ * fraction entirely, not folded into either side of it.
+ *
+ * <b>This is not a verified-sale count.</b> Every number here comes from what an operator chose to
+ * record - see `Ago.Chat.Domain.ConversationOutcome`'s own remarks (`ago-chat`). Anywhere this bucket
+ * is rendered, the console must say so, not just report the rate.
+ */
+export interface ConversionBucketDto {
+  convertedCount: number;
+  notConvertedCount: number;
+  followUpNeededCount: number;
+  unsetCount: number;
+  recordedCount: number;
+  conversionRate: number | null;
+}
+
+/** `18-10`: `Ago.Chat.Contracts.ConversionOperatorBucketDto` - one operator's bucket. `operatorId` is
+ * the conversation's own `operator_id` column (currently/last-assigned) - a simpler attribution than
+ * `OperatorAnalyticsOperatorBucketDto`'s first-reply rule, since an outcome is not a "who replied
+ * first" fact (`IConversionReportReadStore`'s own remarks, `ago-chat`). No display name, the same
+ * raw-id shape `OperatorAnalyticsOperatorBucketDto` already uses. */
+export interface ConversionOperatorBucketDto {
+  operatorId: string;
+  bucket: ConversionBucketDto;
+}
+
+/**
+ * `18-10`: `Ago.Chat.Contracts.ConversionReportResponse` - `GET /api/v1/conversations/conversion-report`'s
+ * body. `from`/`to` are the range the server actually used, the same "the bound is visible, not
+ * silent" shape `OperatorAnalyticsResponse.from`/`to` already establishes.
+ */
+export interface ConversionReportResponse {
+  from: string;
+  to: string;
+  overall: ConversionBucketDto;
+  byOperator: ConversionOperatorBucketDto[];
+}

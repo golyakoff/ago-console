@@ -36,6 +36,9 @@ export function buildTenantNavItems(
     // `18-08`: same gate as `/admin`/`/search` above - the site owner's own basic self-service report
     // (`OperatorAnalyticsPage`'s own doc comment).
     items.push({ to: "/analytics", label: strings.navAnalytics });
+    // `18-10`: same gate again - the conversion report, a sibling page to `/analytics` rather than a
+    // tab within it (`ConversionReportPage`'s own doc comment).
+    items.push({ to: "/analytics/conversion", label: strings.navConversionReport });
     items.push({ to: "/settings/widget", label: strings.navWidgetAppearance });
     // `14-04`: same permission, same place - one more tenant self-service setting.
     items.push({ to: "/settings/auto-reply", label: strings.navOfflineAutoReply });
