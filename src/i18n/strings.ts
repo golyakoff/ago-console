@@ -660,4 +660,15 @@ export interface ConsoleStrings {
   analyticsChannelMax: string;
   analyticsChannelTelegram: string;
   analyticsChannelWhatsApp: string;
+
+  // `18-09`: the per-operator breakdown, a second table below the overall/per-channel one - a
+  // different dimension over the same three numbers, not a second report (`OperatorAnalyticsPage`'s
+  // own doc comment argues why a second table rather than a second page).
+  analyticsByOperatorHeading: string;
+  analyticsOperatorColumn: string;
+  /** Shown instead of the per-operator table when the report has conversations but none of them
+   * attribute to any operator (a possible, if unusual, real state - `IOperatorAnalyticsReadStore`'s
+   * own remarks on why a conversation closed while still `Waiting` attributes to nobody) - distinct
+   * from `analyticsEmpty`, which means the whole report is empty. */
+  analyticsByOperatorEmpty: string;
 }
