@@ -316,6 +316,18 @@
   letter-spacing: 0.02em;
 }
 
+/* `19-02`: the AI-applied-tag marker inside ConversationTagsPanel's own badge - a real word, not
+   colour alone (`ago-badge--accent` above is the colour half of the same distinction; `adr/0078`'s
+   kind 2 Done-when asks for "visibly distinguishable", which colour-blind-safely means the word does
+   the actual work). Sized down from the badge's own text so "AI" reads as a qualifier on the tag name
+   beside it, never as a second, equally-weighted word. */
+.ago-badge__ai-marker {
+  font-size: 0.85em;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+}
+
 /* ============================================================================ Panel */
 
 .ago-panel {
