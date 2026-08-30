@@ -463,6 +463,13 @@ export interface ConsoleStrings {
   /** `${tagsRemoveButtonAriaPrefix} ${tag.name}` - the applied-tag badge's own remove button. */
   tagsRemoveButtonAriaPrefix: string;
 
+  // `19-02`: the AI-applied-tag marker - `ConversationTagsPanel`'s own visible trust signal
+  // (`adr/0078`'s kind 2 Done-when), never colour alone.
+  tagsAiAppliedMarker: string;
+  /** `${tagsAiAppliedAriaPrefix} ${tag.name}` - read by a screen reader in place of the marker's own
+   * bare text, the same `aria-label` shape `tagsRemoveButtonAriaPrefix` already uses. */
+  tagsAiAppliedAriaPrefix: string;
+
   // `18-04`: the workspace rail's own queue filter, and the identical control on
   // `AdminConversationsPage` - both reuse this pair rather than each declaring its own.
   workspaceTagFilterLabel: string;

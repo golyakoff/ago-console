@@ -10,6 +10,17 @@ export interface TagDto {
   createdAt: string;
 }
 
+/** `19-02`'s exact wire shape for `GET /api/v1/conversations/{id}/tags` only (`Ago.Chat.Api`'s
+ * `TagEndpoints.ConversationTagResponseDto`) - the site vocabulary endpoints keep returning plain
+ * `TagDto`, since only a per-conversation association has a `source` to carry
+ * (`ago-chat`'s `ConversationTagDto`'s own remarks). */
+export interface ConversationTagDto extends TagDto {
+  /** `"Operator"` or `"Ai"` - the CLR member name of `Ago.Chat.Domain.TagSource`, passed through
+   * unchanged (the same "wire DTO carries a plain projection, never re-encoded" rule this codebase's
+   * other CLR-member-name string fields already follow). */
+  source: "Operator" | "Ai";
+}
+
 function vocabularyUrl(siteId: string, tagId?: string): string {
   const base = `${config.apiBaseUrl}/api/v1/sites/${siteId}/tags`;
   return tagId ? `${base}/${tagId}` : base;
@@ -81,8 +92,9 @@ export async function deleteTag(accessToken: string, siteId: string, tagId: stri
   throw await problemDetailsFrom(response);
 }
 
-/** `GET /api/v1/conversations/{id}/tags` - every tag currently applied to one conversation. */
-export async function fetchConversationTags(accessToken: string, conversationId: string): Promise<TagDto[]> {
+/** `GET /api/v1/conversations/{id}/tags` - every tag currently applied to one conversation, each
+ * carrying its own `source` (`19-02`). */
+export async function fetchConversationTags(accessToken: string, conversationId: string): Promise<ConversationTagDto[]> {
   const response = await fetch(conversationTagsUrl(conversationId), {
     headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
   });
@@ -91,7 +103,7 @@ export async function fetchConversationTags(accessToken: string, conversationId:
     throw await problemDetailsFrom(response);
   }
 
-  const body = (await response.json()) as { tags: TagDto[] };
+  const body = (await response.json()) as { tags: ConversationTagDto[] };
   return body.tags;
 }
 
