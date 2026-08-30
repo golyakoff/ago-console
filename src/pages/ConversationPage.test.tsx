@@ -58,7 +58,15 @@ vi.mock("../api/attachmentsApi.js", () => attachmentsApi);
 // below (this file's tests are about sending/closing/attachments, not the history panel - its own
 // behaviour is `VisitorHistoryPanel.test.tsx`'s job), which also happens to prove in passing that a
 // widget-shaped answer renders nothing extra here.
-const conversationsApi = vi.hoisted(() => ({ closeConversation: vi.fn(), fetchVisitorHistory: vi.fn() }));
+const conversationsApi = vi.hoisted(() => ({
+  closeConversation: vi.fn(),
+  fetchVisitorHistory: vi.fn(),
+  // `18-10`: `ConversationOutcomePanel` (mounted inside `VisitorPanel`, which every test in this file
+  // renders via `ConversationPage`) calls these two - not optional, the same reason `fetchVisitorHistory`
+  // above is not: an unmocked export on a `vi.mock`'d module throws instead of resolving.
+  fetchConversationOutcome: vi.fn(),
+  setConversationOutcome: vi.fn(),
+}));
 
 vi.mock("../api/conversationsApi.js", () => conversationsApi);
 
@@ -268,6 +276,8 @@ beforeEach(() => {
   });
   attachmentsApi.deleteAttachment.mockResolvedValue(undefined);
   conversationsApi.fetchVisitorHistory.mockResolvedValue({ hasChannelIdentity: false, conversations: [], nextBeforeId: null });
+  conversationsApi.fetchConversationOutcome.mockResolvedValue({ outcome: "Unset" });
+  conversationsApi.setConversationOutcome.mockResolvedValue(undefined);
 });
 
 afterEach(async () => {

@@ -679,4 +679,60 @@ export interface ConsoleStrings {
    * own remarks on why a conversation closed while still `Waiting` attributes to nobody) - distinct
    * from `analyticsEmpty`, which means the whole report is empty. */
   analyticsByOperatorEmpty: string;
+
+  // `18-10`: ConversationOutcomePanel - what an operator says one conversation led to. Three real,
+  // settable values plus the unset default's own display label.
+  outcomeSectionTitle: string;
+  outcomeLoadingLabel: string;
+  outcomeLoadError: string;
+  outcomeSetError: string;
+  outcomeUnset: string;
+  outcomeConverted: string;
+  outcomeNotConverted: string;
+  outcomeFollowUpNeeded: string;
+  /** Shown under the outcome control itself, not only on the report that reads it back -
+   * `Ago.Chat.Domain.ConversationOutcome`'s own remarks on why this framing has to travel with the
+   * value, not live only in one document. */
+  outcomeNotAVerifiedSaleNote: string;
+
+  // `18-10`: ConversionReportPage (`/analytics/conversion`) - the site owner's own conversion report,
+  // a second, separate report from `/analytics` rather than a third table bolted onto it
+  // (`OperatorAnalyticsPage`'s own doc comment on why a third, unrelated concept earns its own page).
+  // Gated on `site:configure`, the same shape `analyticsForbiddenError`/`analyticsInvalidRangeError`
+  // above already establish for its sibling report - this reuses those two rather than declaring a
+  // near-duplicate pair.
+  navConversionReport: string;
+  conversionReportPageDescription: string;
+  /** The report's own headline honesty statement - rendered prominently, not in fine print, per this
+   * item's own crux: a conversion rate built from operator-reported outcomes is real and useful, and
+   * it is not the same claim as "N% of chats resulted in a verified sale." */
+  conversionReportNotAVerifiedSaleBanner: string;
+  conversionReportFromFieldLabel: string;
+  conversionReportToFieldLabel: string;
+  conversionReportApplyButton: string;
+  conversionReportRangeLabel: string;
+  conversionReportLoadingLabel: string;
+  conversionReportEmpty: string;
+  /** The three date-range presets the backlog item names by name - calendar month, previous calendar
+   * month, last 30 days (`../time/rangePresets.ts`). */
+  conversionReportPresetThisMonth: string;
+  conversionReportPresetLastMonth: string;
+  conversionReportPresetLast30Days: string;
+  conversionReportConvertedColumn: string;
+  conversionReportNotConvertedColumn: string;
+  conversionReportFollowUpNeededColumn: string;
+  /** How much of this bucket has no recorded outcome at all - rendered next to the rate, not buried,
+   * so a thin-coverage rate never reads as more authoritative than it is
+   * (`ConversionBucketDto.unsetCount`'s own remarks). */
+  conversionReportUnsetColumn: string;
+  conversionReportRateColumn: string;
+  /** Shown in the rate column when a bucket's own `conversionRate` is `null` - nothing has been
+   * recorded either way yet, so there is nothing to compute a rate from. An em dash, the same "never a
+   * misleading zero" convention `analyticsNoResponsesValue` already establishes for an analogous
+   * null. */
+  conversionReportNoDataValue: string;
+  conversionReportOverallRowLabel: string;
+  conversionReportByOperatorHeading: string;
+  conversionReportOperatorColumn: string;
+  conversionReportByOperatorEmpty: string;
 }

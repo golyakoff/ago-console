@@ -3,6 +3,8 @@ import { withActiveSiteHeader } from "./activeSite.js";
 import { problemDetailsFrom } from "./problemDetails.js";
 import type {
   AllConversationsForSiteResponse,
+  ConversationOutcomeResponse,
+  ConversionReportResponse,
   OperatorAnalyticsResponse,
   OperatorQueueResponse,
   SearchConversationsResponse,
@@ -351,6 +353,90 @@ export async function fetchOperatorAnalytics(
 
   if (response.ok) {
     return (await response.json()) as OperatorAnalyticsResponse;
+  }
+
+  throw await problemDetailsFrom(response);
+}
+
+/** `18-10`: the same optional-bounds shape `OperatorAnalyticsParams` already establishes for `18-08` -
+ * omit either or both to let the server default the window (`GetConversionReportForSiteHandler`'s own
+ * thirty-day default). A caller wanting a preset (calendar month, previous calendar month, last 30
+ * days) resolves it client-side first (`../time/rangePresets.js`) into concrete `from`/`to` values -
+ * there is no server-side preset concept (that module's own doc comment explains why). */
+export interface ConversionReportParams {
+  from?: string;
+  to?: string;
+}
+
+/**
+ * `18-10`: `GET /api/v1/conversations/conversion-report` - the site owner's own conversion report,
+ * gated on `site:configure` server-side, the identical shape `fetchOperatorAnalytics` above already
+ * establishes for its sibling report. Throws `ApiProblemError` for the same reason that one does -
+ * `ConversionReportPage` has to branch on `Conversation.Forbidden` vs `Analytics.InvalidRange`.
+ */
+export async function fetchConversionReport(
+  accessToken: string,
+  params: ConversionReportParams,
+): Promise<ConversionReportResponse> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/conversations/conversion-report`);
+  if (params.from) {
+    url.searchParams.set("from", params.from);
+  }
+  if (params.to) {
+    url.searchParams.set("to", params.to);
+  }
+
+  const response = await fetch(url, {
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (response.ok) {
+    return (await response.json()) as ConversionReportResponse;
+  }
+
+  throw await problemDetailsFrom(response);
+}
+
+/** `18-10`: `GET /api/v1/conversations/{id}/outcome` - the conversation detail panel's own read,
+ * gated on `conversation:read` server-side (`GetConversationOutcomeHandler`'s own remarks,
+ * `ago-chat`). The same `ApiProblemError`-throwing shape as `fetchConversationTags`, since a caller may
+ * need to tell `Conversation.Forbidden` apart from `Conversation.NotFound`. */
+export async function fetchConversationOutcome(
+  accessToken: string,
+  conversationId: string,
+): Promise<ConversationOutcomeResponse> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/conversations/${conversationId}/outcome`, {
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (response.ok) {
+    return (await response.json()) as ConversationOutcomeResponse;
+  }
+
+  throw await problemDetailsFrom(response);
+}
+
+/**
+ * `18-10`: `PUT /api/v1/conversations/{id}/outcome` - an operator recording what a conversation led
+ * to. `PUT`, not `POST`, matching `SetConversationOutcomeRequest`'s own remarks (`ago-chat`): the body
+ * asserts the state ("this conversation's outcome is now X"), the same shape
+ * `MarkConversationReadRequest` already uses for an analogous state assertion. `204 No Content` on
+ * success, the same "nothing to return, the console already knows what it just set" contract
+ * `closeConversation` above documents in full.
+ */
+export async function setConversationOutcome(
+  accessToken: string,
+  conversationId: string,
+  outcome: string,
+): Promise<void> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/conversations/${conversationId}/outcome`, {
+    method: "PUT",
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }),
+    body: JSON.stringify({ outcome }),
+  });
+
+  if (response.ok) {
+    return;
   }
 
   throw await problemDetailsFrom(response);

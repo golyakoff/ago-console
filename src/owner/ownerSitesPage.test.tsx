@@ -89,6 +89,7 @@ describe("the platform-sites page's own navigation", () => {
       "All conversations",
       "Search",
       "Analytics",
+      "Conversion",
       "Widget appearance",
       "Offline auto-reply",
       "Canned responses",
