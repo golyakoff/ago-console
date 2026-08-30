@@ -72,14 +72,14 @@ function page(): ReactNode {
   );
 }
 
+type Bucket = { conversationCount: number; averageFirstResponseSeconds: number | null; missedCount: number };
+
 function response(overrides: {
   from?: string;
   to?: string;
-  overall?: { conversationCount: number; averageFirstResponseSeconds: number | null; missedCount: number };
-  byChannel?: {
-    channel: string;
-    bucket: { conversationCount: number; averageFirstResponseSeconds: number | null; missedCount: number };
-  }[];
+  overall?: Bucket;
+  byChannel?: { channel: string; bucket: Bucket }[];
+  byOperator?: { operatorId: string; bucket: Bucket }[];
 } = {}) {
   return {
     from: "2026-05-29T00:00:00+00:00",
@@ -88,6 +88,19 @@ function response(overrides: {
     byChannel: [
       { channel: "Widget", bucket: { conversationCount: 4, averageFirstResponseSeconds: 90, missedCount: 1 } },
       { channel: "Sms", bucket: { conversationCount: 2, averageFirstResponseSeconds: 40, missedCount: 0 } },
+    ],
+    // `18-09`: two operators' worth of ground truth, matching `ago-chat`'s own
+    // `OperatorAnalyticsReadStoreTests.GetSiteAnalyticsAsync_ComputesPerOperatorNumbers_...` scenario
+    // shape - a real id, not a placeholder, so `operatorLabel`'s truncation has something real to prove.
+    byOperator: [
+      {
+        operatorId: "11111111-2222-3333-4444-555555555555",
+        bucket: { conversationCount: 2, averageFirstResponseSeconds: 60, missedCount: 0 },
+      },
+      {
+        operatorId: "66666666-7777-8888-9999-000000000000",
+        bucket: { conversationCount: 1, averageFirstResponseSeconds: 20, missedCount: 0 },
+      },
     ],
     ...overrides,
   };
@@ -153,6 +166,7 @@ describe("loading the report", () => {
         byChannel: [
           { channel: "Widget", bucket: { conversationCount: 1, averageFirstResponseSeconds: null, missedCount: 1 } },
         ],
+        byOperator: [],
       }),
     );
 
@@ -164,7 +178,11 @@ describe("loading the report", () => {
 
   it("shows a plain empty state when the site had no conversations in the window, not an error", async () => {
     conversationsApi.fetchOperatorAnalytics.mockResolvedValue(
-      response({ overall: { conversationCount: 0, averageFirstResponseSeconds: null, missedCount: 0 }, byChannel: [] }),
+      response({
+        overall: { conversationCount: 0, averageFirstResponseSeconds: null, missedCount: 0 },
+        byChannel: [],
+        byOperator: [],
+      }),
     );
 
     const container = await render(page());
@@ -190,6 +208,47 @@ describe("loading the report", () => {
     const container = await render(page());
 
     expect(container.textContent).toContain("The start of the range must be before its end.");
+  });
+});
+
+/** `18-09`: the per-operator table - a second `Table` below the overall/per-channel one
+ * (`OperatorAnalyticsPage`'s own doc comment argues why two tables, not one or two pages). */
+describe("the per-operator breakdown", () => {
+  it("renders one row per operator, labelled by a truncated id since no display name exists", async () => {
+    conversationsApi.fetchOperatorAnalytics.mockResolvedValue(response());
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("By operator");
+    // `AdminConversationsPage`'s own truncation convention: the first eight characters of the raw id.
+    expect(container.textContent).toContain("11111111");
+    expect(container.textContent).not.toContain("11111111-2222-3333-4444-555555555555");
+    expect(container.textContent).toContain("66666666");
+  });
+
+  it("renders the per-operator numbers exactly as the server reports them", async () => {
+    conversationsApi.fetchOperatorAnalytics.mockResolvedValue(response());
+
+    const container = await render(page());
+
+    // Operator 1: 2 conversations, 60s average (`formatDurationSeconds` drops the "0s" remainder,
+    // the same rule the overall/per-channel table's own duration column already follows) = "1m",
+    // 0 missed. Operator 2: 1 conversation, 20s average.
+    expect(container.textContent).toContain("2");
+    expect(container.textContent).toContain("1m");
+    expect(container.textContent).toContain("1");
+    expect(container.textContent).toContain("20s");
+  });
+
+  it("shows a dedicated empty state, distinct from the whole-report empty state, when the report has conversations but none attribute to an operator", async () => {
+    conversationsApi.fetchOperatorAnalytics.mockResolvedValue(response({ byOperator: [] }));
+
+    const container = await render(page());
+
+    // The main table still renders - this report is not empty, only the operator dimension is.
+    expect(container.textContent).toContain("All channels");
+    expect(container.textContent).toContain("No conversations attribute to an operator in this range.");
+    expect(container.textContent).not.toContain("No conversations in this range.");
   });
 });
 

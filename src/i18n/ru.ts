@@ -512,4 +512,8 @@ export const ru: ConsoleStrings = {
   analyticsChannelMax: "MAX",
   analyticsChannelTelegram: "Telegram",
   analyticsChannelWhatsApp: "WhatsApp",
+
+  analyticsByOperatorHeading: "По операторам",
+  analyticsOperatorColumn: "Оператор",
+  analyticsByOperatorEmpty: "В этом периоде нет диалогов, отнесённых к оператору.",
 };

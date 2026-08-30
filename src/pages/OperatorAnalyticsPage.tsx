@@ -1,10 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchOperatorAnalytics } from "../api/conversationsApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
-import type { OperatorAnalyticsBucketDto, OperatorAnalyticsChannelBucketDto } from "../realtime/protocol/types.js";
+import type {
+  OperatorAnalyticsBucketDto,
+  OperatorAnalyticsChannelBucketDto,
+  OperatorAnalyticsOperatorBucketDto,
+} from "../realtime/protocol/types.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Alert } from "../components/Alert.js";
 import { Button } from "../components/Button.js";
@@ -57,6 +61,19 @@ interface AnalyticsRow {
   bucket: OperatorAnalyticsBucketDto;
 }
 
+/** `18-09`: the raw operator id, truncated - the same "no display name exists, so the id itself" shape
+ * `AdminConversationsPage`'s own assigned-operator column already established, reused verbatim rather
+ * than inventing a different truncation convention for the identical kind of value. */
+function operatorLabel(operatorId: string): ReactNode {
+  return <span className="ago-mono">{operatorId.slice(0, 8)}</span>;
+}
+
+interface OperatorRow {
+  key: string;
+  operatorId: string;
+  bucket: OperatorAnalyticsBucketDto;
+}
+
 /**
  * `18-08`: `/analytics` - the site owner's own basic self-service report: conversation volume,
  * average first-response time, and conversations that never got a reply, overall and per channel.
@@ -69,11 +86,21 @@ interface AnalyticsRow {
  * form, and belongs beside `/admin`/`/search` in the site-wide oversight group of screens, not inside
  * `ConversationPage`'s aside.
  *
- * <b>One table, not two.</b> The overall bucket and the per-channel breakdown are the identical shape
- * (`OperatorAnalyticsBucketDto`), so they render as one `Table` whose first row is "All channels" -
- * simpler than a summary block above a second, separate table for the same three columns, and it is
- * still exactly the "plain table/summary, not a charting library" shape this item's own Done-when
- * asks for.
+ * <b>One table, not two, for overall/per-channel.</b> The overall bucket and the per-channel breakdown
+ * are the identical shape (`OperatorAnalyticsBucketDto`), so they render as one `Table` whose first row
+ * is "All channels" - simpler than a summary block above a second, separate table for the same three
+ * columns, and it is still exactly the "plain table/summary, not a charting library" shape this item's
+ * own Done-when asks for.
+ *
+ * <b>`18-09`: a second table for the per-operator breakdown, not a third row-kind folded into the
+ * first.</b> Unlike channel (a property every conversation always has - `Widget` is the fallback), an
+ * operator is a genuinely different, independent dimension over the same window - mixing "all channels"
+ * /"Widget"/"Sms" rows with "operator abcd1234" rows in one table would force a reader to work out which
+ * column a given row is even sliced by. A second, separately-captioned `Table` right below keeps that
+ * distinction visible for free, still on the same page (this report has one date range, one permission
+ * check, one echoed window - a second page would either duplicate all three or awkwardly share state
+ * across a route boundary for no real benefit) rather than the "new page linked from it" alternative the
+ * backlog item's own Scope also allowed.
  *
  * <b>The date-range form is UX-only</b>, the same call `SearchConversationsPage` already makes for its
  * own two date fields: `GetOperatorAnalyticsForSiteHandler` is the real authority (`from >= to` is its
@@ -91,6 +118,7 @@ export function OperatorAnalyticsPage() {
 
   const [overall, setOverall] = useState<OperatorAnalyticsBucketDto | null>(null);
   const [byChannel, setByChannel] = useState<OperatorAnalyticsChannelBucketDto[]>([]);
+  const [byOperator, setByOperator] = useState<OperatorAnalyticsOperatorBucketDto[]>([]);
   const [effectiveFrom, setEffectiveFrom] = useState<string | null>(null);
   const [effectiveTo, setEffectiveTo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -112,6 +140,7 @@ export function OperatorAnalyticsPage() {
         const response = await fetchOperatorAnalytics(accessToken, range);
         setOverall(response.overall);
         setByChannel(response.byChannel);
+        setByOperator(response.byOperator);
         setEffectiveFrom(response.from);
         setEffectiveTo(response.to);
       } catch (err) {
@@ -199,6 +228,37 @@ export function OperatorAnalyticsPage() {
     },
   ];
 
+  const operatorRows: OperatorRow[] = byOperator.map((entry) => ({
+    key: entry.operatorId,
+    operatorId: entry.operatorId,
+    bucket: entry.bucket,
+  }));
+
+  const operatorColumns: TableColumn<OperatorRow>[] = [
+    { key: "operator", header: strings.analyticsOperatorColumn, render: (row) => operatorLabel(row.operatorId) },
+    {
+      key: "conversationCount",
+      header: strings.analyticsConversationCountColumn,
+      align: "end",
+      render: (row) => row.bucket.conversationCount,
+    },
+    {
+      key: "averageFirstResponse",
+      header: strings.analyticsAverageFirstResponseColumn,
+      align: "end",
+      render: (row) =>
+        row.bucket.averageFirstResponseSeconds === null
+          ? strings.analyticsNoResponsesValue
+          : formatDurationSeconds(row.bucket.averageFirstResponseSeconds),
+    },
+    {
+      key: "missedCount",
+      header: strings.analyticsMissedCountColumn,
+      align: "end",
+      render: (row) => row.bucket.missedCount,
+    },
+  ];
+
   return (
     <>
       <PageHead title={strings.navAnalytics} description={strings.analyticsPageDescription} />
@@ -247,7 +307,21 @@ export function OperatorAnalyticsPage() {
       ) : overall && overall.conversationCount === 0 ? (
         <p className="ago-empty">{strings.analyticsEmpty}</p>
       ) : overall ? (
-        <Table caption={strings.analyticsPageDescription} columns={columns} rows={rows} rowKey={(row) => row.key} />
+        <>
+          <Table caption={strings.analyticsPageDescription} columns={columns} rows={rows} rowKey={(row) => row.key} />
+
+          <h2>{strings.analyticsByOperatorHeading}</h2>
+          {operatorRows.length === 0 ? (
+            <p className="ago-empty">{strings.analyticsByOperatorEmpty}</p>
+          ) : (
+            <Table
+              caption={strings.analyticsByOperatorHeading}
+              columns={operatorColumns}
+              rows={operatorRows}
+              rowKey={(row) => row.key}
+            />
+          )}
+        </>
       ) : null}
     </>
   );
