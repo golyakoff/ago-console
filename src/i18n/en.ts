@@ -502,6 +502,7 @@ export const en: ConsoleStrings = {
   analyticsChannelColumn: "Channel",
   analyticsConversationCountColumn: "Conversations",
   analyticsAverageFirstResponseColumn: "Avg. first response",
+  analyticsAverageDurationColumn: "Avg. duration",
   analyticsMissedCountColumn: "Missed",
   analyticsOverallRowLabel: "All channels",
   analyticsNoResponsesValue: "—",

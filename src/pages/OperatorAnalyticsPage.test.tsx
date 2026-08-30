@@ -72,7 +72,12 @@ function page(): ReactNode {
   );
 }
 
-type Bucket = { conversationCount: number; averageFirstResponseSeconds: number | null; missedCount: number };
+type Bucket = {
+  conversationCount: number;
+  averageFirstResponseSeconds: number | null;
+  averageDurationSeconds: number | null;
+  missedCount: number;
+};
 
 function response(overrides: {
   from?: string;
@@ -84,22 +89,30 @@ function response(overrides: {
   return {
     from: "2026-05-29T00:00:00+00:00",
     to: "2026-08-29T00:00:00+00:00",
-    overall: { conversationCount: 6, averageFirstResponseSeconds: 65, missedCount: 1 },
+    overall: { conversationCount: 6, averageFirstResponseSeconds: 65, averageDurationSeconds: 150, missedCount: 1 },
     byChannel: [
-      { channel: "Widget", bucket: { conversationCount: 4, averageFirstResponseSeconds: 90, missedCount: 1 } },
-      { channel: "Sms", bucket: { conversationCount: 2, averageFirstResponseSeconds: 40, missedCount: 0 } },
+      {
+        channel: "Widget",
+        bucket: { conversationCount: 4, averageFirstResponseSeconds: 90, averageDurationSeconds: 200, missedCount: 1 },
+      },
+      {
+        channel: "Sms",
+        bucket: { conversationCount: 2, averageFirstResponseSeconds: 40, averageDurationSeconds: 300, missedCount: 0 },
+      },
     ],
     // `18-09`: two operators' worth of ground truth, matching `ago-chat`'s own
     // `OperatorAnalyticsReadStoreTests.GetSiteAnalyticsAsync_ComputesPerOperatorNumbers_...` scenario
     // shape - a real id, not a placeholder, so `operatorLabel`'s truncation has something real to prove.
+    // `18-13`: `averageDurationSeconds` values distinct from `averageFirstResponseSeconds`'s own, so a
+    // test asserting on one column can never accidentally pass by reading the other's value.
     byOperator: [
       {
         operatorId: "11111111-2222-3333-4444-555555555555",
-        bucket: { conversationCount: 2, averageFirstResponseSeconds: 60, missedCount: 0 },
+        bucket: { conversationCount: 2, averageFirstResponseSeconds: 60, averageDurationSeconds: 180, missedCount: 0 },
       },
       {
         operatorId: "66666666-7777-8888-9999-000000000000",
-        bucket: { conversationCount: 1, averageFirstResponseSeconds: 20, missedCount: 0 },
+        bucket: { conversationCount: 1, averageFirstResponseSeconds: 20, averageDurationSeconds: 300, missedCount: 0 },
       },
     ],
     ...overrides,
@@ -151,20 +164,27 @@ describe("loading the report", () => {
 
     const container = await render(page());
 
-    // Overall: 6 conversations, 65s average (1m 5s), 1 missed.
+    // Overall: 6 conversations, 65s average (1m 5s), 150s duration (2m 30s), 1 missed.
     expect(container.textContent).toContain("6");
     expect(container.textContent).toContain("1m 5s");
-    // Widget: 4 conversations, 90s average (1m 30s), 1 missed. Sms: 2 conversations, 40s average, 0 missed.
+    expect(container.textContent).toContain("2m 30s");
+    // Widget: 4 conversations, 90s average (1m 30s), 200s duration (3m 20s), 1 missed.
+    // Sms: 2 conversations, 40s average, 300s duration (5m), 0 missed.
     expect(container.textContent).toContain("1m 30s");
+    expect(container.textContent).toContain("3m 20s");
     expect(container.textContent).toContain("40s");
+    expect(container.textContent).toContain("5m");
   });
 
   it("renders an em dash, never 0s, for a bucket whose average is null because nothing was ever answered", async () => {
     conversationsApi.fetchOperatorAnalytics.mockResolvedValue(
       response({
-        overall: { conversationCount: 1, averageFirstResponseSeconds: null, missedCount: 1 },
+        overall: { conversationCount: 1, averageFirstResponseSeconds: null, averageDurationSeconds: null, missedCount: 1 },
         byChannel: [
-          { channel: "Widget", bucket: { conversationCount: 1, averageFirstResponseSeconds: null, missedCount: 1 } },
+          {
+            channel: "Widget",
+            bucket: { conversationCount: 1, averageFirstResponseSeconds: null, averageDurationSeconds: null, missedCount: 1 },
+          },
         ],
         byOperator: [],
       }),
@@ -176,10 +196,36 @@ describe("loading the report", () => {
     expect(container.textContent).not.toContain("0s");
   });
 
+  /** `18-13`: a bucket can be answered (a real `averageFirstResponseSeconds`) while nothing in it has
+   * closed yet (`averageDurationSeconds` still `null`) - the two null cases are independent, so this
+   * proves the duration column renders its own em dash rather than inheriting the response column's
+   * non-null state. */
+  it("renders an em dash for the duration column alone, when nothing in the bucket has closed yet", async () => {
+    conversationsApi.fetchOperatorAnalytics.mockResolvedValue(
+      response({
+        overall: { conversationCount: 2, averageFirstResponseSeconds: 45, averageDurationSeconds: null, missedCount: 0 },
+        byChannel: [
+          {
+            channel: "Widget",
+            bucket: { conversationCount: 2, averageFirstResponseSeconds: 45, averageDurationSeconds: null, missedCount: 0 },
+          },
+        ],
+        byOperator: [],
+      }),
+    );
+
+    const container = await render(page());
+
+    // The response column has a real value; the duration column's own em dash proves it is a
+    // genuinely separate null, not the response column's null bleeding into both.
+    expect(container.textContent).toContain("45s");
+    expect(container.textContent).toContain("—");
+  });
+
   it("shows a plain empty state when the site had no conversations in the window, not an error", async () => {
     conversationsApi.fetchOperatorAnalytics.mockResolvedValue(
       response({
-        overall: { conversationCount: 0, averageFirstResponseSeconds: null, missedCount: 0 },
+        overall: { conversationCount: 0, averageFirstResponseSeconds: null, averageDurationSeconds: null, missedCount: 0 },
         byChannel: [],
         byOperator: [],
       }),
@@ -233,11 +279,13 @@ describe("the per-operator breakdown", () => {
 
     // Operator 1: 2 conversations, 60s average (`formatDurationSeconds` drops the "0s" remainder,
     // the same rule the overall/per-channel table's own duration column already follows) = "1m",
-    // 0 missed. Operator 2: 1 conversation, 20s average.
+    // 180s duration = "3m", 0 missed. Operator 2: 1 conversation, 20s average, 300s duration = "5m".
     expect(container.textContent).toContain("2");
     expect(container.textContent).toContain("1m");
+    expect(container.textContent).toContain("3m");
     expect(container.textContent).toContain("1");
     expect(container.textContent).toContain("20s");
+    expect(container.textContent).toContain("5m");
   });
 
   it("shows a dedicated empty state, distinct from the whole-report empty state, when the report has conversations but none attribute to an operator", async () => {

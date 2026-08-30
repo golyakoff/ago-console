@@ -144,15 +144,20 @@ export interface SearchConversationsResponse {
 }
 
 /**
- * `18-08`: `Ago.Chat.Contracts.OperatorAnalyticsBucketDto` - one bucket's worth of the three numbers
- * the analytics panel exists to show. `averageFirstResponseSeconds` is `null` when nothing in this
- * bucket ever received an operator reply - never `0` and never inflated by the conversations counted
- * in `missedCount`, which are excluded from the average entirely
- * (`IOperatorAnalyticsReadStore`'s own remarks, `ago-chat`).
+ * `18-08`: `Ago.Chat.Contracts.OperatorAnalyticsBucketDto` - one bucket's worth of the numbers the
+ * analytics panel exists to show. `averageFirstResponseSeconds` is `null` when nothing in this bucket
+ * ever received an operator reply - never `0` and never inflated by the conversations counted in
+ * `missedCount`, which are excluded from the average entirely (`IOperatorAnalyticsReadStore`'s own
+ * remarks, `ago-chat`).
+ *
+ * `18-13`: `averageDurationSeconds` is the same idea for how long a conversation takes to resolve -
+ * `null` when nothing in this bucket has closed yet, and never inflated by a still-open conversation
+ * (excluded from the average entirely, not treated as zero seconds or as "still running" time).
  */
 export interface OperatorAnalyticsBucketDto {
   conversationCount: number;
   averageFirstResponseSeconds: number | null;
+  averageDurationSeconds: number | null;
   missedCount: number;
 }
 

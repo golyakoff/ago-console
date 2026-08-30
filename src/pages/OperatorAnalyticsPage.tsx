@@ -221,6 +221,15 @@ export function OperatorAnalyticsPage() {
           : formatDurationSeconds(row.bucket.averageFirstResponseSeconds),
     },
     {
+      key: "averageDuration",
+      header: strings.analyticsAverageDurationColumn,
+      align: "end",
+      render: (row) =>
+        row.bucket.averageDurationSeconds === null
+          ? strings.analyticsNoResponsesValue
+          : formatDurationSeconds(row.bucket.averageDurationSeconds),
+    },
+    {
       key: "missedCount",
       header: strings.analyticsMissedCountColumn,
       align: "end",
@@ -250,6 +259,15 @@ export function OperatorAnalyticsPage() {
         row.bucket.averageFirstResponseSeconds === null
           ? strings.analyticsNoResponsesValue
           : formatDurationSeconds(row.bucket.averageFirstResponseSeconds),
+    },
+    {
+      key: "averageDuration",
+      header: strings.analyticsAverageDurationColumn,
+      align: "end",
+      render: (row) =>
+        row.bucket.averageDurationSeconds === null
+          ? strings.analyticsNoResponsesValue
+          : formatDurationSeconds(row.bucket.averageDurationSeconds),
     },
     {
       key: "missedCount",
