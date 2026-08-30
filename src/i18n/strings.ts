@@ -491,6 +491,23 @@ export interface ConsoleStrings {
    * link request is generated. */
   channelIdentitiesCodeGeneratedPrefix: string;
 
+  // `14-14`/`adr/0079` section 6: ContactDetailsPanel - a phone/email/other fact an operator recorded
+  // because a visitor said it, never verified and never used for delivery. Deliberately its own
+  // heading and caption, distinct from ChannelIdentitiesPanel's own strings right above - see that
+  // component's own doc comment for why.
+  contactDetailsSectionTitle: string;
+  contactDetailsCaption: string;
+  contactDetailsLoadingLabel: string;
+  contactDetailsLoadError: string;
+  contactDetailsEmpty: string;
+  contactDetailsKindLabel: string;
+  contactDetailsValuePlaceholder: string;
+  contactDetailsRecordButton: string;
+  contactDetailsRecordingButton: string;
+  contactDetailsRecordError: string;
+  contactDetailsDeleteButton: string;
+  contactDetailsDeleteError: string;
+
   // `18-04`: ConversationNotesPanel - internal, operator-only notes on a conversation. Never
   // reachable by a visitor, by construction (`ago-chat`'s `INoteRepository`'s own remarks) - this
   // panel is the console's only reader/writer of that data.
