@@ -12,6 +12,7 @@ import { ConversationPage } from "./pages/ConversationPage.js";
 import { AdminConversationsPage } from "./pages/AdminConversationsPage.js";
 import { OperatorAnalyticsPage } from "./pages/OperatorAnalyticsPage.js";
 import { ConversionReportPage } from "./pages/ConversionReportPage.js";
+import { TagBreakdownReportPage } from "./pages/TagBreakdownReportPage.js";
 import { BookingFlowConversionPage } from "./pages/BookingFlowConversionPage.js";
 import { SearchConversationsPage } from "./pages/SearchConversationsPage.js";
 import { WidgetConfigPage } from "./pages/WidgetConfigPage.js";
@@ -141,6 +142,12 @@ export function App() {
             sibling route, not a query-parameter mode on `/analytics`, matching that page's own doc
             comment on why conversion is a separate report rather than a third table. */}
         <Route path="/analytics/conversion" element={<ConversionReportPage />} />
+        {/* `18-11`: same "outside the workspace layout, page gates itself internally" shape as
+            `/analytics`/`/analytics/conversion` above - `TagBreakdownReportPage` checks
+            `site:configure` itself. A sibling route, not a table on `/analytics`: that page's own
+            tables all cut the same three numbers by a single-valued dimension, and a tag is not a
+            single-valued dimension at all (`TagBreakdownReportPage`'s own doc comment). */}
+        <Route path="/analytics/tags" element={<TagBreakdownReportPage />} />
         {/* `18-14`: same "outside the workspace layout, page gates itself internally" shape as
             `/analytics`/`/analytics/conversion` above - `BookingFlowConversionPage` checks
             `site:configure` itself. A sibling route rather than a query mode on `/analytics`: the

@@ -590,6 +590,30 @@ export const en: ConsoleStrings = {
   conversionReportOperatorColumn: "Operator",
   conversionReportByOperatorEmpty: "No recorded outcomes attribute to an operator in this range.",
 
+  navTagBreakdown: "Tag report",
+  tagBreakdownPageDescription: "What these conversations are actually about, by tag.",
+  tagBreakdownFromFieldLabel: "From",
+  tagBreakdownToFieldLabel: "To",
+  tagBreakdownApplyButton: "Apply",
+  tagBreakdownRangeLabel: "Reporting on",
+  tagBreakdownLoadingLabel: "Loading tag breakdown…",
+  tagBreakdownEmpty: "No conversations in this range.",
+  tagBreakdownPresetThisMonth: "This month",
+  tagBreakdownPresetLastMonth: "Last month",
+  tagBreakdownPresetLast30Days: "Last 30 days",
+  tagBreakdownCoverageBanner: "Tagged",
+  tagBreakdownCoverageUnknown: "No conversations in this range to compute tagging coverage from.",
+  tagBreakdownTagColumn: "Tag",
+  tagBreakdownConversationCountColumn: "Conversations",
+  tagBreakdownMultiTagNote:
+    "A conversation with more than one tag counts once per tag it holds, so this column will not sum " +
+    "to the total conversation count above - that is expected, not an error.",
+  tagBreakdownConvertedColumn: "Converted",
+  tagBreakdownNotConvertedColumn: "Not converted",
+  tagBreakdownRateColumn: "Conversion rate",
+  tagBreakdownNoDataValue: "—",
+  tagBreakdownByTagEmpty: "No conversation in this range carries a tag.",
+
   navBookingFlow: "Booking flow",
   bookingFlowPageDescription:
     "How many conversations started your booking flow, and how many of those flows closed.",

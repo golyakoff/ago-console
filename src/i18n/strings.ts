@@ -814,6 +814,49 @@ export interface ConsoleStrings {
   conversionReportOperatorColumn: string;
   conversionReportByOperatorEmpty: string;
 
+  // `18-11`: TagBreakdownReportPage (`/analytics/tags`) - what these conversations are actually about,
+  // a second, separate report from `/analytics` and `/analytics/conversion` rather than a fourth table
+  // bolted onto either (`OperatorAnalyticsPage`'s own doc comment on why a genuinely different concept
+  // earns its own page). Gated on `site:configure`, the same shape `analyticsForbiddenError`/
+  // `analyticsInvalidRangeError` already establish - this reuses those two rather than declaring a
+  // near-duplicate pair.
+  navTagBreakdown: string;
+  tagBreakdownPageDescription: string;
+  tagBreakdownFromFieldLabel: string;
+  tagBreakdownToFieldLabel: string;
+  tagBreakdownApplyButton: string;
+  tagBreakdownRangeLabel: string;
+  tagBreakdownLoadingLabel: string;
+  tagBreakdownEmpty: string;
+  tagBreakdownPresetThisMonth: string;
+  tagBreakdownPresetLastMonth: string;
+  tagBreakdownPresetLast30Days: string;
+  /** The report's own headline honesty statement's lead-in - the page composes the actual figures
+   * (tagged / total conversations, and the percentage) directly after this label, the same
+   * "compose the dynamic values in JSX, not inside the translated string" shape
+   * `conversionReportRangeLabel` already establishes for its own date range. Rendered prominently, next
+   * to the breakdown, not only in a footnote a reader could miss - shown even when the percentage is
+   * low; especially then, since a low number is the whole point of this figure existing
+   * (`ITagBreakdownReadStore`'s own remarks, `ago-chat`). */
+  tagBreakdownCoverageBanner: string;
+  /** Shown in place of the banner above when `percentageTagged` is `null` (no conversations in the
+   * window at all) - never a misleading "0% tagged". */
+  tagBreakdownCoverageUnknown: string;
+  tagBreakdownTagColumn: string;
+  tagBreakdownConversationCountColumn: string;
+  /** The other load-bearing sentence this item exists to ship, next to the breakdown table itself: a
+   * conversation with more than one tag counts once per tag it holds, so this column's own values do not
+   * sum to the total conversation count above - real evidence for every tag it names, not a bug.
+   * (`ITagBreakdownReadStore`'s own remarks, `ago-chat`, state the identical rule.) */
+  tagBreakdownMultiTagNote: string;
+  tagBreakdownConvertedColumn: string;
+  tagBreakdownNotConvertedColumn: string;
+  tagBreakdownRateColumn: string;
+  /** Shown in the rate column when a tag's own `conversionRate` is `null` - the same "never a
+   * misleading zero" convention `conversionReportNoDataValue` already establishes. */
+  tagBreakdownNoDataValue: string;
+  tagBreakdownByTagEmpty: string;
+
   // `18-14`: BookingFlowConversionPage (`/analytics/booking-flow`) - the console's own small,
   // visually distinct block for the chat-to-booking conversion report, deliberately not folded into
   // `/analytics`'s own table (`analyticsPageDescription` and this page share the `site:configure`
