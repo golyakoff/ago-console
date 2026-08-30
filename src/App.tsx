@@ -12,6 +12,7 @@ import { ConversationPage } from "./pages/ConversationPage.js";
 import { AdminConversationsPage } from "./pages/AdminConversationsPage.js";
 import { OperatorAnalyticsPage } from "./pages/OperatorAnalyticsPage.js";
 import { ConversionReportPage } from "./pages/ConversionReportPage.js";
+import { BookingFlowConversionPage } from "./pages/BookingFlowConversionPage.js";
 import { SearchConversationsPage } from "./pages/SearchConversationsPage.js";
 import { WidgetConfigPage } from "./pages/WidgetConfigPage.js";
 import { OfflineAutoReplyPage } from "./pages/OfflineAutoReplyPage.js";
@@ -140,6 +141,12 @@ export function App() {
             sibling route, not a query-parameter mode on `/analytics`, matching that page's own doc
             comment on why conversion is a separate report rather than a third table. */}
         <Route path="/analytics/conversion" element={<ConversionReportPage />} />
+        {/* `18-14`: same "outside the workspace layout, page gates itself internally" shape as
+            `/analytics`/`/analytics/conversion` above - `BookingFlowConversionPage` checks
+            `site:configure` itself. A sibling route rather than a query mode on `/analytics`: the
+            pages answer genuinely different questions over different tables
+            (`BookingFlowConversionPage`'s own doc comment). */}
+        <Route path="/analytics/booking-flow" element={<BookingFlowConversionPage />} />
         <Route path="/settings/widget" element={<WidgetConfigPage />} />
         {/* `14-04`: a second settings screen on the identical pattern - `OfflineAutoReplyPage` gates
             itself on `site:configure` internally, exactly like the two routes above it. */}

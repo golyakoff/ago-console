@@ -550,4 +550,24 @@ export const ru: ConsoleStrings = {
   conversionReportByOperatorHeading: "По операторам",
   conversionReportOperatorColumn: "Оператор",
   conversionReportByOperatorEmpty: "В этом периоде нет результатов, отнесённых к оператору.",
+
+  navBookingFlow: "Запись через чат",
+  bookingFlowPageDescription:
+    "Сколько диалогов начали сценарий записи и сколько из этих сценариев были закрыты.",
+  bookingFlowCaveat:
+    "Закрытый сценарий - это не то же самое, что подтверждённая запись: посетитель мог прервать " +
+    "сценарий, оператор мог закрыть диалог на середине шага, или сценарий мог завершиться отказом " +
+    "от всех предложенных вариантов времени. Здесь считаются закрытые сценарии, а не оформленные " +
+    "записи.",
+  bookingFlowFromFieldLabel: "С (необязательно)",
+  bookingFlowToFieldLabel: "По (необязательно)",
+  bookingFlowApplyButton: "Показать",
+  bookingFlowRangeLabel: "Период",
+  bookingFlowForbiddenError: "У вас нет права просматривать этот отчёт для данного сайта.",
+  bookingFlowInvalidRangeError: "Начало периода должно быть раньше его конца.",
+  bookingFlowLoadError: "Не удалось загрузить отчёт.",
+  bookingFlowLoadingLabel: "Загрузка отчёта…",
+  bookingFlowStartedLabel: "Начато сценариев записи",
+  bookingFlowClosedLabel: "Сценариев закрыто",
+  bookingFlowEmpty: "В этом периоде сценарий записи не запускался.",
 };

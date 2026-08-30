@@ -735,4 +735,45 @@ export interface ConsoleStrings {
   conversionReportByOperatorHeading: string;
   conversionReportOperatorColumn: string;
   conversionReportByOperatorEmpty: string;
+
+  // `18-14`: BookingFlowConversionPage (`/analytics/booking-flow`) - the console's own small,
+  // visually distinct block for the chat-to-booking conversion report, deliberately not folded into
+  // `/analytics`'s own table (`analyticsPageDescription` and this page share the `site:configure`
+  // gate but nothing else - see the page's own doc comment for why they stay two pages). `navBookingFlow`
+  // sits beside `navAnalytics` in `consoleNav.ts`.
+  navBookingFlow: string;
+  bookingFlowPageDescription: string;
+  /** The load-bearing sentence this whole item exists to ship: a closed booking-flow task is not the
+   * same fact as a confirmed booking (`Ago.Chat.Application.Abstractions.IModuleFlowReadStore`'s own
+   * remarks, `ago-chat`, have the full reasoning - a visitor can abandon the flow, an operator can
+   * close the conversation mid-step, or the flow can finish with every slot declined, and all three
+   * close the underlying task identically to a real booking). Rendered directly beside the two
+   * numbers, not only in this file's own comments - the backlog item's own Done-when requires the
+   * caveat live in the text a site owner actually reads. */
+  bookingFlowCaveat: string;
+  bookingFlowFromFieldLabel: string;
+  bookingFlowToFieldLabel: string;
+  bookingFlowApplyButton: string;
+  /** Same `${bookingFlowRangeLabel} ${fromDate} – ${toDate}` shape as `analyticsRangeLabel` - the
+   * effective, server-echoed range, never the raw values still sitting in the two date inputs. */
+  bookingFlowRangeLabel: string;
+  bookingFlowForbiddenError: string;
+  /** `ModuleFlow.InvalidRange` - the caller's own `from`/`to` failed `from < to`, the one validation
+   * `GetModuleFlowReportForSiteHandler` does before reaching the read store. A distinct string from
+   * `analyticsInvalidRangeError`/`conversionReportInvalidRangeError` because this report is a
+   * distinct error code server-side (`ConversationErrors.ModuleFlowInvalidRange`'s own remarks on
+   * why). */
+  bookingFlowInvalidRangeError: string;
+  bookingFlowLoadError: string;
+  bookingFlowLoadingLabel: string;
+  /** Never "Bookings started" - "started a booking flow" is the honest claim
+   * (`BookingFlowReportResponse.FlowsStarted`'s own remarks, `ago-chat`). */
+  bookingFlowStartedLabel: string;
+  /** Never "Bookings confirmed"/"Converted" - "flow closed" is the honest claim
+   * (`BookingFlowReportResponse.FlowsClosed`'s own remarks, `ago-chat`). */
+  bookingFlowClosedLabel: string;
+  /** Shown when `flowsStarted` is `0` for the reported window - a real, honest state (nobody opened
+   * the booking flow in this range), not a loading or error state, the same "an empty report is not a
+   * failure" shape `analyticsEmpty` already establishes for `/analytics`. */
+  bookingFlowEmpty: string;
 }

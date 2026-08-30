@@ -246,3 +246,21 @@ export interface ConversionReportResponse {
   overall: ConversionBucketDto;
   byOperator: ConversionOperatorBucketDto[];
 }
+
+/**
+ * `18-14`: `Ago.Chat.Contracts.ModuleFlowReportResponse` - `GET /api/v1/conversations/module-flow-report`'s
+ * body. `from`/`to` are the bound the server actually used, the same "always present, never silent"
+ * shape `OperatorAnalyticsResponse.from`/`to` already establishes.
+ *
+ * <b>`flowsStarted`/`flowsClosed` are deliberately not `bookingsStarted`/`bookingsConfirmed`.</b> A
+ * closed module task is not the same fact as a confirmed booking - see
+ * `Ago.Chat.Application.Abstractions.IModuleFlowReadStore`'s own remarks (`ago-chat`) for the full
+ * reasoning. `BookingFlowConversionPage` renders both numbers beside the same caveat in the console's
+ * own copy, not only here.
+ */
+export interface BookingFlowReportResponse {
+  from: string;
+  to: string;
+  flowsStarted: number;
+  flowsClosed: number;
+}

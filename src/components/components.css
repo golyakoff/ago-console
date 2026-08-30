@@ -533,3 +533,25 @@
   font-size: var(--ago-text-xs);
   color: var(--ago-ink-soft);
 }
+
+/* `18-14`: BookingFlowConversionPage's own two-number stat block - a plain `<dl>`, not a `Table`, the
+   same "the honest shape for two numbers" call that page's own doc comment makes. Sits beside an
+   `Alert tone="info"` for the report's honesty caveat, so this block itself carries no warning
+   styling of its own - the caveat is a separate, deliberately distinct element. */
+.ago-booking-flow-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ago-space-6);
+  margin: 0 0 var(--ago-space-4);
+}
+
+.ago-booking-flow-stats dt {
+  font-size: var(--ago-text-sm);
+  color: var(--ago-ink-soft);
+}
+
+.ago-booking-flow-stats dd {
+  margin: 0;
+  font-size: var(--ago-text-xl);
+  font-weight: 600;
+}

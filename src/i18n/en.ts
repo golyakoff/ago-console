@@ -548,4 +548,23 @@ export const en: ConsoleStrings = {
   conversionReportByOperatorHeading: "By operator",
   conversionReportOperatorColumn: "Operator",
   conversionReportByOperatorEmpty: "No recorded outcomes attribute to an operator in this range.",
+
+  navBookingFlow: "Booking flow",
+  bookingFlowPageDescription:
+    "How many conversations started your booking flow, and how many of those flows closed.",
+  bookingFlowCaveat:
+    "A closed flow is not the same as a confirmed booking - a visitor can abandon it, an operator " +
+    "can close the conversation mid-step, or it can finish with every offered time declined. This " +
+    "counts flows that closed, not bookings that were made.",
+  bookingFlowFromFieldLabel: "From (optional)",
+  bookingFlowToFieldLabel: "To (optional)",
+  bookingFlowApplyButton: "Apply",
+  bookingFlowRangeLabel: "Showing",
+  bookingFlowForbiddenError: "You do not have permission to view this site's booking flow report.",
+  bookingFlowInvalidRangeError: "The start of the range must be before its end.",
+  bookingFlowLoadError: "Failed to load the booking flow report.",
+  bookingFlowLoadingLabel: "Loading the booking flow report…",
+  bookingFlowStartedLabel: "Booking flows started",
+  bookingFlowClosedLabel: "Flows closed",
+  bookingFlowEmpty: "No booking flow was started in this range.",
 };
