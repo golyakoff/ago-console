@@ -20,6 +20,7 @@ import { Button } from "../components/Button.js";
 import { Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { closeConversation, fetchVisitorHistory } from "../api/conversationsApi.js";
+import { generateReplyDraft, ReplyDraftError } from "../api/replyDraftApi.js";
 import type { VisitorHistoryResponse } from "../realtime/protocol/types.js";
 import { CloseConversationButton } from "../workspace/CloseConversationButton.js";
 import { Composer } from "../workspace/Composer.js";
@@ -124,6 +125,12 @@ export function ConversationPage() {
   const [uploadProgress, setUploadProgress] = useState<{ fileName: string; percent: number } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [attachmentDetails, setAttachmentDetails] = useState<Record<string, AttachmentDetail>>({});
+  /** `19-01`: "Suggest a reply" - `suggestingReply` guards against a double click stacking a second
+   * real-money provider call on top of the first (`Composer`'s own `disabled` already enforces this
+   * in the UI; this is the state that drives it). `suggestReplyError` is cleared on every new attempt
+   * and on route change, the same lifecycle `uploadError` already has. */
+  const [suggestingReply, setSuggestingReply] = useState(false);
+  const [suggestReplyError, setSuggestReplyError] = useState<string | null>(null);
   /**
    * `11-09`: this tab closed this conversation.
    *
@@ -172,6 +179,8 @@ export function ConversationPage() {
     setJoinError(null);
     setHighlightSequence(null);
     setLocatingMessage(false);
+    setSuggestingReply(false);
+    setSuggestReplyError(null);
   }, [conversationId]);
 
   /**
@@ -453,6 +462,36 @@ export function ConversationPage() {
     void send(failedSend.body, failedSend.clientMessageId, failedSend.attachmentId);
   };
 
+  /**
+   * `19-01`: fills the draft with a generated suggestion - never sends it. Replaces whatever the
+   * operator had typed, the same "insert replaces the draft" choice `Composer`'s own canned-response
+   * picker already makes (`insertCannedResponse`), rather than appending or merging: a half-typed
+   * draft and a full AI suggestion are two different starting points for the same reply, not two
+   * pieces of one message, and merging them would produce text nobody actually wrote.
+   */
+  const handleSuggestReply = async () => {
+    if (!conversationId || !user?.access_token || suggestingReply) {
+      return;
+    }
+
+    setSuggestingReply(true);
+    setSuggestReplyError(null);
+    try {
+      const response = await generateReplyDraft(user.access_token, conversationId);
+      setDraft(response.draftText);
+    } catch (err) {
+      if (err instanceof ReplyDraftError && err.code === "ReplyDraft.RateLimited") {
+        setSuggestReplyError(strings.replyDraftRateLimitedError);
+      } else if (err instanceof ReplyDraftError && err.code === "ReplyDraft.Unavailable") {
+        setSuggestReplyError(strings.replyDraftUnavailableError);
+      } else {
+        setSuggestReplyError(strings.replyDraftFailedError);
+      }
+    } finally {
+      setSuggestingReply(false);
+    }
+  };
+
   /** `5-08`'s upload sequence, unchanged and not reimplemented - only its trigger moved. It used to
    * be an `onChange` handler bound to a visible file input; the composer now calls it with a file
    * that may equally have been dropped or pasted. */
@@ -692,6 +731,9 @@ export function ConversationPage() {
             uploadError={uploadError}
             inputRef={composerRef}
             cannedResponses={cannedResponses}
+            onSuggestReply={() => void handleSuggestReply()}
+            suggestingReply={suggestingReply}
+            suggestReplyError={suggestReplyError}
           />
         </div>
         )}

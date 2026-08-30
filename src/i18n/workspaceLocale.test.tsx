@@ -177,8 +177,11 @@ describe("the operator workspace for an active site with Locale = Ru", () => {
     const textarea = container.querySelector<HTMLTextAreaElement>(".ago-composer__input");
     expect(textarea?.placeholder).toBe("Напишите ответ — Enter отправляет, Shift+Enter — новая строка");
     expect(textarea?.getAttribute("aria-label")).toBe("Сообщение для отправки");
+    // `19-01`: "Suggest a reply", translated - the workspace's own harness wires `ConversationPage`
+    // for real, which always supplies `onSuggestReply`, so this button is part of the same regression
+    // surface the other two already are.
     const buttons = all(container, ".ago-composer__actions button").map((b) => b.textContent?.trim());
-    expect(buttons).toEqual(["Прикрепить", "Отправить"]);
+    expect(buttons).toEqual(["Прикрепить", "Предложить ответ", "Отправить"]);
 
     // The visitor panel, the third region.
     expect(container.querySelector("#ago-visitor-panel-title")?.textContent).toBe("Посетитель");
@@ -193,8 +196,9 @@ describe("the operator workspace for an active site with no Locale set", () => {
     expect(container.querySelector(".ago-thread")?.getAttribute("aria-label")).toBe("Message thread");
     const textarea = container.querySelector<HTMLTextAreaElement>(".ago-composer__input");
     expect(textarea?.placeholder).toBe("Write a reply — Enter to send, Shift+Enter for a new line");
+    // `19-01`: same addition as the Russian case above.
     const buttons = all(container, ".ago-composer__actions button").map((b) => b.textContent?.trim());
-    expect(buttons).toEqual(["Attach", "Send"]);
+    expect(buttons).toEqual(["Attach", "Suggest a reply", "Send"]);
     expect(container.querySelector("#ago-visitor-panel-title")?.textContent).toBe("Visitor");
   });
 });

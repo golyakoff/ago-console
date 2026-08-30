@@ -334,6 +334,12 @@ export const ru: ConsoleStrings = {
   cannedResponsesValidationTooManySuffix: "готовых ответов.",
 
   composerCannedResponsesAvailableHint: "Введите / для вставки готового ответа",
+
+  composerSuggestReplyButton: "Предложить ответ",
+  composerSuggestReplyGenerating: "Формируем предложение…",
+  replyDraftRateLimitedError: "Слишком много запросов на подсказку — попробуйте чуть позже.",
+  replyDraftUnavailableError: "Подсказка ИИ временно недоступна.",
+  replyDraftFailedError: "Не удалось получить предложение.",
   composerCannedResponsesListAriaLabel: "Готовые ответы",
   composerCannedResponsesNoMatch: "Нет подходящих готовых ответов.",
   composerCannedResponsesInsertHint: "↑↓ — выбор · Enter — вставить · Esc — отмена",

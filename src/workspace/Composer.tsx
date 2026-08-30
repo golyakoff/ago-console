@@ -36,6 +36,12 @@ export interface ComposerProps {
    * `[]`, for the identical reason `inputRef` is optional: this component's own tests mount it with
    * props alone and a picker with nothing to offer is still a working composer. */
   cannedResponses?: readonly CannedResponseDto[];
+  /** `19-01`: "Suggest a reply" - optional and omitted entirely (rather than rendered disabled) when
+   * absent, the same "this component's own tests mount it with props alone" reasoning `inputRef`'s own
+   * remarks give. `ConversationPage` is the only real caller and always supplies it. */
+  onSuggestReply?: () => void;
+  suggestingReply?: boolean;
+  suggestReplyError?: string | null;
 }
 
 /** How tall the textarea is allowed to grow before it starts scrolling instead. Eight lines is about
@@ -123,6 +129,9 @@ export function Composer({
   uploadError,
   inputRef,
   cannedResponses = [],
+  onSuggestReply,
+  suggestingReply = false,
+  suggestReplyError = null,
 }: ComposerProps) {
   const strings = useStrings();
   // One ref object, either the caller's or this component's own. Not two refs kept in sync: the
@@ -275,6 +284,11 @@ export function Composer({
     >
       {uploadError && <Alert tone="danger">{uploadError}</Alert>}
 
+      {/* `19-01`: rendered the same way `uploadError` already is - one Alert, danger tone, nothing
+          the operator has to dismiss. A failed suggestion never blocks typing or sending: the draft
+          field is untouched either way. */}
+      {suggestReplyError && <Alert tone="danger">{suggestReplyError}</Alert>}
+
       {uploadProgress && (
         // `role="status"` (via `Alert`'s info tone) so the upload finishing is announced, not just
         // drawn - the same semantics `5-08`'s own progress line had.
@@ -349,6 +363,22 @@ export function Composer({
           >
             {strings.composerAttachButton}
           </Button>
+          {/* `19-01`: absent, not disabled, when the caller supplies no `onSuggestReply` - the same
+              "omit rather than render a control that can never do anything" choice `inputRef`'s own
+              remarks describe. Disabled while a suggestion is already in flight (no second request
+              stacking on the first, the same one-at-a-time shape `uploadProgress` already gives the
+              Attach button) and while an upload is in progress, so the two async composer actions
+              never race each other. */}
+          {onSuggestReply && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onSuggestReply}
+              disabled={suggestingReply || uploadProgress !== null}
+            >
+              {suggestingReply ? strings.composerSuggestReplyGenerating : strings.composerSuggestReplyButton}
+            </Button>
+          )}
           <Button variant="primary" onClick={onSend} disabled={!canSend}>
             {strings.composerSendButton}
           </Button>
