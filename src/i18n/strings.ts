@@ -468,6 +468,22 @@ export interface ConsoleStrings {
   workspaceTagFilterLabel: string;
   workspaceTagFilterAll: string;
 
+  // `14-12`/`adr/0079`: ChannelIdentitiesPanel - verified channel-identity linking/unlinking. See
+  // that component's own doc comment for why the generated relay instruction itself is not one of
+  // these (deliberately unlocalized, matching the backend's own hardcoded reply text).
+  channelIdentitiesSectionTitle: string;
+  channelIdentitiesLoadingLabel: string;
+  channelIdentitiesLoadError: string;
+  channelIdentitiesNone: string;
+  channelIdentitiesLinkKindLabel: string;
+  channelIdentitiesLinkButton: string;
+  channelIdentitiesRequestLinkError: string;
+  channelIdentitiesUnlinkButton: string;
+  channelIdentitiesUnlinkError: string;
+  /** `${channelIdentitiesCodeGeneratedPrefix} ${kind}: ${code}` - the success message shown after a
+   * link request is generated. */
+  channelIdentitiesCodeGeneratedPrefix: string;
+
   // `18-04`: ConversationNotesPanel - internal, operator-only notes on a conversation. Never
   // reachable by a visitor, by construction (`ago-chat`'s `INoteRepository`'s own remarks) - this
   // panel is the console's only reader/writer of that data.
