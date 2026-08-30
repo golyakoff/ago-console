@@ -532,6 +532,15 @@ export const ru: ConsoleStrings = {
   analyticsOperatorColumn: "Оператор",
   analyticsByOperatorEmpty: "В этом периоде нет диалогов, отнесённых к оператору.",
 
+  analyticsByReferrerHeading: "По источникам перехода",
+  analyticsReferrerColumn: "Источник",
+  analyticsByReferrerEmpty: "В этом периоде нет диалогов.",
+  analyticsDirectReferrerLabel: "Прямой переход",
+  analyticsByCampaignHeading: "По рекламным кампаниям",
+  analyticsCampaignColumn: "Кампания",
+  analyticsByCampaignEmpty: "В этом периоде нет диалогов с меткой кампании.",
+  analyticsTrafficSourceNote: "То, что сообщил браузер посетителя, - не факт, независимо проверенный AGO Chat.",
+
   outcomeSectionTitle: "Результат",
   outcomeLoadingLabel: "Загрузка результата…",
   outcomeLoadError: "Не удалось загрузить результат этого диалога.",

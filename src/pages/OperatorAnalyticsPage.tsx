@@ -6,8 +6,10 @@ import { fetchOperatorAnalytics } from "../api/conversationsApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
 import type {
   OperatorAnalyticsBucketDto,
+  OperatorAnalyticsCampaignBucketDto,
   OperatorAnalyticsChannelBucketDto,
   OperatorAnalyticsOperatorBucketDto,
+  OperatorAnalyticsReferrerBucketDto,
 } from "../realtime/protocol/types.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Alert } from "../components/Alert.js";
@@ -74,6 +76,27 @@ interface OperatorRow {
   bucket: OperatorAnalyticsBucketDto;
 }
 
+/** `18-12`: the server's own `DirectReferrerLabel` wire literal (`OperatorAnalyticsReadStore.cs`,
+ * `ago-chat`) is English by construction - like `channelLabel`'s `"Widget"` above, it is a read-time
+ * label, not a domain value, so this maps it to the resolved locale's own string rather than showing
+ * an English word inside a Russian-locale report. Any other value is a real referrer host, shown
+ * exactly as captured - hosts are not translatable text. */
+function referrerLabel(referrerHost: string, strings: ConsoleStrings): string {
+  return referrerHost === "Direct" ? strings.analyticsDirectReferrerLabel : referrerHost;
+}
+
+interface ReferrerRow {
+  key: string;
+  referrer: string;
+  bucket: OperatorAnalyticsBucketDto;
+}
+
+interface CampaignRow {
+  key: string;
+  campaign: string;
+  bucket: OperatorAnalyticsBucketDto;
+}
+
 /**
  * `18-08`: `/analytics` - the site owner's own basic self-service report: conversation volume,
  * average first-response time, and conversations that never got a reply, overall and per channel.
@@ -102,6 +125,20 @@ interface OperatorRow {
  * across a route boundary for no real benefit) rather than the "new page linked from it" alternative the
  * backlog item's own Scope also allowed.
  *
+ * <b>`18-12`: two more tables, same page, for the same reason `18-09`'s own table already gives.</b>
+ * Referrer host and UTM campaign are independent dimensions over the identical window/permission/date
+ * range this page already owns - extending `/analytics` costs no new route, no new nav entry, and no
+ * duplicated date-range state, and the "new dedicated section" alternative the backlog item's own Scope
+ * also allowed was rejected for exactly the reason a second *page* was rejected for the operator
+ * breakdown above. Unlike channel (≤5 real values) and operator (bounded by seat count), referrer host
+ * and UTM campaign are unbounded-cardinality dimensions in principle - in practice a small shop's own
+ * traffic sources are still a short, readable list, and if that ever stops being true the fix is
+ * pagination on these two tables specifically, not a reason to have built a separate page today.
+ * `analyticsTrafficSourceNote` renders once, above both: this is what the browser reported, never a
+ * verified fact - the same honesty discipline `18-10`'s own operator-reported-outcome note already
+ * holds itself to, for a different reason (there it is a human's self-report; here it is an unverifiable
+ * client-supplied header).
+ *
  * <b>The date-range form is UX-only</b>, the same call `SearchConversationsPage` already makes for its
  * own two date fields: `GetOperatorAnalyticsForSiteHandler` is the real authority (`from >= to` is its
  * own `400 Analytics.InvalidRange`), and this page always renders the range the *response* echoes
@@ -119,6 +156,8 @@ export function OperatorAnalyticsPage() {
   const [overall, setOverall] = useState<OperatorAnalyticsBucketDto | null>(null);
   const [byChannel, setByChannel] = useState<OperatorAnalyticsChannelBucketDto[]>([]);
   const [byOperator, setByOperator] = useState<OperatorAnalyticsOperatorBucketDto[]>([]);
+  const [byReferrer, setByReferrer] = useState<OperatorAnalyticsReferrerBucketDto[]>([]);
+  const [byCampaign, setByCampaign] = useState<OperatorAnalyticsCampaignBucketDto[]>([]);
   const [effectiveFrom, setEffectiveFrom] = useState<string | null>(null);
   const [effectiveTo, setEffectiveTo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -141,6 +180,8 @@ export function OperatorAnalyticsPage() {
         setOverall(response.overall);
         setByChannel(response.byChannel);
         setByOperator(response.byOperator);
+        setByReferrer(response.byReferrer);
+        setByCampaign(response.byCampaign);
         setEffectiveFrom(response.from);
         setEffectiveTo(response.to);
       } catch (err) {
@@ -277,6 +318,88 @@ export function OperatorAnalyticsPage() {
     },
   ];
 
+  // `18-12`: the identical four-column shape `columns`/`operatorColumns` above already use, applied to
+  // the two new dimensions - a `bucket` reads the same regardless of what it is a bucket *of*.
+  const referrerRows: ReferrerRow[] = byReferrer.map((entry) => ({
+    key: entry.referrerHost,
+    referrer: referrerLabel(entry.referrerHost, strings),
+    bucket: entry.bucket,
+  }));
+
+  const referrerColumns: TableColumn<ReferrerRow>[] = [
+    { key: "referrer", header: strings.analyticsReferrerColumn, render: (row) => row.referrer },
+    {
+      key: "conversationCount",
+      header: strings.analyticsConversationCountColumn,
+      align: "end",
+      render: (row) => row.bucket.conversationCount,
+    },
+    {
+      key: "averageFirstResponse",
+      header: strings.analyticsAverageFirstResponseColumn,
+      align: "end",
+      render: (row) =>
+        row.bucket.averageFirstResponseSeconds === null
+          ? strings.analyticsNoResponsesValue
+          : formatDurationSeconds(row.bucket.averageFirstResponseSeconds),
+    },
+    {
+      key: "averageDuration",
+      header: strings.analyticsAverageDurationColumn,
+      align: "end",
+      render: (row) =>
+        row.bucket.averageDurationSeconds === null
+          ? strings.analyticsNoResponsesValue
+          : formatDurationSeconds(row.bucket.averageDurationSeconds),
+    },
+    {
+      key: "missedCount",
+      header: strings.analyticsMissedCountColumn,
+      align: "end",
+      render: (row) => row.bucket.missedCount,
+    },
+  ];
+
+  const campaignRows: CampaignRow[] = byCampaign.map((entry) => ({
+    key: entry.utmCampaign,
+    campaign: entry.utmCampaign,
+    bucket: entry.bucket,
+  }));
+
+  const campaignColumns: TableColumn<CampaignRow>[] = [
+    { key: "campaign", header: strings.analyticsCampaignColumn, render: (row) => row.campaign },
+    {
+      key: "conversationCount",
+      header: strings.analyticsConversationCountColumn,
+      align: "end",
+      render: (row) => row.bucket.conversationCount,
+    },
+    {
+      key: "averageFirstResponse",
+      header: strings.analyticsAverageFirstResponseColumn,
+      align: "end",
+      render: (row) =>
+        row.bucket.averageFirstResponseSeconds === null
+          ? strings.analyticsNoResponsesValue
+          : formatDurationSeconds(row.bucket.averageFirstResponseSeconds),
+    },
+    {
+      key: "averageDuration",
+      header: strings.analyticsAverageDurationColumn,
+      align: "end",
+      render: (row) =>
+        row.bucket.averageDurationSeconds === null
+          ? strings.analyticsNoResponsesValue
+          : formatDurationSeconds(row.bucket.averageDurationSeconds),
+    },
+    {
+      key: "missedCount",
+      header: strings.analyticsMissedCountColumn,
+      align: "end",
+      render: (row) => row.bucket.missedCount,
+    },
+  ];
+
   return (
     <>
       <PageHead title={strings.navAnalytics} description={strings.analyticsPageDescription} />
@@ -336,6 +459,32 @@ export function OperatorAnalyticsPage() {
               caption={strings.analyticsByOperatorHeading}
               columns={operatorColumns}
               rows={operatorRows}
+              rowKey={(row) => row.key}
+            />
+          )}
+
+          <p className="ago-meta">{strings.analyticsTrafficSourceNote}</p>
+
+          <h2>{strings.analyticsByReferrerHeading}</h2>
+          {referrerRows.length === 0 ? (
+            <p className="ago-empty">{strings.analyticsByReferrerEmpty}</p>
+          ) : (
+            <Table
+              caption={strings.analyticsByReferrerHeading}
+              columns={referrerColumns}
+              rows={referrerRows}
+              rowKey={(row) => row.key}
+            />
+          )}
+
+          <h2>{strings.analyticsByCampaignHeading}</h2>
+          {campaignRows.length === 0 ? (
+            <p className="ago-empty">{strings.analyticsByCampaignEmpty}</p>
+          ) : (
+            <Table
+              caption={strings.analyticsByCampaignHeading}
+              columns={campaignColumns}
+              rows={campaignRows}
               rowKey={(row) => row.key}
             />
           )}

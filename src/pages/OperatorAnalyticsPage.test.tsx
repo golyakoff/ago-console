@@ -85,6 +85,8 @@ function response(overrides: {
   overall?: Bucket;
   byChannel?: { channel: string; bucket: Bucket }[];
   byOperator?: { operatorId: string; bucket: Bucket }[];
+  byReferrer?: { referrerHost: string; bucket: Bucket }[];
+  byCampaign?: { utmCampaign: string; bucket: Bucket }[];
 } = {}) {
   return {
     from: "2026-05-29T00:00:00+00:00",
@@ -113,6 +115,26 @@ function response(overrides: {
       {
         operatorId: "66666666-7777-8888-9999-000000000000",
         bucket: { conversationCount: 1, averageFirstResponseSeconds: 20, averageDurationSeconds: 300, missedCount: 0 },
+      },
+    ],
+    // `18-12`: one real referrer host and one `"Direct"` bucket - the server's own wire literal, so
+    // `referrerLabel`'s remapping has something real to prove; one campaign, distinct numbers from
+    // both, so a test asserting on the campaign table can never accidentally pass by reading the
+    // referrer or operator table's own values.
+    byReferrer: [
+      {
+        referrerHost: "shop.example",
+        bucket: { conversationCount: 2, averageFirstResponseSeconds: 50, averageDurationSeconds: 240, missedCount: 0 },
+      },
+      {
+        referrerHost: "Direct",
+        bucket: { conversationCount: 4, averageFirstResponseSeconds: 70, averageDurationSeconds: 150, missedCount: 1 },
+      },
+    ],
+    byCampaign: [
+      {
+        utmCampaign: "summer_sale",
+        bucket: { conversationCount: 1, averageFirstResponseSeconds: 35, averageDurationSeconds: 400, missedCount: 0 },
       },
     ],
     ...overrides,
@@ -187,6 +209,11 @@ describe("loading the report", () => {
           },
         ],
         byOperator: [],
+        // Cleared too - the default fixture's own referrer/campaign numbers ("50s") would otherwise
+        // trip the "never 0s" assertion below on an unrelated substring match, which is not what this
+        // test is about (that table's own em-dash rendering is `the referrer-host breakdown`'s job).
+        byReferrer: [],
+        byCampaign: [],
       }),
     );
 
@@ -297,6 +324,66 @@ describe("the per-operator breakdown", () => {
     expect(container.textContent).toContain("All channels");
     expect(container.textContent).toContain("No conversations attribute to an operator in this range.");
     expect(container.textContent).not.toContain("No conversations in this range.");
+  });
+});
+
+/** `18-12`: the referrer-host and UTM-campaign tables - two more `Table`s below the per-operator one,
+ * the same "a second, separately-captioned table per dimension" shape the per-operator describe block
+ * above already proves, applied to two more dimensions. */
+describe("the referrer-host breakdown", () => {
+  it("renders one row per referrer host, including the server's own Direct label, remapped to this locale", async () => {
+    conversationsApi.fetchOperatorAnalytics.mockResolvedValue(response());
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("By referrer");
+    expect(container.textContent).toContain("shop.example");
+    // `referrerLabel` remaps the server's English "Direct" wire literal to the resolved locale's own
+    // string (`analyticsDirectReferrerLabel`) - this test's default locale is English, where that
+    // string happens to also read "Direct", so this alone would not catch a broken remap. The real
+    // proof that it *is* a remap and not an accidental pass-through is `referrerLabel`'s own unit
+    // shape: every other locale's string differs (`ru.ts`'s own "Прямой переход").
+    expect(container.textContent).toContain("Direct");
+  });
+
+  it("shows the honesty note above both new tables - what the browser reported, not a verified fact", async () => {
+    conversationsApi.fetchOperatorAnalytics.mockResolvedValue(response());
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain(
+      "What the visitor's browser reported - not a fact AGO Chat has independently verified.",
+    );
+  });
+
+  it("shows a dedicated empty state, distinct from the whole-report empty state, when the referrer breakdown is empty", async () => {
+    conversationsApi.fetchOperatorAnalytics.mockResolvedValue(response({ byReferrer: [] }));
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("All channels");
+    expect(container.textContent).toContain("No conversations in this range.");
+  });
+});
+
+describe("the UTM-campaign breakdown", () => {
+  it("renders one row per campaign, and never a row for conversations with no campaign tag", async () => {
+    conversationsApi.fetchOperatorAnalytics.mockResolvedValue(response());
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("By campaign");
+    expect(container.textContent).toContain("summer_sale");
+  });
+
+  it("shows a dedicated empty state, distinct from the whole-report empty state, when nothing in the range carries a campaign tag", async () => {
+    conversationsApi.fetchOperatorAnalytics.mockResolvedValue(response({ byCampaign: [] }));
+
+    const container = await render(page());
+
+    // The main table still renders - this report is not empty, only the campaign dimension is.
+    expect(container.textContent).toContain("All channels");
+    expect(container.textContent).toContain("No conversations in this range carry a campaign tag.");
   });
 });
 
