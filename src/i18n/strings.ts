@@ -685,6 +685,32 @@ export interface ConsoleStrings {
    * from `analyticsEmpty`, which means the whole report is empty. */
   analyticsByOperatorEmpty: string;
 
+  // `18-12`: the referrer-host and UTM-campaign breakdowns, two more tables on the same page - the
+  // identical "a second, separately-captioned table for a genuinely different dimension" shape `18-09`
+  // already established for the per-operator one (`OperatorAnalyticsPage`'s own doc comment).
+  analyticsByReferrerHeading: string;
+  analyticsReferrerColumn: string;
+  /** Never shown for "no referrer at all" - that case renders as `analyticsDirectReferrerLabel`, a
+   * real row, not an empty state. Shown only when the report has conversations but the referrer
+   * breakdown itself came back empty, which in practice cannot happen (every conversation's referrer
+   * is either a real host or `"Direct"`) - kept for the same defensive-symmetry reason
+   * `analyticsByOperatorEmpty`/`analyticsByCampaignEmpty` exist for their own dimensions. */
+  analyticsByReferrerEmpty: string;
+  /** The read-time fallback label for a conversation whose visitor carried no `document.referrer` at
+   * all (`IOperatorAnalyticsReadStore`'s own remarks, `ago-chat`) - a real, common case, not an error,
+   * rendered as its own row rather than omitted. */
+  analyticsDirectReferrerLabel: string;
+  analyticsByCampaignHeading: string;
+  analyticsCampaignColumn: string;
+  /** Shown instead of the per-campaign table when the report has conversations but none of them carry
+   * a `utm_campaign` tag - the common case for a shop running no paid campaigns, distinct from
+   * `analyticsEmpty`. */
+  analyticsByCampaignEmpty: string;
+  /** `18-12`'s own honesty note, the same discipline `outcomeNotAVerifiedSaleNote` already holds itself
+   * to for a different reason: a referrer/UTM value is what the visitor's browser reported, not a fact
+   * AGO Chat has independently verified - shown once, above both new tables. */
+  analyticsTrafficSourceNote: string;
+
   // `18-10`: ConversationOutcomePanel - what an operator says one conversation led to. Three real,
   // settable values plus the unset default's own display label.
   outcomeSectionTitle: string;

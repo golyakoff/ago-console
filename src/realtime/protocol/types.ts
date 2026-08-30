@@ -186,12 +186,38 @@ export interface OperatorAnalyticsOperatorBucketDto {
 }
 
 /**
+ * `18-12`: `Ago.Chat.Contracts.OperatorAnalyticsReferrerBucketDto` - one referrer host's bucket.
+ * `referrerHost` is the referring page's own host, or the literal `"Direct"` for a conversation whose
+ * visitor carried no `document.referrer` at all (`IOperatorAnalyticsReadStore`'s own remarks,
+ * `ago-chat`) - **this is what the browser reported, not a verified fact**: a client-supplied header,
+ * never confirmed against a second source. `OperatorAnalyticsPage` says so in its own copy.
+ */
+export interface OperatorAnalyticsReferrerBucketDto {
+  referrerHost: string;
+  bucket: OperatorAnalyticsBucketDto;
+}
+
+/**
+ * `18-12`: `Ago.Chat.Contracts.OperatorAnalyticsCampaignBucketDto` - one `utm_campaign` value's bucket,
+ * exactly as captured from the landing page's own URL. Never a "no campaign" row - a conversation with
+ * no campaign tag has no bucket here at all, the same "no manufactured row" rule
+ * `OperatorAnalyticsOperatorBucketDto`'s own "nobody assigned" exclusion already establishes. Equally
+ * unverified: a client-supplied query parameter, not a confirmed fact.
+ */
+export interface OperatorAnalyticsCampaignBucketDto {
+  utmCampaign: string;
+  bucket: OperatorAnalyticsBucketDto;
+}
+
+/**
  * `18-08`: `Ago.Chat.Contracts.OperatorAnalyticsResponse` - `GET /api/v1/conversations/analytics`'s
  * body. `from`/`to` are the range the server actually used, always present even when the caller sent
  * neither and the handler defaulted them (`GetOperatorAnalyticsForSiteHandler`'s own default window) -
  * the same "the bound is visible, not silent" shape `SearchConversationsResponse.searchedFrom`/
  * `searchedTo` already establishes for `18-01`. `18-09` adds `byOperator`, the identical shape as
- * `byChannel` with a different dimension.
+ * `byChannel` with a different dimension. `18-12` adds `byReferrer`/`byCampaign`, two more independent
+ * dimensions over the same window - see `IOperatorAnalyticsReadStore`'s remarks (`ago-chat`) for why
+ * two groupings rather than one combined one.
  */
 export interface OperatorAnalyticsResponse {
   from: string;
@@ -199,6 +225,8 @@ export interface OperatorAnalyticsResponse {
   overall: OperatorAnalyticsBucketDto;
   byChannel: OperatorAnalyticsChannelBucketDto[];
   byOperator: OperatorAnalyticsOperatorBucketDto[];
+  byReferrer: OperatorAnalyticsReferrerBucketDto[];
+  byCampaign: OperatorAnalyticsCampaignBucketDto[];
 }
 
 /**

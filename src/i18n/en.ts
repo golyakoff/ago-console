@@ -516,6 +516,15 @@ export const en: ConsoleStrings = {
   analyticsOperatorColumn: "Operator",
   analyticsByOperatorEmpty: "No conversations attribute to an operator in this range.",
 
+  analyticsByReferrerHeading: "By referrer",
+  analyticsReferrerColumn: "Referrer",
+  analyticsByReferrerEmpty: "No conversations in this range.",
+  analyticsDirectReferrerLabel: "Direct",
+  analyticsByCampaignHeading: "By campaign",
+  analyticsCampaignColumn: "Campaign",
+  analyticsByCampaignEmpty: "No conversations in this range carry a campaign tag.",
+  analyticsTrafficSourceNote: "What the visitor's browser reported - not a fact AGO Chat has independently verified.",
+
   outcomeSectionTitle: "Outcome",
   outcomeLoadingLabel: "Loading outcome…",
   outcomeLoadError: "Could not load this conversation's outcome.",
