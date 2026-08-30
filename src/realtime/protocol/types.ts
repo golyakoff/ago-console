@@ -167,15 +167,31 @@ export interface OperatorAnalyticsChannelBucketDto {
 }
 
 /**
+ * `18-09`: `Ago.Chat.Contracts.OperatorAnalyticsOperatorBucketDto` - one operator's bucket.
+ * `operatorId` is the operator this window's numbers attribute to: whoever replied first, or (only for
+ * a conversation nobody ever replied to) whoever was holding it when it closed unanswered - never
+ * whoever a conversation was later transferred to (`IOperatorAnalyticsReadStore`'s own remarks,
+ * `ago-chat`). The console has no operator display name to render (`Ago.Chat.Domain.Operator` carries
+ * none), so this is the raw id - `OperatorAnalyticsPage` renders it the same truncated-mono way
+ * `AdminConversationsPage`'s own assigned-operator column already does.
+ */
+export interface OperatorAnalyticsOperatorBucketDto {
+  operatorId: string;
+  bucket: OperatorAnalyticsBucketDto;
+}
+
+/**
  * `18-08`: `Ago.Chat.Contracts.OperatorAnalyticsResponse` - `GET /api/v1/conversations/analytics`'s
  * body. `from`/`to` are the range the server actually used, always present even when the caller sent
  * neither and the handler defaulted them (`GetOperatorAnalyticsForSiteHandler`'s own default window) -
  * the same "the bound is visible, not silent" shape `SearchConversationsResponse.searchedFrom`/
- * `searchedTo` already establishes for `18-01`.
+ * `searchedTo` already establishes for `18-01`. `18-09` adds `byOperator`, the identical shape as
+ * `byChannel` with a different dimension.
  */
 export interface OperatorAnalyticsResponse {
   from: string;
   to: string;
   overall: OperatorAnalyticsBucketDto;
   byChannel: OperatorAnalyticsChannelBucketDto[];
+  byOperator: OperatorAnalyticsOperatorBucketDto[];
 }

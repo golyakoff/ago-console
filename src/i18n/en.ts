@@ -504,4 +504,8 @@ export const en: ConsoleStrings = {
   analyticsChannelMax: "MAX",
   analyticsChannelTelegram: "Telegram",
   analyticsChannelWhatsApp: "WhatsApp",
+
+  analyticsByOperatorHeading: "By operator",
+  analyticsOperatorColumn: "Operator",
+  analyticsByOperatorEmpty: "No conversations attribute to an operator in this range.",
 };
