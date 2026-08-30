@@ -750,6 +750,7 @@ export function ConversationPage() {
         visitorHistoryError={visitorHistoryError}
         accessToken={user?.access_token ?? null}
         siteTags={tags}
+        onInsertIntoComposer={setDraft}
       />
     </>
   );
