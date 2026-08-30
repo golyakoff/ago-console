@@ -281,6 +281,47 @@ export interface ConversionReportResponse {
 }
 
 /**
+ * `18-11`: `Ago.Chat.Contracts.TagBreakdownBucketDto` - one tag's own bucket: how many conversations it
+ * was applied to in the window (once per tag, not deduplicated against any other tag the same
+ * conversation might also hold - `ITagBreakdownReadStore`'s own remarks, `ago-chat`), plus the same
+ * `18-10` conversion-rate shape `ConversionBucketDto` already establishes, computed only over this tag's
+ * own conversations. `conversionRate` is `null` when `recordedCount` is zero - never `0` itself, the
+ * identical convention every other rate in this file already follows.
+ */
+export interface TagBreakdownBucketDto {
+  tagId: string;
+  tagName: string;
+  conversationCount: number;
+  convertedCount: number;
+  notConvertedCount: number;
+  recordedCount: number;
+  conversionRate: number | null;
+}
+
+/**
+ * `18-11`: `Ago.Chat.Contracts.TagBreakdownReportResponse` - `GET /api/v1/conversations/tag-breakdown-report`'s
+ * body. `from`/`to` are the range the server actually used, the same "always present, never silent"
+ * shape `ConversionReportResponse.from`/`to` already establishes.
+ *
+ * <b>`percentageTagged` is not decoration - render it beside `byTag`, every time.</b> See
+ * `Ago.Chat.Application.Abstractions.ITagBreakdownReadStore`'s own remarks (`ago-chat`): this is the
+ * honesty check this whole report exists to keep visible, the identical discipline
+ * `ConversionBucketDto.unsetCount` already holds itself to for a structurally similar reason.
+ * `null` when `totalConversationCount` is zero - never `0` itself.
+ *
+ * <b>`byTag`'s own counts will not sum to `totalConversationCount` - say so wherever this renders.</b> A
+ * conversation with more than one tag counts once per tag it holds.
+ */
+export interface TagBreakdownReportResponse {
+  from: string;
+  to: string;
+  totalConversationCount: number;
+  taggedConversationCount: number;
+  percentageTagged: number | null;
+  byTag: TagBreakdownBucketDto[];
+}
+
+/**
  * `18-14`: `Ago.Chat.Contracts.ModuleFlowReportResponse` - `GET /api/v1/conversations/module-flow-report`'s
  * body. `from`/`to` are the bound the server actually used, the same "always present, never silent"
  * shape `OperatorAnalyticsResponse.from`/`to` already establishes.

@@ -39,6 +39,10 @@ export function buildTenantNavItems(
     // `18-10`: same gate again - the conversion report, a sibling page to `/analytics` rather than a
     // tab within it (`ConversionReportPage`'s own doc comment).
     items.push({ to: "/analytics/conversion", label: strings.navConversionReport });
+    // `18-11`: same gate again - the tag breakdown report, a sibling page rather than a table on
+    // `/analytics` (`TagBreakdownReportPage`'s own doc comment on why a non-single-valued dimension
+    // does not fit that page's own table shape).
+    items.push({ to: "/analytics/tags", label: strings.navTagBreakdown });
     // `18-14`: same gate again - the chat-to-booking conversion report, its own nav entry rather than
     // a link buried inside `/analytics` (`BookingFlowConversionPage`'s own doc comment on why it is a
     // sibling page, not a block on that one).

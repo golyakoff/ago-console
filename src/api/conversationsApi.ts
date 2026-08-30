@@ -9,6 +9,7 @@ import type {
   OperatorAnalyticsResponse,
   OperatorQueueResponse,
   SearchConversationsResponse,
+  TagBreakdownReportResponse,
   VisitorHistoryResponse,
 } from "../realtime/protocol/types.js";
 import type { ErasureCheckOutcome } from "../erasure/erasureCheck.js";
@@ -400,6 +401,46 @@ export async function fetchConversionReport(
 
   if (response.ok) {
     return (await response.json()) as ConversionReportResponse;
+  }
+
+  throw await problemDetailsFrom(response);
+}
+
+/** `18-11`: the same optional-bounds shape `OperatorAnalyticsParams`/`ConversionReportParams` already
+ * establish - omit either or both to let the server default the window
+ * (`GetTagBreakdownReportForSiteHandler`'s own thirty-day default). A caller wanting a preset resolves it
+ * client-side first (`../time/rangePresets.js`), the same "no server-side preset concept" shape
+ * `ConversionReportParams`'s own doc comment already establishes. */
+export interface TagBreakdownReportParams {
+  from?: string;
+  to?: string;
+}
+
+/**
+ * `18-11`: `GET /api/v1/conversations/tag-breakdown-report` - the site owner's own "what are these
+ * conversations actually about" report, gated on `site:configure` server-side, the identical shape
+ * `fetchConversionReport`/`fetchOperatorAnalytics` above already establish for their sibling reports.
+ * Throws `ApiProblemError` for the same reason those do - `TagBreakdownReportPage` has to branch on
+ * `Conversation.Forbidden` vs `Analytics.InvalidRange`.
+ */
+export async function fetchTagBreakdownReport(
+  accessToken: string,
+  params: TagBreakdownReportParams,
+): Promise<TagBreakdownReportResponse> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/conversations/tag-breakdown-report`);
+  if (params.from) {
+    url.searchParams.set("from", params.from);
+  }
+  if (params.to) {
+    url.searchParams.set("to", params.to);
+  }
+
+  const response = await fetch(url, {
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (response.ok) {
+    return (await response.json()) as TagBreakdownReportResponse;
   }
 
   throw await problemDetailsFrom(response);

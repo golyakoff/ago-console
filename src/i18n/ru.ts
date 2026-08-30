@@ -592,6 +592,30 @@ export const ru: ConsoleStrings = {
   conversionReportOperatorColumn: "Оператор",
   conversionReportByOperatorEmpty: "В этом периоде нет результатов, отнесённых к оператору.",
 
+  navTagBreakdown: "Отчёт по меткам",
+  tagBreakdownPageDescription: "О чём на самом деле эти диалоги - в разбивке по меткам.",
+  tagBreakdownFromFieldLabel: "С",
+  tagBreakdownToFieldLabel: "По",
+  tagBreakdownApplyButton: "Применить",
+  tagBreakdownRangeLabel: "Отчёт за период",
+  tagBreakdownLoadingLabel: "Загрузка разбивки по меткам…",
+  tagBreakdownEmpty: "В этом периоде нет диалогов.",
+  tagBreakdownPresetThisMonth: "Этот месяц",
+  tagBreakdownPresetLastMonth: "Прошлый месяц",
+  tagBreakdownPresetLast30Days: "Последние 30 дней",
+  tagBreakdownCoverageBanner: "С меткой",
+  tagBreakdownCoverageUnknown: "В этом периоде нет диалогов, чтобы посчитать долю с метками.",
+  tagBreakdownTagColumn: "Метка",
+  tagBreakdownConversationCountColumn: "Диалогов",
+  tagBreakdownMultiTagNote:
+    "Диалог с несколькими метками учитывается в каждой из них, поэтому сумма по этому столбцу не " +
+    "совпадёт с общим числом диалогов выше - так и должно быть, это не ошибка.",
+  tagBreakdownConvertedColumn: "Продажа состоялась",
+  tagBreakdownNotConvertedColumn: "Продажа не состоялась",
+  tagBreakdownRateColumn: "Конверсия",
+  tagBreakdownNoDataValue: "—",
+  tagBreakdownByTagEmpty: "В этом периоде ни один диалог не помечен меткой.",
+
   navBookingFlow: "Запись через чат",
   bookingFlowPageDescription:
     "Сколько диалогов начали сценарий записи и сколько из этих сценариев были закрыты.",
