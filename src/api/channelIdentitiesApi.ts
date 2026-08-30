@@ -2,16 +2,18 @@ import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
 import { problemDetailsFrom } from "./problemDetails.js";
 
-/** `14-12`'s exact wire shape (`Ago.Chat.Api`'s `ChannelIdentityEndpoints`). `kind` is the
+/** `14-12`/`14-13`'s exact wire shape (`Ago.Chat.Api`'s `ChannelIdentityEndpoints`). `kind` is the
  * `Domain.ChannelKind` member name verbatim (`"Telegram"`, `"Sms"`, ...) - never a display label, the
  * same "technical value, rendered by the console" split `tagsApi.ts`'s own `TagDto` does not need but
- * `channelKindLabel` below does. */
+ * `channelKindLabel` below does. `isPreferred` (`14-13`): whether this row is the visitor's own
+ * `PreferredChannelIdentityId` - always `false` on every row until an operator sets one. */
 export interface ChannelIdentityDto {
   channelIdentityId: string;
   kind: string;
   address: string;
   firstSeenAt: string;
   lastSeenAt: string;
+  isPreferred: boolean;
 }
 
 export interface RequestedChannelLink {
@@ -68,6 +70,27 @@ export async function unlinkChannelIdentity(accessToken: string, siteId: string,
   const response = await fetch(`${config.apiBaseUrl}/api/v1/sites/${siteId}/channel-identities/${channelIdentityId}/unlink`, {
     method: "POST",
     headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (response.status === 204) {
+    return;
+  }
+
+  throw await problemDetailsFrom(response);
+}
+
+/** `PUT /api/v1/conversations/{id}/channel-identities/preference` - `204 No Content`, gated
+ * server-side on `conversation:send` (`SetPreferredChannelIdentityHandler`'s own remarks, `ago-chat`).
+ * `channelIdentityId: null` is the explicit "back to automatic" request. */
+export async function setPreferredChannelIdentity(
+  accessToken: string,
+  conversationId: string,
+  channelIdentityId: string | null,
+): Promise<void> {
+  const response = await fetch(`${channelIdentitiesUrl(conversationId)}/preference`, {
+    method: "PUT",
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }),
+    body: JSON.stringify({ channelIdentityId }),
   });
 
   if (response.status === 204) {

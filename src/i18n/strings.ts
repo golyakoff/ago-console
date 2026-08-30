@@ -487,6 +487,13 @@ export interface ConsoleStrings {
   channelIdentitiesRequestLinkError: string;
   channelIdentitiesUnlinkButton: string;
   channelIdentitiesUnlinkError: string;
+  /** `14-13`: the badge shown on the one row that is the visitor's own `PreferredChannelIdentityId`. */
+  channelIdentitiesPreferredBadge: string;
+  /** `14-13`: the action offered on every other active row - marks that row preferred instead. */
+  channelIdentitiesPreferButton: string;
+  /** `14-13`: the action offered only on the preferred row - the explicit "back to automatic" request. */
+  channelIdentitiesClearPreferenceButton: string;
+  channelIdentitiesPreferError: string;
   /** `${channelIdentitiesCodeGeneratedPrefix} ${kind}: ${code}` - the success message shown after a
    * link request is generated. */
   channelIdentitiesCodeGeneratedPrefix: string;

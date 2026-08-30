@@ -5,12 +5,13 @@ import { ApiProblemError } from "../api/problemDetails.js";
 import { PermissionsContext, type PermissionsState } from "../auth/PermissionsContext.js";
 import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
 
-/** `14-12`. The same hand-made-permissions-context shape `ConversationOutcomePanel.test.tsx`/
+/** `14-12`/`14-13`. The same hand-made-permissions-context shape `ConversationOutcomePanel.test.tsx`/
  * `ConversationTagsPanel.test.tsx` already establish. */
 const channelIdentitiesApi = vi.hoisted(() => ({
   fetchChannelIdentities: vi.fn(),
   requestChannelLink: vi.fn(),
   unlinkChannelIdentity: vi.fn(),
+  setPreferredChannelIdentity: vi.fn(),
 }));
 
 vi.mock("../api/channelIdentitiesApi.js", () => channelIdentitiesApi);
@@ -67,7 +68,14 @@ describe("who is offered the panel", () => {
 
   it("lists identities but offers no link/unlink controls to a read-only operator", async () => {
     channelIdentitiesApi.fetchChannelIdentities.mockResolvedValue([
-      { channelIdentityId: "id-1", kind: "Telegram", address: "tg-user-1", firstSeenAt: "x", lastSeenAt: "x" },
+      {
+        channelIdentityId: "id-1",
+        kind: "Telegram",
+        address: "tg-user-1",
+        firstSeenAt: "x",
+        lastSeenAt: "x",
+        isPreferred: false,
+      },
     ]);
 
     const container = await mount(["conversation:read"]);
@@ -85,7 +93,14 @@ describe("who is offered the panel", () => {
 
   it("offers an unlink button per identity only to an operator holding channel_identity:unlink", async () => {
     channelIdentitiesApi.fetchChannelIdentities.mockResolvedValue([
-      { channelIdentityId: "id-1", kind: "Telegram", address: "tg-user-1", firstSeenAt: "x", lastSeenAt: "x" },
+      {
+        channelIdentityId: "id-1",
+        kind: "Telegram",
+        address: "tg-user-1",
+        firstSeenAt: "x",
+        lastSeenAt: "x",
+        isPreferred: false,
+      },
     ]);
 
     const withoutIt = await mount(["conversation:read"]);
@@ -153,7 +168,14 @@ describe("requesting a link", () => {
 describe("unlinking", () => {
   it("removes the identity from the list on a successful unlink", async () => {
     channelIdentitiesApi.fetchChannelIdentities.mockResolvedValue([
-      { channelIdentityId: "id-1", kind: "Telegram", address: "tg-user-1", firstSeenAt: "x", lastSeenAt: "x" },
+      {
+        channelIdentityId: "id-1",
+        kind: "Telegram",
+        address: "tg-user-1",
+        firstSeenAt: "x",
+        lastSeenAt: "x",
+        isPreferred: false,
+      },
     ]);
     channelIdentitiesApi.unlinkChannelIdentity.mockResolvedValue(undefined);
 
@@ -168,7 +190,14 @@ describe("unlinking", () => {
 
   it("shows an error, and keeps the identity listed, when the unlink fails", async () => {
     channelIdentitiesApi.fetchChannelIdentities.mockResolvedValue([
-      { channelIdentityId: "id-1", kind: "Telegram", address: "tg-user-1", firstSeenAt: "x", lastSeenAt: "x" },
+      {
+        channelIdentityId: "id-1",
+        kind: "Telegram",
+        address: "tg-user-1",
+        firstSeenAt: "x",
+        lastSeenAt: "x",
+        isPreferred: false,
+      },
     ]);
     channelIdentitiesApi.unlinkChannelIdentity.mockRejectedValue(
       new ApiProblemError("ChannelIdentity.NotFound", "server wording", 404),
@@ -180,5 +209,115 @@ describe("unlinking", () => {
 
     expect(one(container, '[role="alert"]').textContent).toContain("server wording");
     expect(container.textContent).toContain("tg-user-1");
+  });
+});
+
+/** `14-13`: setting/clearing the preferred reply channel - the radio-shaped control this panel already
+ * hosts every other per-row action in, not a separate page. */
+describe("preferring a channel", () => {
+  const twoIdentities = [
+    {
+      channelIdentityId: "id-1",
+      kind: "Telegram",
+      address: "tg-user-1",
+      firstSeenAt: "x",
+      lastSeenAt: "x",
+      isPreferred: false,
+    },
+    {
+      channelIdentityId: "id-2",
+      kind: "Sms",
+      address: "+15550001111",
+      firstSeenAt: "x",
+      lastSeenAt: "x",
+      isPreferred: true,
+    },
+  ];
+
+  it("offers a Prefer button per non-preferred identity, and a Preferred badge with a Clear button on the preferred one, to an operator holding conversation:send", async () => {
+    channelIdentitiesApi.fetchChannelIdentities.mockResolvedValue(twoIdentities);
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+
+    expect(byText(container, "button", "Prefer")).not.toBeNull();
+    expect(byText(container, "button", "Clear")).not.toBeNull();
+    expect(container.textContent).toContain("Preferred");
+  });
+
+  it("shows the Preferred badge but no Prefer/Clear buttons to a read-only operator", async () => {
+    channelIdentitiesApi.fetchChannelIdentities.mockResolvedValue(twoIdentities);
+
+    const container = await mount(["conversation:read"]);
+
+    expect(container.textContent).toContain("Preferred");
+    expect(byText(container, "button", "Prefer")).toBeNull();
+    expect(byText(container, "button", "Clear")).toBeNull();
+  });
+
+  it("sets the preference and moves the badge when Prefer is clicked", async () => {
+    channelIdentitiesApi.fetchChannelIdentities.mockResolvedValue([
+      {
+        channelIdentityId: "id-1",
+        kind: "Telegram",
+        address: "tg-user-1",
+        firstSeenAt: "x",
+        lastSeenAt: "x",
+        isPreferred: false,
+      },
+    ]);
+    channelIdentitiesApi.setPreferredChannelIdentity.mockResolvedValue(undefined);
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Prefer").click());
+
+    expect(channelIdentitiesApi.setPreferredChannelIdentity).toHaveBeenCalledWith("token", CONVERSATION_ID, "id-1");
+    expect(container.textContent).toContain("Preferred");
+    expect(byText(container, "button", "Prefer")).toBeNull();
+  });
+
+  it("clears the preference when Clear is clicked", async () => {
+    channelIdentitiesApi.fetchChannelIdentities.mockResolvedValue([
+      {
+        channelIdentityId: "id-1",
+        kind: "Telegram",
+        address: "tg-user-1",
+        firstSeenAt: "x",
+        lastSeenAt: "x",
+        isPreferred: true,
+      },
+    ]);
+    channelIdentitiesApi.setPreferredChannelIdentity.mockResolvedValue(undefined);
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Clear").click());
+
+    expect(channelIdentitiesApi.setPreferredChannelIdentity).toHaveBeenCalledWith("token", CONVERSATION_ID, null);
+    expect(container.textContent).not.toContain("Preferred");
+    expect(byText(container, "button", "Prefer")).not.toBeNull();
+  });
+
+  it("shows an error, and leaves the badge unchanged, when setting the preference fails", async () => {
+    channelIdentitiesApi.fetchChannelIdentities.mockResolvedValue([
+      {
+        channelIdentityId: "id-1",
+        kind: "Telegram",
+        address: "tg-user-1",
+        firstSeenAt: "x",
+        lastSeenAt: "x",
+        isPreferred: false,
+      },
+    ]);
+    channelIdentitiesApi.setPreferredChannelIdentity.mockRejectedValue(
+      new ApiProblemError("ChannelIdentity.NotEligibleForPreference", "server wording", 404),
+    );
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Prefer").click());
+
+    expect(one(container, '[role="alert"]').textContent).toContain("server wording");
+    expect(container.textContent).not.toContain("Preferred");
   });
 });

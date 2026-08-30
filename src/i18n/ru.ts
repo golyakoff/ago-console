@@ -387,6 +387,10 @@ export const ru: ConsoleStrings = {
   channelIdentitiesRequestLinkError: "Не удалось сгенерировать код для связывания.",
   channelIdentitiesUnlinkButton: "Отвязать",
   channelIdentitiesUnlinkError: "Не удалось отвязать.",
+  channelIdentitiesPreferredBadge: "Предпочитаемый",
+  channelIdentitiesPreferButton: "Предпочесть",
+  channelIdentitiesClearPreferenceButton: "Сбросить",
+  channelIdentitiesPreferError: "Не удалось задать предпочитаемый канал.",
   channelIdentitiesCodeGeneratedPrefix: "Код сгенерирован для",
 
   contactDetailsSectionTitle: "Непроверенные контактные данные",
