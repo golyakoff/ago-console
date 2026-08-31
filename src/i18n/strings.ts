@@ -897,4 +897,56 @@ export interface ConsoleStrings {
    * the booking flow in this range), not a loading or error state, the same "an empty report is not a
    * failure" shape `analyticsEmpty` already establishes for `/analytics`. */
   bookingFlowEmpty: string;
+
+  // `19-03`: FaqModulePage (`/settings/faq`) - two independent forms on one screen, calling two
+  // different backends (`FaqModulePage.tsx`'s own doc comment has the full reasoning). Gated on
+  // `site:configure`, the same shape every other tenant self-service screen already establishes, so
+  // this reuses `siteConfigCheckingPermissions`/`siteConfigBackToQueue`/`siteConfigSaveButton`/
+  // `siteConfigSavingButton`/`siteConfigSavedAlert` rather than duplicating them a fifth time.
+  navFaqAssistant: string;
+  faqPageDescription: string;
+  faqForbidden: string;
+
+  // The module-registration panel - calls `Ago.Chat.Api`'s own generic `/modules` endpoint
+  // (`modulesApi.ts`).
+  faqModuleLoadingLabel: string;
+  faqModuleLoadError: string;
+  faqModuleSubmitError: string;
+  faqModulePanelTitle: string;
+  faqModuleDescription: string;
+  faqModuleKeyFieldLabel: string;
+  faqModuleKeyFieldDescription: string;
+  faqModuleKeyPlaceholder: string;
+  faqTriggerWordsFieldLabel: string;
+  faqTriggerWordsFieldDescription: string;
+  faqTriggerWordsPlaceholder: string;
+  faqEntryPointFieldLabel: string;
+  faqEntryPointFieldDescription: string;
+  faqEntryPointPlaceholder: string;
+
+  // moduleConfigValidation.ts - the same "pure function, `strings: ConsoleStrings = en` parameter"
+  // shape `offlineAutoReplyValidation.ts`/`cannedResponsesValidation.ts` already use.
+  faqModuleKeyValidationRequired: string;
+  faqTriggerWordsValidationRequired: string;
+  faqEntryPointValidationRequired: string;
+  faqEntryPointValidationInvalid: string;
+
+  // The knowledge-base panel - calls `Ago.Faq.Api`'s own `/knowledge-base` endpoint
+  // (`faqKnowledgeBaseApi.ts`), a different backend than every field above.
+  faqKnowledgeBasePanelTitle: string;
+  faqKnowledgeBaseDescription: string;
+  faqKnowledgeBaseLoadingLabel: string;
+  faqKnowledgeBaseLoadError: string;
+  faqKnowledgeBaseSubmitError: string;
+  faqKnowledgeBaseTextFieldLabel: string;
+  faqKnowledgeBaseTextPlaceholder: string;
+  /** `${faqKnowledgeBaseUpdatedAtPrefix} ${formatAbsolute(...)}` - the same fixed-fragment
+   * composition `searchRangeLabel`'s own doc comment already establishes for this codebase's other
+   * date-carrying strings. */
+  faqKnowledgeBaseUpdatedAtPrefix: string;
+  faqKnowledgeBaseNeverSaved: string;
+  /** Shown instead of the whole knowledge-base form when `config.faqApiBaseUrl` is `null` - a real,
+   * honest deployment state (`ago-faq` has no production deployment yet), not a loading or error
+   * state. */
+  faqKnowledgeBaseNotConfigured: string;
 }

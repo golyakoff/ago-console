@@ -16,6 +16,7 @@ import { TagBreakdownReportPage } from "./pages/TagBreakdownReportPage.js";
 import { BookingFlowConversionPage } from "./pages/BookingFlowConversionPage.js";
 import { SearchConversationsPage } from "./pages/SearchConversationsPage.js";
 import { WidgetConfigPage } from "./pages/WidgetConfigPage.js";
+import { FaqModulePage } from "./pages/FaqModulePage.js";
 import { OfflineAutoReplyPage } from "./pages/OfflineAutoReplyPage.js";
 import { CannedResponsesPage } from "./pages/CannedResponsesPage.js";
 import { TagsPage } from "./pages/TagsPage.js";
@@ -155,6 +156,10 @@ export function App() {
             (`BookingFlowConversionPage`'s own doc comment). */}
         <Route path="/analytics/booking-flow" element={<BookingFlowConversionPage />} />
         <Route path="/settings/widget" element={<WidgetConfigPage />} />
+        {/* `19-03`: a sixth settings screen, same "route stays outside the workspace layout, page
+            gates itself internally" shape as the ones around it - `FaqModulePage` gates itself on
+            `site:configure` internally, exactly like `WidgetConfigPage` above it. */}
+        <Route path="/settings/faq" element={<FaqModulePage />} />
         {/* `14-04`: a second settings screen on the identical pattern - `OfflineAutoReplyPage` gates
             itself on `site:configure` internally, exactly like the two routes above it. */}
         <Route path="/settings/auto-reply" element={<OfflineAutoReplyPage />} />

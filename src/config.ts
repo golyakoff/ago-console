@@ -20,11 +20,30 @@ export interface Config {
    *
    * A deployment-time flag rather than a constant, because the same bundle is the real product's
    * console: hard-coding the sentence would make it a lie the first time a paying tenant signs in,
-   * and hard-coding its absence would leave the public deployment silent. It is the only optional
-   * variable here - `required()` is not used, and the default is off, so a deployment that says
-   * nothing about it gets no notice rather than an accidental one.
+   * and hard-coding its absence would leave the public deployment silent. `required()` is not used,
+   * and the default is off, so a deployment that says nothing about it gets no notice rather than an
+   * accidental one.
    */
   isPublicDemo: boolean;
+  /**
+   * `19-03`: `Ago.Faq.Api`'s own origin - a *different* backend than `apiBaseUrl` above, on its own
+   * repository's own deploy (`ago-faq`, not `ago-chat`), because the AI FAQ module's knowledge-base
+   * text is that module's own data, never proxied or understood by `Ago.Chat.*`
+   * (`docs/backlog/19-03-ai-faq-module.md`). The knowledge-base editor sends it the same operator
+   * bearer token every other call already carries - that backend validates the identical
+   * Keycloak-issued token, a deliberate, recorded decision, not a second login.
+   *
+   * `string | null`, not `required()` like `apiBaseUrl`/`keycloakAuthority`/`keycloakClientId` above:
+   * those three are load-bearing for every screen in this console (auth, every API call), so a
+   * missing one should fail the whole app's boot loudly. This one is load-bearing for exactly one
+   * screen - the FAQ knowledge-base editor - and coupling the entire console's boot to a second
+   * repository's own deploy existing yet would be the wrong blast radius. `null` when unset is a
+   * real, supported state: that one screen renders "not configured" instead, everything else is
+   * unaffected. Concretely, this matters today - `ago-faq` has no production deployment yet
+   * (`.env.production` deliberately leaves this unset), and the console must still boot and serve
+   * every other screen on that deployment in the meantime.
+   */
+  faqApiBaseUrl: string | null;
 }
 
 function required(name: string, value: string | undefined): string {
@@ -33,6 +52,16 @@ function required(name: string, value: string | undefined): string {
   }
 
   return value;
+}
+
+/** `19-03`: `required`'s counterpart for a variable this app must not fail its whole boot over -
+ * `faqApiBaseUrl`'s own doc comment (`Config`) has the reasoning. `null` when unset, the same
+ * trailing-slash trim `required` applies for a value that is set, so `faqKnowledgeBaseApi.ts` never
+ * has to trim it itself. A local binding, not a repeated `import.meta.env.VITE_FAQ_API_BASE_URL`
+ * property read, so the truthiness check and the value used inside it are unambiguously the same one
+ * read of `import.meta.env` rather than two. */
+function optional(value: string | undefined): string | null {
+  return value ? value.replace(/\/+$/, "") : null;
 }
 
 // Dot access, not a dynamic env[name] lookup: Vite's own ImportMetaEnv carries a permissive index
@@ -46,4 +75,8 @@ export const config: Config = {
   // Exact `"true"`, so that `VITE_PUBLIC_DEMO=false` - what someone turning this off will actually
   // write - is off rather than a non-empty truthy string.
   isPublicDemo: import.meta.env.VITE_PUBLIC_DEMO === "true",
+  // `19-03`: unset -> `null`, never `""` - an empty string would be a truthy-looking value that still
+  // fails every `fetch` it built a URL from, silently, instead of the explicit "not configured" state
+  // `faqKnowledgeBaseApi.ts` checks for up front.
+  faqApiBaseUrl: optional(import.meta.env.VITE_FAQ_API_BASE_URL),
 };
