@@ -9,6 +9,7 @@ import { AdminConversationsPage } from "../pages/AdminConversationsPage.js";
 import { WidgetConfigPage } from "../pages/WidgetConfigPage.js";
 import { OfflineAutoReplyPage } from "../pages/OfflineAutoReplyPage.js";
 import { CannedResponsesPage } from "../pages/CannedResponsesPage.js";
+import { FaqModulePage } from "../pages/FaqModulePage.js";
 import { all, byText, render, unmount } from "../testing/dom.js";
 
 /**
@@ -31,6 +32,12 @@ vi.mock("../config.js", () => ({
     keycloakAuthority: "https://keycloak.test.invalid/realms/ago",
     keycloakClientId: "ago-console",
     isPublicDemo: false,
+    // `19-03`: `null` (never left undefined - `config.ts`'s own `Config.faqApiBaseUrl` remarks) is
+    // the "not configured" state `FaqModulePage`'s knowledge-base panel renders as its own honest
+    // empty state rather than attempting a call - the gating tests below only need `modulesApi`
+    // mocked as a result, the identical simplification `moduleConfigValidation.ts` gives client-side
+    // entry-point checking.
+    faqApiBaseUrl: null,
   },
 }));
 
@@ -40,6 +47,7 @@ const conversationsApi = vi.hoisted(() => ({ fetchAllConversationsForSite: vi.fn
 const widgetConfigApi = vi.hoisted(() => ({ fetchWidgetConfig: vi.fn(), updateWidgetConfig: vi.fn() }));
 const offlineAutoReplyApi = vi.hoisted(() => ({ fetchOfflineAutoReply: vi.fn(), updateOfflineAutoReply: vi.fn() }));
 const cannedResponsesApi = vi.hoisted(() => ({ fetchCannedResponses: vi.fn(), updateCannedResponses: vi.fn() }));
+const modulesApi = vi.hoisted(() => ({ fetchModules: vi.fn(), updateModule: vi.fn() }));
 // `13-07`: `PermissionsProvider` now calls this before `fetchMyPermissions` - unmocked, it would hit
 // a real `fetch` and every scenario below (all of them single-tenant) would never reach
 // `fetchMyPermissions` at all. `grants`/`beforeEach` below seed the single-tenant default; the
@@ -68,6 +76,11 @@ vi.mock("../api/cannedResponsesApi.js", async () => {
   const actual =
     await vi.importActual<typeof import("../api/cannedResponsesApi.js")>("../api/cannedResponsesApi.js");
   return { ...actual, ...cannedResponsesApi };
+});
+vi.mock("../api/modulesApi.js", async () => {
+  // Same reasoning again - ModulesError is a real class the page does `instanceof` against.
+  const actual = await vi.importActual<typeof import("../api/modulesApi.js")>("../api/modulesApi.js");
+  return { ...actual, ...modulesApi };
 });
 
 const SITE_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
@@ -138,6 +151,7 @@ beforeEach(() => {
   });
   offlineAutoReplyApi.fetchOfflineAutoReply.mockResolvedValue({ enabled: false, fallbackReply: "", rules: [] });
   cannedResponsesApi.fetchCannedResponses.mockResolvedValue([]);
+  modulesApi.fetchModules.mockResolvedValue({ modules: [] });
 });
 
 afterEach(async () => {
@@ -167,6 +181,7 @@ describe("the operator navigation", () => {
       "Tag report",
       "Booking flow",
       "Widget appearance",
+      "AI FAQ assistant",
       "Offline auto-reply",
       "Canned responses",
       "Tags",
@@ -235,6 +250,7 @@ describe("the operator navigation", () => {
       "Tag report",
       "Booking flow",
       "Widget appearance",
+      "AI FAQ assistant",
       "Offline auto-reply",
       "Canned responses",
       "Tags",
@@ -285,6 +301,7 @@ describe("a gated page reached directly by URL", () => {
     ["/settings/widget", <WidgetConfigPage key="widget" />],
     ["/settings/auto-reply", <OfflineAutoReplyPage key="auto-reply" />],
     ["/settings/canned-responses", <CannedResponsesPage key="canned-responses" />],
+    ["/settings/faq", <FaqModulePage key="faq" />],
   ])("renders %s in the shell's full width, the same as the workspace routes", async (path, page) => {
     grants(["site:configure"]);
 
@@ -305,6 +322,7 @@ describe("a gated page reached directly by URL", () => {
     ["/settings/widget", <WidgetConfigPage key="widget" />],
     ["/settings/auto-reply", <OfflineAutoReplyPage key="auto-reply" />],
     ["/settings/canned-responses", <CannedResponsesPage key="canned-responses" />],
+    ["/settings/faq", <FaqModulePage key="faq" />],
   ])("keeps %s page-scrollable - it has no internal scroll region of its own", async (path, page) => {
     grants(["site:configure"]);
 
@@ -404,5 +422,29 @@ describe("a gated page reached directly by URL", () => {
     expect(container.textContent).not.toContain("You do not have permission");
     expect(cannedResponsesApi.fetchCannedResponses).toHaveBeenCalledWith("token", SITE_ID);
     expect(byText(container, "button", "Save")).not.toBeNull();
+  });
+
+  it("refuses the AI FAQ assistant screen, and does not load the site's modules", async () => {
+    grants(["conversation:read"]);
+
+    const container = await render(pageOnly("/settings/faq", <FaqModulePage />));
+
+    expect(container.textContent).toContain("You do not have permission to configure this site's AI FAQ assistant.");
+    expect(container.querySelector("form")).toBeNull();
+    expect(modulesApi.fetchModules).not.toHaveBeenCalled();
+  });
+
+  it("renders the AI FAQ assistant screen for an operator who holds the permission", async () => {
+    grants(["site:configure"]);
+
+    const container = await render(pageOnly("/settings/faq", <FaqModulePage />));
+
+    expect(container.textContent).not.toContain("You do not have permission");
+    expect(modulesApi.fetchModules).toHaveBeenCalledWith("token", SITE_ID);
+    // The knowledge-base panel renders its own "not configured" state, not a second form, because
+    // this file's mocked `config.faqApiBaseUrl` is `null` - only the module-registration form's own
+    // Save button exists here.
+    expect(byText(container, "button", "Save")).not.toBeNull();
+    expect(container.textContent).toContain("not configured for this deployment yet");
   });
 });
