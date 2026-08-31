@@ -635,4 +635,49 @@ export const ru: ConsoleStrings = {
   bookingFlowStartedLabel: "Начато сценариев записи",
   bookingFlowClosedLabel: "Сценариев закрыто",
   bookingFlowEmpty: "В этом периоде сценарий записи не запускался.",
+
+  navFaqAssistant: "ИИ-помощник по вопросам",
+  faqPageDescription: "Зарегистрируйте модуль ИИ-помощника для этого сайта и напишите базу знаний, из которой он отвечает.",
+  faqForbidden: "У вас нет прав на настройку ИИ-помощника этого сайта.",
+
+  faqModuleLoadingLabel: "Загрузка настроек модуля…",
+  faqModuleLoadError: "Не удалось загрузить настройки модуля.",
+  faqModuleSubmitError: "Не удалось сохранить настройки модуля.",
+  faqModulePanelTitle: "Регистрация модуля",
+  faqModuleDescription:
+    "Регистрирует модуль, который отвечает на вопрос посетителя тем же способом, что и любой модуль " +
+    "AGO Chat - по словам-триггерам, которые вводит посетитель, и адресу собственного сервиса модуля.",
+  faqModuleKeyFieldLabel: "Ключ модуля",
+  faqModuleKeyFieldDescription:
+    "Короткий идентификатор модуля - «faq» подходит, если на этом сайте не зарегистрирован ещё один " +
+    "такой же ИИ-модуль.",
+  faqModuleKeyPlaceholder: "faq",
+  faqTriggerWordsFieldLabel: "Слова-триггеры",
+  faqTriggerWordsFieldDescription:
+    "Что вводит посетитель, чтобы запустить этот модуль, через запятую - например, «/faq, /помощь».",
+  faqTriggerWordsPlaceholder: "/faq, /помощь",
+  faqEntryPointFieldLabel: "Адрес модуля",
+  faqEntryPointFieldDescription: "Собственный сервис модуля - куда AGO Chat отправляет вопрос посетителя.",
+  faqEntryPointPlaceholder: "https://faq.example.com",
+
+  faqModuleKeyValidationRequired: "Ключ модуля не может быть пустым.",
+  faqTriggerWordsValidationRequired: "Введите хотя бы одно слово-триггер.",
+  faqEntryPointValidationRequired: "Введите адрес модуля.",
+  faqEntryPointValidationInvalid: "Адрес модуля должен быть абсолютной ссылкой https://.",
+
+  faqKnowledgeBasePanelTitle: "База знаний",
+  faqKnowledgeBaseDescription:
+    "Текст, из которого ИИ отвечает на вопросы. Достаточно нескольких абзацев - о правилах, часах " +
+    "работы, стоимости доставки, о том, что реально спрашивают посетители.",
+  faqKnowledgeBaseLoadingLabel: "Загрузка базы знаний…",
+  faqKnowledgeBaseLoadError: "Не удалось загрузить базу знаний.",
+  faqKnowledgeBaseSubmitError: "Не удалось сохранить базу знаний.",
+  faqKnowledgeBaseTextFieldLabel: "Текст базы знаний",
+  faqKnowledgeBaseTextPlaceholder:
+    "Наши условия возврата...\nМы работаем с понедельника по пятницу, с 9 до 18...\nСтоимость доставки...",
+  faqKnowledgeBaseUpdatedAtPrefix: "Последнее сохранение",
+  faqKnowledgeBaseNeverSaved: "Ещё не сохранялось.",
+  faqKnowledgeBaseNotConfigured:
+    "Бэкенд ИИ-помощника пока не настроен для этого окружения, поэтому редактировать базу знаний " +
+    "здесь нельзя.",
 };

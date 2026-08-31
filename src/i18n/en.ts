@@ -632,4 +632,49 @@ export const en: ConsoleStrings = {
   bookingFlowStartedLabel: "Booking flows started",
   bookingFlowClosedLabel: "Flows closed",
   bookingFlowEmpty: "No booking flow was started in this range.",
+
+  navFaqAssistant: "AI FAQ assistant",
+  faqPageDescription: "Register the AI FAQ module for this site, and write the knowledge base it answers from.",
+  faqForbidden: "You do not have permission to configure this site's AI FAQ assistant.",
+
+  faqModuleLoadingLabel: "Loading module settings…",
+  faqModuleLoadError: "Failed to load the module settings.",
+  faqModuleSubmitError: "Failed to save the module settings.",
+  faqModulePanelTitle: "Module registration",
+  faqModuleDescription:
+    "Registers a module that answers a visitor's question through the same mechanism every AGO " +
+    "Chat module uses - trigger words a visitor types, and the URL of the module's own service.",
+  faqModuleKeyFieldLabel: "Module key",
+  faqModuleKeyFieldDescription:
+    "A short identifier for this module - \"faq\" is a sensible choice unless this site already " +
+    "registers more than one AI module.",
+  faqModuleKeyPlaceholder: "faq",
+  faqTriggerWordsFieldLabel: "Trigger words",
+  faqTriggerWordsFieldDescription:
+    "What a visitor types to start this module, separated by commas - for example \"/faq, /помощь\".",
+  faqTriggerWordsPlaceholder: "/faq, /помощь",
+  faqEntryPointFieldLabel: "Entry point URL",
+  faqEntryPointFieldDescription: "The module's own service - where AGO Chat sends the visitor's question.",
+  faqEntryPointPlaceholder: "https://faq.example.com",
+
+  faqModuleKeyValidationRequired: "The module key cannot be empty.",
+  faqTriggerWordsValidationRequired: "Enter at least one trigger word.",
+  faqEntryPointValidationRequired: "Enter the module's entry point URL.",
+  faqEntryPointValidationInvalid: "The entry point must be an absolute https:// URL.",
+
+  faqKnowledgeBasePanelTitle: "Knowledge base",
+  faqKnowledgeBaseDescription:
+    "The text the AI answers questions from. A few paragraphs is enough - policies, hours, shipping " +
+    "costs, whatever visitors actually ask about.",
+  faqKnowledgeBaseLoadingLabel: "Loading the knowledge base…",
+  faqKnowledgeBaseLoadError: "Failed to load the knowledge base.",
+  faqKnowledgeBaseSubmitError: "Failed to save the knowledge base.",
+  faqKnowledgeBaseTextFieldLabel: "Knowledge base text",
+  faqKnowledgeBaseTextPlaceholder:
+    "Our return policy is...\nWe are open Monday to Friday, 9am to 6pm...\nShipping costs...",
+  faqKnowledgeBaseUpdatedAtPrefix: "Last saved",
+  faqKnowledgeBaseNeverSaved: "Not saved yet.",
+  faqKnowledgeBaseNotConfigured:
+    "The AI FAQ backend is not configured for this deployment yet, so the knowledge base cannot be " +
+    "edited here.",
 };
