@@ -48,6 +48,9 @@ export function buildTenantNavItems(
     // sibling page, not a block on that one).
     items.push({ to: "/analytics/booking-flow", label: strings.navBookingFlow });
     items.push({ to: "/settings/widget", label: strings.navWidgetAppearance });
+    // `19-03`: same permission, same place - the AI FAQ module's own registration and knowledge-base
+    // editor screen.
+    items.push({ to: "/settings/faq", label: strings.navFaqAssistant });
     // `14-04`: same permission, same place - one more tenant self-service setting.
     items.push({ to: "/settings/auto-reply", label: strings.navOfflineAutoReply });
     // `18-03`: same permission, same place - one more tenant self-service setting, and a genuinely
