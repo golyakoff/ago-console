@@ -47,6 +47,50 @@ jobs:
       - name: Build
         run: npm run build
 
+      # `15-11`: the rendered UX gate - a real-browser pass over the app's own production-shaped
+      # build (`npm run build:ux-gate`, its own `.env.ux-gate`, run by `ux-gate/playwright.config.ts`'s
+      # `webServer` step, not the `Build` step above), checking the three measurable defects
+      # `docs/backlog/15-11-*.md` exists for (horizontal overflow, an unusably small control, WCAG AA
+      # contrast) and publishing a screenshot of every screen at both viewports as a build artifact.
+      # Placed after `Build` (this repo's own `tsc`/lint/test gates already ran) and before
+      # `publish-images` - a rendered-UI defect fails the pull request before an image is ever built
+      # from this commit, not after.
+      - name: Cache Playwright's Chromium
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      # Chromium only, not all three engines: this gate asserts one rendering engine's layout/contrast
+      # output, the same trade-off `testing.md`'s "Live verification" level already accepts for this
+      # repository - a Firefox/WebKit-specific rendering defect would not be caught, judged cheaper
+      # here than tripling this step's install time and runtime for a portfolio project's CI budget.
+      - name: Install Playwright's Chromium (cache miss)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      # A cache hit still needs the runner's own OS packages Chromium links against - ubuntu-latest is
+      # a fresh VM every run, so those never survive the cache the way `~/.cache/ms-playwright` does,
+      # even when the browser binary itself was a hit.
+      - name: Install Playwright's OS dependencies (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Rendered UX gate
+        run: npm run ux-gate
+
+      - name: Upload UX gate screenshots
+        # Uploaded on failure too, not only on success - a screenshot of the screen a failing
+        # assertion is describing is the more useful artifact exactly when the gate is red.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ux-gate-screenshots
+          path: ux-gate/screenshots/
+          retention-days: 30
+          if-no-files-found: warn
+
   # `15-07`/`adr/0051`: the console image is published to GHCR from here, not built on the
   # deployment node. Only on `main`, and only after build-test passed - a pull request never
   # publishes, so a fork or a draft branch cannot put an image into the registry a deploy might
