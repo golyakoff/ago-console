@@ -1,0 +1,200 @@
+/**
+ * The one seeded tenant this whole gate run pretends to be. Every screen's stub data (`apiStubs.ts`,
+ * `hubMock.ts`) is built from these same ids, so a screenshot of `/admin` and a screenshot of
+ * `/conversations/:id` agree with each other the way a real operator's session would - the point
+ * made in `15-11`'s own scope: "seeded/stubbed data ... not whatever's in a database", but still one
+ * coherent story rather than five unrelated fixtures.
+ */
+
+export const SITE_ID = "11111111-1111-4111-8111-111111111111";
+export const SITE_NAME = "Riverside Coffee (ux-gate fixture)";
+export const OPERATOR_ID = "22222222-2222-4222-8222-222222222222";
+export const OPERATOR_SUB = "33333333-3333-4333-8333-333333333333";
+export const VISITOR_ID = "44444444-4444-4444-8444-444444444444";
+export const OTHER_OPERATOR_ID = "55555555-5555-4555-8555-555555555555";
+
+/** The conversation the gate opens on `/conversations/:id` - assigned to the seeded operator, so
+ * `OperatorConnection.joinConversation` is a legitimate call (`operatorConnection.ts`'s own doc
+ * comment: never call it for a `Waiting` row). */
+export const OPEN_CONVERSATION_ID = "66666666-6666-4666-8666-666666666666";
+export const WAITING_CONVERSATION_ID = "77777777-7777-4777-8777-777777777777";
+
+const NOW = new Date("2026-09-01T09:00:00.000Z");
+
+function minutesAgo(minutes: number): string {
+  return new Date(NOW.getTime() - minutes * 60_000).toISOString();
+}
+
+/** A short, realistic-looking exchange - long enough that the thread has real message bubbles on
+ * both sides (the "closest to the two historical defects" surface `15-11`'s brief names), short
+ * enough to fit one screenshot without scrolling on a laptop viewport. */
+export const SEEDED_MESSAGES = [
+  {
+    id: "aaaaaaaa-0000-4000-8000-000000000001",
+    sequence: 1,
+    authorKind: "Visitor" as const,
+    authorId: VISITOR_ID,
+    body: "Hi, do you have oat milk for the flat white?",
+    createdAt: minutesAgo(14),
+  },
+  {
+    id: "aaaaaaaa-0000-4000-8000-000000000002",
+    sequence: 2,
+    authorKind: "Operator" as const,
+    authorId: OPERATOR_ID,
+    body: "Yes - oat, almond and soy are all available at no extra charge.",
+    createdAt: minutesAgo(13),
+  },
+  {
+    id: "aaaaaaaa-0000-4000-8000-000000000003",
+    sequence: 3,
+    authorKind: "Visitor" as const,
+    authorId: VISITOR_ID,
+    body: "Perfect, and are you open until 8pm on weekends?",
+    createdAt: minutesAgo(9),
+  },
+  {
+    id: "aaaaaaaa-0000-4000-8000-000000000004",
+    sequence: 4,
+    authorKind: "Operator" as const,
+    authorId: OPERATOR_ID,
+    body: "We are - 8am to 8pm every day this month, including public holidays.",
+    createdAt: minutesAgo(8),
+  },
+];
+
+export function seededTenancies() {
+  return { tenancies: [{ siteId: SITE_ID, siteName: SITE_NAME }] };
+}
+
+export function seededPermissions() {
+  return {
+    operatorId: OPERATOR_ID,
+    siteId: SITE_ID,
+    permissions: [
+      "conversation:close",
+      "conversation:erase",
+      "attachment:delete",
+      "site:configure",
+      "site:erase",
+    ],
+    locale: "En",
+  };
+}
+
+export function seededQueue() {
+  return {
+    waiting: [
+      {
+        conversationId: WAITING_CONVERSATION_ID,
+        visitorId: "88888888-8888-4888-8888-888888888888",
+        state: "Waiting" as const,
+        createdAt: minutesAgo(4),
+        operatorUnreadCount: 0,
+      },
+    ],
+    assignedToMe: [
+      {
+        conversationId: OPEN_CONVERSATION_ID,
+        visitorId: VISITOR_ID,
+        state: "Assigned" as const,
+        createdAt: minutesAgo(14),
+        operatorUnreadCount: 0,
+        operatorId: OPERATOR_ID,
+      },
+    ],
+  };
+}
+
+export function seededAllConversations() {
+  return {
+    conversations: [
+      ...seededQueue().assignedToMe,
+      ...seededQueue().waiting,
+      {
+        conversationId: "99999999-9999-4999-8999-999999999999",
+        visitorId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        state: "Closed" as const,
+        createdAt: minutesAgo(120),
+        operatorUnreadCount: 0,
+        operatorId: OTHER_OPERATOR_ID,
+      },
+    ],
+    nextBeforeId: null,
+  };
+}
+
+/** The **raw HTTP body** `GET /api/v1/owner/sites` returns - a plain `OwnerSitesPage`, not
+ * `fetchOwnerSites`'s own `OwnerSitesOutcome` wrapper (`ownerApi.ts`'s own doc comment: the client
+ * builds `{status, page}` itself from the HTTP status code plus this exact body; the wrapper is
+ * never on the wire). Named for what it actually is after a stub earlier in this file's history sent
+ * the client-side wrapper as the wire body and crashed `OwnerSitesPage` (this repo's component, not
+ * the DTO) the same way the tags/canned-responses mismatch crashed `AdminConversationsPage` -
+ * `apiStubs.ts` sends this function's return value directly, unwrapped. */
+export function seededOwnerSitesPage() {
+  return {
+    sites: [
+      {
+        siteId: SITE_ID,
+        name: SITE_NAME,
+        tier: "free",
+        createdAt: "2026-06-01T00:00:00.000Z",
+        seatCount: 2,
+        conversationCount: 148,
+        recentMessageCount: 37,
+        lastMessageAt: minutesAgo(8),
+        attachmentBytes: 4_200_000,
+      },
+      {
+        siteId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        name: "Second Fixture Site",
+        tier: "free",
+        createdAt: null,
+        seatCount: 1,
+        conversationCount: 3,
+        recentMessageCount: 0,
+        lastMessageAt: null,
+        attachmentBytes: 0,
+      },
+    ],
+    nextBefore: null,
+    recentWindowDays: 7,
+  };
+}
+
+export function seededWidgetConfig() {
+  return {
+    primaryColorHex: "#565096",
+    position: "BottomRight" as const,
+    locale: "En" as const,
+    noticeText: "Messages sent here are handled by Riverside Coffee's own support team.",
+    noticeUrl: "https://example.invalid/privacy",
+  };
+}
+
+export function seededAnalytics() {
+  const bucket = (overrides: Partial<{ conversationCount: number; averageFirstResponseSeconds: number | null; averageDurationSeconds: number | null; missedCount: number }> = {}) => ({
+    conversationCount: 42,
+    averageFirstResponseSeconds: 95,
+    averageDurationSeconds: 640,
+    missedCount: 2,
+    ...overrides,
+  });
+
+  return {
+    from: "2026-08-02T00:00:00.000Z",
+    to: "2026-09-01T00:00:00.000Z",
+    overall: bucket(),
+    byChannel: [
+      { channel: "Widget", bucket: bucket({ conversationCount: 30 }) },
+      { channel: "WhatsApp", bucket: bucket({ conversationCount: 12 }) },
+    ],
+    byOperator: [{ operatorId: OPERATOR_ID, bucket: bucket({ conversationCount: 27 }) }],
+    byReferrer: [{ referrerHost: "Direct", bucket: bucket({ conversationCount: 20 }) }],
+    byCampaign: [{ utmCampaign: "autumn-menu", bucket: bucket({ conversationCount: 9 }) }],
+  };
+}
+
+export function seededVisitorHistory() {
+  return { hasChannelIdentity: false, conversations: [], nextBeforeId: null };
+}
