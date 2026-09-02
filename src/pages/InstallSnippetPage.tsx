@@ -10,6 +10,7 @@ import { Button } from "../components/Button.js";
 import { Alert } from "../components/Alert.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
+import { config } from "../config.js";
 
 /**
  * `10-06`: the screen the backlog item's own Gap section names as entirely missing - "the console
@@ -20,18 +21,18 @@ import { useStrings } from "../i18n/StringsContext.js";
  * some other way without the permission still gets a real `403`, surfaced as `loadError`, never hidden
  * as if the call had succeeded.
  *
- * <b>Why this page shows no `&lt;script&gt;` tag.</b> The backlog item's third Done-when box asks for
- * "a complete, copyable snippet" that "produces a working widget" when pasted. Checked against the real
- * deployment before writing this screen, not assumed from a doc: no public URL serves the widget's own
- * script for an arbitrary tenant today - `Ago.Chat.Api`'s edge routes proxy only `/healthz`, `/api` and
- * `/hubs`, and the widget bundle currently reaches a browser only because the two demo shops happen to
- * bundle their own copy at their own origin, which does not generalise to a real tenant's site.
- * `src/config.ts` has no field for a widget-script origin either - inventing one here would be the
- * exact trap this item's own brief warns against ("do not let this become a second config value" /
- * "say so in your report rather than inventing one"). So this screen shows only what is real and will
- * not change out from under a tenant - the site's own key and its configured web address - and says
- * plainly, in the tenant's own language, that the paste-ready snippet is not available yet. That third
- * Done-when box is reported as unmet, not silently redefined by this screen's own scope.
+ * <b>The snippet, and why it is composed rather than configured.</b> When this screen first shipped it
+ * deliberately printed no `&lt;script&gt;` tag at all: checked against the real deployment rather than
+ * assumed from a doc, **no public URL served the widget's script** - the bundle reached a browser only
+ * because the two demo shops each bundled their own copy at their own origin, which does not
+ * generalise to a real tenant's site. Inventing a URL would have handed a tenant a tag that 404s,
+ * which is worse than an honest gap, so the box was reported unmet (`#324`).
+ *
+ * `adr/0092` closed it by serving the bundle at `{apiBaseUrl}/widget/`, and that choice is why there
+ * is still **no second config value here**: the script's origin *is* the API's origin, so the snippet
+ * is composed from `config.apiBaseUrl` rather than from a `VITE_WIDGET_BASE_URL` nobody would
+ * remember to keep in step with it. A separate asset hostname would have forced exactly that second
+ * value - see the ADR for why it was rejected on a bigger ground than this one.
  */
 export function InstallSnippetPage() {
   const { user } = useAuth();
@@ -40,6 +41,7 @@ export function InstallSnippetPage() {
   const [installation, setInstallation] = useState<SiteInstallationDto | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [snippetCopied, setSnippetCopied] = useState(false);
 
   const load = useCallback(() => {
     const accessToken = user?.access_token;
@@ -90,6 +92,23 @@ export function InstallSnippetPage() {
     setCopied(true);
   };
 
+  // `adr/0092`: the widget is served from the API's own origin, under `/widget/`. Composed here
+  // rather than read from a second config value precisely because those two origins are the same
+  // thing by decision - a `VITE_WIDGET_BASE_URL` would be a copy of `apiBaseUrl` that could drift
+  // from it silently, and the drift would only surface on a tenant's own site.
+  //
+  // The filename is `ago-chat.js`, not `widget.js`. Worth stating because `ago-landing` handed out
+  // `widget.js` for weeks and it never existed under that name anywhere.
+  const snippet =
+    installation === null
+      ? ""
+      : `<script src="${config.apiBaseUrl}/widget/ago-chat.js" data-site="${installation.publicKey}" async></script>`;
+
+  const copySnippet = () => {
+    void navigator.clipboard.writeText(snippet);
+    setSnippetCopied(true);
+  };
+
   return (
     <>
       <PageHead title={strings.navInstallWidget} description={strings.installDescription} />
@@ -122,9 +141,11 @@ export function InstallSnippetPage() {
             ) : null}
           </Panel>
 
-          <Alert tone="info" title={strings.installScriptNotReadyTitle}>
-            {strings.installScriptNotReadyBody}
-          </Alert>
+          <Panel title={strings.installSnippetPanelTitle} description={strings.installSnippetPanelDescription}>
+            <pre className="ago-mono ago-install-snippet">{snippet}</pre>
+            <Button onClick={copySnippet}>{strings.installSnippetCopyButton}</Button>
+            {snippetCopied && <Alert tone="success">{strings.installSnippetCopiedLabel}</Alert>}
+          </Panel>
         </div>
       )}
     </>

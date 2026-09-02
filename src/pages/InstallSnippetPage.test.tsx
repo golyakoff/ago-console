@@ -122,15 +122,29 @@ describe("the install screen", () => {
     expect(container.textContent).toContain("Copied to clipboard.");
   });
 
-  // `10-06`'s own honest gap: no public URL serves the widget script for a real tenant yet, so this
-  // screen must say so rather than print one that would 404 - see `InstallSnippetPage`'s own doc
-  // comment for what was actually checked before writing this.
-  it("says plainly that the paste-ready snippet is not available yet, and prints no script tag", async () => {
+  // `adr/0092`/`#324`: the tag this screen shipped without, because nothing served the widget at a
+  // public URL. Asserted as one exact string rather than by parts: a snippet that is *nearly* right -
+  // wrong path, wrong filename, the site key missing - is a snippet a tenant pastes and then cannot
+  // debug, and `ago-landing` handed out `widget.js` for weeks under a name that never existed.
+  it("prints the exact snippet, composed from the API origin", async () => {
     const container = await render(page());
 
-    expect(container.textContent).toContain("Almost ready");
-    expect(container.querySelector("script")).toBeNull();
-    expect(container.textContent).not.toContain("<script");
+    expect(container.textContent).toContain(
+      '<script src="https://api.test.invalid/widget/ago-chat.js" data-site="shop_7f3a" async></script>',
+    );
+  });
+
+  // The snippet is only useful if it survives the round trip through a clipboard, and the button is
+  // what anybody actually uses - the `<pre>` wraps, so reading it off the screen is not the path.
+  it("copies the snippet, not the key, from the snippet panel's own button", async () => {
+    const container = await render(page());
+    const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>("button"));
+
+    await interact(() => buttons[buttons.length - 1].click());
+
+    expect(writeTextMock).toHaveBeenCalledWith(
+      '<script src="https://api.test.invalid/widget/ago-chat.js" data-site="shop_7f3a" async></script>',
+    );
   });
 
   it("shows a load error instead of the panels when the request fails", async () => {
