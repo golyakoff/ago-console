@@ -28,6 +28,11 @@ export interface ConsoleStrings {
   navConversations: string;
   navAllConversations: string;
   navWidgetAppearance: string;
+  /** `10-06`: sits beside `navWidgetAppearance` in `consoleNav.ts`, one position earlier - installing
+   * the widget is the step a tenant needs *before* appearance is worth touching (the backlog item's
+   * own Open Questions leans this way: "installing first means she sees her own shop with a
+   * default-looking widget, which may be the better first impression"). */
+  navInstallWidget: string;
   navOfflineAutoReply: string;
   /** `18-03`: `site:configure`-gated, sits beside `navWidgetAppearance`/`navOfflineAutoReply` in
    * `consoleNav.ts` - the same permission group, one more tenant self-service screen. */
@@ -343,6 +348,40 @@ export interface ConsoleStrings {
   widgetNoticeUrlFieldLabel: string;
   widgetNoticeUrlFieldDescription: string;
   widgetNoticeUrlValidation: string;
+
+  // InstallSnippetPage (`10-06`). Reuses `siteConfigCheckingPermissions`/`siteConfigBackToQueue` from
+  // the shared block above, the same way `WidgetConfigPage`/`OfflineAutoReplyPage` already do.
+  /** Shown instead of `widgetForbidden`'s sibling text - phrased for this screen's own subject
+   * ("installation details") rather than reusing a generic "configure this site" sentence, the same
+   * one-field-per-exact-wording convention `widgetForbidden`/`autoReplyForbidden` already keep separate
+   * from each other. */
+  installForbidden: string;
+  installLoadError: string;
+  /** The page's own subtitle, under the heading - explains what the screen is for before either panel
+   * loads, the same role `widgetDescription` plays on the appearance screen. */
+  installDescription: string;
+  installLoadingLabel: string;
+  installKeyPanelTitle: string;
+  /** Written for someone who has never seen a `<script>` tag (`10-06`'s own Done-when): what the key
+   * is, and the plain reassurance that it being visible to anyone who inspects the widget on a live
+   * page is normal, not a leak. */
+  installKeyPanelDescription: string;
+  installKeyCopyButton: string;
+  /** Announced via `Alert tone="success"`, `role="status"` - the identical live-region shape
+   * `siteConfigSavedAlert` already uses for a different confirmation. */
+  installKeyCopiedLabel: string;
+  installOriginPanelTitle: string;
+  /** Explains what the address is *for* - the widget's own browser-side origin check - not just that
+   * it exists, since a mismatch here is `10-06`'s own named silent-failure trap. */
+  installOriginPanelDescription: string;
+  /** `10-06`'s own third Done-when box - "the snippet, pasted onto a page ... produces a working
+   * widget" - could not be met honestly: no public URL serves the widget script for an arbitrary
+   * tenant today (checked live against the deployed edge, not assumed from a doc), so a
+   * `<script src="...">` this screen could print would 404 for every tenant who pasted it. Printing a
+   * broken URL to look finished would be worse than saying so - `installScriptNotReadyTitle`/`Body`
+   * are that plain-language "not yet" note, standing in for the tag itself. */
+  installScriptNotReadyTitle: string;
+  installScriptNotReadyBody: string;
 
   // OfflineAutoReplyPage.
   autoReplyForbidden: string;

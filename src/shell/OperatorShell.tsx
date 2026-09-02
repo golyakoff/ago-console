@@ -60,6 +60,8 @@ export function OperatorShell() {
   const fixed = queueMatch !== null || conversationMatch !== null;
   const adminMatch = useMatch("/admin");
   const widgetSettingsMatch = useMatch("/settings/widget");
+  // `10-06`: same `site:configure`-gated tenant-management tab as the ones beside it.
+  const installSettingsMatch = useMatch("/settings/install");
   const autoReplySettingsMatch = useMatch("/settings/auto-reply");
   // `13-04`: same `site:configure`-gated tenant-management tab as the three above it.
   const billingSettingsMatch = useMatch("/settings/billing");
@@ -72,7 +74,11 @@ export function OperatorShell() {
   // `/conversations/:id` are the messaging tab and keep `AppShell`'s own default
   // (`operatorConsoleTagline`), so this component only needs to say when to override it.
   const isTenantManagementTab =
-    adminMatch !== null || widgetSettingsMatch !== null || autoReplySettingsMatch !== null || billingSettingsMatch !== null;
+    adminMatch !== null ||
+    widgetSettingsMatch !== null ||
+    installSettingsMatch !== null ||
+    autoReplySettingsMatch !== null ||
+    billingSettingsMatch !== null;
   const tagline = isTenantManagementTab ? strings.consoleTaglineClient : undefined;
 
   const nav: AppShellNavItem[] = buildTenantNavItems(hasPermission, strings);

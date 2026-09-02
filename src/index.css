@@ -76,6 +76,32 @@
   border: 1px solid var(--ago-line-strong);
 }
 
+/* --- Install-snippet screen (`10-06`) ----------------------------------------------------------
+ * A read-only value the tenant is meant to copy verbatim (the public key, a configured origin) -
+ * `.ago-mono` alone (`components.css`) sets the typeface but not a boundary, and a value meant to be
+ * copied benefits from looking like a distinct, selectable chip rather than plain inline text. Reuses
+ * `--ago-surface-sunken`/`--ago-radius-sm`, the same "inset area" treatment `components.css` already
+ * gives a table header, so this does not invent a third surface tone. `overflow-wrap` rather than a
+ * fixed width - a public key is short but an origin is an arbitrary tenant-chosen URL, and the
+ * `ago-row`/`ago-panel__body` it sits in must never gain its own horizontal scrollbar (the ux-gate's
+ * own overflow check, `ux-gate/lib/overflow.ts`). */
+.ago-install-value {
+  display: inline-block;
+  padding: var(--ago-space-2) var(--ago-space-3);
+  background: var(--ago-surface-sunken);
+  border-radius: var(--ago-radius-sm);
+  overflow-wrap: anywhere;
+}
+
+.ago-install-origin-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 /* --- Conversation search (`18-01`) -------------------------------------------------------------
  * `SearchConversationsPage`'s own layout. Lives here rather than in `workspace.css` because this
  * page is a standalone route (`AdminConversationsPage`'s own precedent), not one of the workspace's
