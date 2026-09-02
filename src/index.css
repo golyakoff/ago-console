@@ -93,6 +93,20 @@
   overflow-wrap: anywhere;
 }
 
+/* `adr/0092`: the install snippet. A `<pre>` so the tag reads as code, but with `white-space:
+ * pre-wrap` rather than `pre` - a `<script src="https://...">` line is far wider than a 375px
+ * viewport, and a `pre` that does not wrap is precisely the horizontal overflow `15-11`'s gate
+ * fails a build for. Wrapping is also the right behaviour for the reader: nothing is lost, since
+ * the copy button is what anybody actually uses. */
+.ago-install-snippet {
+  margin: 0 0 var(--ago-space-3);
+  padding: var(--ago-space-3);
+  background: var(--ago-surface-sunken);
+  border-radius: var(--ago-radius-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .ago-install-origin-list {
   display: flex;
   flex-direction: column;

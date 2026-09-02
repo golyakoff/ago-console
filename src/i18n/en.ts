@@ -280,11 +280,12 @@ export const en: ConsoleStrings = {
   installOriginPanelDescription:
     "The widget only works when your site is opened at exactly this address. If this is not the " +
     "address your shop actually uses, contact us before you go live.",
-  installScriptNotReadyTitle: "Almost ready",
-  installScriptNotReadyBody:
-    "We are still finishing the public web address the widget itself loads from. Once that is ready, " +
-    "this page will show you a short piece of code to paste onto your site - you will not need to do " +
-    "anything differently than what is shown here today.",
+  installSnippetPanelTitle: "Add the chat to your site",
+  installSnippetPanelDescription:
+    "Copy this line and paste it into your site's pages, just before the closing </body> tag. That is " +
+    "all - the chat button appears in the corner by itself, and your key is already filled in below.",
+  installSnippetCopyButton: "Copy the code",
+  installSnippetCopiedLabel: "Copied to the clipboard.",
 
   autoReplyForbidden: "You do not have permission to configure this site's offline auto-reply.",
   autoReplyDescription:
