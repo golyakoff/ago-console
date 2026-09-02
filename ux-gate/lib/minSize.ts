@@ -187,9 +187,27 @@ export function measureUndersizedInteractiveElements(thresholdPx: number): MinSi
   const violations: MinSizeViolation[] = [];
   let exempted = 0;
 
+  // **A control wrapped in a `<label>` is measured by the label, not by itself** (issue #82, found
+  // while replicating this gate to `ago-calendar-console`). That gate flagged two bare
+  // `<input type="checkbox">` at 13x13 - the browser's own unstyled default - and both sat inside a
+  // `<label>` whose text toggles them, so the clickable target was never 13x13 to a user. A defect
+  // was nearly filed for a control that is genuinely fine, and a gate that reports a non-defect gets
+  // switched off.
+  //
+  // Nothing in this repository currently trips it, which is luck about styling rather than a property
+  // of the check - the three gates share these lib files precisely so a lesson learned in one is not
+  // re-learned in the others.
+  //
+  // Measured rather than exempted: a `<label>` that is itself under the threshold is still reported,
+  // which an exemption would have waved through.
+  function targetRect(el: Element): DOMRect {
+    const label = el.closest("label");
+    return (label ?? el).getBoundingClientRect();
+  }
+
   for (const el of elements) {
     const style = window.getComputedStyle(el);
-    const rect = el.getBoundingClientRect();
+    const rect = targetRect(el);
 
     const ariaHidden = el.getAttribute("aria-hidden") === "true";
     const displayNone = style.display === "none";
