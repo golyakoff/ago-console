@@ -16,6 +16,7 @@ import { TagBreakdownReportPage } from "./pages/TagBreakdownReportPage.js";
 import { BookingFlowConversionPage } from "./pages/BookingFlowConversionPage.js";
 import { SearchConversationsPage } from "./pages/SearchConversationsPage.js";
 import { WidgetConfigPage } from "./pages/WidgetConfigPage.js";
+import { InstallSnippetPage } from "./pages/InstallSnippetPage.js";
 import { FaqModulePage } from "./pages/FaqModulePage.js";
 import { OfflineAutoReplyPage } from "./pages/OfflineAutoReplyPage.js";
 import { CannedResponsesPage } from "./pages/CannedResponsesPage.js";
@@ -155,6 +156,11 @@ export function App() {
             pages answer genuinely different questions over different tables
             (`BookingFlowConversionPage`'s own doc comment). */}
         <Route path="/analytics/booking-flow" element={<BookingFlowConversionPage />} />
+        {/* `10-06`: one position before `/settings/widget` - installing the widget is the step a
+            tenant needs before its appearance is worth touching (`navInstallWidget`'s own doc
+            comment). Same "route stays outside the workspace layout, page gates itself internally"
+            shape as every settings screen beside it. */}
+        <Route path="/settings/install" element={<InstallSnippetPage />} />
         <Route path="/settings/widget" element={<WidgetConfigPage />} />
         {/* `19-03`: a sixth settings screen, same "route stays outside the workspace layout, page
             gates itself internally" shape as the ones around it - `FaqModulePage` gates itself on

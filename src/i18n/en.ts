@@ -11,6 +11,7 @@ export const en: ConsoleStrings = {
   navConversations: "Conversations",
   navAllConversations: "All conversations",
   navWidgetAppearance: "Widget appearance",
+  navInstallWidget: "Install widget",
   navOfflineAutoReply: "Offline auto-reply",
   navCannedResponses: "Canned responses",
   navTags: "Tags",
@@ -262,6 +263,28 @@ export const en: ConsoleStrings = {
   widgetNoticeUrlFieldLabel: "Notice link (optional)",
   widgetNoticeUrlFieldDescription: "A link to your own policy page. Must start with https://.",
   widgetNoticeUrlValidation: "The link must be an absolute https:// URL.",
+
+  installForbidden: "You do not have permission to view this site's installation details.",
+  installLoadError: "Failed to load your installation details.",
+  installDescription:
+    "This is what your website needs so visitors can chat with you - your site's own key, and the " +
+    "web address it's set up to work on.",
+  installLoadingLabel: "Loading your installation details…",
+  installKeyPanelTitle: "Your site key",
+  installKeyPanelDescription:
+    "This key tells the chat widget which shop it belongs to. It is not secret - once the widget is " +
+    "on your page, anyone can see it there too - but this screen only shows it to you.",
+  installKeyCopyButton: "Copy key",
+  installKeyCopiedLabel: "Copied to clipboard.",
+  installOriginPanelTitle: "Your website address",
+  installOriginPanelDescription:
+    "The widget only works when your site is opened at exactly this address. If this is not the " +
+    "address your shop actually uses, contact us before you go live.",
+  installScriptNotReadyTitle: "Almost ready",
+  installScriptNotReadyBody:
+    "We are still finishing the public web address the widget itself loads from. Once that is ready, " +
+    "this page will show you a short piece of code to paste onto your site - you will not need to do " +
+    "anything differently than what is shown here today.",
 
   autoReplyForbidden: "You do not have permission to configure this site's offline auto-reply.",
   autoReplyDescription:

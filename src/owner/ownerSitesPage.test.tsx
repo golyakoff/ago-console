@@ -92,6 +92,7 @@ describe("the platform-sites page's own navigation", () => {
       "Conversion",
       "Tag report",
       "Booking flow",
+      "Install widget",
       "Widget appearance",
       "AI FAQ assistant",
       "Offline auto-reply",

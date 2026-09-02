@@ -7,6 +7,7 @@ import { PermissionsProvider } from "./PermissionsProvider.js";
 import { OperatorShell } from "../shell/OperatorShell.js";
 import { AdminConversationsPage } from "../pages/AdminConversationsPage.js";
 import { WidgetConfigPage } from "../pages/WidgetConfigPage.js";
+import { InstallSnippetPage } from "../pages/InstallSnippetPage.js";
 import { OfflineAutoReplyPage } from "../pages/OfflineAutoReplyPage.js";
 import { CannedResponsesPage } from "../pages/CannedResponsesPage.js";
 import { FaqModulePage } from "../pages/FaqModulePage.js";
@@ -45,6 +46,7 @@ const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 const conversationsApi = vi.hoisted(() => ({ fetchAllConversationsForSite: vi.fn() }));
 const widgetConfigApi = vi.hoisted(() => ({ fetchWidgetConfig: vi.fn(), updateWidgetConfig: vi.fn() }));
+const installationApi = vi.hoisted(() => ({ fetchSiteInstallation: vi.fn() }));
 const offlineAutoReplyApi = vi.hoisted(() => ({ fetchOfflineAutoReply: vi.fn(), updateOfflineAutoReply: vi.fn() }));
 const cannedResponsesApi = vi.hoisted(() => ({ fetchCannedResponses: vi.fn(), updateCannedResponses: vi.fn() }));
 const modulesApi = vi.hoisted(() => ({ fetchModules: vi.fn(), updateModule: vi.fn() }));
@@ -64,6 +66,10 @@ vi.mock("../api/widgetConfigApi.js", async () => {
   const actual = await vi.importActual<typeof import("../api/widgetConfigApi.js")>("../api/widgetConfigApi.js");
   return { ...actual, ...widgetConfigApi };
 });
+// `10-06`: no `vi.importActual` needed here, unlike `widgetConfigApi.js` above - `installationApi.ts`
+// exports no error class of its own (`InstallSnippetPage` imports `ApiProblemError` straight from
+// `problemDetails.ts`), so the whole module is just the one network call being replaced.
+vi.mock("../api/installationApi.js", () => installationApi);
 vi.mock("../api/offlineAutoReplyApi.js", async () => {
   // Same reasoning as widgetConfigApi.js above - OfflineAutoReplyError is a real class the page
   // does `instanceof` against.
@@ -149,6 +155,10 @@ beforeEach(() => {
     position: "BottomRight",
     locale: "En",
   });
+  installationApi.fetchSiteInstallation.mockResolvedValue({
+    publicKey: "shop_7f3a",
+    allowedOrigins: ["https://tenant.example"],
+  });
   offlineAutoReplyApi.fetchOfflineAutoReply.mockResolvedValue({ enabled: false, fallbackReply: "", rules: [] });
   cannedResponsesApi.fetchCannedResponses.mockResolvedValue([]);
   modulesApi.fetchModules.mockResolvedValue({ modules: [] });
@@ -180,6 +190,7 @@ describe("the operator navigation", () => {
       "Conversion",
       "Tag report",
       "Booking flow",
+      "Install widget",
       "Widget appearance",
       "AI FAQ assistant",
       "Offline auto-reply",
@@ -249,6 +260,7 @@ describe("the operator navigation", () => {
       "Conversion",
       "Tag report",
       "Booking flow",
+      "Install widget",
       "Widget appearance",
       "AI FAQ assistant",
       "Offline auto-reply",
@@ -298,6 +310,7 @@ describe("a gated page reached directly by URL", () => {
    * `OperatorShell` renders is wide now, unconditionally. */
   it.each([
     ["/admin", <AdminConversationsPage key="admin" />],
+    ["/settings/install", <InstallSnippetPage key="install" />],
     ["/settings/widget", <WidgetConfigPage key="widget" />],
     ["/settings/auto-reply", <OfflineAutoReplyPage key="auto-reply" />],
     ["/settings/canned-responses", <CannedResponsesPage key="canned-responses" />],
@@ -319,6 +332,7 @@ describe("a gated page reached directly by URL", () => {
    * (`AppShell.tsx`'s own doc comments); this is the regression test for that split staying split. */
   it.each([
     ["/admin", <AdminConversationsPage key="admin" />],
+    ["/settings/install", <InstallSnippetPage key="install" />],
     ["/settings/widget", <WidgetConfigPage key="widget" />],
     ["/settings/auto-reply", <OfflineAutoReplyPage key="auto-reply" />],
     ["/settings/canned-responses", <CannedResponsesPage key="canned-responses" />],
@@ -402,6 +416,26 @@ describe("a gated page reached directly by URL", () => {
     expect(container.textContent).not.toContain("You do not have permission");
     expect(widgetConfigApi.fetchWidgetConfig).toHaveBeenCalledWith("token", SITE_ID);
     expect(byText(container, "button", "Save")).not.toBeNull();
+  });
+
+  /** `10-06`. */
+  it("refuses the install screen, and does not load the site's installation details", async () => {
+    grants(["conversation:read"]);
+
+    const container = await render(pageOnly("/settings/install", <InstallSnippetPage />));
+
+    expect(container.textContent).toContain("You do not have permission to view this site's installation details.");
+    expect(installationApi.fetchSiteInstallation).not.toHaveBeenCalled();
+  });
+
+  it("renders the install screen for an operator who holds the permission", async () => {
+    grants(["site:configure"]);
+
+    const container = await render(pageOnly("/settings/install", <InstallSnippetPage />));
+
+    expect(container.textContent).not.toContain("You do not have permission");
+    expect(installationApi.fetchSiteInstallation).toHaveBeenCalledWith("token", SITE_ID);
+    expect(container.textContent).toContain("shop_7f3a");
   });
 
   it("refuses the canned-responses form, and does not load the site's library", async () => {

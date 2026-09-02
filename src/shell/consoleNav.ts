@@ -47,6 +47,9 @@ export function buildTenantNavItems(
     // a link buried inside `/analytics` (`BookingFlowConversionPage`'s own doc comment on why it is a
     // sibling page, not a block on that one).
     items.push({ to: "/analytics/booking-flow", label: strings.navBookingFlow });
+    // `10-06`: one position before "Widget appearance" - see `navInstallWidget`'s own doc comment
+    // for why installing comes first.
+    items.push({ to: "/settings/install", label: strings.navInstallWidget });
     items.push({ to: "/settings/widget", label: strings.navWidgetAppearance });
     // `19-03`: same permission, same place - the AI FAQ module's own registration and knowledge-base
     // editor screen.
