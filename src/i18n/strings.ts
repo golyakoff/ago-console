@@ -374,14 +374,15 @@ export interface ConsoleStrings {
   /** Explains what the address is *for* - the widget's own browser-side origin check - not just that
    * it exists, since a mismatch here is `10-06`'s own named silent-failure trap. */
   installOriginPanelDescription: string;
-  /** `10-06`'s own third Done-when box - "the snippet, pasted onto a page ... produces a working
-   * widget" - could not be met honestly: no public URL serves the widget script for an arbitrary
-   * tenant today (checked live against the deployed edge, not assumed from a doc), so a
-   * `<script src="...">` this screen could print would 404 for every tenant who pasted it. Printing a
-   * broken URL to look finished would be worse than saying so - `installScriptNotReadyTitle`/`Body`
-   * are that plain-language "not yet" note, standing in for the tag itself. */
-  installScriptNotReadyTitle: string;
-  installScriptNotReadyBody: string;
+  /** `adr/0092`/`#324`: the tag itself, at last. `10-06` shipped this screen with a plain-language
+   * "not yet" note in its place, because no public URL served the widget script for an arbitrary
+   * tenant - printing a broken URL to look finished would have been worse than saying so. The bundle
+   * is now served at `{apiBaseUrl}/widget/`, so the snippet is *composed* from the API origin the
+   * console already has rather than read from a second config value that could drift from it. */
+  installSnippetPanelTitle: string;
+  installSnippetPanelDescription: string;
+  installSnippetCopyButton: string;
+  installSnippetCopiedLabel: string;
 
   // OfflineAutoReplyPage.
   autoReplyForbidden: string;
