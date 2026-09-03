@@ -182,8 +182,8 @@ export function BookingFlowConversionPage() {
 
       {effectiveFromAt && effectiveToAt && (
         <p className="ago-meta">
-          {strings.bookingFlowRangeLabel} {formatDateStamp(effectiveFromAt, timeZone)} –{" "}
-          {formatDateStamp(effectiveToAt, timeZone)}
+          {strings.bookingFlowRangeLabel} {formatDateStamp(effectiveFromAt, timeZone, strings)} –{" "}
+          {formatDateStamp(effectiveToAt, timeZone, strings)}
         </p>
       )}
 

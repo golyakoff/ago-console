@@ -438,8 +438,8 @@ export function OperatorAnalyticsPage() {
 
       {effectiveFromAt && effectiveToAt && (
         <p className="ago-meta">
-          {strings.analyticsRangeLabel} {formatDateStamp(effectiveFromAt, timeZone)} –{" "}
-          {formatDateStamp(effectiveToAt, timeZone)}
+          {strings.analyticsRangeLabel} {formatDateStamp(effectiveFromAt, timeZone, strings)} –{" "}
+          {formatDateStamp(effectiveToAt, timeZone, strings)}
         </p>
       )}
 

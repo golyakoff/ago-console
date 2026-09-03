@@ -84,6 +84,38 @@ export interface ConsoleStrings {
    * `${elapsed} ${agoSuffix}`, the same fixed-fragment convention `siteIdPrefix` already uses. */
   agoSuffix: string;
 
+  // `343`: `time/format.ts`'s own locale fields. That file's exported functions take
+  // `strings: ConsoleStrings` as a parameter (defaulted to `en`) rather than reading a module-level
+  // constant or calling `useStrings()` itself - see that file's own header for why. Every real call
+  // site already holds a `strings` value from its own `useStrings()`, so this costs one more argument
+  // per call, not a new hook or a second string table to keep in sync with this one.
+
+  /** The BCP-47 tag every `Intl.DateTimeFormat` call in `time/format.ts` renders with -
+   * `date-and-time.md` rule 5's rendering locale. The 24-hour clock and day-before-month order are
+   * fixed in code (`hourCycle: "h23"`, explicit field order) and do not move with this - only weekday
+   * names, month names and connective words like "at" do (`format.test.ts` proves both halves against
+   * real `Intl` output). */
+  dateIntlLocale: string;
+  /** `formatDayLabel`'s two near-instant branches - `Intl` has no "Today"/"Yesterday" concept of its
+   * own, so these are literal strings composed alongside its own weekday/date rendering rather than
+   * anything `Intl` returns. */
+  dateToday: string;
+  dateYesterday: string;
+  /** `formatElapsed`'s floor and `formatElapsedWords`'s floor - under a minute reads as one of these,
+   * never `0m`/`0 minutes` (`date-and-time.md`: rounding towards the past). */
+  elapsedJustNow: string;
+  elapsedLessThanMinute: string;
+  /** `${n} ${elapsedMinuteOne|elapsedMinuteOther}` - the same binary singular/plural convention
+   * `queueUnreadMessageOne`/`Other` above already uses, not full Russian plural grammar (a count of
+   * 2-4 reads with the "Other" form here exactly as it does there - a deliberate, existing
+   * simplification this item keeps rather than replaces). */
+  elapsedMinuteOne: string;
+  elapsedMinuteOther: string;
+  elapsedHourOne: string;
+  elapsedHourOther: string;
+  elapsedDayOne: string;
+  elapsedDayOther: string;
+
   // ConversationList - the queue.
   queueAssignedTitle: string;
   queueAssignedNote: string;

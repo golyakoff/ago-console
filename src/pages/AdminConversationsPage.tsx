@@ -5,6 +5,7 @@ import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchAllConversationsForSite, eraseConversation, checkConversationErasure } from "../api/conversationsApi.js";
 import { fetchTags, type TagDto } from "../api/tagsApi.js";
 import type { ConversationSummaryDto } from "../realtime/protocol/types.js";
+import { formatAbsolute, parseInstant, resolveTimeZone } from "../time/format.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
@@ -56,6 +57,7 @@ function stateLabel(state: ConversationSummaryDto["state"], strings: ConsoleStri
  * apply at the level of a whole page - here it is one column instead. */
 function buildColumns(
   strings: ConsoleStrings,
+  timeZone: string | null,
   canErase: boolean,
   renderActions: (row: ConversationSummaryDto) => ReactNode,
 ): TableColumn<ConversationSummaryDto>[] {
@@ -87,7 +89,23 @@ function buildColumns(
     {
       key: "started",
       header: strings.adminColumnStarted,
-      render: (c) => <span className="ago-meta">{new Date(c.createdAt).toLocaleString()}</span>,
+      // `343`/`344`: was a bare `new Date(c.createdAt).toLocaleString()` - the one cell in this
+      // screen set that bypassed `time/format.ts` entirely, so it rendered in whatever locale and
+      // zone the runtime's own `Intl` default happened to be, with nothing on screen saying which
+      // zone that was. `formatAbsolute` is the fix rather than `formatDateStamp`: this column shows
+      // one instant with no adjoining time-of-day text anywhere else in the row (unlike
+      // `VisitorHistoryPanel`'s date-stamp-plus-title pairing), so the full, always-zone-labelled
+      // rendering belongs directly in the cell, not hidden in a `title` nobody hovers over a table of
+      // rows for. `queueStartUnknown` reuses the queue's own identical "no instant to render" string
+      // rather than adding a fourth phrasing of the same fact.
+      render: (c) => {
+        const startedAt = parseInstant(c.createdAt);
+        return (
+          <span className="ago-meta">
+            {startedAt ? formatAbsolute(startedAt, timeZone, strings) : strings.queueStartUnknown}
+          </span>
+        );
+      },
     },
     {
       key: "unread",
@@ -164,9 +182,12 @@ export function AdminConversationsPage() {
 
   const accessToken = user?.access_token;
   const canErase = hasPermission(CONVERSATION_ERASE_PERMISSION);
+  // `343`/`344`: resolved once, the same `useState(() => resolveTimeZone())` shape every other
+  // page-level (not nested-in-workspace) screen already uses, e.g. `BillingPage.tsx`.
+  const [timeZone] = useState(() => resolveTimeZone());
   const columns = useMemo(
     () =>
-      buildColumns(strings, canErase, (row) =>
+      buildColumns(strings, timeZone, canErase, (row) =>
         accessToken ? (
           <EraseConversationButton
             onErase={() => eraseConversation(accessToken, row.conversationId)}
@@ -175,7 +196,7 @@ export function AdminConversationsPage() {
           />
         ) : null,
       ),
-    [strings, canErase, accessToken],
+    [strings, timeZone, canErase, accessToken],
   );
 
   const visibleConversations = useMemo(

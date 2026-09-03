@@ -44,6 +44,18 @@ export const ru: ConsoleStrings = {
 
   agoSuffix: "назад",
 
+  dateIntlLocale: "ru-RU",
+  dateToday: "Сегодня",
+  dateYesterday: "Вчера",
+  elapsedJustNow: "только что",
+  elapsedLessThanMinute: "меньше минуты",
+  elapsedMinuteOne: "минута",
+  elapsedMinuteOther: "минут",
+  elapsedHourOne: "час",
+  elapsedHourOther: "часов",
+  elapsedDayOne: "день",
+  elapsedDayOther: "дней",
+
   queueAssignedTitle: "Назначено мне",
   queueAssignedNote: "В реальном времени — новое назначение появляется без обновления страницы.",
   queueAssignedLoadingLabel: "Загрузка назначенных вам диалогов…",

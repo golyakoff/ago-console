@@ -88,8 +88,8 @@ function ResultRow({ result, timeZone, strings }: ResultRowProps) {
       <Badge tone={STATE_TONE[result.conversationState]}>{stateLabel(result.conversationState, strings)}</Badge>
       <span className="ago-meta">{authorLabel(result.authorKind, strings)}</span>
       {createdAt && (
-        <span className="ago-meta" title={formatAbsolute(createdAt, timeZone)}>
-          {formatDateStamp(createdAt, timeZone)}
+        <span className="ago-meta" title={formatAbsolute(createdAt, timeZone, strings)}>
+          {formatDateStamp(createdAt, timeZone, strings)}
         </span>
       )}
     </span>
@@ -315,8 +315,8 @@ export function SearchConversationsPage() {
 
       {hasSearched && searchedFromAt && searchedToAt && (
         <p className="ago-meta">
-          {strings.searchRangeLabel} {formatDateStamp(searchedFromAt, timeZone)} –{" "}
-          {formatDateStamp(searchedToAt, timeZone)}
+          {strings.searchRangeLabel} {formatDateStamp(searchedFromAt, timeZone, strings)} –{" "}
+          {formatDateStamp(searchedToAt, timeZone, strings)}
         </p>
       )}
 
