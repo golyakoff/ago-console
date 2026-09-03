@@ -97,12 +97,13 @@ export function InstallSnippetPage() {
   // thing by decision - a `VITE_WIDGET_BASE_URL` would be a copy of `apiBaseUrl` that could drift
   // from it silently, and the drift would only surface on a tenant's own site.
   //
-  // The filename is `ago-chat.js`, not `widget.js`. Worth stating because `ago-landing` handed out
-  // `widget.js` for weeks and it never existed under that name anywhere.
+  // `#342`: the file is `widget.js` now, not `ago-chat.js` - the internal product name no longer
+  // leaks into a tenant's own HTML. `ago-landing` handed out `widget.js` for weeks before any file
+  // existed under that name anywhere; this is what finally made that filename true.
   const snippet =
     installation === null
       ? ""
-      : `<script src="${config.apiBaseUrl}/widget/ago-chat.js" data-site="${installation.publicKey}" async></script>`;
+      : `<script src="${config.apiBaseUrl}/widget/widget.js" data-site="${installation.publicKey}" async></script>`;
 
   const copySnippet = () => {
     void navigator.clipboard.writeText(snippet);

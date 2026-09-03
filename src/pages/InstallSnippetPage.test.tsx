@@ -130,7 +130,7 @@ describe("the install screen", () => {
     const container = await render(page());
 
     expect(container.textContent).toContain(
-      '<script src="https://api.test.invalid/widget/ago-chat.js" data-site="shop_7f3a" async></script>',
+      '<script src="https://api.test.invalid/widget/widget.js" data-site="shop_7f3a" async></script>',
     );
   });
 
@@ -143,7 +143,7 @@ describe("the install screen", () => {
     await interact(() => buttons[buttons.length - 1].click());
 
     expect(writeTextMock).toHaveBeenCalledWith(
-      '<script src="https://api.test.invalid/widget/ago-chat.js" data-site="shop_7f3a" async></script>',
+      '<script src="https://api.test.invalid/widget/widget.js" data-site="shop_7f3a" async></script>',
     );
   });
 
