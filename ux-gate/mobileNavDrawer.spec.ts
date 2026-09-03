@@ -1,6 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { openScreen } from "./fixtures/openScreen.js";
 import { UX_GATE_SCREENS } from "./fixtures/screens.js";
+// `11-16`: `fixtures/data.ts#seededPermissions` now seeds `locale: "Ru"` (every fixture in this gate
+// is Cyrillic, so the fourth assertion in `gate.spec.ts` has exact ground to stand on) - the nav link
+// this file clicks by name therefore renders in Russian too. Importing the real string rather than
+// hardcoding either language's literal text keeps this test correct regardless of which locale the
+// shared fixture seeds next.
+import { ru } from "../src/i18n/ru.js";
 
 /**
  * `11-14`'s own Done-when the jsdom-level tests in `ago-console`'s `src/auth/permissionGating.test.tsx`
@@ -83,7 +89,7 @@ test.describe("mobile navigation drawer (11-14)", () => {
     const dialog = page.locator(".ago-dialog--drawer");
     await expect(dialog).toBeVisible();
 
-    await dialog.getByRole("link", { name: "Widget appearance" }).click();
+    await dialog.getByRole("link", { name: ru.navWidgetAppearance }).click();
 
     await expect(page).toHaveURL(/\/settings\/widget$/);
     await expect(dialog).toBeHidden();

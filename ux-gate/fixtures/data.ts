@@ -7,7 +7,10 @@
  */
 
 export const SITE_ID = "11111111-1111-4111-8111-111111111111";
-export const SITE_NAME = "Riverside Coffee (ux-gate fixture)";
+// `11-16`: Cyrillic, not English - every free-text fixture value in this file is, so that any
+// Latin-script text a screen still renders is by construction interface chrome, not data
+// (`ux-gate/lib/i18nCompleteness.ts`'s own doc comment has the full reasoning).
+export const SITE_NAME = "Кофейня «У реки» (тестовые данные ux-gate)";
 export const OPERATOR_ID = "22222222-2222-4222-8222-222222222222";
 export const OPERATOR_SUB = "33333333-3333-4333-8333-333333333333";
 export const VISITOR_ID = "44444444-4444-4444-8444-444444444444";
@@ -34,7 +37,7 @@ export const SEEDED_MESSAGES = [
     sequence: 1,
     authorKind: "Visitor" as const,
     authorId: VISITOR_ID,
-    body: "Hi, do you have oat milk for the flat white?",
+    body: "Здравствуйте, у вас есть овсяное молоко для флэт уайта?",
     createdAt: minutesAgo(14),
   },
   {
@@ -42,7 +45,7 @@ export const SEEDED_MESSAGES = [
     sequence: 2,
     authorKind: "Operator" as const,
     authorId: OPERATOR_ID,
-    body: "Yes - oat, almond and soy are all available at no extra charge.",
+    body: "Да - овсяное, миндальное и соевое доступны без доплаты.",
     createdAt: minutesAgo(13),
   },
   {
@@ -50,7 +53,7 @@ export const SEEDED_MESSAGES = [
     sequence: 3,
     authorKind: "Visitor" as const,
     authorId: VISITOR_ID,
-    body: "Perfect, and are you open until 8pm on weekends?",
+    body: "Отлично, а вы работаете до восьми вечера по выходным?",
     createdAt: minutesAgo(9),
   },
   {
@@ -58,7 +61,7 @@ export const SEEDED_MESSAGES = [
     sequence: 4,
     authorKind: "Operator" as const,
     authorId: OPERATOR_ID,
-    body: "We are - 8am to 8pm every day this month, including public holidays.",
+    body: "Да - с восьми утра до восьми вечера каждый день в этом месяце, включая праздники.",
     createdAt: minutesAgo(8),
   },
 ];
@@ -78,7 +81,11 @@ export function seededPermissions() {
       "site:configure",
       "site:erase",
     ],
-    locale: "En",
+    // `11-16`: `"Ru"` - this is the one field that actually switches the console's own string table
+    // (`src/i18n/resolve.ts#parseConsoleLocale`, read by `OperatorShell.tsx`), so every screen this
+    // gate opens (other than `/owner`, which reads the fixed `en` table on purpose) renders in
+    // Russian for the fourth assertion to check.
+    locale: "Ru",
   };
 }
 
@@ -147,7 +154,7 @@ export function seededOwnerSitesPage() {
       },
       {
         siteId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-        name: "Second Fixture Site",
+        name: "Вторая тестовая площадка",
         tier: "free",
         createdAt: null,
         seatCount: 1,
@@ -166,8 +173,13 @@ export function seededWidgetConfig() {
   return {
     primaryColorHex: "#565096",
     position: "BottomRight" as const,
-    locale: "En" as const,
-    noticeText: "Messages sent here are handled by Riverside Coffee's own support team.",
+    // `11-16`: `"Ru"` - the widget's *own* configured language, a tenant setting genuinely
+    // independent of the console's own locale above (`WidgetConfigPage.tsx`'s `LOCALE_LABELS` are
+    // deliberately endonyms in every console language, `4-06`/`11-13`'s settled call) - Cyrillic here
+    // so the settings screen's own closed `<select>` shows "Русский", not "English", the same
+    // "seed every fixture in Cyrillic" rule this file applies throughout.
+    locale: "Ru" as const,
+    noticeText: "Сообщения, отправленные здесь, обрабатывает служба поддержки «Кофейни У реки».",
     noticeUrl: "https://example.invalid/privacy",
   };
 }
@@ -191,7 +203,10 @@ export function seededAnalytics() {
     ],
     byOperator: [{ operatorId: OPERATOR_ID, bucket: bucket({ conversationCount: 27 }) }],
     byReferrer: [{ referrerHost: "Direct", bucket: bucket({ conversationCount: 20 }) }],
-    byCampaign: [{ utmCampaign: "autumn-menu", bucket: bucket({ conversationCount: 9 }) }],
+    // `11-16`: a UTM campaign tag really can carry non-ASCII text (query values are not restricted to
+    // Latin script), so this is real, plausible tenant-supplied data, not interface chrome - Cyrillic
+    // here the same way every other free-text fixture in this file now is.
+    byCampaign: [{ utmCampaign: "осенняя-акция", bucket: bucket({ conversationCount: 9 }) }],
   };
 }
 
