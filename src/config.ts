@@ -44,6 +44,22 @@ export interface Config {
    * every other screen on that deployment in the meantime.
    */
   faqApiBaseUrl: string | null;
+  /**
+   * `22-06`/`adr/0093`: `Ago.Calendar.Api`'s own origin - a *different* backend than `apiBaseUrl`
+   * above, on its own repository's own deploy (`ago-calendar`, not `ago-chat`), for the identical
+   * reason `faqApiBaseUrl` above is: the domains stay apart even though the console now unifies
+   * (`adr/0093`'s own "domains stay apart, tenancy and identity unify" decision). The six calendar
+   * screens moved here from `ago-calendar-console` send every request to this origin, never to
+   * `apiBaseUrl`.
+   *
+   * `string | null`, optional like `faqApiBaseUrl` and for the same reason spelled out there: this is
+   * load-bearing for the six calendar screens only, not for the console's boot, so a deployment with
+   * no calendar screens configured yet must still serve every other screen. Unlike `faqApiBaseUrl`,
+   * `ago-calendar`'s API is already deployed (`calendar-api.reserve-me.ru`, unchanged by this item -
+   * `docs/backlog/22-06-one-console.md`), so `.env.production` sets this one; `.env.example` documents
+   * both the same way.
+   */
+  calendarApiBaseUrl: string | null;
 }
 
 function required(name: string, value: string | undefined): string {
@@ -79,4 +95,7 @@ export const config: Config = {
   // fails every `fetch` it built a URL from, silently, instead of the explicit "not configured" state
   // `faqKnowledgeBaseApi.ts` checks for up front.
   faqApiBaseUrl: optional(import.meta.env.VITE_FAQ_API_BASE_URL),
+  // `22-06`: same `optional()` treatment as `faqApiBaseUrl` immediately above - unset means the six
+  // calendar screens render "not configured" rather than failing the whole boot.
+  calendarApiBaseUrl: optional(import.meta.env.VITE_CALENDAR_API_BASE_URL),
 };

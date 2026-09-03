@@ -4,6 +4,10 @@ import {
   OPEN_CONVERSATION_ID,
   seededAllConversations,
   seededAnalytics,
+  seededCalendarConfiguration,
+  seededCalendarContacts,
+  seededCalendarPendingBookings,
+  seededCalendarWorkers,
   seededOwnerSitesPage,
   seededPermissions,
   seededQueue,
@@ -87,6 +91,28 @@ export async function installApiStubs(page: Page): Promise<void> {
 
     if (path === "/api/v1/owner/sites" && method === "GET") {
       return json(seededOwnerSitesPage());
+    }
+
+    // `22-06`/`adr/0093`: `Ago.Calendar.Api`'s own `/api/v1/console/*` shape
+    // (`src/api/calendarApi.ts`) - same-origin here too, since `.env.ux-gate` points
+    // `VITE_CALENDAR_API_BASE_URL` at this identical `127.0.0.1:4173` origin for the identical
+    // same-origin-fixture reason `gateEnv.ts`'s own doc comment gives for `VITE_API_BASE_URL`. No
+    // path here collides with `Ago.Chat.Api`'s own shapes above - `/console/*` is a prefix `ago-chat`
+    // never uses.
+    if (path === "/api/v1/console/pending-bookings" && method === "GET") {
+      return json(seededCalendarPendingBookings());
+    }
+
+    if (path === "/api/v1/console/workers" && method === "GET") {
+      return json(seededCalendarWorkers());
+    }
+
+    if (path === "/api/v1/console/configuration" && method === "GET") {
+      return json(seededCalendarConfiguration());
+    }
+
+    if (path === "/api/v1/console/contacts" && method === "GET") {
+      return json(seededCalendarContacts());
     }
 
     // Anything this gate's chosen screens do not need (billing, offline auto-reply, attachments,

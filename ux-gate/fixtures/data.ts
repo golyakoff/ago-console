@@ -80,6 +80,11 @@ export function seededPermissions() {
       "attachment:delete",
       "site:configure",
       "site:erase",
+      // `22-06`/`adr/0093`: without this, the four calendar screens this gate opens
+      // (`ux-gate/fixtures/screens.ts`) would refuse themselves before ever reaching their own
+      // "render the data" assertions - the identical shape `site:configure` above already has for
+      // the settings screens.
+      "calendar:configure",
     ],
     // `11-16`: `"Ru"` - this is the one field that actually switches the console's own string table
     // (`src/i18n/resolve.ts#parseConsoleLocale`, read by `OperatorShell.tsx`), so every screen this
@@ -212,4 +217,82 @@ export function seededAnalytics() {
 
 export function seededVisitorHistory() {
   return { hasChannelIdentity: false, conversations: [], nextBeforeId: null };
+}
+
+// --- `22-06`/`adr/0093`: AGO Calendar's own fixtures, for the four calendar screens this gate opens
+// (`ux-gate/fixtures/screens.ts`'s own doc comment has the "why these four, not all six" reasoning).
+// `Ago.Calendar.Api`'s own `/api/v1/console/*` shape (`src/api/calendarApi.ts`), scoped by the same
+// seeded operator's token, never by a site id in the URL - so these need no `SITE_ID`-shaped constant
+// of their own.
+
+export const CALENDAR_CALENDAR_ID = "aaaaaaaa-cccc-4ccc-8ccc-cccccccccccc";
+export const CALENDAR_WORKER_ID = "bbbbbbbb-cccc-4ccc-8ccc-cccccccccccc";
+export const CALENDAR_BOOKING_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+
+export function seededCalendarPendingBookings() {
+  return [
+    {
+      bookingId: CALENDAR_BOOKING_ID,
+      calendarId: CALENDAR_CALENDAR_ID,
+      workerId: CALENDAR_WORKER_ID,
+      serviceId: "dddddddd-cccc-4ccc-8ccc-cccccccccccc",
+      customerId: "eeeeeeee-cccc-4ccc-8ccc-cccccccccccc",
+      startsAt: minutesAgo(-30),
+      endsAt: minutesAgo(-15),
+      localDate: "2026-09-01",
+      confirmationDeadline: minutesAgo(-5),
+      isOverdue: false,
+      phone: "+79990000010",
+    },
+  ];
+}
+
+export function seededCalendarWorkers() {
+  return [
+    {
+      workerId: CALENDAR_WORKER_ID,
+      lastName: "Иванова",
+      firstName: "Анна",
+      middleName: "Петровна",
+      displayName: "Иванова А. П.",
+      displayNameIsCustom: false,
+      isActive: true,
+      createdAt: "2026-06-01T00:00:00.000Z",
+      updatedAt: "2026-08-01T00:00:00.000Z",
+    },
+  ];
+}
+
+export function seededCalendarConfiguration() {
+  return {
+    tenantName: SITE_NAME,
+    publicKey: "shop_calendar_7f3a",
+    allowedOrigins: ["https://tenant.example"],
+    calendars: [
+      {
+        calendarId: CALENDAR_CALENDAR_ID,
+        name: "Основной",
+        timeZone: "Europe/Moscow",
+        isPublished: true,
+        workerIds: [CALENDAR_WORKER_ID],
+        workingHours: [],
+      },
+    ],
+    workers: [{ workerId: CALENDAR_WORKER_ID, displayName: "Иванова А. П.", isActive: true, serviceIds: [] }],
+    services: [{ serviceId: "dddddddd-cccc-4ccc-8ccc-cccccccccccc", name: "Стрижка", durationMinutes: 45 }],
+  };
+}
+
+export function seededCalendarContacts() {
+  return [
+    {
+      customerId: "eeeeeeee-cccc-4ccc-8ccc-cccccccccccc",
+      phone: "+79990000010",
+      displayName: "Дана",
+      notes: "Предпочитает вечер",
+      noShowCount: 0,
+      firstSeenAt: "2026-06-01T09:00:00.000Z",
+      lastSeenAt: "2026-08-01T09:00:00.000Z",
+    },
+  ];
 }

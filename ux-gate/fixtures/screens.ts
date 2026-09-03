@@ -69,4 +69,51 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
     path: "/analytics",
     readySelector: ".ago-table-scroll",
   },
+  // `22-06`/`adr/0093`: four of AGO Calendar's five console screens, moved from
+  // `ago-calendar-console`'s own gate (which covered all eight of its own routes - six screens plus
+  // the two worker-slots/re-cut drill-downs, `15-11`'s addendum in that repository) into this one's
+  // own five-screens-not-seventeen curation (this file's own header, above).
+  //
+  // **Five, not six.** The backlog item this moved under named a sixth screen, Access - `22-05`
+  // (`adr/0093`, merged into `ago-calendar` while this item was in flight) deleted that product's
+  // entire `operators`/`roles` identity model, the console endpoints that managed it, and with them
+  // any reason for that screen to exist. It was never wired into `ago-console` at all, so there is
+  // nothing here for it to be excluded *from* - this is not the same shape as `/calendar/setup`
+  // below.
+  //
+  // **Four of those five are covered; one, `/calendar/setup`, is not**, for a real and unrelated
+  // reason: it renders an inline embed `<script>` snippet as literal `<pre>` text, which would fail
+  // this gate's own fourth assertion (`ux-gate/lib/i18nCompleteness.ts`) over syntax that was never
+  // translatable interface chrome to begin with. `InstallSnippetPage` (`Ago.Chat.Api`'s own
+  // analogous embed-snippet screen) was excluded from this same gate for the identical reason (this
+  // file's own header names it explicitly) - `/calendar/setup` follows that precedent rather than
+  // becoming this gate's first exception to it. Adding it later means either accepting that gap or
+  // teaching the assertion a new exemption; it does not mean it was overlooked.
+  //
+  // ago-calendar-console's own gate covered all eight of its own routes (`ux-gate/fixtures/screens.ts`
+  // in that repository, before this item), because it had few enough screens that all of them mattered
+  // and three had no other way to be looked at at all. Coverage by screen count is therefore down (8 to
+  // 4) with this move, not up - the four covered here are the same four a fresh curation of this
+  // console's own five-screens-not-seventeen judgement would have chosen regardless of what the source
+  // console's gate did, and `/calendar/setup`'s exclusion is a stated reason rather than a rounding.
+  {
+    name: "calendar-queue",
+    path: "/calendar",
+    readySelector: ".ago-table-scroll",
+  },
+  {
+    name: "calendar-workers",
+    path: "/calendar/workers",
+    readySelector: ".ago-table-scroll",
+  },
+  {
+    name: "calendar-availability",
+    path: "/calendar/availability",
+    readySelector: "form.ago-stack",
+  },
+  {
+    name: "calendar-contacts",
+    path: "/calendar/contacts",
+    readySelector: ".ago-table-scroll",
+  },
 ];

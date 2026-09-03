@@ -73,6 +73,29 @@ export function buildTenantNavItems(
   if (hasPermission("site:erase")) {
     items.push({ to: "/settings/delete-account", label: strings.navDeleteAccount });
   }
+  // `22-06`/`adr/0093`: AGO Calendar's screens, moved from `ago-calendar-console` - a distinct
+  // permission from `site:configure` above (`22-05` added it to `Ago.Chat.Domain.Permission`,
+  // read from the same `GET /api/v1/operators/me` response `hasPermission` already reads), because
+  // holding it is an add-on a tenant chooses independently of general site configuration - the
+  // identical "own gate, own block" shape `site:erase`'s block just above already establishes for
+  // `AccountDeletionPage`. Under `/calendar`, not `/settings/*`: these are not one-form settings
+  // screens like the ones above (a queue and a staff roster are working surfaces, not
+  // configuration), and not at the console's own root either - `/` is this console's own
+  // conversation queue and `/calendar` cannot reuse it. `config.calendarApiBaseUrl` is deliberately
+  // NOT checked here - `FaqModulePage`'s own precedent keeps its nav entry visible even when
+  // `config.faqApiBaseUrl` is unset, and lets the screen itself render "not configured" instead; the
+  // calendar screens below follow the identical shape.
+  //
+  // Five entries, not six: `22-05` (`adr/0093`, merged mid-move) deleted AGO Calendar's own
+  // `operators`/`roles` tables and the console endpoints that managed them - there is no Access
+  // screen to link to any more, and none was ever wired here.
+  if (hasPermission("calendar:configure")) {
+    items.push({ to: "/calendar", label: strings.navCalendarQueue, end: true });
+    items.push({ to: "/calendar/setup", label: strings.navCalendarSetup });
+    items.push({ to: "/calendar/workers", label: strings.navCalendarWorkers });
+    items.push({ to: "/calendar/availability", label: strings.navCalendarAvailability });
+    items.push({ to: "/calendar/contacts", label: strings.navCalendarContacts });
+  }
 
   return items;
 }

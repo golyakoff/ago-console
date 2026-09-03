@@ -24,6 +24,13 @@ import { TagsPage } from "./pages/TagsPage.js";
 import { BillingPage } from "./pages/BillingPage.js";
 import { AccountDeletionPage } from "./pages/AccountDeletionPage.js";
 import { OwnerSitesPage } from "./owner/OwnerSitesPage.js";
+import { CalendarQueuePage } from "./pages/CalendarQueuePage.js";
+import { CalendarSetupPage } from "./pages/CalendarSetupPage.js";
+import { CalendarWorkersPage } from "./pages/CalendarWorkersPage.js";
+import { CalendarWorkerSlotsPage } from "./pages/CalendarWorkerSlotsPage.js";
+import { CalendarWorkerRecutPage } from "./pages/CalendarWorkerRecutPage.js";
+import { CalendarAvailabilityPage } from "./pages/CalendarAvailabilityPage.js";
+import { CalendarContactsPage } from "./pages/CalendarContactsPage.js";
 
 /**
  * The routing shell: login (via `RequireAuth`'s own redirect, no separate landing page) -> queue ->
@@ -182,6 +189,27 @@ export function App() {
             page gates itself internally" shape - but on `site:erase`, not `site:configure`
             (`AccountDeletionPage`'s own doc comment). */}
         <Route path="/settings/delete-account" element={<AccountDeletionPage />} />
+        {/* `22-06`/`adr/0093`: AGO Calendar's screens, moved from `ago-calendar-console`. Under
+            `/calendar`, not `/settings/*` - `consoleNav.ts`'s own remarks have the "why this prefix"
+            reasoning. Same "route stays outside the workspace layout, page gates itself internally"
+            shape as every screen above, on `calendar:configure` rather than `site:configure`. Two
+            routes (`/calendar/workers/:workerId/slots`, `.../recut`) are reached only from
+            `CalendarWorkersPage`'s own row actions, not from the nav - the identical
+            "drill-down route with no nav entry of its own" shape `/conversations/:conversationId`
+            already has inside the workspace layout above.
+
+            Five screens, not six: the backlog item's own text named a sixth, Access, but `22-05`
+            (merged into `ago-calendar` mid-move, `adr/0093`) deleted that product's entire
+            `operators`/`roles` identity model along with the `/roles`/`/operators` endpoints it
+            would have called - there is nothing left for that screen to manage. It was never wired
+            here. */}
+        <Route path="/calendar" element={<CalendarQueuePage />} />
+        <Route path="/calendar/setup" element={<CalendarSetupPage />} />
+        <Route path="/calendar/workers" element={<CalendarWorkersPage />} />
+        <Route path="/calendar/workers/:workerId/slots" element={<CalendarWorkerSlotsPage />} />
+        <Route path="/calendar/workers/:workerId/recut" element={<CalendarWorkerRecutPage />} />
+        <Route path="/calendar/availability" element={<CalendarAvailabilityPage />} />
+        <Route path="/calendar/contacts" element={<CalendarContactsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -11,6 +11,7 @@ import { InstallSnippetPage } from "../pages/InstallSnippetPage.js";
 import { OfflineAutoReplyPage } from "../pages/OfflineAutoReplyPage.js";
 import { CannedResponsesPage } from "../pages/CannedResponsesPage.js";
 import { FaqModulePage } from "../pages/FaqModulePage.js";
+import { CalendarQueuePage } from "../pages/CalendarQueuePage.js";
 import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
@@ -39,6 +40,14 @@ vi.mock("../config.js", () => ({
     // mocked as a result, the identical simplification `moduleConfigValidation.ts` gives client-side
     // entry-point checking.
     faqApiBaseUrl: null,
+    // `22-06`: a real (fake, test-only) URL by default, so the calendar-gating tests below exercise
+    // the real screen rather than its "not configured" branch. Unlike `faqApiBaseUrl` above (`null`
+    // by default, because only one panel on one screen depends on it), every calendar screen depends
+    // on this one wholly - a `null` default here would have hidden the granted-and-rendered case from
+    // every calendar test in this file. The one test that needs `null` (`is absent, not broken, when
+    // calendarApiBaseUrl is unset`, below) mutates this same mocked `config` object directly for the
+    // duration of that test and restores it afterwards, rather than forking a second config mock.
+    calendarApiBaseUrl: "https://calendar-api.test.invalid",
   },
 }));
 
@@ -50,6 +59,7 @@ const installationApi = vi.hoisted(() => ({ fetchSiteInstallation: vi.fn() }));
 const offlineAutoReplyApi = vi.hoisted(() => ({ fetchOfflineAutoReply: vi.fn(), updateOfflineAutoReply: vi.fn() }));
 const cannedResponsesApi = vi.hoisted(() => ({ fetchCannedResponses: vi.fn(), updateCannedResponses: vi.fn() }));
 const modulesApi = vi.hoisted(() => ({ fetchModules: vi.fn(), updateModule: vi.fn() }));
+const calendarApi = vi.hoisted(() => ({ getPendingBookings: vi.fn() }));
 // `13-07`: `PermissionsProvider` now calls this before `fetchMyPermissions` - unmocked, it would hit
 // a real `fetch` and every scenario below (all of them single-tenant) would never reach
 // `fetchMyPermissions` at all. `grants`/`beforeEach` below seed the single-tenant default; the
@@ -87,6 +97,12 @@ vi.mock("../api/modulesApi.js", async () => {
   // Same reasoning again - ModulesError is a real class the page does `instanceof` against.
   const actual = await vi.importActual<typeof import("../api/modulesApi.js")>("../api/modulesApi.js");
   return { ...actual, ...modulesApi };
+});
+vi.mock("../api/calendarApi.js", async () => {
+  // Same reasoning again - `CalendarApiError` is a real class `calendarErrorMessage.ts` does
+  // `instanceof` against.
+  const actual = await vi.importActual<typeof import("../api/calendarApi.js")>("../api/calendarApi.js");
+  return { ...actual, ...calendarApi };
 });
 
 const SITE_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
@@ -178,6 +194,7 @@ beforeEach(() => {
   offlineAutoReplyApi.fetchOfflineAutoReply.mockResolvedValue({ enabled: false, fallbackReply: "", rules: [] });
   cannedResponsesApi.fetchCannedResponses.mockResolvedValue([]);
   modulesApi.fetchModules.mockResolvedValue({ modules: [] });
+  calendarApi.getPendingBookings.mockResolvedValue([]);
 });
 
 afterEach(async () => {
@@ -213,6 +230,26 @@ describe("the operator navigation", () => {
       "Canned responses",
       "Tags",
       "Billing",
+    ]);
+  });
+
+  it("offers the five calendar screens to an operator the server says holds calendar:configure, and nothing else gated", async () => {
+    // `22-06`/`adr/0093`: a distinct permission from `site:configure` above - a tenant grants it
+    // independently (`22-05`'s own `Ago.Chat.Domain.Permission` addition), and this operator holds
+    // only this one. Five, not six: `22-05` (`adr/0093`, merged into `ago-calendar` while this item
+    // was in flight) deleted that product's own `operators`/`roles` tables and the console endpoints
+    // that managed them, so there is no Access screen - it was never wired here.
+    grants(["calendar:configure"]);
+
+    const container = await render(shellAt("/"));
+
+    expect(navLabels(container)).toEqual([
+      "Conversations",
+      "Queue",
+      "Setup",
+      "Workers",
+      "Availability",
+      "Contacts",
     ]);
   });
 
@@ -595,5 +632,54 @@ describe("a gated page reached directly by URL", () => {
     // Save button exists here.
     expect(byText(container, "button", "Save")).not.toBeNull();
     expect(container.textContent).toContain("not configured for this deployment yet");
+  });
+
+  it("refuses the calendar booking queue, and does not load its data", async () => {
+    // `22-06`/`adr/0093`: a distinct permission from `site:configure` - an operator holding that one
+    // alone still sees no calendar screen, matching every other calendar-gated case in this file.
+    grants(["site:configure"]);
+
+    const container = await render(pageOnly("/calendar", <CalendarQueuePage />));
+
+    expect(container.textContent).toContain("You do not have permission to view the calendar's booking queue.");
+    expect(container.querySelector("table")).toBeNull();
+    expect(calendarApi.getPendingBookings).not.toHaveBeenCalled();
+  });
+
+  it("renders the calendar booking queue for an operator who holds calendar:configure", async () => {
+    grants(["calendar:configure"]);
+
+    const container = await render(pageOnly("/calendar", <CalendarQueuePage />));
+
+    expect(container.textContent).not.toContain("You do not have permission");
+    expect(calendarApi.getPendingBookings).toHaveBeenCalledWith("token", expect.anything());
+  });
+
+  /**
+   * `22-06`'s own second Done-when: absent, not broken, when `calendarApiBaseUrl` is unset - the
+   * identical "a real, honest deployment state" shape `FaqModulePage`'s knowledge-base panel already
+   * has for `faqApiBaseUrl`, applied here to a whole screen rather than to one panel of one. This
+   * file's own `config.js` mock defaults `calendarApiBaseUrl` to a real (fake) URL so every test above
+   * exercises the granted-and-rendered case - this is the one test that mutates that same mocked
+   * object to `null` for its own duration and restores it, rather than forking a second config mock
+   * `config.ts`'s own module-level `import.meta.env` shape has no room for two conflicting values of.
+   */
+  it("is absent, not broken, when calendarApiBaseUrl is unset", async () => {
+    grants(["calendar:configure"]);
+    const { config } = await import("../config.js");
+    const original = config.calendarApiBaseUrl;
+    config.calendarApiBaseUrl = null;
+
+    try {
+      const container = await render(pageOnly("/calendar", <CalendarQueuePage />));
+
+      expect(container.textContent).toContain(
+        "The calendar backend is not configured for this deployment yet, so this screen cannot be used here.",
+      );
+      expect(container.querySelector("table")).toBeNull();
+      expect(calendarApi.getPendingBookings).not.toHaveBeenCalled();
+    } finally {
+      config.calendarApiBaseUrl = original;
+    }
   });
 });
