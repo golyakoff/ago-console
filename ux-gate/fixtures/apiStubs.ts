@@ -1,5 +1,6 @@
 import type { Page, Route } from "@playwright/test";
 import {
+  CALENDAR_WORKER_ID,
   SITE_ID,
   OPEN_CONVERSATION_ID,
   seededAllConversations,
@@ -8,6 +9,7 @@ import {
   seededCalendarContacts,
   seededCalendarPendingBookings,
   seededCalendarWorkers,
+  seededCalendarWorkerSlots,
   seededOwnerSitesPage,
   seededPermissions,
   seededQueue,
@@ -113,6 +115,16 @@ export async function installApiStubs(page: Page): Promise<void> {
 
     if (path === "/api/v1/console/contacts" && method === "GET") {
       return json(seededCalendarContacts());
+    }
+
+    // `15-16` (`ago-root#397`): `CalendarWorkerSlotsPage`'s own call, matched on the seeded worker id
+    // and ignoring the query string like every other handler in this file (`from`/`to` here) - the
+    // page always fetches its own default two-week range computed from the *real* `new Date()`, not
+    // a fixture-controlled clock, so a handler keyed on the query would have to track a value this
+    // file cannot predict. `CalendarWorkerRecutPage`, this gate's other new screen, needs no handler
+    // at all - see `ux-gate/fixtures/screens.ts`'s own doc comment for why.
+    if (path === `/api/v1/console/workers/${CALENDAR_WORKER_ID}/slots` && method === "GET") {
+      return json(seededCalendarWorkerSlots());
     }
 
     // Anything this gate's chosen screens do not need (billing, offline auto-reply, attachments,
