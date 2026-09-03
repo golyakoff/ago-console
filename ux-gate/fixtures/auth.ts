@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { fakeJwt } from "./fakeJwt.js";
 import { OPERATOR_SUB } from "./data.js";
+import { UX_GATE_AUTHORITY, UX_GATE_CLIENT_ID } from "../lib/gateEnv.js";
 
 /**
  * `15-11`'s "authentication without a login form": writes a `User`-shaped record directly into
@@ -27,9 +28,14 @@ import { OPERATOR_SUB } from "./data.js";
  * `userManager.ts`'s own doc comment) would otherwise try to renew this token against the real
  * authority once it saw it was near expiry - there is no such authority reachable from CI, and a gate
  * run finishes in well under an hour, so this never fires.
+ *
+ * `UX_GATE_AUTHORITY`/`UX_GATE_CLIENT_ID` are re-exported from `../lib/gateEnv.ts`, not declared here
+ * (`ago-root#351`) - that file reads the same `.env.ux-gate` this gate's own build reads, so the
+ * authority string this fixture writes into `sessionStorage` and the one the built app was compiled
+ * against (`src/config.ts`'s `keycloakAuthority`) cannot drift apart the way a second hand-typed
+ * literal could.
  */
-export const UX_GATE_AUTHORITY = "http://127.0.0.1:4173/realms/ago-chat-ux-gate";
-export const UX_GATE_CLIENT_ID = "ago-console-ux-gate";
+export { UX_GATE_AUTHORITY, UX_GATE_CLIENT_ID };
 
 function storageKey(): string {
   return `oidc.user:${UX_GATE_AUTHORITY}:${UX_GATE_CLIENT_ID}`;
