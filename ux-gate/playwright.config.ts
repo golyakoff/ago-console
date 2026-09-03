@@ -1,4 +1,5 @@
 import { defineConfig } from "@playwright/test";
+import { PORT, BASE_URL } from "./lib/gateEnv.js";
 
 /**
  * `15-11`: the rendered UX gate's own Playwright project - see `ux-gate`'s sibling files for the
@@ -14,9 +15,12 @@ import { defineConfig } from "@playwright/test";
  * pointing the build at the real `.env.production` origin instead would make every stubbed `fetch` a
  * cross-origin request Playwright's `route.fulfill` would still have to answer with the right
  * `Access-Control-Allow-Origin` header for the browser to accept, for no benefit this gate needs.
+ *
+ * `ago-root#351`: both imported from `./lib/gateEnv.ts` now, not declared here - that file's own doc
+ * comment is where the "why a fixed, per-repository port rather than an ephemeral one" reasoning
+ * lives, and it is also what `fixtures/auth.ts`'s `UX_GATE_AUTHORITY` reads, so this config and that
+ * fixture cannot name two different ports by hand-editing one and not the other.
  */
-const PORT = 4173;
-const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
   testDir: ".",
