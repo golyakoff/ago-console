@@ -296,3 +296,42 @@ export function seededCalendarContacts() {
     },
   ];
 }
+
+/**
+ * `15-16` (`ago-root#397`): `GET /workers/{workerId}/slots` for `CalendarWorkerSlotsPage` - the same
+ * seven-column table (`WorkerSlot`'s own field list: date, weekday, time, status, service, customer,
+ * phone) `ago-calendar-console`'s own `WORKER_SLOTS` fixture built before this move, sized the same
+ * way (six half-hour rows spanning one business day) so the table this gate opens is the real,
+ * multi-row shape a full day's schedule looks like, not a one-row stand-in that would never exercise
+ * this table's own overflow risk on a 375px viewport.
+ *
+ * Every third row is `Booked`, against the one seeded customer `seededCalendarContacts` already
+ * knows (`CALENDAR_BOOKING_ID`, "Дана", `+79990000010`) - the identical customer, not a second one,
+ * so this screen and `calendar-contacts` agree with each other the way this file's own header
+ * promises every screen's fixture data will.
+ */
+export function seededCalendarWorkerSlots() {
+  const localDate = "2026-09-07";
+  const serviceId = "dddddddd-cccc-4ccc-8ccc-cccccccccccc";
+  const customerId = "eeeeeeee-cccc-4ccc-8ccc-cccccccccccc";
+
+  return [0, 1, 2, 3, 4, 5].map((i) => {
+    const hour = String(9 + i).padStart(2, "0");
+    const booked = i % 3 === 0;
+
+    return {
+      eventId: `ffffffff-cccc-4ccc-8ccc-${String(i).padStart(12, "0")}`,
+      localDate,
+      weekday: 1,
+      startsAt: `${localDate}T${hour}:00:00+03:00`,
+      endsAt: `${localDate}T${hour}:30:00+03:00`,
+      status: booked ? "Booked" : "Available",
+      serviceId: booked ? serviceId : null,
+      serviceName: booked ? "Стрижка" : null,
+      customerId: booked ? customerId : null,
+      customerDisplayName: booked ? "Дана" : null,
+      phone: booked ? "+79990000010" : null,
+      bookingId: booked ? CALENDAR_BOOKING_ID : null,
+    };
+  });
+}

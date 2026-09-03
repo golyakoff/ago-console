@@ -1,4 +1,4 @@
-import { OPEN_CONVERSATION_ID } from "./data.js";
+import { CALENDAR_WORKER_ID, OPEN_CONVERSATION_ID } from "./data.js";
 
 /**
  * `15-11`'s own Open Questions leaves "which screens" undecided ("Probably: the author's six named
@@ -92,10 +92,13 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
   //
   // ago-calendar-console's own gate covered all eight of its own routes (`ux-gate/fixtures/screens.ts`
   // in that repository, before this item), because it had few enough screens that all of them mattered
-  // and three had no other way to be looked at at all. Coverage by screen count is therefore down (8 to
-  // 4) with this move, not up - the four covered here are the same four a fresh curation of this
-  // console's own five-screens-not-seventeen judgement would have chosen regardless of what the source
-  // console's gate did, and `/calendar/setup`'s exclusion is a stated reason rather than a rounding.
+  // and three had no other way to be looked at at all. This move dropped two of those eight routes -
+  // the worker-slots and worker-recut drill-downs - which `15-16` (`ago-root#397`) restored below,
+  // rather than recording their absence as a considered reduction: they were a real regression, not a
+  // re-curation, and the five-screens-not-seventeen judgement above never counted them as part of its
+  // own denominator in the first place (they are routes off `calendar-workers`, not screens of their
+  // own - see the `15-16` note below for the full reasoning). `/calendar/setup`'s exclusion remains
+  // the only screen this gate deliberately does not cover, and remains a stated reason, not a rounding.
   {
     name: "calendar-queue",
     path: "/calendar",
@@ -115,5 +118,35 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
     name: "calendar-contacts",
     path: "/calendar/contacts",
     readySelector: ".ago-table-scroll",
+  },
+  // `15-16` (`ago-root#397`): the two drill-downs off `calendar-workers` - `ago-calendar-console`'s
+  // own gate covered both (`worker-slots`, `worker-recut` in that repository's `screens.ts`, before
+  // `22-06`), and the move dropped them. That is a regression, not a re-curation: this file's own
+  // "5 screens, 1 excluded" accounting above is untouched by these two - they are routes reached only
+  // from `CalendarWorkersPage`'s own row actions, never from the nav, the identical shape
+  // `/conversations/:id` above already has inside the workspace layout (`App.tsx`'s own "Five
+  // screens, not six" comment already calls this out explicitly). Adding them here is restoring
+  // coverage of two existing routes, not growing the five-screen denominator to six or seven -
+  // whichever count is being read off this file, it must still say "one exclusion, `/calendar/setup`,
+  // for the stated `<pre>`-snippet reason", never anything that reads as if these two were ever the
+  // exclusion.
+  {
+    name: "calendar-worker-slots",
+    path: `/calendar/workers/${CALENDAR_WORKER_ID}/slots`,
+    // Waits for the materialised-schedule table, not the date-range form above it (which renders on
+    // mount, before `getWorkerSlots` resolves) - the same "wait for the later of the two events"
+    // reasoning `queue-conversation`'s own `readySelector` comment gives.
+    readySelector: ".ago-table-scroll",
+  },
+  {
+    name: "calendar-worker-recut",
+    path: `/calendar/workers/${CALENDAR_WORKER_ID}/recut`,
+    // Unlike every other screen in this file, nothing here is fetched on mount - `loadPreview` only
+    // runs once the operator submits the date field, exactly like the source screen this was moved
+    // from. The from-date form is therefore the screen's own first real render, not a loading
+    // skeleton standing in for one; there is nothing later to wait for without simulating a submit,
+    // which `openScreen.ts` does not do for any screen (this file's own header: navigate-and-wait,
+    // never navigate-and-interact).
+    readySelector: "form.ago-row",
   },
 ];

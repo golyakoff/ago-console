@@ -59,6 +59,14 @@
  *   used for the same values without the pill) marks a value as "literally an identifier (a truncated
  *   visitor id, a sequence number, a hex colour)". This reuses that existing, audited convention
  *   rather than re-deciding "does this look like an id" per string.
+ * - **`"Europe/Moscow"`** - `15-16` (`ago-root#397`): the one seeded calendar's own IANA time zone id
+ *   (`ux-gate/fixtures/data.ts`'s `seededCalendarConfiguration().calendars[0].timeZone`), rendered as
+ *   plain text (not inside `.ago-mono`) by `CalendarWorkerSlotsPage`'s own time-zone note - the same
+ *   literal `ago-calendar-console` exempted in its own predecessor gate before `22-06` moved this
+ *   screen here, for the identical reason: an IANA zone id is Latin-script by the standard itself, not
+ *   a phrase a translator would ever touch. Kept as the exact seeded string, not a pattern like
+ *   `/^[A-Za-z]+\/[A-Za-z_]+$/` - this file's own header explains why a shape-based rule is the trap,
+ *   not the fix.
  *
  * `/owner` is a **further** exemption, but a screen-level one, not an element-level one - see
  * `ux-gate/gate.spec.ts`'s own comment on why it is applied there instead of inside this function.
@@ -119,7 +127,7 @@ export function measureUntranslatedLatinText(): UntranslatedTextResult {
   // See this function's own file-level doc comment above for why each of these is here. Longer
   // phrases first, so "AGO Chat" is removed whole rather than leaving a stray "Chat" behind once
   // "AGO" has already matched inside it.
-  const EXEMPT_PHRASES = ["AGO Chat", "AGO", "WhatsApp", "Telegram", "Escape", "Shift", "Enter", "SMS", "MAX", "ID", "hex", "https"];
+  const EXEMPT_PHRASES = ["AGO Chat", "AGO", "WhatsApp", "Telegram", "Escape", "Shift", "Enter", "SMS", "MAX", "ID", "hex", "https", "Europe/Moscow"];
   const EXEMPT_ANCESTOR_SELECTOR = ".ago-mono, .ago-badge--mono";
   const LATIN_RUN = /[A-Za-z]{2,}/g;
 
