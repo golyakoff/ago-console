@@ -121,13 +121,13 @@ export function VisitorPanel({
         <dd>
           {started ? (
             <>
-              <span title={formatAbsolute(started, timeZone)}>{formatAbsolute(started, timeZone)}</span>
+              <span title={formatAbsolute(started, timeZone, strings)}>{formatAbsolute(started, timeZone, strings)}</span>
               <span className="ago-meta">
                 {" "}
-                ({formatElapsed(started, now)} {strings.agoSuffix})
+                ({formatElapsed(started, now, strings)} {strings.agoSuffix})
               </span>
               <span className="ago-visually-hidden">
-                {formatElapsedWords(started, now)} {strings.agoSuffix}
+                {formatElapsedWords(started, now, strings)} {strings.agoSuffix}
               </span>
             </>
           ) : (

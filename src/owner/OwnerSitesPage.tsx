@@ -345,6 +345,10 @@ function buildColumns(recentWindowDays: number, timeZone: string | null): TableC
           );
         }
 
+        // `343`: no `strings` argument, on purpose - this page never calls `useStrings()` (see this
+        // file's own remarks above), so there is no locale value to pass, and `formatAbsolute`/
+        // `formatDateStamp`'s `= en` default renders exactly the fixed English this screen already
+        // committed to.
         return <span title={formatAbsolute(created, timeZone)}>{formatDateStamp(created, timeZone)}</span>;
       },
     },

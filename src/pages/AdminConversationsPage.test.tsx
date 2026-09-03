@@ -2,6 +2,7 @@ import { act, useMemo, type ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "oidc-client-ts";
+import { formatAbsolute, parseInstant } from "../time/format.js";
 import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { AdminConversationsPage } from "./AdminConversationsPage.js";
@@ -93,6 +94,34 @@ beforeEach(() => {
 afterEach(async () => {
   await unmount();
   vi.useRealTimers();
+  vi.unstubAllEnvs();
+});
+
+/**
+ * `343`/`344`: the "started" column bypassed `time/format.ts` entirely (`new
+ * Date(c.createdAt).toLocaleString()`), which rendered in whatever zone the runtime happened to be
+ * in with nothing on screen saying which - `time/format.ts`'s own header names exactly this
+ * construct as the defect `11-06` existed to fix everywhere else. This proves the replacement keeps
+ * the zone label rather than merely "looking like a date" - a render that dropped the label would
+ * still look plausible, which is why the assertion checks for the label's actual text rather than
+ * just asserting the cell is non-empty.
+ */
+describe("the started column (343/344)", () => {
+  it("renders through the zone-labelled formatter, and the zone label survives", async () => {
+    // Pinned so the expectation below is deterministic regardless of the machine running this test -
+    // `resolveTimeZone()` reads the real `Intl` default, which without this varies by environment.
+    vi.stubEnv("TZ", "UTC");
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID });
+
+    const container = await render(page());
+
+    const expected = formatAbsolute(parseInstant(oneConversation().createdAt), "UTC");
+    expect(container.textContent).toContain(expected);
+    // The regression this guards against: a translation or a future edit that renders a plausible-
+    // looking date but silently drops the zone name - `date-and-time.md` rule 5 calls an unlabelled
+    // timestamp a defect regardless of how correct everything around it looks.
+    expect(expected).toContain("Coordinated Universal Time");
+  });
 });
 
 describe("the row-erasure action", () => {

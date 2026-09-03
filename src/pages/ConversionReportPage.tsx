@@ -295,8 +295,8 @@ export function ConversionReportPage() {
 
       {effectiveFromAt && effectiveToAt && (
         <p className="ago-meta">
-          {strings.conversionReportRangeLabel} {formatDateStamp(effectiveFromAt, timeZone)} –{" "}
-          {formatDateStamp(effectiveToAt, timeZone)}
+          {strings.conversionReportRangeLabel} {formatDateStamp(effectiveFromAt, timeZone, strings)} –{" "}
+          {formatDateStamp(effectiveToAt, timeZone, strings)}
         </p>
       )}
 

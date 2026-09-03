@@ -108,7 +108,7 @@ export function ConversationNotesPanel({ conversationId, timeZone, accessToken }
             return (
               <li key={note.id} className="ago-list__row ago-list__row--static">
                 <span className="ago-list__row-top ago-meta">
-                  {createdAt ? formatAbsolute(createdAt, timeZone) : null}
+                  {createdAt ? formatAbsolute(createdAt, timeZone, strings) : null}
                 </span>
                 <span className="ago-list__row-bottom">{note.body}</span>
               </li>

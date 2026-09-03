@@ -103,9 +103,9 @@ export function ConversationList({ queue, attention, now, timeZone, waitingRefre
                       {started ? (
                         <span
                           className="ago-meta"
-                          title={`${strings.queueConversationStartedTitle} ${formatAbsolute(started, timeZone)} — ${formatElapsedWords(started, now)} ${strings.agoSuffix}`}
+                          title={`${strings.queueConversationStartedTitle} ${formatAbsolute(started, timeZone, strings)} — ${formatElapsedWords(started, now, strings)} ${strings.agoSuffix}`}
                         >
-                          {strings.queueOpenLabel} {formatElapsed(started, now)}
+                          {strings.queueOpenLabel} {formatElapsed(started, now, strings)}
                         </span>
                       ) : (
                         <span className="ago-meta">{strings.queueStartUnknown}</span>
@@ -152,9 +152,9 @@ export function ConversationList({ queue, attention, now, timeZone, waitingRefre
                     {started ? (
                       <span
                         className="ago-meta"
-                        title={`${strings.queueWaitingSinceTitle} ${formatAbsolute(started, timeZone)} — ${formatElapsedWords(started, now)}`}
+                        title={`${strings.queueWaitingSinceTitle} ${formatAbsolute(started, timeZone, strings)} — ${formatElapsedWords(started, now, strings)}`}
                       >
-                        {strings.queueWaitingTitle} {formatElapsed(started, now)}
+                        {strings.queueWaitingTitle} {formatElapsed(started, now, strings)}
                       </span>
                     ) : (
                       <span className="ago-meta">{strings.queueWaitingSinceUnknown}</span>

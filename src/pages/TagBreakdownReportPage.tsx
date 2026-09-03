@@ -251,8 +251,8 @@ export function TagBreakdownReportPage() {
 
       {effectiveFromAt && effectiveToAt && (
         <p className="ago-meta">
-          {strings.tagBreakdownRangeLabel} {formatDateStamp(effectiveFromAt, timeZone)} –{" "}
-          {formatDateStamp(effectiveToAt, timeZone)}
+          {strings.tagBreakdownRangeLabel} {formatDateStamp(effectiveFromAt, timeZone, strings)} –{" "}
+          {formatDateStamp(effectiveToAt, timeZone, strings)}
         </p>
       )}
 

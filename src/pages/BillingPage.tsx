@@ -266,7 +266,7 @@ export function BillingPage() {
               )}
               {sub?.cancelRequested && (
                 <Alert tone="info" title={strings.billingCancelRequestedTitle}>
-                  {strings.billingCancelRequestedBody} {periodEndDate ? formatDateStamp(periodEndDate, timeZone) : "—"}.
+                  {strings.billingCancelRequestedBody} {periodEndDate ? formatDateStamp(periodEndDate, timeZone, strings) : "—"}.
                 </Alert>
               )}
               {sub?.pendingSeatCount !== null && sub?.pendingSeatCount !== undefined && (

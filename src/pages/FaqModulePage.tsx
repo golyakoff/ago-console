@@ -299,7 +299,7 @@ export function FaqModulePage() {
 
                 <p className="ago-field__description">
                   {kbUpdatedAtInstant
-                    ? `${strings.faqKnowledgeBaseUpdatedAtPrefix} ${formatAbsolute(kbUpdatedAtInstant, timeZone)}`
+                    ? `${strings.faqKnowledgeBaseUpdatedAtPrefix} ${formatAbsolute(kbUpdatedAtInstant, timeZone, strings)}`
                     : strings.faqKnowledgeBaseNeverSaved}
                 </p>
 

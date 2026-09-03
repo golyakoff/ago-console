@@ -148,7 +148,7 @@ export function Thread({
         {items.map((item) =>
           item.kind === "day" ? (
             <li className="ago-thread__day" key={`day-${item.key}`}>
-              <span>{formatDayLabel(item.at, now, timeZone)}</span>
+              <span>{formatDayLabel(item.at, now, timeZone, strings)}</span>
             </li>
           ) : (
             <li
@@ -172,7 +172,7 @@ export function Thread({
                 // affordance that stays in a production build.
                 title={
                   item.at
-                    ? `${formatAbsolute(item.at, timeZone)} · ${strings.threadMessageNumberLabel}${item.message.sequence}`
+                    ? `${formatAbsolute(item.at, timeZone, strings)} · ${strings.threadMessageNumberLabel}${item.message.sequence}`
                     : `${strings.threadMessageNumberOnlyLabel}${item.message.sequence}`
                 }
               >
@@ -180,7 +180,7 @@ export function Thread({
                 {item.message.attachmentId && renderAttachment(item.message.attachmentId)}
                 <span className="ago-message__meta">
                   {item.at ? (
-                    <time dateTime={item.message.createdAt}>{formatClockTime(item.at, timeZone)}</time>
+                    <time dateTime={item.message.createdAt}>{formatClockTime(item.at, timeZone, strings)}</time>
                   ) : (
                     <span className="ago-meta">{strings.threadNoTimestamp}</span>
                   )}

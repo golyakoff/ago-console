@@ -211,15 +211,15 @@ export function VisitorHistoryPanel({ conversationId, history, historyError, now
                     <Badge tone={c.state === "Closed" ? "neutral" : "brand"}>{stateLabel(c.state, strings)}</Badge>
                     <span className="ago-meta">
                       {started ? (
-                        <span title={formatAbsolute(started, timeZone)}>
-                          {strings.visitorHistoryStartedLabel} {formatDateStamp(started, timeZone)}
+                        <span title={formatAbsolute(started, timeZone, strings)}>
+                          {strings.visitorHistoryStartedLabel} {formatDateStamp(started, timeZone, strings)}
                         </span>
                       ) : null}
                       {closed ? (
                         <>
                           {" — "}
-                          <span title={formatAbsolute(closed, timeZone)}>
-                            {strings.visitorHistoryClosedLabel} {formatDateStamp(closed, timeZone)}
+                          <span title={formatAbsolute(closed, timeZone, strings)}>
+                            {strings.visitorHistoryClosedLabel} {formatDateStamp(closed, timeZone, strings)}
                           </span>
                         </>
                       ) : (
@@ -239,7 +239,7 @@ export function VisitorHistoryPanel({ conversationId, history, historyError, now
 
       <Dialog
         open={openConversationId !== null}
-        title={openRow ? `${stateLabel(openRow.state, strings)} · ${formatDateStamp(parseInstant(openRow.startedAt) ?? now, timeZone)}` : strings.visitorHistoryTitle}
+        title={openRow ? `${stateLabel(openRow.state, strings)} · ${formatDateStamp(parseInstant(openRow.startedAt) ?? now, timeZone, strings)}` : strings.visitorHistoryTitle}
         onClose={() => setOpenConversationId(null)}
         footer={
           <Button variant="secondary" onClick={() => setOpenConversationId(null)}>

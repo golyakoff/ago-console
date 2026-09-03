@@ -43,6 +43,18 @@ export const en: ConsoleStrings = {
 
   agoSuffix: "ago",
 
+  dateIntlLocale: "en-GB",
+  dateToday: "Today",
+  dateYesterday: "Yesterday",
+  elapsedJustNow: "just now",
+  elapsedLessThanMinute: "less than a minute",
+  elapsedMinuteOne: "minute",
+  elapsedMinuteOther: "minutes",
+  elapsedHourOne: "hour",
+  elapsedHourOther: "hours",
+  elapsedDayOne: "day",
+  elapsedDayOther: "days",
+
   queueAssignedTitle: "Assigned to me",
   queueAssignedNote: "Live — a new assignment appears without a refresh.",
   queueAssignedLoadingLabel: "Loading your assigned conversations…",

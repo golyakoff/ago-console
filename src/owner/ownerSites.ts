@@ -9,8 +9,11 @@
  * screen would be a defect the day the server's constant changes.
  */
 
-/** `en-GB` throughout, matching `time/format.ts`'s own fixed display locale - interface i18n is out
- * of scope, and a fixed locale is also what makes these assertions portable across machines. */
+/** `en-GB` throughout, unconditionally - `/owner` is deliberately English-only regardless of any
+ * tenant locale (`11-11`'s settled design call, restated in `OwnerSitesPage.tsx`'s own doc comment),
+ * so this stays a fixed constant rather than taking `strings.dateIntlLocale` the way `time/format.ts`
+ * itself now does post-`343`. A fixed locale is also what makes these assertions portable across
+ * machines. */
 const DISPLAY_LOCALE = "en-GB";
 
 /** Thousands-separated, so a six-figure conversation count is readable at a glance. */
