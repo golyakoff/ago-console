@@ -4,6 +4,7 @@ import { UX_GATE_SCREENS } from "./fixtures/screens.js";
 import { measureHorizontalOverflow } from "./lib/overflow.js";
 import { measureUndersizedInteractiveElements } from "./lib/minSize.js";
 import { measureContrastViolations } from "./lib/contrast.js";
+import { measureUntranslatedLatinText } from "./lib/i18nCompleteness.js";
 
 const MIN_INTERACTIVE_SIZE_PX = 24;
 
@@ -150,5 +151,64 @@ test.describe("fails-before proof", () => {
 
     const after = await page.evaluate(measureContrastViolations);
     expect(after.violations, "expected no contrast violations once the real colours were restored").toEqual([]);
+  });
+
+  /**
+   * `11-16`'s own fourth assertion, proven the same way as the three above: open the clean, already
+   * Cyrillic-rendered screen, confirm the *injected* defect is absent, inject it via a
+   * post-navigation DOM mutation (never by editing product source, which would change what ships
+   * rather than prove something about the gate), confirm the assertion now reports it **with the
+   * expected violation in the result**, remove the mutation, confirm it is gone again.
+   *
+   * The injected defect is a plain English interface phrase ("Send message") appended as a real,
+   * visible text node inside the message thread - the shape a genuine miss looks like: a label that
+   * never went through `useStrings()` and rendered its literal English text on an otherwise-Russian
+   * screen, precisely what `docs/backlog/11-16-*.md` names as the defect this assertion exists to
+   * catch.
+   *
+   * Unlike the three proofs above, "before" is deliberately **not** asserted to be an empty
+   * `violations` array - `queue-conversation` is not actually clean of this assertion today.
+   * `ux-gate/lib/i18nCompleteness.ts`'s own doc comment ("What this deliberately does *not* exempt")
+   * names the reason: `src/time/format.ts`'s fixed `en-GB` locale renders this exact screen's day
+   * separator ("Tuesday 1 September") and elapsed-time text ("1 day") in English regardless of the
+   * console's own selected language, a real, pre-existing gap this item's own scope does not fix.
+   * Asserting an empty array here would make this proof depend on that unrelated gap being closed
+   * first, which is not what this test exists to demonstrate - so it checks only for the presence or
+   * absence of *this specific, injected* defect, by its own marker id, both before and after.
+   */
+  test("no untranslated interface text: an English label on a Russian screen fails, removing it passes", async ({ page }) => {
+    await openScreen(page, CONVERSATION_SCREEN);
+
+    const before = await page.evaluate(measureUntranslatedLatinText);
+    expect(
+      before.violations.some((v) => v.selector.includes("ux-gate-i18n-defect")),
+      JSON.stringify(before.violations, null, 2),
+    ).toBe(false);
+
+    await page.evaluate(() => {
+      const bubble = document.querySelector(".ago-message__bubble");
+      if (!bubble) {
+        throw new Error("ux-gate: expected at least one seeded message bubble to exist on this screen.");
+      }
+      const defect = document.createElement("span");
+      defect.id = "ux-gate-i18n-defect";
+      defect.textContent = "Send message";
+      bubble.appendChild(defect);
+    });
+
+    const during = await page.evaluate(measureUntranslatedLatinText);
+    const defectViolation = during.violations.find((v) => v.selector.includes("ux-gate-i18n-defect"));
+    expect(defectViolation, JSON.stringify(during.violations, null, 2)).toBeTruthy();
+    expect(defectViolation?.latinRuns).toContain("Send");
+
+    await page.evaluate(() => {
+      document.getElementById("ux-gate-i18n-defect")?.remove();
+    });
+
+    const after = await page.evaluate(measureUntranslatedLatinText);
+    expect(
+      after.violations.some((v) => v.selector.includes("ux-gate-i18n-defect")),
+      JSON.stringify(after.violations, null, 2),
+    ).toBe(false);
   });
 });
