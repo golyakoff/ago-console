@@ -58,6 +58,107 @@
   justify-content: flex-start;
 }
 
+/* --- Mobile navigation drawer (`11-14`) ------------------------------------------------------
+
+   The hamburger button is always in the DOM (paired with the same `nav` array the bar below
+   renders from - `AppShell.tsx`'s own remarks on why there is no second data source) and hidden by
+   CSS above the mobile breakpoint, the same "render once, hide by media query" idiom this file
+   already uses for `.ago-shell__header-row--nav` below. `.ago-shell__brand-row` exists only to keep
+   the header's two-group `justify-content: space-between` layout intact with a third element added -
+   without it, three flex children split evenly instead of "hamburger+brand" grouping against
+   "identity". */
+.ago-shell__brand-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ago-space-3);
+}
+
+.ago-shell__menu-button {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: none;
+  border: 1px solid var(--ago-line-strong);
+  border-radius: var(--ago-radius-sm);
+  background: transparent;
+  color: var(--ago-ink);
+  cursor: pointer;
+}
+
+.ago-shell__menu-button:hover {
+  background: var(--ago-brand-tint);
+  border-color: var(--ago-brand);
+}
+
+/* Three CSS-drawn bars, the same "no icon library" idiom `.ago-shell__glyph` already uses for the
+   brand mark (`adr/0030` closes the dependency question; an icon font or SVG set would be a new
+   dependency for one glyph). */
+.ago-shell__menu-icon {
+  position: relative;
+  display: inline-block;
+  width: 1.15rem;
+  height: 2px;
+  background: currentColor;
+  border-radius: 1px;
+}
+
+.ago-shell__menu-icon::before,
+.ago-shell__menu-icon::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: currentColor;
+  border-radius: 1px;
+}
+
+.ago-shell__menu-icon::before {
+  top: -6px;
+}
+
+.ago-shell__menu-icon::after {
+  top: 6px;
+}
+
+/* The drawer's own list - a vertical twin of `.ago-shell__nav-link` below, styled as a column of
+   rows rather than an inline strip with an underline, since a slide-in panel is read top to bottom,
+   not left to right. */
+.ago-shell__drawer-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-1);
+}
+
+.ago-shell__drawer-link {
+  padding: var(--ago-space-3) var(--ago-space-3);
+  border-radius: var(--ago-radius-sm);
+  border-left: 3px solid transparent;
+  color: var(--ago-ink-soft);
+  font-size: var(--ago-text-base);
+  font-weight: 600;
+  text-decoration: none;
+  transition: background var(--ago-transition), color var(--ago-transition), border-color var(--ago-transition);
+}
+
+.ago-shell__drawer-link:hover {
+  background: var(--ago-brand-tint);
+  color: var(--ago-ink);
+}
+
+/* Same "never colour alone" rule `.ago-shell__nav-link--active` follows above - weight, colour and
+   the left border all change together, and `NavLink`'s own `aria-current="page"` carries the state
+   for anyone not looking at pixels at all. */
+.ago-shell__drawer-link--active,
+.ago-shell__drawer-link--active:hover {
+  color: var(--ago-brand-deep);
+  font-weight: 800;
+  border-left-color: var(--ago-brand);
+  background: var(--ago-brand-tint);
+}
+
 /* --- Identity ------------------------------------------------------------------------------- */
 
 .ago-shell__brand {
@@ -363,5 +464,16 @@
 
   .ago-shell__main {
     padding-top: var(--ago-space-6);
+  }
+
+  /* `11-14`: the horizontal bar's own row does not fit fifteen items at this width (measured, not
+     felt - the backlog item's own numbers) and is replaced by the hamburger + drawer instead of
+     being asked to shrink further. */
+  .ago-shell__header-row--nav {
+    display: none;
+  }
+
+  .ago-shell__menu-button {
+    display: inline-flex;
   }
 }

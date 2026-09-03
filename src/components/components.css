@@ -517,6 +517,57 @@
   gap: var(--ago-space-2);
 }
 
+/* `11-14`: the drawer variant - the identical `<dialog>`/`showModal()` element `ShortcutsDialog` and
+   the confirmation screens already use, repositioned rather than reimplemented (`Dialog.tsx`'s own
+   `variant` doc comment has the reasoning against a twelfth component). Overrides the base rule's
+   centring/width/radius; everything else (background, backdrop, focus handling) is inherited. */
+.ago-dialog--drawer {
+  position: fixed;
+  inset: 0 auto 0 0;
+  margin: 0;
+  width: min(20rem, 85vw);
+  height: 100%;
+  max-height: none;
+  border-radius: 0 var(--ago-radius-lg) var(--ago-radius-lg) 0;
+  border-left: none;
+  transform: translateX(-100%);
+  transition:
+    transform 0.16s ease,
+    overlay 0.16s ease allow-discrete,
+    display 0.16s ease allow-discrete;
+}
+
+.ago-dialog--drawer[open] {
+  transform: translateX(0);
+}
+
+/* Lets the transform above actually run as an entrance transition rather than snapping open - without
+   this, the dialog's `display: none -> block` jump (the UA stylesheet's own rule for `[open]`) would
+   start the transition from the *open* position, since there is no prior frame to transition from. */
+@starting-style {
+  .ago-dialog--drawer[open] {
+    transform: translateX(-100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ago-dialog--drawer {
+    transition: none;
+  }
+}
+
+.ago-dialog--drawer .ago-dialog__inner {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.ago-dialog--drawer .ago-dialog__title {
+  font-size: var(--ago-text-base);
+  color: var(--ago-ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 /* ============================================================================ States
 
    Loading, empty and error, as the item asks - first-class and named, rather than an ad-hoc

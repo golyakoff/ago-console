@@ -9,6 +9,7 @@ export const ru: ConsoleStrings = {
   // field on both tables.
   consoleTaglineOwner: "Консоль владельца платформы",
   navSectionsAriaLabel: "Разделы консоли",
+  navOpenMenu: "Открыть меню навигации",
   navConversations: "Диалоги",
   navAllConversations: "Все диалоги",
   navWidgetAppearance: "Внешний вид виджета",
