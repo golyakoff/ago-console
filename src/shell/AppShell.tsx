@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { Button } from "../components/Button.js";
+import { Dialog } from "../components/Dialog.js";
 import { config } from "../config.js";
 import { ThemeToggle } from "../design/ThemeToggle.js";
 import { useStrings } from "../i18n/StringsContext.js";
@@ -173,6 +174,20 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const strings = useStrings();
+  // `11-14`: local to this component, not context - the same call `PublicDemoNotice`'s own doc
+  // comment argues against for `nav`/`identity`/`wide` above: whether the drawer is open is a
+  // property of one render of the shell, not something any other component needs to read, and
+  // `AppShell` already reads no context of its own by design (this component's own doc comment).
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const drawerId = useId();
+  // Narrows `nav` to a real array once, here, rather than at each of the three call sites below
+  // (the button, the bar, the drawer) - `nav && nav.length > 0 && nav.map(...)` repeated three times
+  // would re-ask the same optional-array question three times for no benefit TypeScript's own
+  // control-flow narrowing gives back (it does not narrow through an intermediate `const`, so this
+  // is the version that actually compiles without a non-null assertion).
+  const items = nav ?? [];
+  const hasNav = items.length > 0;
+
   return (
     <div className={fixed ? "ago-shell ago-shell--fixed" : "ago-shell"}>
       <a className="ago-skip-link" href="#ago-main">
@@ -191,23 +206,40 @@ export function AppShell({
               underneath, each free of the other's width - so wrapping stops being a function of how many
               nav items happen to be gated on for this identity today. */}
           <div className="ago-shell__header-row">
-            <span className="ago-shell__brand">
-              <span className="ago-shell__glyph" aria-hidden="true">
-                A
-              </span>
-              <span>
-                <span className="ago-shell__wordmark">AGO</span>
-                <span className="ago-shell__product">{tagline ?? strings.operatorConsoleTagline}</span>
+            <span className="ago-shell__brand-row">
+              {/* `11-14`: always in the DOM, hidden by `shell.css`'s own media query above the mobile
+                  breakpoint - the same "render once, hide by CSS" idiom `.ago-shell__header-row--nav`
+                  below already uses, rather than a second, JS-computed "is this mobile" branch. */}
+              {hasNav && (
+                <button
+                  type="button"
+                  className="ago-shell__menu-button"
+                  aria-label={strings.navOpenMenu}
+                  aria-expanded={drawerOpen}
+                  aria-controls={drawerId}
+                  onClick={() => setDrawerOpen(true)}
+                >
+                  <span className="ago-shell__menu-icon" aria-hidden="true" />
+                </button>
+              )}
+              <span className="ago-shell__brand">
+                <span className="ago-shell__glyph" aria-hidden="true">
+                  A
+                </span>
+                <span>
+                  <span className="ago-shell__wordmark">AGO</span>
+                  <span className="ago-shell__product">{tagline ?? strings.operatorConsoleTagline}</span>
+                </span>
               </span>
             </span>
 
             {identity && <div className="ago-shell__identity">{identity}</div>}
           </div>
 
-          {nav && nav.length > 0 && (
+          {hasNav && (
             <div className="ago-shell__header-row ago-shell__header-row--nav">
               <nav className="ago-shell__nav" aria-label={strings.navSectionsAriaLabel}>
-                {nav.map((item) => (
+                {items.map((item) => (
                   <NavLink
                     key={item.to}
                     to={item.to}
@@ -226,6 +258,42 @@ export function AppShell({
 
         <PublicDemoNotice audience={demoNoticeAudience} />
       </div>
+
+      {/* `11-14`: the drawer - a second renderer over the exact same `nav` array the bar above maps,
+          never a second list (`consoleNav.ts`'s own remarks on why a duplicated, independently-gated
+          list is the failure mode this item exists to avoid). `Dialog`'s `variant="drawer"` is the
+          native `<dialog>`/`showModal()` element (`adr/0030` point 3), which is what gives this
+          keyboard reachability, focus trapping and focus restoration to the hamburger for free - the
+          identical guarantee every other `Dialog` consumer in this codebase already relies on, not
+          something this component re-implements. */}
+      {hasNav && (
+        <Dialog
+          id={drawerId}
+          variant="drawer"
+          open={drawerOpen}
+          title={strings.navSectionsAriaLabel}
+          onClose={() => setDrawerOpen(false)}
+        >
+          <nav className="ago-shell__drawer-nav" aria-label={strings.navSectionsAriaLabel}>
+            {items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) =>
+                  isActive ? "ago-shell__drawer-link ago-shell__drawer-link--active" : "ago-shell__drawer-link"
+                }
+                // Choosing an item is the third dismissal route the item's own Done-when names
+                // (backdrop, Escape, choosing an item) - `Dialog`'s native `onClose` covers the first
+                // two, but a `NavLink` click never fires it, so this is wired directly.
+                onClick={() => setDrawerOpen(false)}
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        </Dialog>
+      )}
 
       <main
         className={[

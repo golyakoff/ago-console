@@ -8,6 +8,7 @@ export const en: ConsoleStrings = {
   consoleTaglineClient: "Client console",
   consoleTaglineOwner: "Platform owner console",
   navSectionsAriaLabel: "Console sections",
+  navOpenMenu: "Open navigation menu",
   navConversations: "Conversations",
   navAllConversations: "All conversations",
   navWidgetAppearance: "Widget appearance",

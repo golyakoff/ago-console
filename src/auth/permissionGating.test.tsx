@@ -11,7 +11,7 @@ import { InstallSnippetPage } from "../pages/InstallSnippetPage.js";
 import { OfflineAutoReplyPage } from "../pages/OfflineAutoReplyPage.js";
 import { CannedResponsesPage } from "../pages/CannedResponsesPage.js";
 import { FaqModulePage } from "../pages/FaqModulePage.js";
-import { all, byText, render, unmount } from "../testing/dom.js";
+import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
  * `11-08`: **an operator without a permission is not offered the control.**
@@ -141,6 +141,22 @@ function grants(permissions: string[]): void {
 
 function navLabels(container: HTMLElement): string[] {
   return all(container, ".ago-shell__nav a").map((link) => (link.textContent ?? "").trim());
+}
+
+/** `11-14`'s own drawer, scoped to its distinct `.ago-shell__drawer-nav` class so this never
+ * accidentally counts the bar's `.ago-shell__nav` links (or vice versa) - the two are always
+ * rendered from the same `nav` array (`AppShell.tsx`'s own remarks), never merged into one list,
+ * because only one of the two is ever visually reachable at a given viewport. */
+function drawerNavLabels(container: HTMLElement): string[] {
+  return all(container, ".ago-shell__drawer-nav a").map((link) => (link.textContent ?? "").trim());
+}
+
+function openDrawer(container: HTMLElement): Promise<void> {
+  return interact(() => one<HTMLButtonElement>(container, ".ago-shell__menu-button").click());
+}
+
+function drawerDialog(container: HTMLElement): HTMLDialogElement {
+  return one<HTMLDialogElement>(container, ".ago-dialog--drawer");
 }
 
 beforeEach(() => {
@@ -277,6 +293,105 @@ describe("the operator navigation", () => {
     const container = await render(shellAt("/"));
 
     expect(navLabels(container)).not.toContain("Platform sites");
+  });
+});
+
+/**
+ * `11-14`. The claim `ago-root#317` names explicitly: the drawer and the bar must never be able to
+ * disagree about what an operator may see, because they render from the same `buildTenantNavItems`
+ * array (`AppShell.tsx`'s own remarks) rather than each holding an independent list. An assertion
+ * that only checks the *granted* case would pass even if the drawer ignored permissions entirely (a
+ * hardcoded, always-everything list happens to match a fully-permitted operator too) - the
+ * under-permissioned case below is the one that actually distinguishes "reads the filtered array"
+ * from "reads something else that merely looks right for this one operator".
+ */
+describe("the mobile navigation drawer", () => {
+  it("starts closed, with the hamburger announcing that", async () => {
+    grants(["site:configure"]);
+
+    const container = await render(shellAt("/"));
+
+    const menuButton = one<HTMLButtonElement>(container, ".ago-shell__menu-button");
+    expect(menuButton.getAttribute("aria-expanded")).toBe("false");
+    expect(drawerDialog(container).open).toBe(false);
+  });
+
+  it("opens on the hamburger, and says so", async () => {
+    grants(["site:configure"]);
+
+    const container = await render(shellAt("/"));
+    await openDrawer(container);
+
+    expect(drawerDialog(container).open).toBe(true);
+    expect(one<HTMLButtonElement>(container, ".ago-shell__menu-button").getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("does not offer the site-wide sections to an operator the server gave no site:configure", async () => {
+    grants(["conversation:read"]);
+
+    const container = await render(shellAt("/"));
+    await openDrawer(container);
+
+    expect(drawerNavLabels(container)).toEqual(["Conversations"]);
+  });
+
+  it("offers exactly what the bar offers, to an operator the server says holds site:configure", async () => {
+    grants(["site:configure"]);
+
+    const container = await render(shellAt("/"));
+    await openDrawer(container);
+
+    expect(drawerNavLabels(container)).toEqual(navLabels(container));
+  });
+
+  it("closes when an item is chosen", async () => {
+    grants(["site:configure"]);
+
+    // `shellAt` registers only one route (`path`, here `"/"`), matching every other test in this
+    // file - clicking "Conversations" (the one item that stays on `"/"`) is what this harness can
+    // observe; a real cross-route click is `mobileNavDrawer.spec.ts`'s job, against the real router
+    // in a real browser (`AppShell`'s own doc comment on where the browser-only half of this claim
+    // lives).
+    const container = await render(shellAt("/"));
+    await openDrawer(container);
+    expect(drawerDialog(container).open).toBe(true);
+
+    await interact(() => byText<HTMLAnchorElement>(container, ".ago-shell__drawer-nav a", "Conversations")?.click());
+
+    expect(drawerDialog(container).open).toBe(false);
+  });
+
+  it("closes on a click outside the panel - the backdrop", async () => {
+    grants(["site:configure"]);
+
+    const container = await render(shellAt("/"));
+    await openDrawer(container);
+    const dialog = drawerDialog(container);
+    expect(dialog.open).toBe(true);
+
+    // `Dialog.tsx`'s own backdrop detection: a click whose target is the `<dialog>` element itself,
+    // never its `.ago-dialog__inner` content - the standard way to tell a backdrop click from a
+    // content click, since `::backdrop` is not an event target of its own.
+    await interact(() => dialog.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+
+    expect(dialog.open).toBe(false);
+  });
+
+  it("closes on Escape - the native cancel route `Dialog` wires onClose to", async () => {
+    grants(["site:configure"]);
+
+    const container = await render(shellAt("/"));
+    await openDrawer(container);
+    const dialog = drawerDialog(container);
+    expect(dialog.open).toBe(true);
+
+    // jsdom's `<dialog>` implements neither `showModal()` nor real Escape handling
+    // (`testing/dom.tsx`'s own comment) - a real browser fires this `cancel` event itself once
+    // `showModal()` has made the dialog modal; this dispatches the same event Escape would produce,
+    // which is what `Dialog`'s own `onCancel` handler is actually wired to.
+    await interact(() => dialog.dispatchEvent(new Event("cancel", { cancelable: true })));
+
+    expect(dialog.open).toBe(false);
   });
 });
 

@@ -25,6 +25,10 @@ export interface ConsoleStrings {
    * English regardless of any signed-in identity's tenant locale (11-11's settled design call). */
   consoleTaglineOwner: string;
   navSectionsAriaLabel: string;
+  /** `11-14`: the accessible name of `AppShell`'s hamburger control - visible only below the
+   * mobile breakpoint, and icon-only even there (`.ago-shell__menu-icon` carries no text), so this
+   * is the one thing a screen-reader user is told about it beyond its role. */
+  navOpenMenu: string;
   navConversations: string;
   navAllConversations: string;
   navWidgetAppearance: string;

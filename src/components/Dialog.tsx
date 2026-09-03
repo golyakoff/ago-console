@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 
 export interface DialogProps {
   open: boolean;
@@ -9,6 +9,20 @@ export interface DialogProps {
   onClose: () => void;
   /** The action row. Rendered right-aligned under the content. */
   footer?: ReactNode;
+  /**
+   * `11-14`: `"modal"` (the default) is every consumer this component had before - a centred card.
+   * `"drawer"` is the mobile navigation drawer (`AppShell`'s own hamburger control): the identical
+   * `<dialog>`/`showModal()` mechanism, repositioned to the left edge by `components.css`'s
+   * `.ago-dialog--drawer` rule rather than given a second component. `adr/0030` closes the
+   * hand-rolled set at eleven and asks that the list be reopened deliberately rather than grown
+   * quietly - a variant of the one component whose whole job is "the browser's own modal
+   * semantics, repositioned" is the reuse that ADR's own point 3 argues for, not a twelfth
+   * component in the set.
+   */
+  variant?: "modal" | "drawer";
+  /** Lets a trigger control point `aria-controls` at this dialog - optional because most existing
+   * callers (a confirmation in front of a destructive action) have no such control to link. */
+  id?: string;
   children: ReactNode;
 }
 
@@ -30,8 +44,14 @@ export interface DialogProps {
  * because the item's list is closed at eleven and names it, and because `11-06`/`13-04` are the
  * screens that will need it.
  */
-export function Dialog({ open, title, onClose, footer, children }: DialogProps) {
+export function Dialog({ open, title, onClose, footer, variant = "modal", id, children }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
+  // `11-14`: was a fixed `"ago-dialog-title"` before this item, which was already fragile - any two
+  // `Dialog`s mounted at once (a screen's own confirmation dialog alongside this component's second
+  // consumer) collide on the id. Harmless while only one `Dialog` was ever mounted on a given screen;
+  // wrong once the drawer is mounted on *every* screen via `AppShell`, alongside whatever confirmation
+  // dialog that screen's own content renders. `useId()` is the platform's own per-instance id.
+  const titleId = useId();
 
   useEffect(() => {
     const element = ref.current;
@@ -49,8 +69,9 @@ export function Dialog({ open, title, onClose, footer, children }: DialogProps) 
   return (
     <dialog
       ref={ref}
-      className="ago-dialog"
-      aria-labelledby="ago-dialog-title"
+      id={id}
+      className={variant === "drawer" ? "ago-dialog ago-dialog--drawer" : "ago-dialog"}
+      aria-labelledby={titleId}
       // Fires for Escape as well as for a programmatic `close()`, so this one handler covers every
       // native exit route without a keydown listener of its own.
       onCancel={(event) => {
@@ -68,7 +89,7 @@ export function Dialog({ open, title, onClose, footer, children }: DialogProps) 
       }}
     >
       <div className="ago-dialog__inner">
-        <h2 className="ago-dialog__title" id="ago-dialog-title">
+        <h2 className="ago-dialog__title" id={titleId}>
           {title}
         </h2>
         <div>{children}</div>
