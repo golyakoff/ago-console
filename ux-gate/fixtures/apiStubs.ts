@@ -5,6 +5,7 @@ import {
   OPEN_CONVERSATION_ID,
   seededAllConversations,
   seededAnalytics,
+  seededCalendarBookingReadiness,
   seededCalendarConfiguration,
   seededCalendarContacts,
   seededCalendarPendingBookings,
@@ -111,6 +112,11 @@ export async function installApiStubs(page: Page): Promise<void> {
 
     if (path === "/api/v1/console/configuration" && method === "GET") {
       return json(seededCalendarConfiguration());
+    }
+
+    // `23-23`: the readiness panel both calendar screens render alongside their own data above.
+    if (path === "/api/v1/console/booking-readiness" && method === "GET") {
+      return json(seededCalendarBookingReadiness());
     }
 
     if (path === "/api/v1/console/contacts" && method === "GET") {

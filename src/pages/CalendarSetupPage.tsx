@@ -57,19 +57,28 @@ export function CalendarSetupPage() {
         return;
       }
 
-      try {
-        const [loadedConfiguration, loadedReadiness] = await Promise.all([
-          getConfiguration(accessToken, signal),
-          getBookingReadiness(accessToken, signal),
-        ]);
-        setConfiguration(loadedConfiguration);
-        setReadiness(loadedReadiness);
-        setError(null);
-      } catch (reason) {
-        if (!(reason instanceof DOMException && reason.name === "AbortError")) {
-          setError(calendarErrorMessage(reason, strings));
-        }
-      }
+      const critical = getConfiguration(accessToken, signal)
+        .then((loadedConfiguration) => {
+          setConfiguration(loadedConfiguration);
+          setError(null);
+        })
+        .catch((reason: unknown) => {
+          if (!(reason instanceof DOMException && reason.name === "AbortError")) {
+            setError(calendarErrorMessage(reason, strings));
+          }
+        });
+
+      // `23-23`: readiness is supplementary, not critical - see `CalendarWorkersPage.reload`'s own
+      // remarks on why this is caught independently rather than joined into the `Promise.all` above.
+      const readinessLoad = getBookingReadiness(accessToken, signal)
+        .then(setReadiness)
+        .catch((reason: unknown) => {
+          if (!(reason instanceof DOMException && reason.name === "AbortError")) {
+            setReadiness(null);
+          }
+        });
+
+      await Promise.all([critical, readinessLoad]);
     },
     [user?.access_token, strings],
   );

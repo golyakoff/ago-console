@@ -68,22 +68,39 @@ export function CalendarWorkersPage() {
         return;
       }
 
-      try {
-        const [loadedWorkers, configuration, loadedReadiness] = await Promise.all([
-          listWorkers(accessToken, signal),
-          getConfiguration(accessToken, signal),
-          getBookingReadiness(accessToken, signal),
-        ]);
-        setWorkers(loadedWorkers);
-        setCalendars(configuration.calendars);
-        setServices(configuration.services);
-        setReadiness(loadedReadiness);
-        setError(null);
-      } catch (reason) {
-        if (!(reason instanceof DOMException && reason.name === "AbortError")) {
-          setError(calendarErrorMessage(reason, strings));
+      const critical = (async () => {
+        try {
+          const [loadedWorkers, configuration] = await Promise.all([
+            listWorkers(accessToken, signal),
+            getConfiguration(accessToken, signal),
+          ]);
+          setWorkers(loadedWorkers);
+          setCalendars(configuration.calendars);
+          setServices(configuration.services);
+          setError(null);
+        } catch (reason) {
+          if (!(reason instanceof DOMException && reason.name === "AbortError")) {
+            setError(calendarErrorMessage(reason, strings));
+          }
         }
-      }
+      })();
+
+      // `23-23`: readiness is supplementary, not critical - a tenant must always be able to see the
+      // workers they already have, even when the readiness call itself is slow or failing. Caught on
+      // its own so a rejection here can never surface through the `critical` branch's error state and
+      // can never block `workers`/`calendars`/`services` from rendering. On failure `readiness` stays
+      // (or becomes) `null`, which `BookingReadiness` already renders as nothing - the same
+      // swallow-rather-than-surface choice `CalendarElsewhereNotice` makes for the identical reason: a
+      // helper that turns into a second error message makes the screen worse than it was without it.
+      const readinessLoad = getBookingReadiness(accessToken, signal)
+        .then(setReadiness)
+        .catch((reason: unknown) => {
+          if (!(reason instanceof DOMException && reason.name === "AbortError")) {
+            setReadiness(null);
+          }
+        });
+
+      await Promise.all([critical, readinessLoad]);
     },
     [user?.access_token, strings],
   );
