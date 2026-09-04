@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { operatorDisplayName } from "../auth/operatorDisplayName.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
@@ -9,6 +10,8 @@ import { buildTenantNavItems } from "../shell/consoleNav.js";
 import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
+import { Field } from "../components/Field.js";
+import { Input } from "../components/Input.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { Table, type TableColumn } from "../components/Table.js";
 import { formatAbsolute, formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
@@ -16,6 +19,7 @@ import {
   describeRecentWindow,
   formatByteSize,
   formatCount,
+  formatMatchSummary,
   formatNoRecentActivity,
   formatRecentMessagesHeader,
 } from "./ownerSites.js";
@@ -68,6 +72,17 @@ export function OwnerSitesPage() {
   const [error, setError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  // `23-14`: `queryInput` is the text box's own uncommitted value; `activeQuery` is what was actually
+  // submitted and is what the effect below re-fetches on. Kept apart deliberately - re-fetching on
+  // every keystroke would spam the one deliberately cross-tenant read in the codebase, and the form's
+  // own `onSubmit` (matching `SearchConversationsPage`'s precedent) is what commits one to the other.
+  const [queryInput, setQueryInput] = useState("");
+  const [activeQuery, setActiveQuery] = useState<string | undefined>(undefined);
+  // `23-14`: reported by the server on every response, never derived from `sites.length` (only the
+  // current page) - see `ownerSites.ts`'s own remarks on `formatMatchSummary` for why.
+  const [matchingSites, setMatchingSites] = useState<number | null>(null);
+  const [totalSites, setTotalSites] = useState<number | null>(null);
+
   const timeZone = useMemo(() => resolveTimeZone(), []);
 
   useEffect(() => {
@@ -78,7 +93,12 @@ export function OwnerSitesPage() {
     }
 
     let cancelled = false;
-    fetchOwnerSites(accessToken)
+    // Reset to the loading state on every new search, not only on mount - a stale page from the
+    // previous query must not sit on screen while a new one loads (`sites: null` is what
+    // `Skeleton`/table branch below treats as "loading").
+    setSites(null);
+    setError(null);
+    fetchOwnerSites(accessToken, undefined, activeQuery)
       .then((outcome) => {
         if (cancelled) {
           return;
@@ -95,6 +115,8 @@ export function OwnerSitesPage() {
         setSites(outcome.page.sites);
         setRecentWindowDays(outcome.page.recentWindowDays);
         setNextBefore(outcome.page.nextBefore);
+        setMatchingSites(outcome.page.matchingSites);
+        setTotalSites(outcome.page.totalSites);
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -108,7 +130,23 @@ export function OwnerSitesPage() {
     return () => {
       cancelled = true;
     };
-  }, [accessToken]);
+  }, [accessToken, activeQuery]);
+
+  const handleSearchSubmit = useCallback(
+    (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      const trimmed = queryInput.trim();
+      // `undefined`, not `""`, once trimmed empty - `activeQuery === undefined` is this component's
+      // own "no search" state, matching `fetchOwnerSites`'s own "blank means no filter" contract.
+      setActiveQuery(trimmed.length > 0 ? trimmed : undefined);
+    },
+    [queryInput],
+  );
+
+  const handleClearSearch = useCallback(() => {
+    setQueryInput("");
+    setActiveQuery(undefined);
+  }, []);
 
   const loadMore = useCallback(() => {
     if (!accessToken || nextBefore === null) {
@@ -116,7 +154,9 @@ export function OwnerSitesPage() {
     }
 
     setLoadingMore(true);
-    fetchOwnerSites(accessToken, nextBefore)
+    // `activeQuery` rides along - a page two of a search must stay filtered by the same predicate,
+    // never silently widen back to the unfiltered list.
+    fetchOwnerSites(accessToken, nextBefore, activeQuery)
       .then((outcome) => {
         if (outcome.status === "not-authorized") {
           // The role can be revoked mid-session; the server re-checks every call, so page two is a
@@ -134,13 +174,15 @@ export function OwnerSitesPage() {
         setSites((current) => [...(current ?? []), ...outcome.page.sites]);
         setRecentWindowDays(outcome.page.recentWindowDays);
         setNextBefore(outcome.page.nextBefore);
+        setMatchingSites(outcome.page.matchingSites);
+        setTotalSites(outcome.page.totalSites);
         setError(null);
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "Failed to load more platform sites.");
       })
       .finally(() => setLoadingMore(false));
-  }, [accessToken, nextBefore]);
+  }, [accessToken, nextBefore, activeQuery]);
 
   const columns = useMemo(
     () => (recentWindowDays === null ? [] : buildColumns(recentWindowDays, timeZone)),
@@ -228,6 +270,31 @@ export function OwnerSitesPage() {
             }
           />
 
+          {/* `23-14`: the search field - a name/id substring, submitted on Enter/click rather than
+              per keystroke (the same form-submit shape `SearchConversationsPage` already uses), since
+              this is the one deliberately cross-tenant read in the codebase and a per-keystroke fetch
+              would spam it. Rendered above the table in every loading/empty/loaded state below, so the
+              owner can adjust a search while the previous result is still loading. */}
+          <form className="ago-row" onSubmit={handleSearchSubmit}>
+            <Field label="Find a site by name or id">
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  type="text"
+                  value={queryInput}
+                  onChange={(e) => setQueryInput(e.target.value)}
+                  placeholder="Part of a site's name, or part of its id"
+                />
+              )}
+            </Field>
+            <Button type="submit">Search</Button>
+            {activeQuery !== undefined && (
+              <Button type="button" onClick={handleClearSearch}>
+                Clear
+              </Button>
+            )}
+          </form>
+
           {/* No `Panel` wrapper any more - the identical fix `AdminConversationsPage` already got:
               `.ago-table-scroll` (which `Table` renders) already carries its own complete card
               (border, radius, background), the same treatment `.ago-panel` gives its own `<section>`.
@@ -239,9 +306,21 @@ export function OwnerSitesPage() {
           {sites === null ? (
             <Skeleton lines={4} label="Loading platform sites…" />
           ) : sites.length === 0 ? (
-            <p className="ago-empty">No sites yet.</p>
+            <p className="ago-empty">
+              {activeQuery === undefined
+                ? "No sites yet."
+                : // `23-14`'s own guard: still says how many of how many, even at zero matches -
+                  // never just "no results", which would read like the search itself failed rather
+                  // than like a real, complete answer.
+                  `No sites match "${activeQuery}". ${matchingSites !== null && totalSites !== null ? formatMatchSummary(matchingSites, totalSites) : ""}`}
+            </p>
           ) : (
             <>
+              {/* `23-14`: only while a search is active - an unfiltered "41 of 41 sites match" says
+                  nothing the row count below does not already say plainer. */}
+              {activeQuery !== undefined && matchingSites !== null && totalSites !== null && (
+                <p className="ago-meta">{formatMatchSummary(matchingSites, totalSites)}</p>
+              )}
               <Table
                 // Not "newest first": `12-02` pages by site id descending, which is a stable
                 // cursor order and not a chronological or a usage ranking. Saying so is the point
@@ -283,7 +362,12 @@ function buildColumns(recentWindowDays: number, timeZone: string | null): TableC
       key: "site",
       header: "Site",
       render: (site) => (
-        <span className="ago-row ago-row--tight">
+        // `23-14`: the row link `ui-inventory.md` §8.1 recorded as absent - a plain in-page
+        // navigation to the per-tenant detail read, not a new tab and not a button, the same
+        // "a row that leads somewhere is a link" convention every other linked row in this console
+        // uses. Wraps the whole cell (name-or-"Unnamed" plus the id badge) so either half is a
+        // click target, not only the name text.
+        <Link to={`/owner/sites/${site.siteId}`} className="ago-row ago-row--tight">
           {/* A site's name really can be the empty string - the seeded demo tenant's is, observed
               live against the local cluster, because it predates `10-02`'s registration flow (which
               does require one). A blank cell would read as a rendering bug; saying "Unnamed" states
@@ -296,7 +380,7 @@ function buildColumns(recentWindowDays: number, timeZone: string | null): TableC
           <Badge tone="neutral" mono>
             {site.siteId.slice(0, 8)}
           </Badge>
-        </span>
+        </Link>
       ),
     },
     {

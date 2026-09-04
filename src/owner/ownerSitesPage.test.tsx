@@ -5,7 +5,8 @@ import type { User } from "oidc-client-ts";
 import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { OwnerSitesPage } from "./OwnerSitesPage.js";
-import { all, render, unmount } from "../testing/dom.js";
+import type { OwnerSiteSummary } from "../api/ownerApi.js";
+import { all, byText, flush, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
  * `4-06`(console): found live - a platform owner who also holds an operator seat lost the whole
@@ -69,7 +70,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   ownerApi.fetchOwnerSites.mockResolvedValue({
     status: "ok",
-    page: { sites: [], nextBefore: null, recentWindowDays: 30 },
+    page: { sites: [], nextBefore: null, recentWindowDays: 30, matchingSites: 0, totalSites: 0 },
   });
 });
 
@@ -177,6 +178,8 @@ describe("the platform-sites page's own table", () => {
         ],
         nextBefore: null,
         recentWindowDays: 30,
+        matchingSites: 1,
+        totalSites: 1,
       },
     });
 
@@ -185,5 +188,111 @@ describe("the platform-sites page's own table", () => {
     expect(container.textContent).toContain("Platform sites");
     expect(container.textContent).toContain("Message volume and last activity cover");
     expect(container.querySelector(".ago-panel")).toBeNull();
+  });
+
+  /** `23-14`'s own Done-when: a row leads to the per-tenant detail read - the drill-down
+   * `ui-inventory.md` §8.1 recorded as absent. */
+  it("links each row to its own detail route", async () => {
+    tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [] });
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: [], siteId: null });
+    ownerApi.fetchOwnerSites.mockResolvedValue({
+      status: "ok",
+      page: { sites: [oneSite()], nextBefore: null, recentWindowDays: 30, matchingSites: 1, totalSites: 1 },
+    });
+
+    const container = await render(shellAt());
+
+    const link = one<HTMLAnchorElement>(container, `a[href="/owner/sites/${SITE_ID}"]`);
+    expect(link.textContent).toContain("Demo Shop One");
+  });
+});
+
+// React swallows a direct `.value` assignment as "no change" (it patches the native setter to track
+// what it last rendered); the prototype's own setter is what makes the synthetic `input` event real -
+// the same workaround `SearchConversationsPage.test.tsx`'s own `search` helper uses.
+const INPUT_VALUE_DESCRIPTOR = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+
+async function search(container: HTMLElement, query: string) {
+  const input = one<HTMLInputElement>(container, 'input[type="text"]');
+  await interact(() => {
+    INPUT_VALUE_DESCRIPTOR?.set?.call(input, query);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await interact(() => byText<HTMLButtonElement>(container, "button", "Search").click());
+}
+
+function oneSite(overrides: Partial<OwnerSiteSummary> = {}): OwnerSiteSummary {
+  return {
+    siteId: SITE_ID,
+    name: "Demo Shop One",
+    tier: "free",
+    createdAt: "2026-01-01T00:00:00Z",
+    seatCount: 2,
+    conversationCount: 5,
+    recentMessageCount: 10,
+    lastMessageAt: "2026-08-27T00:00:00Z",
+    attachmentBytes: 1024,
+    ...overrides,
+  };
+}
+
+describe("the platform-sites page's own search", () => {
+  beforeEach(() => {
+    tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [] });
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: [], siteId: null });
+  });
+
+  /** The guard the item's own author asked for by name: a search result must say how many of how
+   * many, never a bare row count that reads like the whole platform. */
+  it("submitting a search sends the query and shows the match summary the server reported", async () => {
+    ownerApi.fetchOwnerSites.mockResolvedValueOnce({
+      status: "ok",
+      page: { sites: [], nextBefore: null, recentWindowDays: 30, matchingSites: 0, totalSites: 41 },
+    });
+
+    const container = await render(shellAt());
+    await flush();
+
+    ownerApi.fetchOwnerSites.mockResolvedValueOnce({
+      status: "ok",
+      page: { sites: [oneSite()], nextBefore: null, recentWindowDays: 30, matchingSites: 3, totalSites: 41 },
+    });
+
+    await search(container, "Bakery");
+
+    expect(ownerApi.fetchOwnerSites).toHaveBeenLastCalledWith("token", undefined, "Bakery");
+    expect(container.textContent).toContain("3 of 41 sites match.");
+  });
+
+  /** A search matching nothing must still name the true total - never read like the platform has
+   * zero tenants. */
+  it("a search matching nothing still names the real total, not a bare empty state", async () => {
+    ownerApi.fetchOwnerSites.mockResolvedValueOnce({
+      status: "ok",
+      page: { sites: [oneSite()], nextBefore: null, recentWindowDays: 30, matchingSites: 1, totalSites: 41 },
+    });
+
+    const container = await render(shellAt());
+    await flush();
+
+    ownerApi.fetchOwnerSites.mockResolvedValueOnce({
+      status: "ok",
+      page: { sites: [], nextBefore: null, recentWindowDays: 30, matchingSites: 0, totalSites: 41 },
+    });
+
+    await search(container, "no-such-tenant");
+
+    expect(container.textContent).toContain("0 of 41 sites match.");
+  });
+
+  it("an unfiltered load shows no match-summary line - the row count already says it plainer", async () => {
+    ownerApi.fetchOwnerSites.mockResolvedValue({
+      status: "ok",
+      page: { sites: [oneSite()], nextBefore: null, recentWindowDays: 30, matchingSites: 41, totalSites: 41 },
+    });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).not.toContain("of 41 sites match");
   });
 });

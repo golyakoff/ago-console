@@ -3,6 +3,9 @@ import {
   describeRecentWindow,
   formatByteSize,
   formatCount,
+  formatMatchSummary,
+  formatModuleExpiry,
+  formatModuleStatus,
   formatNoRecentActivity,
   formatRecentMessagesHeader,
 } from "./ownerSites.js";
@@ -60,5 +63,49 @@ describe("the recent-activity window", () => {
   it("reports an empty last-activity as absence within the window, never as never", () => {
     expect(formatNoRecentActivity(30)).toBe("None in the last 30 days");
     expect(formatNoRecentActivity(30)).not.toMatch(/never/i);
+  });
+});
+
+describe("formatMatchSummary", () => {
+  // `23-14`'s own guard: the message names BOTH numbers, always - a caller that only had access to
+  // `sites.length` (the current page) could not have produced this string, which is the whole point.
+  it("names how many matched out of how many exist", () => {
+    expect(formatMatchSummary(3, 41)).toBe("3 of 41 sites match.");
+  });
+
+  it("says site, singular, when only one site exists on the deployment", () => {
+    expect(formatMatchSummary(1, 1)).toBe("1 of 1 site match.");
+  });
+
+  it("groups thousands in both numbers", () => {
+    expect(formatMatchSummary(1234, 5678)).toBe("1,234 of 5,678 sites match.");
+  });
+
+  it("renders zero matches plainly, not as an empty string", () => {
+    expect(formatMatchSummary(0, 41)).toBe("0 of 41 sites match.");
+  });
+});
+
+describe("formatModuleExpiry", () => {
+  // A grant with no expiry must render as an explicit statement, never as a blank cell that could be
+  // mistaken for missing data (this item's own Done-when).
+  it("renders a null expiry as an explicit 'No end date'", () => {
+    expect(formatModuleExpiry(null)).toBe("No end date");
+  });
+
+  it("returns null for a real date, leaving the caller to format it as a date", () => {
+    expect(formatModuleExpiry("2026-12-31T00:00:00Z")).toBeNull();
+  });
+});
+
+describe("formatModuleStatus", () => {
+  // Rendered straight from the server's own `isActive` - these tests exist to pin the two labels the
+  // rest of the screen depends on, not to re-derive expiry logic the console must never own.
+  it("labels an active module Active", () => {
+    expect(formatModuleStatus(true)).toBe("Active");
+  });
+
+  it("labels an inactive module Expired", () => {
+    expect(formatModuleStatus(false)).toBe("Expired");
   });
 });
