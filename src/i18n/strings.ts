@@ -1074,6 +1074,7 @@ export interface ConsoleStrings {
   calendarNoShowButton: string;
   calendarSetupEmbedDescription: string;
   calendarSetupEmbedSnippetAriaLabel: string;
+  calendarSetupEmbedSiteKeyHint: string;
   calendarSetupOriginsTitle: string;
   calendarSetupOriginsDescription: string;
   calendarSetupOriginsFieldLabel: string;

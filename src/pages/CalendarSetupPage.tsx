@@ -137,7 +137,11 @@ export function CalendarSetupPage() {
       {error !== null && <Alert tone="danger">{error}</Alert>}
 
       <Panel title={strings.calendarSetupOriginsTitle} description={strings.calendarSetupEmbedDescription}>
-        <pre aria-label={strings.calendarSetupEmbedSnippetAriaLabel}>{embedSnippet(configuration.publicKey)}</pre>
+        <pre aria-label={strings.calendarSetupEmbedSnippetAriaLabel}>{embedSnippet()}</pre>
+
+        <p className="ago-field__description">
+          {strings.calendarSetupEmbedSiteKeyHint} <Link to="/settings/install">{strings.navInstallWidget}</Link>
+        </p>
 
         <p className="ago-field__description">{strings.calendarSetupOriginsDescription}</p>
         <OriginsForm
@@ -192,12 +196,32 @@ export function CalendarSetupPage() {
   );
 }
 
-function embedSnippet(publicKey: string): string {
+/**
+ * `22-22`: every attribute here is one the widget actually reads, taken from
+ * `ago-widget/src/config.ts` rather than remembered. Its `parseConfig` accepts exactly `data-site`,
+ * `data-api`, `data-booking`, `data-demo-notice` and `data-public-demo` - nothing else.
+ *
+ * <b>Four things were wrong, and only one of them was visible.</b> The host was a literal ellipsis
+ * and the filename was `ago-chat.js`; `#342` renamed the bundle to `widget.js`, and
+ * {@link InstallSnippetPage} composes its own URL from `apiBaseUrl` for the reason its comment
+ * gives, so this composes it the same way rather than keeping a second spelling that can drift.
+ * `data-booking-api` was read by nothing at all. And `data-booking` was given this tenant`s calendar
+ * public key while the widget tests `dataset["booking"] === "true"` - so a real key evaluated to
+ * false and <b>the booking chip silently never rendered</b>: the widget loaded, chat worked, and
+ * booking simply was not there. That is the one a tenant could not have diagnosed.
+ *
+ * <b>The site key stays a placeholder deliberately.</b> It is the chat site`s key, and reading it
+ * needs `site:configure` (`GET /api/v1/sites/{siteId}/installation`) - a permission this screen does
+ * not require, since `calendar:configure` reaches here. Fetching it would either fail for a
+ * calendar-only operator or widen this screen`s own gate. The copy names where to get it instead.
+ * Whether a tenant should meet two embed snippets at all is an information-architecture question
+ * `22-22` records and does not answer.
+ */
+function embedSnippet(): string {
   return [
-    `<script src="https://…/ago-chat.js"`,
+    `<script src="${config.apiBaseUrl}/widget/widget.js"`,
     `        data-site="YOUR-CHAT-SITE-KEY"`,
-    `        data-booking="${publicKey}"`,
-    `        data-booking-api="${config.calendarApiBaseUrl ?? ""}"`,
+    `        data-booking="true"`,
     `        async></script>`,
   ].join("\n");
 }

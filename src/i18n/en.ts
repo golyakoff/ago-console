@@ -757,6 +757,7 @@ export const en: ConsoleStrings = {
   calendarNoShowButton: "No-show",
   calendarSetupEmbedDescription: "Paste this on your own site. One tag: the chat widget and the booking flow arrive together.",
   calendarSetupEmbedSnippetAriaLabel: "Embed snippet",
+  calendarSetupEmbedSiteKeyHint: "Replace YOUR-CHAT-SITE-KEY with your site key, which is on",
   calendarSetupOriginsTitle: "Approved page origins",
   calendarSetupOriginsDescription: "A page may only embed your booking surface if its origin is listed here. Scheme, host and port - no path.",
   calendarSetupOriginsFieldLabel: "One origin per line",

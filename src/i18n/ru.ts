@@ -762,6 +762,7 @@ export const ru: ConsoleStrings = {
   calendarNoShowButton: "Неявка",
   calendarSetupEmbedDescription: "Вставьте это на свой сайт. Один тег: чат-виджет и сценарий записи приходят вместе.",
   calendarSetupEmbedSnippetAriaLabel: "Код для вставки",
+  calendarSetupEmbedSiteKeyHint: "Замените YOUR-CHAT-SITE-KEY на ключ вашего сайта — он на странице",
   calendarSetupOriginsTitle: "Разрешённые источники страницы",
   calendarSetupOriginsDescription: "Страница может встроить вашу форму записи, только если её источник указан здесь. Схема, хост и порт - без пути.",
   calendarSetupOriginsFieldLabel: "По одному источнику на строку",

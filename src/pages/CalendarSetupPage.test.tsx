@@ -114,14 +114,40 @@ afterEach(async () => {
 });
 
 describe("the tenant setup screen", () => {
-  it("shows the embed snippet with the tenant's own public key and API origin in it", async () => {
+  // `22-22`: this test used to assert `data-booking="demo-barbershop"` and a `data-booking-api`
+  // attribute - it encoded the defect rather than catching it, which is why CI stayed green while the
+  // snippet could not work. It now asserts only what `ago-widget/src/config.ts` actually reads, and
+  // asserts the absence of what it does not.
+  it("shows an embed snippet the widget can actually read", async () => {
     const container = await render(page());
 
     const snippet = container.querySelector("pre[aria-label='Embed snippet']");
-    expect(snippet?.textContent).toContain('data-booking="demo-barbershop"');
-    expect(snippet?.textContent).toContain('data-booking-api="https://calendar-api.test.invalid"');
+
+    // The literal "true", not a key: the widget tests `dataset["booking"] === "true"`, so any real
+    // public key here evaluates to false and the booking chip silently never renders.
+    expect(snippet?.textContent).toContain('data-booking="true"');
+    expect(snippet?.textContent).not.toContain("demo-barbershop");
+
+    // `#342` renamed the bundle, and the URL is composed from apiBaseUrl the way InstallSnippetPage
+    // composes its own, so the two cannot drift apart again.
+    expect(snippet?.textContent).toContain("/widget/widget.js");
+    expect(snippet?.textContent).not.toContain("ago-chat.js");
+    expect(snippet?.textContent).not.toContain("…");
+
+    // Read by nothing in the widget's parseConfig.
+    expect(snippet?.textContent).not.toContain("data-booking-api");
+
     expect(snippet?.textContent).toContain("data-site=");
     expect(snippet?.textContent?.match(/<script/g)).toHaveLength(1);
+  });
+
+  it("tells the tenant where to get the site key it cannot fill in for them", async () => {
+    const container = await render(page());
+
+    // The chat site's key needs `site:configure`; this screen is reached with `calendar:configure`.
+    // So the placeholder stays and the copy has to lead somewhere.
+    const link = byText<HTMLAnchorElement>(container, "a", "Install widget");
+    expect(link?.getAttribute("href")).toBe("/settings/install");
   });
 
   it("creates a calendar with an IANA zone", async () => {
