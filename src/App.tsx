@@ -22,6 +22,7 @@ import { OfflineAutoReplyPage } from "./pages/OfflineAutoReplyPage.js";
 import { CannedResponsesPage } from "./pages/CannedResponsesPage.js";
 import { TagsPage } from "./pages/TagsPage.js";
 import { BillingPage } from "./pages/BillingPage.js";
+import { ProductsPage } from "./pages/ProductsPage.js";
 import { AccountDeletionPage } from "./pages/AccountDeletionPage.js";
 import { OwnerSitesPage } from "./owner/OwnerSitesPage.js";
 import { OwnerSiteDetailPage } from "./owner/OwnerSiteDetailPage.js";
@@ -202,6 +203,13 @@ export function App() {
         {/* `13-04`: a third settings screen, same pattern again - `BillingPage` gates itself on
             `site:configure` internally, exactly like the two routes above it. */}
         <Route path="/settings/billing" element={<BillingPage />} />
+        {/* `23-25`: a seventh settings screen, same "route stays outside the workspace layout, page
+            gates itself internally" shape as the ones around it - `ProductsPage` gates itself on
+            `site:configure` internally, exactly like `BillingPage` right above it. Not yet linked
+            from `consoleNav.ts` - `23-25`'s own Open Question leaves where this entry belongs to be
+            settled with `23-24`, which owns that file; the route exists and is reachable by direct
+            URL regardless of where the nav ends up pointing. */}
+        <Route path="/settings/products" element={<ProductsPage />} />
         {/* `16-02`: a third settings screen, on the same "route stays outside the workspace layout,
             page gates itself internally" shape - but on `site:erase`, not `site:configure`
             (`AccountDeletionPage`'s own doc comment). */}

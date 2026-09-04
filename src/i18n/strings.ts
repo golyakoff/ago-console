@@ -750,6 +750,47 @@ export interface ConsoleStrings {
   billingCancelConfirmButton: string;
   billingCancelError: string;
 
+  // `23-25`: ProductsPage (`/settings/products`) - every product AGO offers, and whether this
+  // workspace already has it, addressed to whoever holds `site:configure` - the same permission
+  // `BILLING_PERMISSION` above gates checkout/seat-change/cancel with, reused here rather than
+  // invented, on the reasoning `decisions.md` §10 states directly: the buyer is the tenant's owner,
+  // who already holds the permissions in question. No fetch of its own - reads `enabledModules` off
+  // the same `GET /api/v1/operators/me` response `usePermissions()` already resolves (`23-21`).
+  productsTitle: string;
+  productsDescription: string;
+  /** Mirrors `billingForbidden`'s own shape - a screen-specific sentence, plus the shared
+   * `siteConfigBackToQueue` link every other permission-gated screen already reuses. */
+  productsForbidden: string;
+
+  productsTableCaption: string;
+  productsColumnWhatItDoes: string;
+  productsColumnStatus: string;
+  productsColumnNextStep: string;
+
+  productsStatusHeld: string;
+  productsStatusNotHeld: string;
+  /** The one next step offered for a product this workspace does not have - `decisions.md` §6:
+   * enabling a product is not self-service, so the honest next step is a conversation, never a
+   * button that appears to provision and does not. No link - the same "contact us", no address
+   * given, precedent `installOriginPanelDescription` already sets. */
+  productsContactNote: string;
+
+  /** The base product - always held, since reaching this console at all means it already exists for
+   * this workspace (`vision.md`: "the conversation substrate is present in every combination"). */
+  productsChatDescription: string;
+  productsChatActionLabel: string;
+
+  /** `enabledModules.includes("calendar")` decides `held`; the copy never says "calendar" - the
+   * outcome it sells, not the module key (this item's own backlog: "`calendar` is a word from our
+   * database. *Taking bookings* is the thing being sold."). */
+  productsCalendarDescription: string;
+  productsCalendarActionLabel: string;
+
+  /** `enabledModules.includes("faq")` decides `held`; same "describe the outcome" reasoning as
+   * `productsCalendarDescription` above. */
+  productsFaqDescription: string;
+  productsFaqActionLabel: string;
+
   // `18-08`: OperatorAnalyticsPage (`/analytics`) - the site owner's own basic self-service report,
   // gated on `site:configure` the same way `SearchConversationsPage`/`AdminConversationsPage` already
   // are, so it reuses their "checking permissions"/"back to queue" shape rather than duplicating it.

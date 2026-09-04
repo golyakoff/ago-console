@@ -69,6 +69,17 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
     path: "/settings/widget",
     readySelector: "form.ago-stack",
   },
+  // `23-25`: `/settings/products` joins the curated set - a brand-new screen, and this file's own
+  // header already names "screens that later earn it" as exactly how this array grows. Chosen
+  // because it is the one screen in this release whose content is entirely conditional on
+  // `enabledModules` (`seededPermissions()`'s own `"calendar"`-held/`"faq"`-not-held mix, above in
+  // `data.ts`) rather than static form chrome - the shape most likely to hide a real defect (a
+  // untranslated fallback string, a badge/link mismatch) behind a screen that looks fine at a glance.
+  {
+    name: "products",
+    path: "/settings/products",
+    readySelector: ".ago-table-scroll",
+  },
   {
     name: "analytics",
     path: "/analytics",
