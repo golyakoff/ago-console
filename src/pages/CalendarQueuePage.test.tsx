@@ -30,6 +30,7 @@ vi.mock("../config.js", () => ({
 const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
+const calendarTenanciesApi = vi.hoisted(() => ({ fetchMyCalendarTenancies: vi.fn() }));
 const calendarApi = vi.hoisted(() => ({
   getPendingBookings: vi.fn(),
   rejectBooking: vi.fn(),
@@ -40,6 +41,7 @@ const calendarApi = vi.hoisted(() => ({
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
 vi.mock("../api/ownerApi.js", () => ownerApi);
 vi.mock("../api/tenanciesApi.js", () => tenanciesApi);
+vi.mock("../api/calendarTenanciesApi.js", () => calendarTenanciesApi);
 vi.mock("../api/calendarApi.js", async () => {
   const actual = await vi.importActual<typeof import("../api/calendarApi.js")>("../api/calendarApi.js");
   return { ...actual, ...calendarApi };
@@ -104,6 +106,9 @@ beforeEach(() => {
   calendarApi.rejectBooking.mockResolvedValue(undefined);
   calendarApi.cancelBooking.mockResolvedValue(undefined);
   calendarApi.markNoShow.mockResolvedValue(undefined);
+  // `22-14`: the forbidden branch asks the calendar backend where this person's calendars are.
+  // Empty by default, so every test that is about the queue itself renders exactly what it did before.
+  calendarTenanciesApi.fetchMyCalendarTenancies.mockResolvedValue([]);
 });
 
 afterEach(async () => {
@@ -179,6 +184,21 @@ describe("the pending-bookings queue", () => {
     const container = await render(page());
 
     expect(container.textContent).toContain("hidden");
+  });
+
+  it("tells a refused operator where their calendar actually is, instead of only that it is not here", async () => {
+    // `22-14`/`adr/0100`: the item's own defect, at the one screen that can answer it. Without the
+    // second expectation this page says the same thing to somebody who has never been granted a
+    // calendar anywhere and to somebody who has one in the shop next door.
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: [], siteId: SITE_ID });
+    calendarTenanciesApi.fetchMyCalendarTenancies.mockResolvedValue([
+      { tenantId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", tenantName: "The other shop" },
+    ]);
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("do not have permission");
+    expect(container.textContent).toContain("The other shop");
   });
 
   it("shows the empty state when there is nothing to confirm", async () => {

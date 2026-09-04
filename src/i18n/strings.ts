@@ -1229,6 +1229,10 @@ export interface ConsoleStrings {
   // per-screen-forbidden-sentence convention - `faqForbidden`/`autoReplyForbidden` - rather than one
   // shared sentence, since each names the resource it refused). ---
   calendarQueueForbidden: string;
+  /** `22-14`: shown under `calendarQueueForbidden`, immediately above a list of the shops that do
+   * have a calendar for this person. Never shown alone - it is a lead-in to that list, which is why
+   * it ends in a colon. */
+  calendarElsewhereNotice: string;
   calendarSetupForbidden: string;
   calendarWorkersForbidden: string;
   calendarWorkerSlotsForbidden: string;

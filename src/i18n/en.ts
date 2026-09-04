@@ -919,6 +919,7 @@ export const en: ConsoleStrings = {
   calendarNotRecordedLabel: "not recorded",
 
   calendarQueueForbidden: "You do not have permission to view the calendar's booking queue.",
+  calendarElsewhereNotice: "You do have a calendar in another shop. Switch shops with the picker at the top of the page:",
   calendarSetupForbidden: "You do not have permission to configure the calendar.",
   calendarWorkersForbidden: "You do not have permission to manage the calendar's workers.",
   calendarWorkerSlotsForbidden: "You do not have permission to view a worker's slots.",

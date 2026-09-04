@@ -7,6 +7,7 @@ import {
   rejectBooking,
   setAllowedOrigins,
 } from "./calendarApi.js";
+import { setActiveSiteId } from "./activeSite.js";
 
 /**
  * `22-06`: moved from `ago-calendar-console`'s own `src/api/calendarApi.test.ts`, unchanged in what
@@ -14,10 +15,13 @@ import {
  * convention, this console's established shape for a `fetch`-level api test) and the mocked
  * `config.js` (`calendarApiBaseUrl` now, not `apiBaseUrl`) differ.
  *
- * <b>The first test is the one that matters.</b> Every other assertion here is about plumbing; that
- * one is about isolation. The tenant must never appear in a request this console builds - it comes
- * off the operator's own token, resolved server-side against `ago-calendar`'s own `operators` table -
- * and a console that could name a tenant would be a console that could name somebody else's.
+ * <b>The first two tests are the ones that matter.</b> Every other assertion here is about plumbing;
+ * those are about isolation. The tenant never appears in a URL or a body this console builds, and
+ * since `22-14`/`adr/0100` it is named exactly once - in the `X-Ago-Active-Site` header - which the
+ * server treats as a choice among tenancies it has already proved this operator holds
+ * (`RoleAssignmentProjectionStore.ResolveTenantAsync`), never as a fact. Both halves are asserted,
+ * because "no tenant anywhere" was the old invariant and reading only the first test would suggest it
+ * still is.
  */
 vi.mock("../config.js", () => ({
   config: {
@@ -44,6 +48,9 @@ function problemResponse(status: number, body: unknown): Response {
 }
 
 beforeEach(() => {
+  // `22-14`: `activeSite.ts` is a module-level singleton, so a test that sets it would otherwise
+  // leak into every test after it in this file.
+  setActiveSiteId(null);
   fetchMock.mockReset();
   // A fresh `Response` per call, not one shared instance - `.json()` consumes the body stream, and
   // several of these tests make more than one call in a row.
@@ -67,6 +74,36 @@ describe("the calendar API client", () => {
       const body = typeof init.body === "string" ? init.body : "";
       expect(body.toLowerCase()).not.toContain("tenant");
     }
+  });
+
+  it("names the active tenant in the header, and only there, once one is known", async () => {
+    // `22-14`/`adr/0100`. The value goes in one place - not a path, not a body, not a query string -
+    // and it is the same singleton every `ago-chat` call already reads, because a calendar `TenantId`
+    // *is* a chat `SiteId` (`RoleAssignmentsChangedConsumer`).
+    setActiveSiteId("22222222-2222-2222-2222-222222222222");
+
+    await getConfiguration("operator-token");
+    await rejectBooking("operator-token", "11111111-1111-1111-1111-111111111111");
+
+    for (const [url, init] of fetchMock.mock.calls as [URL, RequestInit][]) {
+      expect((init.headers as Record<string, string>)["X-Ago-Active-Site"]).toBe(
+        "22222222-2222-2222-2222-222222222222",
+      );
+      expect(url.toString()).not.toContain("2222");
+      expect(typeof init.body === "string" ? init.body : "").not.toContain("2222");
+    }
+  });
+
+  it("sends no active-site header at all while no tenancy has been resolved", async () => {
+    // The unchanged shape for every request built before `PermissionsProvider` has resolved a
+    // tenancy - and the reason a one-tenancy operator is unaffected by `22-14`: with no header, the
+    // server takes exactly the single-tenancy branch it always took.
+    setActiveSiteId(null);
+
+    await getConfiguration("operator-token");
+
+    const [, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
+    expect(init.headers as Record<string, string>).not.toHaveProperty("X-Ago-Active-Site");
   });
 
   it("sends the token it was handed, on every call", async () => {
