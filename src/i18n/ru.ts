@@ -597,6 +597,11 @@ export const ru: ConsoleStrings = {
   analyticsByCampaignEmpty: "В этом периоде нет диалогов с меткой кампании.",
   analyticsTrafficSourceNote: "То, что сообщил браузер посетителя, - не факт, независимо проверенный AGO Chat.",
 
+  analyticsPreviousPeriodLabel: "Предыдущий период:",
+  analyticsComparisonNoChange: "без изменений",
+  analyticsComparisonPointsSuffix: "п.п.",
+  analyticsFractionOfLabel: "из",
+
   outcomeSectionTitle: "Результат",
   outcomeLoadingLabel: "Загрузка результата…",
   outcomeLoadError: "Не удалось загрузить результат этого диалога.",

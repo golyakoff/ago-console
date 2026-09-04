@@ -83,6 +83,9 @@ function response(overrides: {
   from?: string;
   to?: string;
   overall?: Bucket;
+  previousFrom?: string;
+  previousTo?: string;
+  previousOverall?: Bucket;
   byChannel?: { channel: string; bucket: Bucket }[];
   byOperator?: { operatorId: string; bucket: Bucket }[];
   byReferrer?: { referrerHost: string; bucket: Bucket }[];
@@ -92,6 +95,11 @@ function response(overrides: {
     from: "2026-05-29T00:00:00+00:00",
     to: "2026-08-29T00:00:00+00:00",
     overall: { conversationCount: 6, averageFirstResponseSeconds: 65, averageDurationSeconds: 150, missedCount: 1 },
+    // `23-16`: the immediately preceding window - a plain, always-present default so every
+    // pre-existing test in this file keeps rendering correctly without naming it.
+    previousFrom: "2026-02-28T00:00:00+00:00",
+    previousTo: "2026-05-29T00:00:00+00:00",
+    previousOverall: { conversationCount: 4, averageFirstResponseSeconds: 80, averageDurationSeconds: 180, missedCount: 2 },
     byChannel: [
       {
         channel: "Widget",
@@ -196,6 +204,18 @@ describe("loading the report", () => {
     expect(container.textContent).toContain("3m 20s");
     expect(container.textContent).toContain("40s");
     expect(container.textContent).toContain("5m");
+  });
+
+  // `23-16`: dynamics, relative and absolute together, against the preceding window of equal length -
+  // this report carries no rate, so only the two counts (conversation volume, missed) get a comparison.
+  it("shows the change against the preceding period in both absolute and relative terms", async () => {
+    conversationsApi.fetchOperatorAnalytics.mockResolvedValue(response());
+
+    const container = await render(page());
+
+    // Previous overall: 4 conversations, 2 missed. Current: 6 conversations, 1 missed.
+    expect(container.textContent).toContain("Previous period: 4 (+2, +50.0%)");
+    expect(container.textContent).toContain("Previous period: 2 (-1, -50.0%)");
   });
 
   it("renders an em dash, never 0s, for a bucket whose average is null because nothing was ever answered", async () => {

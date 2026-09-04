@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchBookingFlowReport } from "../api/conversationsApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
+import { formatCountComparison } from "../analytics/comparison.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Alert } from "../components/Alert.js";
 import { Button } from "../components/Button.js";
@@ -69,6 +70,8 @@ export function BookingFlowConversionPage() {
 
   const [flowsStarted, setFlowsStarted] = useState<number | null>(null);
   const [flowsClosed, setFlowsClosed] = useState<number | null>(null);
+  const [previousFlowsStarted, setPreviousFlowsStarted] = useState<number | null>(null);
+  const [previousFlowsClosed, setPreviousFlowsClosed] = useState<number | null>(null);
   const [effectiveFrom, setEffectiveFrom] = useState<string | null>(null);
   const [effectiveTo, setEffectiveTo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -90,6 +93,8 @@ export function BookingFlowConversionPage() {
         const response = await fetchBookingFlowReport(accessToken, range);
         setFlowsStarted(response.flowsStarted);
         setFlowsClosed(response.flowsClosed);
+        setPreviousFlowsStarted(response.previousFlowsStarted);
+        setPreviousFlowsClosed(response.previousFlowsClosed);
         setEffectiveFrom(response.from);
         setEffectiveTo(response.to);
       } catch (err) {
@@ -203,6 +208,16 @@ export function BookingFlowConversionPage() {
               <dd>{flowsClosed}</dd>
             </div>
           </dl>
+
+          {/* `23-16`: dynamics, relative and absolute together, against the preceding window of equal
+              length. */}
+          {previousFlowsStarted !== null && previousFlowsClosed !== null && (
+            <p className="ago-meta">
+              {strings.bookingFlowStartedLabel}: {formatCountComparison(flowsStarted, previousFlowsStarted, strings)}
+              {" · "}
+              {strings.bookingFlowClosedLabel}: {formatCountComparison(flowsClosed, previousFlowsClosed, strings)}
+            </p>
+          )}
 
           <Alert tone="info">{strings.bookingFlowCaveat}</Alert>
         </>

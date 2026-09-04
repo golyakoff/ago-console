@@ -593,6 +593,11 @@ export const en: ConsoleStrings = {
   analyticsByCampaignEmpty: "No conversations in this range carry a campaign tag.",
   analyticsTrafficSourceNote: "What the visitor's browser reported - not a fact AGO Chat has independently verified.",
 
+  analyticsPreviousPeriodLabel: "Previous period:",
+  analyticsComparisonNoChange: "no change",
+  analyticsComparisonPointsSuffix: "pp",
+  analyticsFractionOfLabel: "of",
+
   outcomeSectionTitle: "Outcome",
   outcomeLoadingLabel: "Loading outcome…",
   outcomeLoadError: "Could not load this conversation's outcome.",

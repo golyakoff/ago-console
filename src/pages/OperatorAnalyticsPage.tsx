@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchOperatorAnalytics } from "../api/conversationsApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
+import { formatCountComparison } from "../analytics/comparison.js";
 import type {
   OperatorAnalyticsBucketDto,
   OperatorAnalyticsCampaignBucketDto,
@@ -154,6 +155,7 @@ export function OperatorAnalyticsPage() {
   const [toInput, setToInput] = useState("");
 
   const [overall, setOverall] = useState<OperatorAnalyticsBucketDto | null>(null);
+  const [previousOverall, setPreviousOverall] = useState<OperatorAnalyticsBucketDto | null>(null);
   const [byChannel, setByChannel] = useState<OperatorAnalyticsChannelBucketDto[]>([]);
   const [byOperator, setByOperator] = useState<OperatorAnalyticsOperatorBucketDto[]>([]);
   const [byReferrer, setByReferrer] = useState<OperatorAnalyticsReferrerBucketDto[]>([]);
@@ -178,6 +180,7 @@ export function OperatorAnalyticsPage() {
       try {
         const response = await fetchOperatorAnalytics(accessToken, range);
         setOverall(response.overall);
+        setPreviousOverall(response.previousOverall);
         setByChannel(response.byChannel);
         setByOperator(response.byOperator);
         setByReferrer(response.byReferrer);
@@ -450,6 +453,17 @@ export function OperatorAnalyticsPage() {
       ) : overall ? (
         <>
           <Table caption={strings.analyticsPageDescription} columns={columns} rows={rows} rowKey={(row) => row.key} />
+
+          {/* `23-16`: dynamics, relative and absolute together, against the preceding window of equal
+              length - the overall bucket only, not a comparison per channel/operator/referrer/campaign
+              (`OperatorAnalyticsResponse.previousOverall`'s own remarks). */}
+          {previousOverall && (
+            <p className="ago-meta">
+              {strings.analyticsConversationCountColumn}: {formatCountComparison(overall.conversationCount, previousOverall.conversationCount, strings)}
+              {" · "}
+              {strings.analyticsMissedCountColumn}: {formatCountComparison(overall.missedCount, previousOverall.missedCount, strings)}
+            </p>
+          )}
 
           <h2>{strings.analyticsByOperatorHeading}</h2>
           {operatorRows.length === 0 ? (

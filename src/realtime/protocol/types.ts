@@ -223,6 +223,13 @@ export interface OperatorAnalyticsResponse {
   from: string;
   to: string;
   overall: OperatorAnalyticsBucketDto;
+  /** `23-16`: the immediately preceding window of equal length - see
+   * `Ago.Chat.Application.Abstractions.PrecedingPeriod` (`ago-chat`). Only the overall bucket gets a
+   * comparison, never a previous-period breakdown per channel/operator/referrer/campaign - a
+   * deliberate scope cut stated on the server's own DTO. */
+  previousFrom: string;
+  previousTo: string;
+  previousOverall: OperatorAnalyticsBucketDto;
   byChannel: OperatorAnalyticsChannelBucketDto[];
   byOperator: OperatorAnalyticsOperatorBucketDto[];
   byReferrer: OperatorAnalyticsReferrerBucketDto[];
@@ -277,6 +284,11 @@ export interface ConversionReportResponse {
   from: string;
   to: string;
   overall: ConversionBucketDto;
+  /** `23-16`: the immediately preceding window of equal length's own overall bucket - see
+   * `Ago.Chat.Application.Abstractions.PrecedingPeriod` (`ago-chat`). */
+  previousFrom: string;
+  previousTo: string;
+  previousOverall: ConversionBucketDto;
   byOperator: ConversionOperatorBucketDto[];
 }
 
@@ -318,6 +330,13 @@ export interface TagBreakdownReportResponse {
   totalConversationCount: number;
   taggedConversationCount: number;
   percentageTagged: number | null;
+  /** `23-16`: the immediately preceding window of equal length's own coverage figures - see
+   * `Ago.Chat.Application.Abstractions.PrecedingPeriod` (`ago-chat`). */
+  previousFrom: string;
+  previousTo: string;
+  previousTotalConversationCount: number;
+  previousTaggedConversationCount: number;
+  previousPercentageTagged: number | null;
   byTag: TagBreakdownBucketDto[];
 }
 
@@ -337,4 +356,10 @@ export interface BookingFlowReportResponse {
   to: string;
   flowsStarted: number;
   flowsClosed: number;
+  /** `23-16`: the immediately preceding window of equal length's own pair - see
+   * `Ago.Chat.Application.Abstractions.PrecedingPeriod` (`ago-chat`). */
+  previousFrom: string;
+  previousTo: string;
+  previousFlowsStarted: number;
+  previousFlowsClosed: number;
 }

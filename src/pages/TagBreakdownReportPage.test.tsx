@@ -72,6 +72,11 @@ function response(overrides: {
   totalConversationCount?: number;
   taggedConversationCount?: number;
   percentageTagged?: number | null;
+  previousFrom?: string;
+  previousTo?: string;
+  previousTotalConversationCount?: number;
+  previousTaggedConversationCount?: number;
+  previousPercentageTagged?: number | null;
   byTag?: Bucket[];
 } = {}) {
   return {
@@ -80,6 +85,13 @@ function response(overrides: {
     totalConversationCount: 10,
     taggedConversationCount: 6,
     percentageTagged: 0.6,
+    // `23-16`: the immediately preceding window - a plain, always-present default so every
+    // pre-existing test in this file keeps rendering correctly without naming it.
+    previousFrom: "2026-02-28T00:00:00+00:00",
+    previousTo: "2026-05-29T00:00:00+00:00",
+    previousTotalConversationCount: 8,
+    previousTaggedConversationCount: 4,
+    previousPercentageTagged: 0.5,
     byTag: [
       {
         tagId: "11111111-2222-3333-4444-555555555555",
@@ -162,7 +174,18 @@ describe("the honesty framing", () => {
 
   it("shows a coverage-unknown message, never a misleading percentage, when there are no conversations to compute one from", async () => {
     conversationsApi.fetchTagBreakdownReport.mockResolvedValue(
-      response({ totalConversationCount: 5, taggedConversationCount: 0, percentageTagged: null, byTag: [] }),
+      response({
+        totalConversationCount: 5,
+        taggedConversationCount: 0,
+        percentageTagged: null,
+        // `23-16`: the previous period is deliberately also nothing-tagged here - this test is about
+        // the *current* window's own null percentage never reading as a misleading number, not about a
+        // previous period's real percentage (which could legitimately contain the digits "0%", e.g.
+        // "50.0%", without that being the bug this test exists to catch).
+        previousTaggedConversationCount: 0,
+        previousPercentageTagged: null,
+        byTag: [],
+      }),
     );
 
     const container = await render(page());
@@ -191,6 +214,28 @@ describe("loading the report", () => {
 
     expect(container.textContent).toContain("66.7%"); // Billing's own rate, 2/3
     expect(container.textContent).toContain("0.0%"); // Shipping's own rate, 0/1
+  });
+
+  // `23-16`: a rate is never printed without the figures it came from - the fraction rides inline with
+  // the percentage, not in a separate column.
+  it("pairs each tag's own rate with its own numerator and denominator, inline", async () => {
+    conversationsApi.fetchTagBreakdownReport.mockResolvedValue(response());
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("66.7% (2 of 3)"); // Billing
+    expect(container.textContent).toContain("0.0% (0 of 1)"); // Shipping
+  });
+
+  // `23-16`: dynamics, relative and absolute together, against the preceding window of equal length.
+  it("shows the change in coverage against the preceding period in both absolute and relative terms", async () => {
+    conversationsApi.fetchTagBreakdownReport.mockResolvedValue(response());
+
+    const container = await render(page());
+
+    // Previous: 4 tagged of 8 total (50.0%). Current: 6 tagged of 10 total (60.0%).
+    expect(container.textContent).toContain("Previous period: 4 (+2, +50.0%)");
+    expect(container.textContent).toContain("Previous period: 50.0% (+10.0 pp)");
   });
 
   it("renders an em dash, never 0%, when a tag's own rate is null because nothing has been recorded", async () => {

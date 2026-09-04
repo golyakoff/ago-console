@@ -834,6 +834,24 @@ export interface ConsoleStrings {
    * AGO Chat has independently verified - shown once, above both new tables. */
   analyticsTrafficSourceNote: string;
 
+  // `23-16`: shared across all four report pages (`src/analytics/comparison.ts`'s own doc comment on
+  // why these are shared rather than restated) - the preceding-period comparison line's own words, and
+  // the fraction connective a rate's own numerator/denominator pairing uses inline
+  // (`conversionReportRateColumn`/`tagBreakdownRateColumn`'s own cells, `50.0% (1 of 2)`).
+  /** "Previous period" - the label this comparison line always leads with, before the previous
+   * figure/rate and its own delta. */
+  analyticsPreviousPeriodLabel: string;
+  /** Shown instead of a delta when the previous period's own absolute figure was genuinely zero and
+   * the current one is too - "0 -> 0, +0%" reads as a real change; this does not. */
+  analyticsComparisonNoChange: string;
+  /** The unit word after a rate-to-rate delta expressed in percentage points, e.g. "+5.0 pp" -
+   * deliberately not itself a "%" sign, since the delta is not a percentage of the previous rate (that
+   * would be a much larger, misleading number for a small base rate). */
+  analyticsComparisonPointsSuffix: string;
+  /** The connective inside an inline fraction - "50.0% (1 of 2)" - the pairing this item's own Done-when
+   * requires on `/analytics/conversion`'s both tables and `/analytics/tags`. */
+  analyticsFractionOfLabel: string;
+
   // `18-10`: ConversationOutcomePanel - what an operator says one conversation led to. Three real,
   // settable values plus the unset default's own display label.
   outcomeSectionTitle: string;
