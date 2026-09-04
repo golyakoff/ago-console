@@ -81,7 +81,14 @@ function buildColumns(
       header: strings.adminColumnOperator,
       render: (c) =>
         c.operatorId ? (
-          <span className="ago-mono">{c.operatorId.slice(0, 8)}</span>
+          // `23-02`: the operator's own name, when the row has one - `null`/absent for a row that
+          // predates the column, which falls back to the truncated id exactly as this cell already
+          // rendered every row before this item.
+          c.operatorName ? (
+            <span>{c.operatorName}</span>
+          ) : (
+            <span className="ago-mono">{c.operatorId.slice(0, 8)}</span>
+          )
         ) : (
           <span className="ago-meta">{strings.adminUnassigned}</span>
         ),

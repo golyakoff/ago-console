@@ -49,6 +49,10 @@ export interface ConversationAssignedDto {
  * comment - `null`/absent for `Waiting` rows and for any server that predates this field. The queue
  * view's own two lists never needed it; the admin's site-wide list (`AdminConversationsPage`) is the
  * first caller that does.
+ *
+ * `23-02`: `operatorName` is that operator's own display name, additive the same way - `null`/absent
+ * for the queue view (which never joins it in) and for a row that predates the column. Render with the
+ * id as the fallback, never the other way round.
  */
 export interface ConversationSummaryDto {
   conversationId: string;
@@ -57,6 +61,7 @@ export interface ConversationSummaryDto {
   createdAt: string;
   operatorUnreadCount: number;
   operatorId?: string | null;
+  operatorName?: string | null;
 }
 
 /** `5-07`: `Ago.Chat.Contracts.OperatorQueueResponse` - `GET /api/v1/conversations/queue`'s body. */
@@ -176,13 +181,16 @@ export interface OperatorAnalyticsChannelBucketDto {
  * `operatorId` is the operator this window's numbers attribute to: whoever replied first, or (only for
  * a conversation nobody ever replied to) whoever was holding it when it closed unanswered - never
  * whoever a conversation was later transferred to (`IOperatorAnalyticsReadStore`'s own remarks,
- * `ago-chat`). The console has no operator display name to render (`Ago.Chat.Domain.Operator` carries
- * none), so this is the raw id - `OperatorAnalyticsPage` renders it the same truncated-mono way
- * `AdminConversationsPage`'s own assigned-operator column already does.
+ * `ago-chat`).
+ *
+ * `23-02`: `operatorName` is that operator's own display name - `null`/absent for a row that predates
+ * the column. `OperatorAnalyticsPage` renders it with the truncated id as the fallback, the same
+ * mono-truncated style it already used for the id alone.
  */
 export interface OperatorAnalyticsOperatorBucketDto {
   operatorId: string;
   bucket: OperatorAnalyticsBucketDto;
+  operatorName?: string | null;
 }
 
 /**
@@ -268,11 +276,14 @@ export interface ConversionBucketDto {
 /** `18-10`: `Ago.Chat.Contracts.ConversionOperatorBucketDto` - one operator's bucket. `operatorId` is
  * the conversation's own `operator_id` column (currently/last-assigned) - a simpler attribution than
  * `OperatorAnalyticsOperatorBucketDto`'s first-reply rule, since an outcome is not a "who replied
- * first" fact (`IConversionReportReadStore`'s own remarks, `ago-chat`). No display name, the same
- * raw-id shape `OperatorAnalyticsOperatorBucketDto` already uses. */
+ * first" fact (`IConversionReportReadStore`'s own remarks, `ago-chat`).
+ *
+ * `23-02`: `operatorName` is that operator's own display name - the same "null for a row that predates
+ * it, id as the fallback" shape `OperatorAnalyticsOperatorBucketDto.operatorName` already establishes. */
 export interface ConversionOperatorBucketDto {
   operatorId: string;
   bucket: ConversionBucketDto;
+  operatorName?: string | null;
 }
 
 /**
