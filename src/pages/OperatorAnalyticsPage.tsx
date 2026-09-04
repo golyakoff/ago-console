@@ -64,16 +64,17 @@ interface AnalyticsRow {
   bucket: OperatorAnalyticsBucketDto;
 }
 
-/** `18-09`: the raw operator id, truncated - the same "no display name exists, so the id itself" shape
- * `AdminConversationsPage`'s own assigned-operator column already established, reused verbatim rather
- * than inventing a different truncation convention for the identical kind of value. */
-function operatorLabel(operatorId: string): ReactNode {
-  return <span className="ago-mono">{operatorId.slice(0, 8)}</span>;
+/** `23-02`: the operator's own name, when the row has one - the same "no name, so the id itself"
+ * fallback `AdminConversationsPage`'s own assigned-operator column already established for a row that
+ * predates the column, or an operator `MintDemoTenantHandler` minted with no claims to copy. */
+function operatorLabel(operatorId: string, operatorName: string | null | undefined): ReactNode {
+  return operatorName ? <span>{operatorName}</span> : <span className="ago-mono">{operatorId.slice(0, 8)}</span>;
 }
 
 interface OperatorRow {
   key: string;
   operatorId: string;
+  operatorName: string | null | undefined;
   bucket: OperatorAnalyticsBucketDto;
 }
 
@@ -284,11 +285,16 @@ export function OperatorAnalyticsPage() {
   const operatorRows: OperatorRow[] = byOperator.map((entry) => ({
     key: entry.operatorId,
     operatorId: entry.operatorId,
+    operatorName: entry.operatorName,
     bucket: entry.bucket,
   }));
 
   const operatorColumns: TableColumn<OperatorRow>[] = [
-    { key: "operator", header: strings.analyticsOperatorColumn, render: (row) => operatorLabel(row.operatorId) },
+    {
+      key: "operator",
+      header: strings.analyticsOperatorColumn,
+      render: (row) => operatorLabel(row.operatorId, row.operatorName),
+    },
     {
       key: "conversationCount",
       header: strings.analyticsConversationCountColumn,

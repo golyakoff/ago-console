@@ -33,13 +33,14 @@ function endOfDayIso(dateInput: string): string {
 interface OperatorRow {
   key: string;
   operatorId: string;
+  operatorName: string | null | undefined;
   bucket: ConversionBucketDto;
 }
 
-/** `18-09`'s own "no display name exists, so the id itself" shape, reused verbatim - see
- * `OperatorAnalyticsPage`'s identical helper. */
-function operatorLabel(operatorId: string): ReactNode {
-  return <span className="ago-mono">{operatorId.slice(0, 8)}</span>;
+/** `23-02`: reused verbatim - see `OperatorAnalyticsPage`'s identical helper for the "name, with the
+ * truncated id as the fallback" reasoning. */
+function operatorLabel(operatorId: string, operatorName: string | null | undefined): ReactNode {
+  return operatorName ? <span>{operatorName}</span> : <span className="ago-mono">{operatorId.slice(0, 8)}</span>;
 }
 
 /** `23-16`: a rate is never printed without the fraction it came from - "50.0% (1 of 2)", never a bare
@@ -214,11 +215,16 @@ export function ConversionReportPage() {
   const operatorRows: OperatorRow[] = byOperator.map((entry) => ({
     key: entry.operatorId,
     operatorId: entry.operatorId,
+    operatorName: entry.operatorName,
     bucket: entry.bucket,
   }));
 
   const operatorColumns: TableColumn<OperatorRow>[] = [
-    { key: "operator", header: strings.conversionReportOperatorColumn, render: (row) => operatorLabel(row.operatorId) },
+    {
+      key: "operator",
+      header: strings.conversionReportOperatorColumn,
+      render: (row) => operatorLabel(row.operatorId, row.operatorName),
+    },
     {
       key: "converted",
       header: strings.conversionReportConvertedColumn,
