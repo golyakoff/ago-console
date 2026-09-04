@@ -559,6 +559,31 @@ export const ru: ConsoleStrings = {
   billingCancelConfirmButton: "Отменить подписку",
   billingCancelError: "Не удалось отменить подписку.",
 
+  productsTitle: "Что предлагает AGO",
+  productsDescription: "Все продукты платформы и то, что из них уже подключено этому рабочему пространству.",
+  productsForbidden: "У вас нет прав на просмотр продуктов этого сайта.",
+
+  productsTableCaption: "Продукты AGO и то, есть ли они у этого рабочего пространства",
+  productsColumnWhatItDoes: "Что это даёт",
+  productsColumnStatus: "В вашем пространстве",
+  productsColumnNextStep: "Следующий шаг",
+
+  productsStatusHeld: "Уже есть",
+  productsStatusNotHeld: "Пока нет",
+  productsContactNote: "Чтобы подключить, свяжитесь с AGO.",
+
+  productsChatDescription: "Переписка с вашими клиентами - с сайта и из любого подключённого канала.",
+  productsChatActionLabel: "Открыть переписки",
+
+  productsCalendarDescription:
+    "Позвольте клиентам записываться к вашим сотрудникам и ведите расписание прямо здесь.",
+  productsCalendarActionLabel: "Открыть очередь записей",
+
+  productsFaqDescription:
+    "Отвечайте на частые вопросы автоматически - по базе знаний, которую вы сами наполняете, - " +
+    "операторы включаются только там, где действительно нужен человек.",
+  productsFaqActionLabel: "Открыть автоматические ответы",
+
   navAnalytics: "Аналитика",
   analyticsPageDescription:
     "Как работает ваш сайт: количество диалогов, среднее время до первого ответа и диалоги, " +

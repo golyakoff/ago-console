@@ -104,6 +104,11 @@ export function seededPermissions(overrides: SeededPermissionsOverrides = {}) {
     // inconsistent fixture to seed). A screen exercising the muted-calendar-entry state overrides
     // this explicitly to `["calendar"]` alongside a `permissions` list that omits
     // `calendar:configure` - see `screens.ts`'s own `admin-limited-permissions` entry.
+    //
+    // `23-25`: that same default is deliberately *mixed* from `ProductsPage`'s point of view -
+    // `"calendar"` held, `"faq"` not - so the products screen exercises both the held and the
+    // not-held row in one run rather than rendering a near-empty page. The two items agree on the
+    // value; only `23-24` needed it to be overridable, so that form is kept.
     enabledModules: overrides.enabledModules ?? ["calendar"],
     // `11-16`: `"Ru"` - this is the one field that actually switches the console's own string table
     // (`src/i18n/resolve.ts#parseConsoleLocale`, read by `OperatorShell.tsx`), so every screen this

@@ -555,6 +555,31 @@ export const en: ConsoleStrings = {
   billingCancelConfirmButton: "Cancel subscription",
   billingCancelError: "Failed to cancel the subscription.",
 
+  productsTitle: "What AGO offers",
+  productsDescription: "Every product on this platform, and which of them this workspace already has.",
+  productsForbidden: "You do not have permission to view this site's products.",
+
+  productsTableCaption: "Products AGO offers, and whether this workspace has them",
+  productsColumnWhatItDoes: "What it does",
+  productsColumnStatus: "In your workspace",
+  productsColumnNextStep: "Next step",
+
+  productsStatusHeld: "You have this",
+  productsStatusNotHeld: "Not yet",
+  productsContactNote: "Contact AGO to add this to your workspace.",
+
+  productsChatDescription: "Conversations with your customers, from your website and every channel you connect.",
+  productsChatActionLabel: "Open your conversations",
+
+  productsCalendarDescription:
+    "Let customers book an appointment with one of your staff, and manage the schedule from here.",
+  productsCalendarActionLabel: "Open your booking queue",
+
+  productsFaqDescription:
+    "Answer common questions automatically, from a knowledge base you write - so operators only handle " +
+    "what actually needs a person.",
+  productsFaqActionLabel: "Open your automatic answers",
+
   navAnalytics: "Analytics",
   analyticsPageDescription:
     "How your site is doing: conversation volume, average time to first reply, and conversations " +
