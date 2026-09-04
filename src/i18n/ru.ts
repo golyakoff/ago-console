@@ -83,6 +83,7 @@ export const ru: ConsoleStrings = {
   threadAuthorVisitor: "Посетитель",
   threadAuthorOperator: "Оператор",
   threadAuthorSystem: "Система",
+  threadPromoteToContactButton: "Добавить в контактные данные",
 
   composerUploadingLabel: "Загрузка",
   composerAttachedBadge: "Вложено",

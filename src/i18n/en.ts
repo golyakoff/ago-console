@@ -82,6 +82,7 @@ export const en: ConsoleStrings = {
   threadAuthorVisitor: "Visitor",
   threadAuthorOperator: "Operator",
   threadAuthorSystem: "System",
+  threadPromoteToContactButton: "Add to contact details",
 
   composerUploadingLabel: "Uploading",
   composerAttachedBadge: "Attached",

@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ContactDetailsPanel } from "./ContactDetailsPanel.js";
+import { ContactDetailsPanel, type PromotedContactDraft } from "./ContactDetailsPanel.js";
 import { ApiProblemError } from "../api/problemDetails.js";
 import { PermissionsContext, type PermissionsState } from "../auth/PermissionsContext.js";
 import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
@@ -43,10 +43,10 @@ function setTextValue(element: HTMLInputElement, value: string): void {
   element.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-async function mount(permissions: string[]) {
+async function mount(permissions: string[], contactDraft?: PromotedContactDraft | null) {
   return render(
     <Permitted permissions={permissions}>
-      <ContactDetailsPanel conversationId={CONVERSATION_ID} accessToken="token" />
+      <ContactDetailsPanel conversationId={CONVERSATION_ID} accessToken="token" contactDraft={contactDraft} />
     </Permitted>,
   );
 }
@@ -176,5 +176,91 @@ describe("deleting a contact detail", () => {
 
     expect(one(container, '[role="alert"]').textContent).toContain("server wording");
     expect(container.textContent).toContain("+1 555 0100");
+  });
+});
+
+function setSelectValue(element: HTMLSelectElement, value: string): void {
+  Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(element, value);
+  element.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+/**
+ * `23-10`: `Thread`'s "Add to contact details" act, arriving here as `contactDraft` - `Thread.test.tsx`
+ * covers the selection itself; this file covers what this panel does once a promoted value reaches it.
+ * The one fact these tests exist to pin down is the backlog item's own: **the operator confirms,
+ * nothing is written by the act of selecting** - so every test that only mounts or updates
+ * `contactDraft` asserts `recordContactDetail` was never called, and the one test that does expect a
+ * write is the one that also clicks **Record**.
+ */
+describe("a promoted selection (23-10)", () => {
+  it("pre-fills the kind as Phone and the value verbatim, and focuses the value field", async () => {
+    const container = await mount(["conversation:read", "conversation:send"]);
+    const select = one<HTMLSelectElement>(container, "select");
+
+    // Proves the effect actually *sets* the kind rather than merely leaving the default alone -
+    // without this the test would pass even if `contactDraft` were never read at all, since "Phone"
+    // is also `CONTACT_DETAIL_KINDS[0]`.
+    await interact(() => setSelectValue(select, "Other"));
+    expect(select.value).toBe("Other");
+
+    await mount(["conversation:read", "conversation:send"], { value: "+7 000 000-00-01", token: 1 });
+
+    const input = one<HTMLInputElement>(container, "input");
+    expect(select.value).toBe("Phone");
+    expect(input.value).toBe("+7 000 000-00-01");
+    expect(document.activeElement).toBe(input);
+    expect(contactDetailsApi.recordContactDetail).not.toHaveBeenCalled();
+  });
+
+  it("re-applies on a second promotion even if the operator had cleared the field in between", async () => {
+    const container = await mount(["conversation:read", "conversation:send"], {
+      value: "+7 000 000-00-01",
+      token: 1,
+    });
+    const input = one<HTMLInputElement>(container, "input");
+    expect(input.value).toBe("+7 000 000-00-01");
+
+    await interact(() => setTextValue(input, ""));
+    expect(input.value).toBe("");
+
+    // Same text, a new token - `PromotedContactDraft`'s own doc comment explains why the token, not
+    // the text, is what the effect keys on.
+    await mount(["conversation:read", "conversation:send"], { value: "+7 000 000-00-01", token: 2 });
+
+    expect(input.value).toBe("+7 000 000-00-01");
+  });
+
+  it("confirming records exactly one row, with the promoted kind and value", async () => {
+    contactDetailsApi.recordContactDetail.mockResolvedValue({
+      id: "id-3",
+      kind: "Phone",
+      value: "+7 000 000-00-01",
+      recordedByOperatorId: "op-1",
+      recordedAt: "2026-09-04T12:00:00Z",
+    });
+
+    const container = await mount(["conversation:read", "conversation:send"], {
+      value: "+7 000 000-00-01",
+      token: 1,
+    });
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Record").click());
+
+    expect(contactDetailsApi.recordContactDetail).toHaveBeenCalledTimes(1);
+    expect(contactDetailsApi.recordContactDetail).toHaveBeenCalledWith(
+      "token",
+      CONVERSATION_ID,
+      "Phone",
+      "+7 000 000-00-01",
+    );
+    expect(container.textContent).toContain("+7 000 000-00-01");
+  });
+
+  it("does not pre-fill anything, and does not record, for an operator without conversation:send", async () => {
+    const container = await mount(["conversation:read"], { value: "+7 000 000-00-01", token: 1 });
+
+    expect(all(container, "input")).toHaveLength(0);
+    expect(all(container, "form")).toHaveLength(0);
+    expect(contactDetailsApi.recordContactDetail).not.toHaveBeenCalled();
   });
 });

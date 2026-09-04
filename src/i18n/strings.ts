@@ -160,6 +160,9 @@ export interface ConsoleStrings {
   threadAuthorVisitor: string;
   threadAuthorOperator: string;
   threadAuthorSystem: string;
+  /** `23-10`: the button that appears beside a message once the operator has selected text inside
+   * it - clicking it pre-fills `ContactDetailsPanel`'s own draft with exactly what was selected. */
+  threadPromoteToContactButton: string;
 
   // Composer.
   /** `${composerUploadingLabel} ${fileName} — ${percent}%`. */
