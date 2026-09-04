@@ -20,7 +20,10 @@ import type { UxGateScreen } from "./screens.js";
  */
 export async function openScreen(page: Page, screen: UxGateScreen): Promise<void> {
   await signInAsSeededOperator(page);
-  await installApiStubs(page);
+  // `23-24`: `screen.permissionsOverride` is `undefined` for every screen but the one that sets it
+  // (`screens.ts`'s own `admin-limited-permissions`) - `installApiStubs`'s own default parameter
+  // falls back to the fully-permissioned seeded operator unchanged.
+  await installApiStubs(page, screen.permissionsOverride);
   await installFontStubs(page);
   if (screen.needsHubMock) {
     await installOperatorHubMock(page);

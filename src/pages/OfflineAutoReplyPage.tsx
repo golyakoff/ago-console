@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import {
@@ -14,6 +13,7 @@ import {
   type DraftRule,
 } from "./offlineAutoReplyValidation.js";
 import { PageHead } from "../shell/AppShell.js";
+import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
 import { Field } from "../components/Field.js";
 import { Input } from "../components/Input.js";
@@ -87,14 +87,9 @@ export function OfflineAutoReplyPage() {
   }
 
   if (!hasPermission("site:configure")) {
+    // `23-24`: shared `AccessRefusal`, replacing this screen's own copy of the block.
     return (
-      <>
-        <PageHead title={strings.navOfflineAutoReply} />
-        <Alert tone="danger">{strings.autoReplyForbidden}</Alert>
-        <p>
-          <Link to="/">{strings.siteConfigBackToQueue}</Link>
-        </p>
-      </>
+      <AccessRefusal title={strings.navOfflineAutoReply} message={strings.autoReplyForbidden} strings={strings} />
     );
   }
 

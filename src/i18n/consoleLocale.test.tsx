@@ -84,7 +84,12 @@ describe("the console shell for an active site with Locale = Ru", () => {
 
     expect(container.querySelector(".ago-skip-link")?.textContent).toBe("Перейти к содержимому");
     expect(container.querySelector(".ago-shell__product")?.textContent).toBe("Консоль оператора");
-    const navLabels = all(container, ".ago-shell__nav a").map((a) => a.textContent?.trim());
+    // `23-24`: `.ago-shell__nav-link-label`, not the whole link - a muted entry (here, "Удалить
+    // аккаунт": this operator holds `site:configure` but not `site:erase`) also carries the lock
+    // glyph's own hidden label right beside it.
+    const navLabels = all(container, ".ago-shell__nav a").map(
+      (a) => a.querySelector(".ago-shell__nav-link-label")?.textContent?.trim(),
+    );
     expect(navLabels).toEqual([
       "Диалоги",
       "Все диалоги",
@@ -100,7 +105,12 @@ describe("the console shell for an active site with Locale = Ru", () => {
       "Готовые ответы",
       "Метки",
       "Оплата",
+      "Удалить аккаунт",
     ]);
+    // `23-24`'s own Done-when: the lock glyph's hidden label, present and translated here too.
+    expect(container.querySelector(".ago-shell__nav-lock .ago-visually-hidden")?.textContent).toBe(
+      "Заблокировано - у вас пока нет этого разрешения",
+    );
     expect(container.querySelector(".ago-shell__identity button")?.textContent).toBe("Выйти");
   });
 
@@ -131,7 +141,9 @@ describe("the console shell for an active site with no Locale set", () => {
 
     expect(container.querySelector(".ago-skip-link")?.textContent).toBe("Skip to content");
     expect(container.querySelector(".ago-shell__product")?.textContent).toBe("Operator console");
-    const navLabels = all(container, ".ago-shell__nav a").map((a) => a.textContent?.trim());
+    const navLabels = all(container, ".ago-shell__nav a").map(
+      (a) => a.querySelector(".ago-shell__nav-link-label")?.textContent?.trim(),
+    );
     expect(navLabels).toEqual([
       "Conversations",
       "All conversations",
@@ -147,6 +159,7 @@ describe("the console shell for an active site with no Locale set", () => {
       "Canned responses",
       "Tags",
       "Billing",
+      "Delete account",
     ]);
     expect(container.querySelector(".ago-shell__identity button")?.textContent).toBe("Sign out");
     expect(container.querySelector(".ago-demo-notice__text")?.textContent).toContain("This is a public demo console");

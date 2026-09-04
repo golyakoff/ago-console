@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import {
@@ -16,6 +15,7 @@ import { usePollUntilCheckoutSettled } from "../billing/usePollUntilCheckoutSett
 import { isValidSeatCount, MAX_SEATS, MIN_SEATS } from "./billingValidation.js";
 import { formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
 import { PageHead } from "../shell/AppShell.js";
+import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
 import { Field } from "../components/Field.js";
 import { Input } from "../components/Input.js";
@@ -137,15 +137,8 @@ export function BillingPage() {
   }
 
   if (!hasPermission(BILLING_PERMISSION)) {
-    return (
-      <>
-        <PageHead title={strings.billingTitle} />
-        <Alert tone="danger">{strings.billingForbidden}</Alert>
-        <p>
-          <Link to="/">{strings.siteConfigBackToQueue}</Link>
-        </p>
-      </>
-    );
+    // `23-24`: shared `AccessRefusal`, replacing this screen's own copy of the block.
+    return <AccessRefusal title={strings.billingTitle} message={strings.billingForbidden} strings={strings} />;
   }
 
   const validateSeatCount = (): boolean => {

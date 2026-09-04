@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchAllConversationsForSite, eraseConversation, checkConversationErasure } from "../api/conversationsApi.js";
@@ -7,6 +6,7 @@ import { fetchTags, type TagDto } from "../api/tagsApi.js";
 import type { ConversationSummaryDto } from "../realtime/protocol/types.js";
 import { formatAbsolute, parseInstant, resolveTimeZone } from "../time/format.js";
 import { PageHead } from "../shell/AppShell.js";
+import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
 import { Select } from "../components/Select.js";
@@ -250,18 +250,10 @@ export function AdminConversationsPage() {
   }
 
   if (!hasPermission("site:configure")) {
-    return (
-      <>
-        <PageHead title={strings.navAllConversations} />
-        {/* `Alert tone="danger"` renders `role="alert"` - the same assertive live region the bare
-            `<p role="alert">` here had before `11-05`, which this item's accessibility floor
-            requires be preserved rather than lost in the restyle. */}
-        <Alert tone="danger">{strings.adminForbidden}</Alert>
-        <p>
-          <Link to="/">{strings.siteConfigBackToQueue}</Link>
-        </p>
-      </>
-    );
+    // `23-24`: was its own `PageHead` + `Alert tone="danger"` + "Back to queue" block - now the
+    // shared `AccessRefusal` every `site:configure`/`site:erase` screen uses
+    // (`src/shell/accessRefusal.tsx`'s own doc comment has the "why `tone=info` now" reasoning).
+    return <AccessRefusal title={strings.navAllConversations} message={strings.adminForbidden} strings={strings} />;
   }
 
   return (

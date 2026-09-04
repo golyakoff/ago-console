@@ -70,11 +70,22 @@ export function seededTenancies() {
   return { tenancies: [{ siteId: SITE_ID, siteName: SITE_NAME }] };
 }
 
-export function seededPermissions() {
+/** `23-24`: what a screen may override on top of the base seeded operator - just enough to draw a
+ * muted nav entry / an `AccessRefusal` page in a run that otherwise stays the fully-permissioned
+ * default every other screen in this gate relies on. Narrower than a whole replacement `permissions`
+ * object passed ad hoc: the two fields this item's own muted treatment actually reads
+ * (`hasPermission`/`enabledModules` in `consoleNav.ts`), nothing else a screen could accidentally
+ * drift out of sync with the rest of `seededPermissions()`'s shape. */
+export interface SeededPermissionsOverrides {
+  permissions?: string[];
+  enabledModules?: string[];
+}
+
+export function seededPermissions(overrides: SeededPermissionsOverrides = {}) {
   return {
     operatorId: OPERATOR_ID,
     siteId: SITE_ID,
-    permissions: [
+    permissions: overrides.permissions ?? [
       "conversation:close",
       "conversation:erase",
       "attachment:delete",
@@ -86,6 +97,14 @@ export function seededPermissions() {
       // the settings screens.
       "calendar:configure",
     ],
+    // `23-24`: the tenant side of the calendar's own three-way gate (`consoleNav.ts`'s own
+    // `buildTenantNavItems`) - defaults to holding the module, matching the base operator above
+    // already holding `calendar:configure` (`enabledModules` is never even read on that branch, but
+    // an operator who can configure a calendar their own tenant does not have would be an
+    // inconsistent fixture to seed). A screen exercising the muted-calendar-entry state overrides
+    // this explicitly to `["calendar"]` alongside a `permissions` list that omits
+    // `calendar:configure` - see `screens.ts`'s own `admin-limited-permissions` entry.
+    enabledModules: overrides.enabledModules ?? ["calendar"],
     // `11-16`: `"Ru"` - this is the one field that actually switches the console's own string table
     // (`src/i18n/resolve.ts#parseConsoleLocale`, read by `OperatorShell.tsx`), so every screen this
     // gate opens (other than `/owner`, which reads the fixed `en` table on purpose) renders in

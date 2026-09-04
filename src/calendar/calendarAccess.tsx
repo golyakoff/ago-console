@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Alert } from "../components/Alert.js";
+import { AccessRefusal } from "../shell/accessRefusal.js";
 import { CalendarElsewhereNotice } from "./CalendarElsewhereNotice.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
 
@@ -18,6 +19,13 @@ import type { ConsoleStrings } from "../i18n/strings.js";
  * `danger` and `success`, `gaps.md` pile 3 item 2) would have been tempting for the "non-alarming"
  * requirement below - not taken, because that decision belongs to the author, not to this item.
  *
+ * `23-24`: the "forbidden" branch below now renders through `src/shell/accessRefusal.tsx`'s shared
+ * `AccessRefusal` rather than its own copy of the same `PageHead`+`Alert`+`Link` shape -
+ * `docs/backlog/23-24-*.md`'s own words are "generalising... rather than inventing a second version
+ * of" this component. Only the "absent" branch stays local: it is the one state none of the other
+ * thirteen gates `23-24` touches has at all (`site:configure`/`site:erase` are never "the tenant does
+ * not have this capability"), so there is nothing to share it with.
+ *
  * <b>Two states, never merged, matching `GetMyPermissionsHandler`'s own response shape.</b> Before
  * this item every one of these seven screens asked exactly one question - `hasPermission
  * ("calendar:configure")` - and gave exactly one answer to two different people: an operator whose
@@ -30,8 +38,9 @@ import type { ConsoleStrings } from "../i18n/strings.js";
  * - <b>`"forbidden"`</b> - the tenant's own `EnabledModule` row for `"calendar"` exists, this operator
  *   just does not hold `calendar:configure`. Deliberately non-alarming (`tone="info"`, never
  *   `"danger"`): this is an ordinary, expected state for a new hire or a colleague in a different
- *   role, not a fault. Names who can fix it (`calendarForbiddenGrantHint` - an owner or admin at this
- *   workspace), because a refusal with no next step is barely better than silence
+ *   role, not a fault. Names who can fix it (`accessRefusalGrantHint`, via `AccessRefusal` - an
+ *   owner or admin at this workspace), because a refusal with no next step is barely better than
+ *   silence
  *   (`docs/backlog/23-21-*.md`'s own framing). `/calendar` alone also adds
  *   {@link CalendarElsewhereNotice} beneath it, unchanged from `22-14` - see that component's own
  *   doc comment for why it is mounted nowhere else.
@@ -65,16 +74,9 @@ export function CalendarAccessRefusal({
 
   if (tenantHasCalendar) {
     return (
-      <>
-        <PageHead title={title} />
-        <Alert tone="info">
-          {forbiddenMessage} {strings.calendarForbiddenGrantHint}
-        </Alert>
+      <AccessRefusal title={title} message={forbiddenMessage} strings={strings}>
         {showElsewhereNotice && <CalendarElsewhereNotice />}
-        <p>
-          <Link to="/">{strings.siteConfigBackToQueue}</Link>
-        </p>
-      </>
+      </AccessRefusal>
     );
   }
 

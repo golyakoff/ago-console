@@ -30,7 +30,8 @@ import { TenancySwitcher } from "./TenancySwitcher.js";
  */
 export function OperatorShell() {
   const { user, logout } = useAuth();
-  const { siteId, locale, hasPermission, enabledModules, tenancies, activeSiteId, switchTenancy } = usePermissions();
+  const { siteId, locale, hasPermission, permissions, enabledModules, tenancies, activeSiteId, switchTenancy } =
+    usePermissions();
   const ownerEligibility = useOwnerEligibility();
   // `11-11`: the one place a specific tenant's locale is ever known - resolved from the active
   // site's own `Locale` (`usePermissions()`'s `locale`, the same "not yet known" `null` state
@@ -81,7 +82,11 @@ export function OperatorShell() {
     billingSettingsMatch !== null;
   const tagline = isTenantManagementTab ? strings.consoleTaglineClient : undefined;
 
-  const nav: AppShellNavItem[] = buildTenantNavItems(hasPermission, strings, enabledModules ?? []);
+  // `23-24`: unlike `OwnerSitesPage`/`OwnerSiteDetailPage`, this call happens unconditionally on
+  // every render of this shell, before the first `GET /api/v1/operators/me` may have returned - so
+  // `permissions !== null` is passed explicitly (`buildTenantNavItems`'s own `permissionsKnown` doc
+  // comment has the "why" - `hasPermission` alone cannot tell "denied" from "not yet known" apart).
+  const nav: AppShellNavItem[] = buildTenantNavItems(hasPermission, strings, enabledModules ?? [], permissions !== null);
 
   // `12-03`: the platform owner's own route, for the one identity on the deployment that holds it.
   // Note what this is *not* gated on - `usePermissions()` carries site-scoped permissions and knows

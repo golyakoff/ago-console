@@ -75,6 +75,55 @@ export interface AppShellNavItem {
   label: string;
   /** `NavLink`'s own `end` - `/` would otherwise match every route below it. */
   end?: boolean;
+  /**
+   * `23-24`, decision §10: this entry names a capability a colleague at this tenant could plausibly
+   * grant, and the signed-in operator does not (yet) hold it. The entry stays a real, keyboard-
+   * reachable link to exactly the same route - `disabled` is deliberately never used here (this
+   * component's own doc comment on `NavLockGlyph` has the reasoning) - it is only drawn fainter
+   * (`.ago-shell__nav-link--muted`/`.ago-shell__drawer-link--muted`, `shell.css`) and carries
+   * {@link NavLockGlyph} beside its label. The destination page is where the explanation lives
+   * (`src/shell/accessRefusal.tsx`), because this console has no tooltip. `consoleNav.ts` is the only
+   * place that sets this - `AppShell` makes no authorization decision of its own, matching every
+   * other field on this type.
+   */
+  muted?: boolean;
+}
+
+/**
+ * `23-24`/`adr/0030` amendment: the one glyph this closed, icon-free component set now admits - a
+ * small inline-SVG padlock, for exactly one meaning ("this entry is muted because you lack a
+ * grantable permission"), never a general icon. `aria-hidden="true"` on the mark itself: the shape
+ * carries no information a screen reader can use, the translated {@link ConsoleStrings.navLockedLabel}
+ * text right beside it (`.ago-visually-hidden`, `base.css`) is what actually says so, read as part of
+ * the same link's accessible name (`11-13` makes an untranslated label a gate failure, not a nit).
+ *
+ * `currentColor`, not a token: it is meant to read as the same colour as the muted label text next to
+ * it, and inherits whatever `.ago-shell__nav-link--muted`/`.ago-shell__drawer-link--muted` set that
+ * to - one contrast pair to keep AA-compliant (`tokens.css`'s `--ago-ink-faint`, already measured),
+ * not two.
+ */
+function NavLockGlyph({ label }: { label: string }) {
+  return (
+    <span className="ago-shell__nav-lock">
+      <svg
+        className="ago-shell__nav-lock-icon"
+        viewBox="0 0 16 16"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2"
+        />
+        <rect x="3.25" y="7" width="9.5" height="6.5" rx="1.4" fill="currentColor" />
+      </svg>
+      <span className="ago-visually-hidden">{label}</span>
+    </span>
+  );
 }
 
 export interface AppShellProps {
@@ -245,10 +294,17 @@ export function AppShell({
                     to={item.to}
                     end={item.end}
                     className={({ isActive }) =>
-                      isActive ? "ago-shell__nav-link ago-shell__nav-link--active" : "ago-shell__nav-link"
+                      [
+                        "ago-shell__nav-link",
+                        isActive && "ago-shell__nav-link--active",
+                        item.muted && "ago-shell__nav-link--muted",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")
                     }
                   >
-                    {item.label}
+                    <span className="ago-shell__nav-link-label">{item.label}</span>
+                    {item.muted && <NavLockGlyph label={strings.navLockedLabel} />}
                   </NavLink>
                 ))}
               </nav>
@@ -281,14 +337,21 @@ export function AppShell({
                 to={item.to}
                 end={item.end}
                 className={({ isActive }) =>
-                  isActive ? "ago-shell__drawer-link ago-shell__drawer-link--active" : "ago-shell__drawer-link"
+                  [
+                    "ago-shell__drawer-link",
+                    isActive && "ago-shell__drawer-link--active",
+                    item.muted && "ago-shell__drawer-link--muted",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")
                 }
                 // Choosing an item is the third dismissal route the item's own Done-when names
                 // (backdrop, Escape, choosing an item) - `Dialog`'s native `onClose` covers the first
                 // two, but a `NavLink` click never fires it, so this is wired directly.
                 onClick={() => setDrawerOpen(false)}
               >
-                {item.label}
+                <span className="ago-shell__nav-link-label">{item.label}</span>
+                {item.muted && <NavLockGlyph label={strings.navLockedLabel} />}
               </NavLink>
             ))}
           </nav>

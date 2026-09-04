@@ -1,5 +1,4 @@
 import { useCallback, useState } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { eraseSite } from "../api/sitesApi.js";
@@ -8,6 +7,7 @@ import { ApiProblemError } from "../api/problemDetails.js";
 import { usePollUntilErased } from "../erasure/usePollUntilErased.js";
 import type { ErasureCheckOutcome } from "../erasure/erasureCheck.js";
 import { PageHead } from "../shell/AppShell.js";
+import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
 import { Button } from "../components/Button.js";
 import { Dialog } from "../components/Dialog.js";
@@ -97,14 +97,9 @@ export function AccountDeletionPage() {
   }
 
   if (!hasPermission(SITE_ERASE_PERMISSION)) {
+    // `23-24`: shared `AccessRefusal`, replacing this screen's own copy of the block.
     return (
-      <>
-        <PageHead title={strings.accountDeletionTitle} />
-        <Alert tone="danger">{strings.accountDeletionForbidden}</Alert>
-        <p>
-          <Link to="/">{strings.siteConfigBackToQueue}</Link>
-        </p>
-      </>
+      <AccessRefusal title={strings.accountDeletionTitle} message={strings.accountDeletionForbidden} strings={strings} />
     );
   }
 

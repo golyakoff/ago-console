@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
@@ -8,6 +7,7 @@ import { fetchKnowledgeBase, updateKnowledgeBase, KnowledgeBaseError } from "../
 import { parseTriggerWords, validateModuleDraft } from "./moduleConfigValidation.js";
 import { formatAbsolute, parseInstant, resolveTimeZone } from "../time/format.js";
 import { PageHead } from "../shell/AppShell.js";
+import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
 import { Field } from "../components/Field.js";
 import { Input } from "../components/Input.js";
@@ -126,15 +126,8 @@ export function FaqModulePage() {
   }
 
   if (!hasPermission("site:configure")) {
-    return (
-      <>
-        <PageHead title={strings.navFaqAssistant} />
-        <Alert tone="danger">{strings.faqForbidden}</Alert>
-        <p>
-          <Link to="/">{strings.siteConfigBackToQueue}</Link>
-        </p>
-      </>
-    );
+    // `23-24`: shared `AccessRefusal`, replacing this screen's own copy of the block.
+    return <AccessRefusal title={strings.navFaqAssistant} message={strings.faqForbidden} strings={strings} />;
   }
 
   const handleModuleSubmit = async (event: React.FormEvent) => {

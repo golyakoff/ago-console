@@ -159,6 +159,13 @@
   background: var(--ago-brand-tint);
 }
 
+/* `23-24`: the drawer's own twin of `.ago-shell__nav-link--muted` below - same token, same
+   reasoning, styled as a row rather than an inline strip. */
+.ago-shell__drawer-link--muted,
+.ago-shell__drawer-link--muted:hover {
+  color: var(--ago-ink-faint);
+}
+
 /* --- Identity ------------------------------------------------------------------------------- */
 
 .ago-shell__brand {
@@ -262,6 +269,35 @@
 .ago-shell__nav-link--active::after,
 .ago-shell__nav-link--active:hover::after {
   right: 0;
+}
+
+/* `23-24`, decision §10: a nav item for a capability a colleague at this tenant could grant, that
+   the signed-in operator does not hold. `--ago-ink-faint` rather than `--ago-ink-soft` (the ordinary
+   nav colour above) - deliberately fainter than an unvisited link so "not yours" reads at a glance,
+   and `tokens.css` already measures this token at 5.42:1 on `--ago-surface`, clear of `ux-gate`'s
+   WCAG AA floor for normal text (4.5:1) with room to spare. Never `disabled`, never `pointer-events:
+   none` - `AppShellNavItem.muted`'s own doc comment has the reasoning; this is a style, the link
+   underneath is entirely ordinary. */
+.ago-shell__nav-link--muted,
+.ago-shell__nav-link--muted:hover {
+  color: var(--ago-ink-faint);
+}
+
+/* The growing-underline hover cue stays brand-coloured even here - a muted item is still a real,
+   hoverable link, and losing every hover affordance on top of the fainter text would read as
+   "broken" rather than "not yours" (decision §10's own reasoning for muted-plus-glyph over either
+   alone). */
+
+.ago-shell__nav-lock {
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--ago-space-1);
+  vertical-align: -0.15em;
+}
+
+.ago-shell__nav-lock-icon {
+  width: 0.75em;
+  height: 0.75em;
 }
 
 /* --- Signed-in operator --------------------------------------------------------------------- */

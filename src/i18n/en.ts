@@ -948,7 +948,8 @@ export const en: ConsoleStrings = {
   calendarWorkerRecutForbidden: "You do not have permission to re-cut a worker's schedule.",
   calendarAvailabilityForbidden: "You do not have permission to edit the calendar's availability.",
   calendarContactsForbidden: "You do not have permission to view the calendar's contacts.",
-  calendarForbiddenGrantHint: "Ask an owner or admin at this workspace to grant it to you.",
+  accessRefusalGrantHint: "Ask an owner or admin at this workspace to grant it to you.",
+  navLockedLabel: "Locked - you do not currently have this permission",
   calendarAbsentForTenant:
     "This workspace does not have the calendar. It is switched on per workspace, not by any " +
     "operator here - ask AGO about enabling it.",

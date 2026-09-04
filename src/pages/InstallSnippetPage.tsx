@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchSiteInstallation, type SiteInstallationDto } from "../api/installationApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
 import { PageHead } from "../shell/AppShell.js";
+import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
 import { Button } from "../components/Button.js";
 import { Alert } from "../components/Alert.js";
@@ -73,15 +73,8 @@ export function InstallSnippetPage() {
   }
 
   if (!hasPermission("site:configure")) {
-    return (
-      <>
-        <PageHead title={strings.navInstallWidget} />
-        <Alert tone="danger">{strings.installForbidden}</Alert>
-        <p>
-          <Link to="/">{strings.siteConfigBackToQueue}</Link>
-        </p>
-      </>
-    );
+    // `23-24`: shared `AccessRefusal`, replacing this screen's own copy of the block.
+    return <AccessRefusal title={strings.navInstallWidget} message={strings.installForbidden} strings={strings} />;
   }
 
   const copyKey = () => {

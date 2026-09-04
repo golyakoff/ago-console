@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchOperatorAnalytics } from "../api/conversationsApi.js";
@@ -13,6 +12,7 @@ import type {
   OperatorAnalyticsReferrerBucketDto,
 } from "../realtime/protocol/types.js";
 import { PageHead } from "../shell/AppShell.js";
+import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Alert } from "../components/Alert.js";
 import { Button } from "../components/Button.js";
 import { Field } from "../components/Field.js";
@@ -227,15 +227,8 @@ export function OperatorAnalyticsPage() {
   }
 
   if (!allowed) {
-    return (
-      <>
-        <PageHead title={strings.navAnalytics} />
-        <Alert tone="danger">{strings.analyticsForbiddenError}</Alert>
-        <p>
-          <Link to="/">{strings.siteConfigBackToQueue}</Link>
-        </p>
-      </>
-    );
+    // `23-24`: shared `AccessRefusal`, replacing this screen's own copy of the block.
+    return <AccessRefusal title={strings.navAnalytics} message={strings.analyticsForbiddenError} strings={strings} />;
   }
 
   const effectiveFromAt = parseInstant(effectiveFrom);
