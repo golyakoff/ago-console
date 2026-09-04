@@ -6,9 +6,11 @@ import { config } from "../config.js";
 import {
   createWorker,
   deleteWorker,
+  getBookingReadiness,
   getConfiguration,
   listWorkers,
   updateWorker,
+  type CalendarReadiness,
   type ConfiguredCalendar,
   type ConfiguredService,
   type WorkerDetail,
@@ -18,6 +20,7 @@ import { WorkersTable } from "../calendar/WorkersTable.js";
 import { WorkerCard, type WorkerCardFields } from "../calendar/WorkerCard.js";
 import { WorkerScheduleSection } from "../calendar/WorkerScheduleSection.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
+import { BookingReadiness } from "../calendar/BookingReadiness.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Button } from "../components/Button.js";
@@ -52,6 +55,7 @@ export function CalendarWorkersPage() {
   const [workers, setWorkers] = useState<WorkerDetail[] | null>(null);
   const [calendars, setCalendars] = useState<ConfiguredCalendar[]>([]);
   const [services, setServices] = useState<ConfiguredService[]>([]);
+  const [readiness, setReadiness] = useState<CalendarReadiness[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<WorkerDetail | "new" | null>(null);
@@ -65,13 +69,15 @@ export function CalendarWorkersPage() {
       }
 
       try {
-        const [loadedWorkers, configuration] = await Promise.all([
+        const [loadedWorkers, configuration, loadedReadiness] = await Promise.all([
           listWorkers(accessToken, signal),
           getConfiguration(accessToken, signal),
+          getBookingReadiness(accessToken, signal),
         ]);
         setWorkers(loadedWorkers);
         setCalendars(configuration.calendars);
         setServices(configuration.services);
+        setReadiness(loadedReadiness);
         setError(null);
       } catch (reason) {
         if (!(reason instanceof DOMException && reason.name === "AbortError")) {
@@ -153,6 +159,8 @@ export function CalendarWorkersPage() {
       <PageHead title={strings.navCalendarWorkers} />
 
       {error !== null && <Alert tone="danger">{error}</Alert>}
+
+      <BookingReadiness readiness={readiness} />
 
       <Panel title={strings.calendarWorkersTitle}>
         <WorkersTable

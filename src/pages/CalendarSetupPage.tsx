@@ -7,13 +7,16 @@ import {
   addWorkingHoursRule,
   createCalendar,
   createService,
+  getBookingReadiness,
   getConfiguration,
   setAllowedOrigins,
+  type CalendarReadiness,
   type TenantConfiguration,
 } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { weekdayNames } from "../calendar/calendarFormat.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
+import { BookingReadiness } from "../calendar/BookingReadiness.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Field } from "../components/Field.js";
@@ -43,6 +46,7 @@ export function CalendarSetupPage() {
   const { permissions, hasPermission } = usePermissions();
   const strings = useStrings();
   const [configuration, setConfiguration] = useState<TenantConfiguration | null>(null);
+  const [readiness, setReadiness] = useState<CalendarReadiness[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -54,7 +58,12 @@ export function CalendarSetupPage() {
       }
 
       try {
-        setConfiguration(await getConfiguration(accessToken, signal));
+        const [loadedConfiguration, loadedReadiness] = await Promise.all([
+          getConfiguration(accessToken, signal),
+          getBookingReadiness(accessToken, signal),
+        ]);
+        setConfiguration(loadedConfiguration);
+        setReadiness(loadedReadiness);
         setError(null);
       } catch (reason) {
         if (!(reason instanceof DOMException && reason.name === "AbortError")) {
@@ -135,6 +144,8 @@ export function CalendarSetupPage() {
       <PageHead title={strings.navCalendarSetup} description={configuration.tenantName} />
 
       {error !== null && <Alert tone="danger">{error}</Alert>}
+
+      <BookingReadiness readiness={readiness} />
 
       <Panel title={strings.calendarSetupOriginsTitle} description={strings.calendarSetupEmbedDescription}>
         <pre aria-label={strings.calendarSetupEmbedSnippetAriaLabel}>{embedSnippet()}</pre>
