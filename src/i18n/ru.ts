@@ -924,6 +924,7 @@ export const ru: ConsoleStrings = {
   calendarNotRecordedLabel: "не указано",
 
   calendarQueueForbidden: "У вас нет прав на просмотр очереди бронирований календаря.",
+  calendarElsewhereNotice: "Календарь у вас есть в другом магазине. Переключитесь с помощью селектора вверху страницы:",
   calendarSetupForbidden: "У вас нет прав на настройку календаря.",
   calendarWorkersForbidden: "У вас нет прав на управление сотрудниками календаря.",
   calendarWorkerSlotsForbidden: "У вас нет прав на просмотр слотов сотрудника.",

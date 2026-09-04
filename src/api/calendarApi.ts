@@ -1,4 +1,5 @@
 import { config } from "../config.js";
+import { withActiveSiteHeader } from "./activeSite.js";
 
 /**
  * Every call the six calendar screens make, in one file - moved unchanged from
@@ -9,10 +10,14 @@ import { config } from "../config.js";
  * one `faqKnowledgeBaseApi.ts` already established for a second product's own backend. Field names
  * match `Ago.Calendar.Contracts`' C# records verbatim under ASP.NET Core's default camelCase policy.
  *
- * <b>The tenant is never sent.</b> Not in a path, not in a body, not in a query string. It comes off
- * the operator's own token, resolved server-side by `OperatorIdentityClaimsTransformation` against
- * `ago-calendar`'s own `operators` table. A console that could name a tenant would be a console that
- * could name somebody else's, and every cross-tenant bug is made of exactly that.
+ * <b>The tenant is never in a path, a body or a query string</b> - and since `22-14`/`adr/0100` it is
+ * named, once, in the `X-Ago-Active-Site` request header `send()` attaches below. That is not the
+ * thing the older wording here warned against. A console that could put a tenant id in a URL would be
+ * one whose every route had to be re-checked; what this sends is a *choice among tenancies the server
+ * already knows this person holds* - `RoleAssignmentProjectionStore.ResolveTenantAsync` answers only
+ * out of that operator's own projection rows, so the header can narrow which tenant a request acts in
+ * and can never widen it. Without it, a person granted the calendar on two accounts resolves to no
+ * tenant at all and every screen in this section is simply absent (`22-14`'s own defect).
  *
  * <b>The access token is a parameter, never a module-level capture.</b> Silent renewal replaces it
  * on its own schedule (`auth/userManager.ts`), so a captured token is a token that goes stale -
@@ -491,11 +496,16 @@ async function send(
 ): Promise<Response> {
   const response = await fetch(`${base()}${path}`, {
     method,
-    headers: {
+    // `22-14`/`adr/0100`: the one chokepoint every calendar call goes through, so the active-site
+    // header is added once rather than at thirty call sites. Same header, same value, same singleton
+    // (`api/activeSite.ts`) the chat backend's own calls already carry - `Ago.Calendar.Api`'s
+    // `TenantId` *is* `Ago.Chat.Api`'s `SiteId` (`RoleAssignmentsChangedConsumer` maps one onto the
+    // other), so a second name for the same choice would be one more thing to keep in step.
+    headers: withActiveSiteHeader({
       Authorization: `Bearer ${token}`,
       ...(body === undefined ? {} : { "Content-Type": "application/json" }),
       Accept: "application/json",
-    },
+    }),
     body: body === undefined ? null : JSON.stringify(body),
     signal: signal ?? null,
   });

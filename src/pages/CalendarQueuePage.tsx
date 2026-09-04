@@ -11,6 +11,7 @@ import {
   type PendingBooking,
 } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
+import { CalendarElsewhereNotice } from "../calendar/CalendarElsewhereNotice.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Button } from "../components/Button.js";
@@ -85,6 +86,10 @@ export function CalendarQueuePage() {
       <>
         <PageHead title={strings.navCalendarQueue} />
         <Alert tone="danger">{strings.calendarQueueForbidden}</Alert>
+        {/* `22-14`/`adr/0100`: "you cannot see it here" and "you have one, in a different shop" are
+            different answers, and until this item the console gave the first for both. Renders
+            nothing when there is no other shop to name - see the component's own remarks. */}
+        <CalendarElsewhereNotice />
         <p>
           <Link to="/">{strings.siteConfigBackToQueue}</Link>
         </p>
