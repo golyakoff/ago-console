@@ -72,7 +72,7 @@ function response(overrides: {
   previousFrom?: string;
   previousTo?: string;
   previousOverall?: Bucket;
-  byOperator?: { operatorId: string; bucket: Bucket }[];
+  byOperator?: { operatorId: string; operatorName?: string | null; bucket: Bucket }[];
 } = {}) {
   return {
     from: "2026-05-29T00:00:00+00:00",
@@ -264,6 +264,33 @@ describe("the per-operator breakdown", () => {
     // Operator 1's own rate (100%) and operator 2's own rate (50%).
     expect(container.textContent).toContain("100.0%");
     expect(container.textContent).toContain("50.0%");
+  });
+
+  // `23-02`: an operator's own name is a real column now - `docs/backlog/23-02-an-operator-has-a-name.md`'s
+  // own Goal is exactly this table.
+  it("renders the operator's own name when the row carries one, and still falls back to the id for one that does not", async () => {
+    conversationsApi.fetchConversionReport.mockResolvedValue(
+      response({
+        byOperator: [
+          {
+            operatorId: "11111111-2222-3333-4444-555555555555",
+            operatorName: "Ivan Petrov",
+            bucket: { convertedCount: 2, notConvertedCount: 0, followUpNeededCount: 0, unsetCount: 1, recordedCount: 2, conversionRate: 1 },
+          },
+          {
+            operatorId: "66666666-7777-8888-9999-000000000000",
+            operatorName: null,
+            bucket: { convertedCount: 1, notConvertedCount: 1, followUpNeededCount: 0, unsetCount: 1, recordedCount: 2, conversionRate: 0.5 },
+          },
+        ],
+      }),
+    );
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Ivan Petrov");
+    expect(container.textContent).not.toContain("11111111");
+    expect(container.textContent).toContain("66666666");
   });
 
   it("shows a dedicated empty state, distinct from the whole-report empty state, when the report has conversations but none attribute to an operator", async () => {

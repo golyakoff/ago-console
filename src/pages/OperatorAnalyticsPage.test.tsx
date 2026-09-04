@@ -87,7 +87,7 @@ function response(overrides: {
   previousTo?: string;
   previousOverall?: Bucket;
   byChannel?: { channel: string; bucket: Bucket }[];
-  byOperator?: { operatorId: string; bucket: Bucket }[];
+  byOperator?: { operatorId: string; operatorName?: string | null; bucket: Bucket }[];
   byReferrer?: { referrerHost: string; bucket: Bucket }[];
   byCampaign?: { utmCampaign: string; bucket: Bucket }[];
 } = {}) {
@@ -316,6 +316,33 @@ describe("the per-operator breakdown", () => {
     // `AdminConversationsPage`'s own truncation convention: the first eight characters of the raw id.
     expect(container.textContent).toContain("11111111");
     expect(container.textContent).not.toContain("11111111-2222-3333-4444-555555555555");
+    expect(container.textContent).toContain("66666666");
+  });
+
+  // `23-02`: an operator's own name is a real column now - `docs/backlog/23-02-an-operator-has-a-name.md`'s
+  // own Goal is exactly this table.
+  it("renders the operator's own name when the row carries one, and still falls back to the id for one that does not", async () => {
+    conversationsApi.fetchOperatorAnalytics.mockResolvedValue(
+      response({
+        byOperator: [
+          {
+            operatorId: "11111111-2222-3333-4444-555555555555",
+            operatorName: "Ivan Petrov",
+            bucket: { conversationCount: 2, averageFirstResponseSeconds: 60, averageDurationSeconds: 180, missedCount: 0 },
+          },
+          {
+            operatorId: "66666666-7777-8888-9999-000000000000",
+            operatorName: null,
+            bucket: { conversationCount: 1, averageFirstResponseSeconds: 20, averageDurationSeconds: 300, missedCount: 0 },
+          },
+        ],
+      }),
+    );
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Ivan Petrov");
+    expect(container.textContent).not.toContain("11111111");
     expect(container.textContent).toContain("66666666");
   });
 

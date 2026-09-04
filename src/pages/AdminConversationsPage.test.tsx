@@ -124,6 +124,46 @@ describe("the started column (343/344)", () => {
   });
 });
 
+/** `23-02`: this cell used to render `operatorId.slice(0, 8)` unconditionally - eight hex characters,
+ * nobody's name (`docs/backlog/23-02-an-operator-has-a-name.md`'s own Goal). It now renders the name
+ * when the row has one, and still falls back to the id for a row that predates the column. */
+describe("the operator column (23-02)", () => {
+  it("renders the operator's own name when the row carries one", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID });
+    conversationsApi.fetchAllConversationsForSite.mockResolvedValue({
+      conversations: [
+        {
+          ...oneConversation(),
+          operatorId: "oooooooo-oooo-oooo-oooo-oooooooooooo",
+          operatorName: "Ivan Petrov",
+        },
+      ],
+    });
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Ivan Petrov");
+    expect(container.textContent).not.toContain("oooooooo");
+  });
+
+  it("falls back to the truncated id for a row with no operator name", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID });
+    conversationsApi.fetchAllConversationsForSite.mockResolvedValue({
+      conversations: [
+        {
+          ...oneConversation(),
+          operatorId: "oooooooo-oooo-oooo-oooo-oooooooooooo",
+          operatorName: null,
+        },
+      ],
+    });
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("oooooooo");
+  });
+});
+
 describe("the row-erasure action", () => {
   it("adds no Actions column at all for an operator without conversation:erase", async () => {
     operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID });
