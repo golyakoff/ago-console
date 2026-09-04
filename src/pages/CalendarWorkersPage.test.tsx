@@ -32,6 +32,7 @@ const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
 const calendarApi = vi.hoisted(() => ({
   listWorkers: vi.fn(),
   getConfiguration: vi.fn(),
+  getBookingReadiness: vi.fn(),
   createWorker: vi.fn(),
   updateWorker: vi.fn(),
   deleteWorker: vi.fn(),
@@ -123,6 +124,7 @@ beforeEach(async () => {
   ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
   calendarApi.listWorkers.mockResolvedValue([alex]);
   calendarApi.getConfiguration.mockResolvedValue(configuration);
+  calendarApi.getBookingReadiness.mockResolvedValue([]);
   calendarApi.createWorker.mockResolvedValue({ workerId: "w2" });
   calendarApi.updateWorker.mockResolvedValue(undefined);
   calendarApi.deleteWorker.mockResolvedValue(undefined);
@@ -204,5 +206,35 @@ describe("the workers screen", () => {
     await interact(() => saveButton?.click());
 
     expect(calendarApi.updateWorker).toHaveBeenCalledWith("token", "w1", expect.objectContaining({ isActive: false }));
+  });
+
+  // `23-23`: the same server-computed readiness `CalendarSetupPage` renders, on this screen too - the
+  // item's own Done-when names both.
+  it("renders the tenant with nothing set up as every precondition unmet", async () => {
+    calendarApi.getBookingReadiness.mockResolvedValue([
+      {
+        calendarId: null,
+        calendarName: null,
+        isBookable: false,
+        preconditions: [
+          { precondition: "CalendarPublished", isMet: false },
+          { precondition: "WorkerOnCalendar", isMet: false },
+          { precondition: "ServiceOffered", isMet: false },
+          { precondition: "WorkingHoursConfigured", isMet: false },
+          { precondition: "ScheduleSaved", isMet: false },
+          { precondition: "SlotsMaterialized", isMet: false },
+        ],
+      },
+    ]);
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("No calendar yet");
+    expect(container.textContent).toContain("Not bookable");
+    expect(container.textContent).toContain("The calendar is published");
+    expect(container.textContent).toContain("An active worker is on this calendar");
+
+    const link = byText<HTMLAnchorElement>(container, "a", "Fix it");
+    expect(link?.getAttribute("href")).toBe("/calendar/setup");
   });
 });

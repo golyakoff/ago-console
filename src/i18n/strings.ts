@@ -1117,6 +1117,23 @@ export interface ConsoleStrings {
   calendarSetupNoWorkersNote: string;
   calendarSetupAddWorkingHoursButton: string;
   calendarSetupWorkerNotOnCalendarNote: string;
+
+  // --- BookingReadiness (`23-23`, rendered on both /calendar/setup and /calendar/workers) ---
+  calendarReadinessTitle: string;
+  calendarReadinessNoCalendarLabel: string;
+  calendarReadinessBookableLabel: string;
+  calendarReadinessNotBookableLabel: string;
+  calendarReadinessMetLabel: string;
+  calendarReadinessUnmetLabel: string;
+  calendarReadinessFixItLink: string;
+  calendarReadinessViewSlotsLink: string;
+  calendarReadinessCalendarPublishedLabel: string;
+  calendarReadinessWorkerOnCalendarLabel: string;
+  calendarReadinessServiceOfferedLabel: string;
+  calendarReadinessWorkingHoursConfiguredLabel: string;
+  calendarReadinessScheduleSavedLabel: string;
+  calendarReadinessSlotsMaterializedLabel: string;
+
   calendarWorkersTitle: string;
   calendarEditButton: string;
   calendarScheduleButton: string;

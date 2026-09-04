@@ -28,6 +28,7 @@ const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
 const calendarApi = vi.hoisted(() => ({
   getConfiguration: vi.fn(),
+  getBookingReadiness: vi.fn(),
   setAllowedOrigins: vi.fn(),
   createCalendar: vi.fn(),
   createService: vi.fn(),
@@ -103,6 +104,7 @@ beforeEach(() => {
   operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure"], siteId: SITE_ID });
   ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
   calendarApi.getConfiguration.mockResolvedValue(configuration);
+  calendarApi.getBookingReadiness.mockResolvedValue([]);
   calendarApi.setAllowedOrigins.mockResolvedValue(undefined);
   calendarApi.createCalendar.mockResolvedValue({ calendarId: "cal-2" });
   calendarApi.createService.mockResolvedValue({ serviceId: "s2" });
@@ -194,5 +196,56 @@ describe("the tenant setup screen", () => {
     await interact(() => byText<HTMLButtonElement>(container, "button", "Save origins")?.click());
 
     expect(container.textContent).toContain("'https://shop.example/booking' is not an origin.");
+  });
+
+  // `23-23`: this screen renders the server's own readiness answer verbatim - it invents nothing
+  // about which precondition is unmet, only where to send the tenant for the one it names.
+  it("names the unmet precondition and links to the screen that fixes it", async () => {
+    calendarApi.getBookingReadiness.mockResolvedValue([
+      {
+        calendarId: "cal-1",
+        calendarName: "Main",
+        isBookable: false,
+        preconditions: [
+          { precondition: "CalendarPublished", isMet: true },
+          { precondition: "WorkerOnCalendar", isMet: true },
+          { precondition: "ServiceOffered", isMet: true },
+          { precondition: "WorkingHoursConfigured", isMet: true },
+          { precondition: "ScheduleSaved", isMet: true },
+          { precondition: "SlotsMaterialized", isMet: false },
+        ],
+      },
+    ]);
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Not bookable");
+    expect(container.textContent).toContain("Slots have been generated inside the horizon");
+
+    const link = byText<HTMLAnchorElement>(container, "a", "View slots");
+    expect(link?.getAttribute("href")).toBe("/calendar/workers");
+  });
+
+  it("shows a bookable calendar as bookable, with nothing to fix", async () => {
+    calendarApi.getBookingReadiness.mockResolvedValue([
+      {
+        calendarId: "cal-1",
+        calendarName: "Main",
+        isBookable: true,
+        preconditions: [
+          { precondition: "CalendarPublished", isMet: true },
+          { precondition: "WorkerOnCalendar", isMet: true },
+          { precondition: "ServiceOffered", isMet: true },
+          { precondition: "WorkingHoursConfigured", isMet: true },
+          { precondition: "ScheduleSaved", isMet: true },
+          { precondition: "SlotsMaterialized", isMet: true },
+        ],
+      },
+    ]);
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Bookable");
+    expect(container.querySelector("a[href='/calendar/setup'], a[href='/calendar/workers']")).toBeNull();
   });
 });

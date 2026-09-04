@@ -123,6 +123,35 @@ export interface TenantConfiguration {
   services: ConfiguredService[];
 }
 
+/**
+ * `23-23`: `Ago.Calendar.Application.UseCases.Configuration.BookingPrecondition`'s wire name,
+ * verbatim - the six things `flows.md` 3.1 names, in the stable order the server always returns
+ * them in. A union of literals rather than `string`, so a switch over every case here is exhaustive
+ * at compile time the moment a seventh precondition is ever added server-side.
+ */
+export type BookingPrecondition =
+  | "CalendarPublished"
+  | "WorkerOnCalendar"
+  | "ServiceOffered"
+  | "WorkingHoursConfigured"
+  | "ScheduleSaved"
+  | "SlotsMaterialized";
+
+export interface PreconditionState {
+  precondition: BookingPrecondition;
+  isMet: boolean;
+}
+
+/** `23-23`: one entry per calendar the tenant has created, plus the placeholder entry the server
+ * returns for a tenant with none - `calendarId`/`calendarName` are `null` exactly then, the only
+ * state that null carries. */
+export interface CalendarReadiness {
+  calendarId: string | null;
+  calendarName: string | null;
+  isBookable: boolean;
+  preconditions: PreconditionState[];
+}
+
 export interface PendingBooking {
   bookingId: string;
   calendarId: string;
@@ -291,6 +320,12 @@ export function getConfiguration(token: string, signal?: AbortSignal): Promise<T
 
 export function setAllowedOrigins(token: string, origins: string[]): Promise<void> {
   return requestVoid(token, "PUT", "/configuration/allowed-origins", { origins });
+}
+
+/** `23-23`: "can this tenant take a booking right now, and if not, which precondition is unmet" -
+ * `CalendarSetupPage` and `CalendarWorkersPage` both call this alongside `getConfiguration`. */
+export function getBookingReadiness(token: string, signal?: AbortSignal): Promise<CalendarReadiness[]> {
+  return request<CalendarReadiness[]>(token, "GET", "/booking-readiness", undefined, signal);
 }
 
 export function createCalendar(
