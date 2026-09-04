@@ -69,6 +69,9 @@ function response(overrides: {
   from?: string;
   to?: string;
   overall?: Bucket;
+  previousFrom?: string;
+  previousTo?: string;
+  previousOverall?: Bucket;
   byOperator?: { operatorId: string; bucket: Bucket }[];
 } = {}) {
   return {
@@ -81,6 +84,19 @@ function response(overrides: {
       unsetCount: 1,
       recordedCount: 4,
       conversionRate: 0.75,
+    },
+    // `23-16`: the immediately preceding window - a plain, always-present fixture default so every
+    // existing test in this file (none of which name `previousOverall`) keeps rendering the
+    // comparison line without having to know about it; the tests below override it deliberately.
+    previousFrom: "2026-02-28T00:00:00+00:00",
+    previousTo: "2026-05-29T00:00:00+00:00",
+    previousOverall: {
+      convertedCount: 2,
+      notConvertedCount: 2,
+      followUpNeededCount: 0,
+      unsetCount: 0,
+      recordedCount: 4,
+      conversionRate: 0.5,
     },
     byOperator: [
       {
@@ -152,10 +168,45 @@ describe("loading the report", () => {
     expect(container.textContent).toContain("75.0%");
   });
 
+  // `23-16`: a rate is never printed without the figures it came from - the fraction rides inline with
+  // the percentage, not four columns away.
+  it("pairs the overall rate with its own numerator and denominator, inline", async () => {
+    conversationsApi.fetchConversionReport.mockResolvedValue(response());
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("75.0% (3 of 4)");
+  });
+
+  it("pairs a 100% rate with its own fraction too, not just a bare percentage", async () => {
+    conversationsApi.fetchConversionReport.mockResolvedValue(response());
+
+    const container = await render(page());
+
+    // Operator 1's own bucket: 2 converted of 2 recorded.
+    expect(container.textContent).toContain("100.0% (2 of 2)");
+  });
+
+  // `23-16`: dynamics, relative and absolute together, against the preceding window of equal length.
+  it("shows the change against the preceding period in both absolute and relative terms", async () => {
+    conversationsApi.fetchConversionReport.mockResolvedValue(response());
+
+    const container = await render(page());
+
+    // Previous overall: 2 converted, 4 recorded, rate 50.0%. Current: 3 converted, 4 recorded, rate 75.0%.
+    expect(container.textContent).toContain("Previous period: 2 (+1, +50.0%)");
+    expect(container.textContent).toContain("Previous period: 50.0% (+25.0 pp)");
+  });
+
   it("renders an em dash, never 0%, when the bucket's own rate is null because nothing has been recorded", async () => {
     conversationsApi.fetchConversionReport.mockResolvedValue(
       response({
         overall: { convertedCount: 0, notConvertedCount: 0, followUpNeededCount: 0, unsetCount: 5, recordedCount: 0, conversionRate: null },
+        // `23-16`: the previous period is deliberately also nothing-recorded here - this test is about
+        // the *current* bucket's own null rate never reading as 0%, not about a previous period's real
+        // rate (which legitimately could contain the digits "0%", e.g. "50.0%", without that being the
+        // bug this test exists to catch).
+        previousOverall: { convertedCount: 0, notConvertedCount: 0, followUpNeededCount: 0, unsetCount: 0, recordedCount: 0, conversionRate: null },
         byOperator: [],
       }),
     );

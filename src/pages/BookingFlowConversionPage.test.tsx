@@ -70,12 +70,29 @@ function page(): ReactNode {
   );
 }
 
-function response(overrides: { from?: string; to?: string; flowsStarted?: number; flowsClosed?: number } = {}) {
+function response(
+  overrides: {
+    from?: string;
+    to?: string;
+    flowsStarted?: number;
+    flowsClosed?: number;
+    previousFrom?: string;
+    previousTo?: string;
+    previousFlowsStarted?: number;
+    previousFlowsClosed?: number;
+  } = {},
+) {
   return {
     from: "2026-05-29T00:00:00+00:00",
     to: "2026-08-29T00:00:00+00:00",
     flowsStarted: 5,
     flowsClosed: 3,
+    // `23-16`: the immediately preceding window - a plain, always-present default so every
+    // pre-existing test in this file keeps rendering correctly without naming it.
+    previousFrom: "2026-02-28T00:00:00+00:00",
+    previousTo: "2026-05-29T00:00:00+00:00",
+    previousFlowsStarted: 4,
+    previousFlowsClosed: 2,
     ...overrides,
   };
 }
@@ -125,6 +142,17 @@ describe("loading the report", () => {
     expect(container.textContent).toContain("5");
     expect(container.textContent).toContain("Flows closed");
     expect(container.textContent).toContain("3");
+  });
+
+  // `23-16`: dynamics, relative and absolute together, against the preceding window of equal length.
+  it("shows the change against the preceding period in both absolute and relative terms", async () => {
+    conversationsApi.fetchBookingFlowReport.mockResolvedValue(response());
+
+    const container = await render(page());
+
+    // Previous: 4 started, 2 closed. Current: 5 started, 3 closed.
+    expect(container.textContent).toContain("Previous period: 4 (+1, +25.0%)");
+    expect(container.textContent).toContain("Previous period: 2 (+1, +50.0%)");
   });
 
   /** The item's own load-bearing Done-when: the honesty caveat is text the site owner actually reads

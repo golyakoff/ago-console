@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchTagBreakdownReport } from "../api/conversationsApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
+import { formatCountComparison, formatRateComparison } from "../analytics/comparison.js";
 import type { TagBreakdownBucketDto } from "../realtime/protocol/types.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Alert } from "../components/Alert.js";
@@ -33,8 +34,14 @@ interface TagRow {
   bucket: TagBreakdownBucketDto;
 }
 
-function formatRate(rate: number | null, noDataValue: string): string {
-  return rate === null ? noDataValue : `${(rate * 100).toFixed(1)}%`;
+/** `23-16`: a rate is never printed without the fraction it came from - "50.0% (1 of 2)", the same
+ * pairing `ConversionReportPage.formatRateWithFraction` establishes for its own two tables.
+ * `noDataValue` covers the `null` case unchanged - never a misleading "0%". */
+function formatRate(bucket: TagBreakdownBucketDto, noDataValue: string, ofLabel: string): string {
+  if (bucket.conversionRate === null) {
+    return noDataValue;
+  }
+  return `${(bucket.conversionRate * 100).toFixed(1)}% (${bucket.convertedCount} ${ofLabel} ${bucket.recordedCount})`;
 }
 
 function formatPercentage(percentage: number): string {
@@ -87,6 +94,9 @@ export function TagBreakdownReportPage() {
   const [totalConversationCount, setTotalConversationCount] = useState<number | null>(null);
   const [taggedConversationCount, setTaggedConversationCount] = useState<number | null>(null);
   const [percentageTagged, setPercentageTagged] = useState<number | null>(null);
+  const [previousTotalConversationCount, setPreviousTotalConversationCount] = useState<number | null>(null);
+  const [previousTaggedConversationCount, setPreviousTaggedConversationCount] = useState<number | null>(null);
+  const [previousPercentageTagged, setPreviousPercentageTagged] = useState<number | null>(null);
   const [byTag, setByTag] = useState<TagBreakdownBucketDto[]>([]);
   const [effectiveFrom, setEffectiveFrom] = useState<string | null>(null);
   const [effectiveTo, setEffectiveTo] = useState<string | null>(null);
@@ -110,6 +120,9 @@ export function TagBreakdownReportPage() {
         setTotalConversationCount(response.totalConversationCount);
         setTaggedConversationCount(response.taggedConversationCount);
         setPercentageTagged(response.percentageTagged);
+        setPreviousTotalConversationCount(response.previousTotalConversationCount);
+        setPreviousTaggedConversationCount(response.previousTaggedConversationCount);
+        setPreviousPercentageTagged(response.previousPercentageTagged);
         setByTag(response.byTag);
         setEffectiveFrom(response.from);
         setEffectiveTo(response.to);
@@ -197,7 +210,7 @@ export function TagBreakdownReportPage() {
       key: "rate",
       header: strings.tagBreakdownRateColumn,
       align: "end",
-      render: (row) => formatRate(row.bucket.conversionRate, strings.tagBreakdownNoDataValue),
+      render: (row) => formatRate(row.bucket, strings.tagBreakdownNoDataValue, strings.analyticsFractionOfLabel),
     },
   ];
 
@@ -269,6 +282,16 @@ export function TagBreakdownReportPage() {
               ? strings.tagBreakdownCoverageUnknown
               : `${strings.tagBreakdownCoverageBanner} ${taggedConversationCount} / ${totalConversationCount} (${formatPercentage(percentageTagged)})`}
           </Alert>
+
+          {/* `23-16`: dynamics, relative and absolute together, against the preceding window of equal
+              length. */}
+          {previousTotalConversationCount !== null && previousTaggedConversationCount !== null && (
+            <p className="ago-meta">
+              {strings.tagBreakdownCoverageBanner}: {formatCountComparison(taggedConversationCount, previousTaggedConversationCount, strings)}
+              {" · "}
+              {strings.tagBreakdownRateColumn}: {formatRateComparison(percentageTagged, previousPercentageTagged, strings, strings.tagBreakdownNoDataValue)}
+            </p>
+          )}
 
           {byTag.length === 0 ? (
             <p className="ago-empty">{strings.tagBreakdownByTagEmpty}</p>

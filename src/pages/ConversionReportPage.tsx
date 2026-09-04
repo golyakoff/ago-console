@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchConversionReport } from "../api/conversationsApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
+import { formatCountComparison, formatRateComparison } from "../analytics/comparison.js";
 import type { ConversionBucketDto, ConversionOperatorBucketDto } from "../realtime/protocol/types.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Alert } from "../components/Alert.js";
@@ -14,6 +15,7 @@ import { Skeleton, Spinner } from "../components/Spinner.js";
 import { Table } from "../components/Table.js";
 import type { TableColumn } from "../components/Table.js";
 import { useStrings } from "../i18n/StringsContext.js";
+import type { ConsoleStrings } from "../i18n/strings.js";
 import { currentCalendarMonth, last30Days, previousCalendarMonth } from "../time/rangePresets.js";
 import { formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
 
@@ -38,6 +40,17 @@ interface OperatorRow {
  * `OperatorAnalyticsPage`'s identical helper. */
 function operatorLabel(operatorId: string): ReactNode {
   return <span className="ago-mono">{operatorId.slice(0, 8)}</span>;
+}
+
+/** `23-16`: a rate is never printed without the fraction it came from - "50.0% (1 of 2)", never a bare
+ * percentage four columns from its own numerator/denominator. `noDataValue` covers the `null` case
+ * (nothing recorded yet - `ConversionBucketDto.conversionRate`'s own convention), rendered exactly as
+ * today, never as a misleading "0%". */
+function formatRateWithFraction(bucket: ConversionBucketDto, strings: ConsoleStrings): string {
+  if (bucket.conversionRate === null) {
+    return strings.conversionReportNoDataValue;
+  }
+  return `${(bucket.conversionRate * 100).toFixed(1)}% (${bucket.convertedCount} ${strings.analyticsFractionOfLabel} ${bucket.recordedCount})`;
 }
 
 /**
@@ -79,6 +92,7 @@ export function ConversionReportPage() {
   const [toInput, setToInput] = useState("");
 
   const [overall, setOverall] = useState<ConversionBucketDto | null>(null);
+  const [previousOverall, setPreviousOverall] = useState<ConversionBucketDto | null>(null);
   const [byOperator, setByOperator] = useState<ConversionOperatorBucketDto[]>([]);
   const [effectiveFrom, setEffectiveFrom] = useState<string | null>(null);
   const [effectiveTo, setEffectiveTo] = useState<string | null>(null);
@@ -100,6 +114,7 @@ export function ConversionReportPage() {
       try {
         const response = await fetchConversionReport(accessToken, range);
         setOverall(response.overall);
+        setPreviousOverall(response.previousOverall);
         setByOperator(response.byOperator);
         setEffectiveFrom(response.from);
         setEffectiveTo(response.to);
@@ -190,10 +205,7 @@ export function ConversionReportPage() {
       key: "rate",
       header: strings.conversionReportRateColumn,
       align: "end",
-      render: (row) =>
-        row.bucket.conversionRate === null
-          ? strings.conversionReportNoDataValue
-          : `${(row.bucket.conversionRate * 100).toFixed(1)}%`,
+      render: (row) => formatRateWithFraction(row.bucket, strings),
     },
   ];
 
@@ -235,10 +247,7 @@ export function ConversionReportPage() {
       key: "rate",
       header: strings.conversionReportRateColumn,
       align: "end",
-      render: (row) =>
-        row.bucket.conversionRate === null
-          ? strings.conversionReportNoDataValue
-          : `${(row.bucket.conversionRate * 100).toFixed(1)}%`,
+      render: (row) => formatRateWithFraction(row.bucket, strings),
     },
   ];
 
@@ -316,6 +325,16 @@ export function ConversionReportPage() {
             rows={overallRows}
             rowKey={(row) => row.key}
           />
+
+          {/* `23-16`: dynamics, relative and absolute together, against the preceding window of equal
+              length - never the rate alone (decisions.md §7's own rule, restated in the item). */}
+          {previousOverall && (
+            <p className="ago-meta">
+              {strings.conversionReportConvertedColumn}: {formatCountComparison(overall.convertedCount, previousOverall.convertedCount, strings)}
+              {" · "}
+              {strings.conversionReportRateColumn}: {formatRateComparison(overall.conversionRate, previousOverall.conversionRate, strings, strings.conversionReportNoDataValue)}
+            </p>
+          )}
 
           <h2>{strings.conversionReportByOperatorHeading}</h2>
           {operatorRows.length === 0 ? (
