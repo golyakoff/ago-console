@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { MessageDto } from "../realtime/protocol/types.js";
 import { Button } from "../components/Button.js";
 import { Spinner } from "../components/Spinner.js";
@@ -45,6 +45,23 @@ export interface ThreadProps {
    * older messages" button's own state and must not show a spinner for a fetch the operator did not
    * ask for. */
   locating?: boolean;
+  /** `23-10`: called with the operator's own text selection when they confirm the "Add to contact
+   * details" affordance below a message - never called on its own, never fed a guess this component
+   * computed. Absent (the default) for an operator without `conversation:send`: `ContactDetailsPanel`
+   * hides its record form for that operator already, so offering the act here would dangle it in
+   * front of someone who could never finish it. `ConversationPage` is the only caller and decides the
+   * gate; `Thread` itself does not know about permissions at all, the same separation `renderAttachment`
+   * already draws between "this component renders" and "the page decides what is allowed". */
+  onPromoteSelection?: (text: string) => void;
+}
+
+/** One message's own selected substring, kept only long enough for the operator to click the
+ * "Add to contact details" button that appears beside it - `Thread`'s only state this item adds.
+ * Keyed on `sequence` rather than the DOM node itself so the affordance survives a re-render (a new
+ * message arriving does not invalidate an in-progress selection higher up the thread). */
+interface MessageSelection {
+  sequence: number;
+  text: string;
 }
 
 /**
@@ -69,6 +86,19 @@ export interface ThreadProps {
  * The `<ol>` is deliberate where the old markup used `<ul>`: a thread is ordered, and the order is
  * load-bearing (it is the server's `sequence`). `aria-label="Message thread"` predates `11-05`,
  * survived it, and survives this - it is still the list's only accessible name.
+ *
+ * `23-10` adds one more thing: an operator who **selects** text inside a single message's body (drag,
+ * double-click, triple-click) sees a small "Add to contact details" button appear beside that message,
+ * and clicking it hands the selected text to `onPromoteSelection` unchanged. **This is the entire
+ * mechanism, and it is deliberately this dumb.** `decisions.md` §4 forbids the product itself deciding
+ * a string looks like a phone number - no regex over `MessageDto.body`, no highlighting of "numbers we
+ * found", nothing computed from message content at all. The operator's own act of dragging across
+ * characters *is* the decision; this component only notices that a selection exists, which side it
+ * belongs to (`handleSelectionEnd`'s `.closest(".ago-message__body")` check - a selection spanning two
+ * messages offers nothing, since "half of one and half of another" is not a fact about either), and
+ * relays its `toString()` verbatim. Nothing here is written anywhere - `onPromoteSelection` merely
+ * hands the text to `ConversationPage`, which pre-fills `ContactDetailsPanel`'s own draft for the
+ * operator to confirm or correct.
  */
 export function Thread({
   messages,
@@ -80,12 +110,67 @@ export function Thread({
   onLoadOlder,
   highlightSequence = null,
   locating = false,
+  onPromoteSelection,
 }: ThreadProps) {
   const strings = useStrings();
   const items = buildThread(messages, timeZone);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const pinnedToBottom = useRef(true);
+  // `23-10`: which message currently has a live, in-bounds text selection - `null` for the ordinary
+  // case (nothing selected, or a selection this component cannot attribute to one message). State,
+  // not a ref: the "Add to contact details" button's presence is exactly what this drives, so React
+  // has to know about a change.
+  const [selection, setSelection] = useState<MessageSelection | null>(null);
+
+  // Reads `window.getSelection()` after the browser has finished updating it (mouseup fires after
+  // the drag/double-click/triple-click that made the selection) - never on a timer, never inferred
+  // from keystrokes, so there is no path here that inspects text the operator did not deliberately
+  // select. A selection that is empty, collapsed, or whose two ends land in different messages'
+  // bodies clears the affordance rather than guessing which message was meant.
+  const handleSelectionEnd = () => {
+    if (!onPromoteSelection) {
+      return;
+    }
+
+    const domSelection = window.getSelection();
+    const text = domSelection?.toString().trim() ?? "";
+    if (!domSelection || domSelection.isCollapsed || !text) {
+      setSelection(null);
+      return;
+    }
+
+    const anchorNode = domSelection.anchorNode;
+    const focusNode = domSelection.focusNode;
+    const anchorElement = anchorNode instanceof Element ? anchorNode : anchorNode?.parentElement;
+    const focusElement = focusNode instanceof Element ? focusNode : focusNode?.parentElement;
+    const anchorBody = anchorElement?.closest(".ago-message__body") ?? null;
+    const focusBody = focusElement?.closest(".ago-message__body") ?? null;
+
+    if (!anchorBody || anchorBody !== focusBody) {
+      setSelection(null);
+      return;
+    }
+
+    const sequenceAttribute = anchorBody.closest("[data-sequence]")?.getAttribute("data-sequence");
+    const sequence = sequenceAttribute ? Number(sequenceAttribute) : NaN;
+    if (!Number.isFinite(sequence)) {
+      setSelection(null);
+      return;
+    }
+
+    setSelection({ sequence, text });
+  };
+
+  const handlePromote = () => {
+    if (!selection || !onPromoteSelection) {
+      return;
+    }
+
+    onPromoteSelection(selection.text);
+    window.getSelection()?.removeAllRanges();
+    setSelection(null);
+  };
   // `18-01`: which `highlightSequence` this thread has already scrolled to - a ref, not state, purely
   // to guard the effect below against re-scrolling on every unrelated re-render (an attachment detail
   // resolving, a presence poll tick). Reset implicitly whenever `highlightSequence` itself changes,
@@ -129,7 +214,16 @@ export function Thread({
   }, [messages]);
 
   return (
-    <div className="ago-thread-scroll" ref={scrollRef} onScroll={handleScroll}>
+    <div
+      className="ago-thread-scroll"
+      ref={scrollRef}
+      onScroll={handleScroll}
+      // `23-10`: a plain DOM event, the same choice `testing.md`'s "hand-rolling over a dependency"
+      // reasoning already applies elsewhere in this file - no `selectionchange` listener at the
+      // `document` level to install and tear down, since mouseup already fires at the end of every
+      // drag, double-click and triple-click selection a pointer can make.
+      onMouseUp={onPromoteSelection ? handleSelectionEnd : undefined}
+    >
       {locating && (
         <div className="ago-thread__older">
           <Spinner label={strings.conversationLocatingMessageLabel} />
@@ -186,6 +280,23 @@ export function Thread({
                   )}
                   {import.meta.env.DEV && <span className="ago-message__sequence">#{item.message.sequence}</span>}
                 </span>
+                {/* `23-10`: only ever rendered for the one message whose body currently holds the
+                    selection - never a per-message button sitting there unconditionally. `onMouseDown`
+                    stops the browser's own default (collapsing the text selection when a mousedown
+                    lands outside it) from erasing what `handleSelectionEnd` just read, between the
+                    operator releasing the mouse over the highlighted text and clicking this button. */}
+                {onPromoteSelection && selection?.sequence === item.message.sequence && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="ago-message__promote"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={handlePromote}
+                  >
+                    {strings.threadPromoteToContactButton}
+                  </Button>
+                )}
               </div>
             </li>
           ),

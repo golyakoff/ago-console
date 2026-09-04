@@ -351,6 +351,13 @@ a.ago-list__row--active:hover {
   color: var(--ago-ink-soft);
 }
 
+/* `23-10`: appears only beside the one message currently holding the operator's own text selection -
+   `align-self` matches `.ago-message__meta` above so it lines up under the same edge rather than
+   stretching to the bubble's own width. */
+.ago-message__promote {
+  align-self: flex-end;
+}
+
 /* Development builds only (`Thread` gates it on `import.meta.env.DEV`) - the sequence number is
    genuinely useful when debugging the protocol and genuinely not for operators. In production it
    survives in the bubble's `title`. */

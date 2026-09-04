@@ -26,6 +26,7 @@ import { CloseConversationButton } from "../workspace/CloseConversationButton.js
 import { Composer } from "../workspace/Composer.js";
 import { Thread } from "../workspace/Thread.js";
 import { VisitorPanel } from "../workspace/VisitorPanel.js";
+import type { PromotedContactDraft } from "../workspace/ContactDetailsPanel.js";
 import { useWorkspace } from "../workspace/workspaceContext.js";
 
 const PRESENCE_POLL_INTERVAL_MS = 10_000;
@@ -159,8 +160,18 @@ export function ConversationPage() {
    * and re-deriving "have we already scrolled" would only duplicate `Thread`'s own guard. */
   const [highlightSequence, setHighlightSequence] = useState<number | null>(null);
   const [locatingMessage, setLocatingMessage] = useState(false);
+  /** `23-10`: the operator's most recently promoted transcript selection, passed down to
+   * `VisitorPanel` -> `ContactDetailsPanel`. `null` is the ordinary state - it is set only for the
+   * instant between the operator clicking "Add to contact details" and `ContactDetailsPanel`
+   * consuming it into its own local draft; nothing here re-reads it afterward. */
+  const [contactDraft, setContactDraft] = useState<PromotedContactDraft | null>(null);
   const joinedConversationId = useRef<string | null>(null);
   const requestedAttachmentIds = useRef<Set<string>>(new Set());
+  /** `23-10`: `contactDraft.token`'s source - a plain incrementing counter, not `Date.now()` or a
+   * random id, because uniqueness across the life of this component instance is all that is asked of
+   * it and `date-and-time.md`'s "time comes from `IClock`" rule is about the *server*; nothing here
+   * is stored or transmitted. */
+  const promoteTokenRef = useRef(0);
 
   // Resets which conversation has been joined whenever the route param itself changes - not on
   // every `connectionState` flicker, which is what the effect below depends on (see its own
@@ -181,6 +192,7 @@ export function ConversationPage() {
     setLocatingMessage(false);
     setSuggestingReply(false);
     setSuggestReplyError(null);
+    setContactDraft(null);
   }, [conversationId]);
 
   /**
@@ -492,6 +504,15 @@ export function ConversationPage() {
     }
   };
 
+  /** `23-10`: `Thread`'s own `onPromoteSelection` - the operator selected text in a message and
+   * clicked "Add to contact details". This never writes anything itself; it only hands the text to
+   * `ContactDetailsPanel` (via `VisitorPanel`) as a fresh draft for the operator to confirm or edit,
+   * the same "pre-fill, do not act" shape `handleSuggestReply` above already uses for the composer. */
+  const handlePromoteSelection = (text: string) => {
+    promoteTokenRef.current += 1;
+    setContactDraft({ value: text, token: promoteTokenRef.current });
+  };
+
   /** `5-08`'s upload sequence, unchanged and not reimplemented - only its trigger moved. It used to
    * be an `onChange` handler bound to a visible file input; the composer now calls it with a file
    * that may equally have been dropped or pasted. */
@@ -683,6 +704,11 @@ export function ConversationPage() {
           onLoadOlder={() => void loadOlder()}
           highlightSequence={highlightSequence}
           locating={locatingMessage}
+          // `23-10`: absent entirely (not passed as a no-op) for an operator without
+          // `conversation:send` - `Thread` renders no promote affordance at all in that case, rather
+          // than one that would dangle in front of a `ContactDetailsPanel` record form that is
+          // itself hidden for the same operator (`ContactDetailsPanel`'s own doc comment).
+          onPromoteSelection={hasPermission("conversation:send") ? handlePromoteSelection : undefined}
         />
 
         {/* `11-09`: the thread stays readable and the composer goes.
@@ -751,6 +777,7 @@ export function ConversationPage() {
         accessToken={user?.access_token ?? null}
         siteTags={tags}
         onInsertIntoComposer={setDraft}
+        contactDraft={contactDraft}
       />
     </>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import {
   fetchContactDetails,
@@ -20,9 +20,24 @@ import { useStrings } from "../i18n/StringsContext.js";
  * closed enum. */
 const CONTACT_DETAIL_KINDS = ["Phone", "Email", "Other"] as const;
 
+/** `23-10`: text an operator selected in the transcript and asked to promote - `Thread`'s own
+ * `onPromoteSelection`, relayed unchanged through `ConversationPage`. `token` exists only so this
+ * panel's effect can tell "the operator promoted the same text a second time" from "the operator
+ * promoted nothing new" - two plain `string`s that happen to be equal would otherwise look identical
+ * to React's dependency comparison, and the second promotion would silently do nothing. */
+export interface PromotedContactDraft {
+  value: string;
+  token: number;
+}
+
 export interface ContactDetailsPanelProps {
   conversationId: string;
   accessToken: string | null;
+  /** `23-10`: `null` for the ordinary case (nothing promoted yet, or since this conversation was
+   * opened - `ConversationPage` resets it on every conversation switch). Set once per act on a
+   * message, never written to a request itself: this panel still requires the operator's own
+   * **Record** click, exactly as it did before this item. */
+  contactDraft?: PromotedContactDraft | null;
 }
 
 /**
@@ -47,8 +62,16 @@ export interface ContactDetailsPanelProps {
  * need `conversation:send` (`RecordVisitorContactDetailHandler`'s own remarks on why this is not a
  * dedicated permission) - the form and each row's delete button are hidden, not shown disabled, for
  * an operator without it, the same posture `ConversationNotesPanel`'s own textarea already uses.
+ *
+ * `23-10`: `contactDraft` pre-fills the form below from a message the operator selected and promoted
+ * in `Thread` - kind defaults to `"Phone"` (this item's own goal is a phone number, and the operator
+ * can still change it before recording), the value is the selected text verbatim, and focus moves to
+ * the value field so the very next keystroke either confirms it or fixes it. **Nothing is recorded by
+ * this effect** - it only calls the same `setKindDraft`/`setValueDraft` the operator's own typing
+ * already drives, so a promoted draft is indistinguishable, from this point on, from one the operator
+ * typed by hand into an empty form. Recording still needs the existing **Record** click below.
  */
-export function ContactDetailsPanel({ conversationId, accessToken }: ContactDetailsPanelProps) {
+export function ContactDetailsPanel({ conversationId, accessToken, contactDraft }: ContactDetailsPanelProps) {
   const { hasPermission } = usePermissions();
   const strings = useStrings();
   const [details, setDetails] = useState<ContactDetailDto[] | null>(null);
@@ -57,6 +80,7 @@ export function ContactDetailsPanel({ conversationId, accessToken }: ContactDeta
   const [valueDraft, setValueDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     setDetails(null);
@@ -85,6 +109,25 @@ export function ContactDetailsPanel({ conversationId, accessToken }: ContactDeta
       cancelled = true;
     };
   }, [conversationId, accessToken, hasPermission, strings]);
+
+  // `23-10`: applies a freshly-promoted selection to the draft, keyed on `token` rather than `value`
+  // so promoting the same text twice in a row (the operator changes their mind, then promotes the
+  // identical phrase again) still re-focuses the field instead of silently doing nothing the second
+  // time. Deliberately does not depend on `canRecord`: `ConversationPage` only ever passes
+  // `onPromoteSelection` to `Thread` for an operator who already holds `conversation:send`, so a
+  // `contactDraft` reaching this component with the form absent is not a case this effect needs to
+  // guard against - `formRef.current` is simply `null` then, and the focus call below is a no-op.
+  useEffect(() => {
+    if (!contactDraft) {
+      return;
+    }
+
+    setKindDraft("Phone");
+    setValueDraft(contactDraft.value);
+    setActionError(null);
+    formRef.current?.querySelector<HTMLInputElement>("input:not([type=hidden])")?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactDraft?.token]);
 
   if (!hasPermission("conversation:read")) {
     return null;
@@ -165,7 +208,7 @@ export function ContactDetailsPanel({ conversationId, accessToken }: ContactDeta
       )}
 
       {canRecord && (
-        <form className="ago-row" onSubmit={(e) => void handleRecord(e)}>
+        <form ref={formRef} className="ago-row" onSubmit={(e) => void handleRecord(e)}>
           <Select
             aria-label={strings.contactDetailsKindLabel}
             value={kindDraft}
