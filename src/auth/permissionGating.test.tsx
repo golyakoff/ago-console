@@ -151,8 +151,12 @@ function pageOnly(path: string, page: ReactNode) {
   );
 }
 
-function grants(permissions: string[]): void {
-  operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions, siteId: SITE_ID });
+function grants(permissions: string[], enabledModules: string[] = []): void {
+  // `23-21`: `enabledModules` defaults to `[]`, not to `["calendar"]` - the "tenant does not have
+  // this at all" state is meant to be the ordinary default here, the same way `permissions` defaults
+  // to whatever the caller passes rather than to "everything". Tests about the calendar's own
+  // forbidden/absent distinction pass the second argument explicitly.
+  operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions, siteId: SITE_ID, enabledModules });
 }
 
 function navLabels(container: HTMLElement): string[] {
@@ -251,6 +255,32 @@ describe("the operator navigation", () => {
       "Availability",
       "Contacts",
     ]);
+  });
+
+  it("offers one calendar entry, not five, to an operator without calendar:configure on a tenant that has the module", async () => {
+    // `23-21`: the fix for `flows.md` 4.3's own must-never-happen, generalised from `22-14`. Before
+    // this item the nav offered nothing at all here, indistinguishable from a tenant that has never
+    // enabled the calendar - see the test right below for that other case. One entry, not the full
+    // five: the other four are unreachable without the permission regardless, so offering them would
+    // be five dead links rather than one honest one.
+    grants(["site:configure"], ["calendar"]);
+
+    const container = await render(shellAt("/"));
+
+    expect(navLabels(container)).toContain("Queue");
+    expect(navLabels(container)).not.toContain("Setup");
+    expect(navLabels(container)).not.toContain("Workers");
+  });
+
+  it("offers no calendar entry at all to an operator on a tenant that has never enabled the module", async () => {
+    // `23-21`: the deliberate under-disclosure half of the same fix - a nav item for a capability no
+    // colleague at this tenant could ever grant would be exactly the over-disclosure `flows.md` 4.3
+    // warns against, so this tenant's nav stays silent about the calendar, same as before this item.
+    grants(["site:configure"], []);
+
+    const container = await render(shellAt("/"));
+
+    expect(navLabels(container)).not.toContain("Queue");
   });
 
   it("offers nothing gated while the answer is still in flight", async () => {
@@ -634,14 +664,31 @@ describe("a gated page reached directly by URL", () => {
     expect(container.textContent).toContain("not configured for this deployment yet");
   });
 
-  it("refuses the calendar booking queue, and does not load its data", async () => {
+  it("refuses the calendar booking queue on a tenant that has it, and does not load its data", async () => {
     // `22-06`/`adr/0093`: a distinct permission from `site:configure` - an operator holding that one
     // alone still sees no calendar screen, matching every other calendar-gated case in this file.
-    grants(["site:configure"]);
+    // `23-21`: the tenant *does* have the module enabled here (`["calendar"]`) - the "forbidden", not
+    // "absent", half of the distinction the item exists to draw. See the next test for the other half.
+    grants(["site:configure"], ["calendar"]);
 
     const container = await render(pageOnly("/calendar", <CalendarQueuePage />));
 
     expect(container.textContent).toContain("You do not have permission to view the calendar's booking queue.");
+    expect(container.textContent).toContain("Ask an owner or admin at this workspace to grant it to you.");
+    expect(container.querySelector("table")).toBeNull();
+    expect(calendarApi.getPendingBookings).not.toHaveBeenCalled();
+  });
+
+  it("says the calendar is not part of this workspace, when the tenant never enabled it", async () => {
+    // `23-21`'s own Done-when: this and the test above must render distinguishable states rather
+    // than the identical "You do not have permission" sentence every operator without the
+    // permission used to see regardless of their tenant's own module state.
+    grants(["site:configure"], []);
+
+    const container = await render(pageOnly("/calendar", <CalendarQueuePage />));
+
+    expect(container.textContent).not.toContain("You do not have permission to view the calendar's booking queue.");
+    expect(container.textContent).toContain("This workspace does not have the calendar.");
     expect(container.querySelector("table")).toBeNull();
     expect(calendarApi.getPendingBookings).not.toHaveBeenCalled();
   });

@@ -31,6 +31,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const [permissions, setPermissions] = useState<string[] | null>(null);
   const [siteId, setSiteId] = useState<string | null>(null);
   const [locale, setLocale] = useState<string | null>(null);
+  const [enabledModules, setEnabledModules] = useState<string[] | null>(null);
   const [tenancies, setTenancies] = useState<TenancyDto[] | null>(null);
   const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
 
@@ -69,6 +70,11 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         setSiteId(response.siteId);
         // `11-11`(console): same response, same reasoning, one more field.
         setLocale(response.locale);
+        // `23-21`: same response, same reasoning, one more field - defaulted to `[]` rather than left
+        // `undefined` for a response shaped by an older mock/fixture that predates this field, the
+        // same defensive read `PermissionsContext`'s own doc comment describes for "not yet known"
+        // vs. "known to be none".
+        setEnabledModules(response.enabledModules ?? []);
       })
       .catch((err: unknown) => {
         // A permissions fetch failing must not crash the console - every gated UI element (the admin
@@ -102,8 +108,8 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<PermissionsState>(
-    () => ({ permissions, siteId, locale, hasPermission, tenancies, activeSiteId, switchTenancy }),
-    [permissions, siteId, locale, hasPermission, tenancies, activeSiteId, switchTenancy],
+    () => ({ permissions, siteId, locale, enabledModules, hasPermission, tenancies, activeSiteId, switchTenancy }),
+    [permissions, siteId, locale, enabledModules, hasPermission, tenancies, activeSiteId, switchTenancy],
   );
 
   return <PermissionsContext.Provider value={value}>{children}</PermissionsContext.Provider>;

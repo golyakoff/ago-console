@@ -1260,5 +1260,19 @@ export interface ConsoleStrings {
   calendarWorkerRecutForbidden: string;
   calendarAvailabilityForbidden: string;
   calendarContactsForbidden: string;
+
+  /** `23-21`: appended after whichever `calendar*Forbidden` sentence above named the screen -
+   * shown only when the tenant *does* have the calendar module enabled and this operator simply
+   * does not hold `calendar:configure` yet, so the "who can grant it" half of `flows.md` 4.3's rule
+   * has a real answer to give. Never shown alongside `calendarAbsentForTenant` below - the two are
+   * mutually exclusive states, resolved by `src/calendar/calendarAccess.tsx`. */
+  calendarForbiddenGrantHint: string;
+  /** `23-21`: the *other* half of the same distinction - shown instead of a `calendar*Forbidden`
+   * sentence when this tenant has never had the calendar module switched on at all, so refusing with
+   * "you do not have permission" would be true of every operator anywhere, not a fact about this
+   * person. Says what the console can honestly say about where the capability comes from without
+   * claiming a self-service path that does not exist yet (`flows.md` 5.2). */
+  calendarAbsentForTenant: string;
+
   calendarNotConfigured: string;
 }

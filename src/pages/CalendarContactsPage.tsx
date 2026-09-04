@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
 import { getContacts, type Contact } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
+import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Button } from "../components/Button.js";
@@ -63,14 +63,13 @@ export function CalendarContactsPage() {
   }
 
   if (!hasPermission("calendar:configure")) {
+    // `23-21`: the shared refusal - see `calendarAccess.tsx`'s own doc comment.
     return (
-      <>
-        <PageHead title={strings.navCalendarContacts} />
-        <Alert tone="danger">{strings.calendarContactsForbidden}</Alert>
-        <p>
-          <Link to="/">{strings.siteConfigBackToQueue}</Link>
-        </p>
-      </>
+      <CalendarAccessRefusal
+        title={strings.navCalendarContacts}
+        forbiddenMessage={strings.calendarContactsForbidden}
+        strings={strings}
+      />
     );
   }
 

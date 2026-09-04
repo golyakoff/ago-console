@@ -18,6 +18,15 @@ export interface PermissionsState {
    * response `siteId` already rides - `null` under the identical "not yet known" rule. `StringsProvider`
    * is the one consumer; nothing else needs the raw value. */
   locale: string | null;
+  /** `23-21`: the second, deliberately separate fact the same `GET /api/v1/operators/me` response now
+   * carries - the raw `ModuleKey` values this *tenant* has switched on (e.g. `["calendar"]`), never
+   * merged with `permissions`. Answers "does my tenant have this at all", which `hasPermission` alone
+   * cannot: an operator who holds no permission for a module still needs to know whether nobody
+   * granted it to *them*, or nobody enabled it for their *tenant* - `flows.md` 4.3's "absent and
+   * forbidden look identical" rule, generalised past the calendar tenancy switcher `22-14` first fixed
+   * it for. `null` under the identical "not yet known" rule `permissions` already follows -
+   * `src/calendar/calendarAccess.tsx` is the one place today that reads this. */
+  enabledModules: string[] | null;
   hasPermission: (permission: string) => boolean;
   /** `13-07`/`adr/0068`: every tenancy (`Site`) this signed-in identity administers, from
    * `GET /api/v1/me/tenancies` - the new step `PermissionsProvider` takes before its existing

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
@@ -11,7 +10,7 @@ import {
   type PendingBooking,
 } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
-import { CalendarElsewhereNotice } from "../calendar/CalendarElsewhereNotice.js";
+import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Button } from "../components/Button.js";
@@ -82,18 +81,16 @@ export function CalendarQueuePage() {
   }
 
   if (!hasPermission("calendar:configure")) {
+    // `23-21`: the shared refusal, not a hand-copied block - see `calendarAccess.tsx`'s own doc
+    // comment. `showElsewhereNotice` stays true only here: `/calendar` is the section's landing
+    // page, the one a bookmark or a stale link lands on (`CalendarElsewhereNotice`'s own remarks).
     return (
-      <>
-        <PageHead title={strings.navCalendarQueue} />
-        <Alert tone="danger">{strings.calendarQueueForbidden}</Alert>
-        {/* `22-14`/`adr/0100`: "you cannot see it here" and "you have one, in a different shop" are
-            different answers, and until this item the console gave the first for both. Renders
-            nothing when there is no other shop to name - see the component's own remarks. */}
-        <CalendarElsewhereNotice />
-        <p>
-          <Link to="/">{strings.siteConfigBackToQueue}</Link>
-        </p>
-      </>
+      <CalendarAccessRefusal
+        title={strings.navCalendarQueue}
+        forbiddenMessage={strings.calendarQueueForbidden}
+        strings={strings}
+        showElsewhereNotice
+      />
     );
   }
 

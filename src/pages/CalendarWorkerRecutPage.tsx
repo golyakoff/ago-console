@@ -14,6 +14,7 @@ import {
 } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { renderCustomer, renderPhone, slotStatusLabel } from "../calendar/calendarFormat.js";
+import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Field } from "../components/Field.js";
@@ -91,14 +92,13 @@ export function CalendarWorkerRecutPage() {
   }
 
   if (!hasPermission("calendar:configure")) {
+    // `23-21`: the shared refusal - see `calendarAccess.tsx`'s own doc comment.
     return (
-      <>
-        <PageHead title={strings.calendarRecutTitle} />
-        <Alert tone="danger">{strings.calendarWorkerRecutForbidden}</Alert>
-        <p>
-          <Link to="/">{strings.siteConfigBackToQueue}</Link>
-        </p>
-      </>
+      <CalendarAccessRefusal
+        title={strings.calendarRecutTitle}
+        forbiddenMessage={strings.calendarWorkerRecutForbidden}
+        strings={strings}
+      />
     );
   }
 

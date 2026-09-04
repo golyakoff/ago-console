@@ -16,6 +16,12 @@ export interface OperatorPermissionsResponse {
    * for the identical "no second network call" reason `siteId` already rides here - `Ago.Chat.
    * Contracts.OperatorPermissionsResponse`'s own remarks. */
   locale: string;
+  /** `23-21`: the second, deliberately separate fact this response now carries - the raw `ModuleKey`
+   * values this operator's own tenant has switched on (e.g. `["calendar"]`), scoped server-side to the
+   * caller's own site claim so this can never become a cross-tenant read. Never merged with
+   * `permissions` - `Ago.Chat.Contracts.OperatorPermissionsResponse`'s own remarks explain why
+   * collapsing the two into one list is the exact bug this item exists to close. */
+  enabledModules: string[];
 }
 
 export async function fetchMyPermissions(accessToken: string): Promise<OperatorPermissionsResponse> {

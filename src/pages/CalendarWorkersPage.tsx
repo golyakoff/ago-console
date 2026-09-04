@@ -17,6 +17,7 @@ import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { WorkersTable } from "../calendar/WorkersTable.js";
 import { WorkerCard, type WorkerCardFields } from "../calendar/WorkerCard.js";
 import { WorkerScheduleSection } from "../calendar/WorkerScheduleSection.js";
+import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Button } from "../components/Button.js";
@@ -95,14 +96,13 @@ export function CalendarWorkersPage() {
   }
 
   if (!hasPermission("calendar:configure")) {
+    // `23-21`: the shared refusal - see `calendarAccess.tsx`'s own doc comment.
     return (
-      <>
-        <PageHead title={strings.navCalendarWorkers} />
-        <Alert tone="danger">{strings.calendarWorkersForbidden}</Alert>
-        <p>
-          <Link to="/">{strings.siteConfigBackToQueue}</Link>
-        </p>
-      </>
+      <CalendarAccessRefusal
+        title={strings.navCalendarWorkers}
+        forbiddenMessage={strings.calendarWorkersForbidden}
+        strings={strings}
+      />
     );
   }
 
