@@ -190,7 +190,10 @@ describe("the pending-bookings queue", () => {
     // `22-14`/`adr/0100`: the item's own defect, at the one screen that can answer it. Without the
     // second expectation this page says the same thing to somebody who has never been granted a
     // calendar anywhere and to somebody who has one in the shop next door.
-    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: [], siteId: SITE_ID });
+    // `23-21`: `enabledModules: ["calendar"]` - this tenant *does* have the calendar, this operator
+    // just does not hold `calendar:configure` yet, which is exactly the state `CalendarElsewhereNotice`
+    // exists for; the sibling test below covers the tenant that has never enabled the module at all.
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: [], siteId: SITE_ID, enabledModules: ["calendar"] });
     calendarTenanciesApi.fetchMyCalendarTenancies.mockResolvedValue([
       { tenantId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", tenantName: "The other shop" },
     ]);
@@ -199,6 +202,22 @@ describe("the pending-bookings queue", () => {
 
     expect(container.textContent).toContain("do not have permission");
     expect(container.textContent).toContain("The other shop");
+  });
+
+  it("says the calendar is not part of this workspace, without naming any other shop, when the tenant never enabled it", async () => {
+    // `23-21`'s own Done-when: distinguishable from the test above, which is exactly the same
+    // operator (`permissions: []`) on a tenant that genuinely has the module.
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: [], siteId: SITE_ID, enabledModules: [] });
+    calendarTenanciesApi.fetchMyCalendarTenancies.mockResolvedValue([
+      { tenantId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", tenantName: "The other shop" },
+    ]);
+
+    const container = await render(page());
+
+    expect(container.textContent).not.toContain("do not have permission");
+    expect(container.textContent).toContain("This workspace does not have the calendar.");
+    // `CalendarElsewhereNotice` is never mounted in the "absent" branch - see `calendarAccess.tsx`.
+    expect(container.textContent).not.toContain("The other shop");
   });
 
   it("shows the empty state when there is nothing to confirm", async () => {

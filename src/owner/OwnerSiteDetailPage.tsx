@@ -50,7 +50,7 @@ type OwnerDetailAccess = "unknown" | "granted" | "refused" | "not-found";
 export function OwnerSiteDetailPage() {
   const { siteId } = useParams<{ siteId: string }>();
   const { user, logout } = useAuth();
-  const { siteId: ownSiteId, hasPermission } = usePermissions();
+  const { siteId: ownSiteId, hasPermission, enabledModules } = usePermissions();
   const accessToken = user?.access_token;
 
   const [access, setAccess] = useState<OwnerDetailAccess>("unknown");
@@ -107,7 +107,7 @@ export function OwnerSiteDetailPage() {
       // page's own `end: true`, is highlighted while on this sub-route too (`end: false`): this
       // screen is still part of the platform-sites section, one tenant deep into it.
       nav={[
-        ...(ownSiteId ? buildTenantNavItems(hasPermission, en) : []),
+        ...(ownSiteId ? buildTenantNavItems(hasPermission, en, enabledModules ?? []) : []),
         { to: "/owner", label: en.navPlatformSites, end: false },
       ]}
       demoNoticeAudience={access === "granted" ? "platform-owner" : "shared-login"}

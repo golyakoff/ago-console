@@ -85,6 +85,7 @@ function Signed({ locale, children }: { locale: string | null; children: ReactNo
       permissions: ["site:configure"],
       siteId: SITE_ID,
       locale,
+      enabledModules: [],
       hasPermission: (p: string) => p === "site:configure",
       tenancies: [{ siteId: SITE_ID, siteName: "Тестовый сайт" }],
       activeSiteId: SITE_ID,

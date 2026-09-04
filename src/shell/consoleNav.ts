@@ -24,7 +24,7 @@ import type { AppShellNavItem } from "./AppShell.js";
  * identical reasoning that already keeps `/onboarding`/`/signup`/`/callback` English.
  */
 export function buildTenantNavItems(
-  hasPermission: (permission: string) => boolean, strings: ConsoleStrings,
+  hasPermission: (permission: string) => boolean, strings: ConsoleStrings, enabledModules: string[] = [],
 ): AppShellNavItem[] {
   const items: AppShellNavItem[] = [{ to: "/", label: strings.navConversations, end: true }];
   if (hasPermission("site:configure")) {
@@ -89,12 +89,29 @@ export function buildTenantNavItems(
   // Five entries, not six: `22-05` (`adr/0093`, merged mid-move) deleted AGO Calendar's own
   // `operators`/`roles` tables and the console endpoints that managed them - there is no Access
   // screen to link to any more, and none was ever wired here.
+  //
+  // `23-21`: a caller who does not hold `calendar:configure` is no longer offered nothing
+  // unconditionally - `enabledModules` (from the same `GET /api/v1/operators/me` response
+  // `hasPermission` already reads, `23-21`'s own widened shape) says whether their *tenant* has the
+  // calendar at all, which is a fact about the tenant, not this operator. Two cases, deliberately
+  // not three: showing a dead entry for every deployment (whether or not this tenant could ever use
+  // it) would be the over-disclosure `flows.md` 4.3 warns against - a nav item is worth drawing only
+  // for a capability a colleague at *this* tenant could plausibly grant.
+  //   - Holds the permission: the full five, unchanged from before this item.
+  //   - Does not hold it, but the tenant has the module enabled: one entry (`/calendar` itself) so
+  //     the capability is discoverable at all - it leads to `CalendarAccessRefusal`'s "forbidden"
+  //     state, which names who can grant it (`src/calendar/calendarAccess.tsx`).
+  //   - Does not hold it, and the tenant has never enabled the module: nothing, matching this nav's
+  //     behaviour before this item - there is no colleague at this tenant who could grant a module
+  //     nobody here has ever switched on.
   if (hasPermission("calendar:configure")) {
     items.push({ to: "/calendar", label: strings.navCalendarQueue, end: true });
     items.push({ to: "/calendar/setup", label: strings.navCalendarSetup });
     items.push({ to: "/calendar/workers", label: strings.navCalendarWorkers });
     items.push({ to: "/calendar/availability", label: strings.navCalendarAvailability });
     items.push({ to: "/calendar/contacts", label: strings.navCalendarContacts });
+  } else if (enabledModules.includes("calendar")) {
+    items.push({ to: "/calendar", label: strings.navCalendarQueue, end: true });
   }
 
   return items;

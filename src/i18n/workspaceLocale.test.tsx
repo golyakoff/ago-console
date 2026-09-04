@@ -101,6 +101,7 @@ function Signed({ locale, children }: { locale: string | null; children: React.R
       permissions: ["conversation:close"],
       siteId: SITE_ID,
       locale,
+      enabledModules: [],
       hasPermission: (p: string) => p === "conversation:close",
       tenancies: [{ siteId: SITE_ID, siteName: "Тестовый сайт" }],
       activeSiteId: SITE_ID,

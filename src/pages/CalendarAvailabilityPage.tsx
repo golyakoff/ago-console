@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
 import { deleteDayOff, editDayBoundary, getConfiguration, type TenantConfiguration } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
+import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Field } from "../components/Field.js";
@@ -67,14 +67,13 @@ export function CalendarAvailabilityPage() {
   }
 
   if (!hasPermission("calendar:configure")) {
+    // `23-21`: the shared refusal - see `calendarAccess.tsx`'s own doc comment.
     return (
-      <>
-        <PageHead title={strings.navCalendarAvailability} />
-        <Alert tone="danger">{strings.calendarAvailabilityForbidden}</Alert>
-        <p>
-          <Link to="/">{strings.siteConfigBackToQueue}</Link>
-        </p>
-      </>
+      <CalendarAccessRefusal
+        title={strings.navCalendarAvailability}
+        forbiddenMessage={strings.calendarAvailabilityForbidden}
+        strings={strings}
+      />
     );
   }
 

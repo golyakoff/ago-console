@@ -62,7 +62,7 @@ type OwnerAccess = "unknown" | "granted" | "refused";
  */
 export function OwnerSitesPage() {
   const { user, logout } = useAuth();
-  const { siteId, hasPermission } = usePermissions();
+  const { siteId, hasPermission, enabledModules } = usePermissions();
   const accessToken = user?.access_token;
 
   const [access, setAccess] = useState<OwnerAccess>("unknown");
@@ -203,7 +203,7 @@ export function OwnerSitesPage() {
       // regardless of any tenant this identity also administers (confirmed with the author, `11-11`'s
       // own backlog item: `/owner` is not scoped to one tenant, so it never follows one's language).
       nav={[
-        ...(siteId ? buildTenantNavItems(hasPermission, en) : []),
+        ...(siteId ? buildTenantNavItems(hasPermission, en, enabledModules ?? []) : []),
         { to: "/owner", label: en.navPlatformSites, end: true },
       ]}
       // `12-04`: narrowed only once `12-02`'s endpoint has actually accepted this caller. While the

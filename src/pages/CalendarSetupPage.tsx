@@ -13,6 +13,7 @@ import {
 } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { weekdayNames } from "../calendar/calendarFormat.js";
+import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Field } from "../components/Field.js";
@@ -78,14 +79,13 @@ export function CalendarSetupPage() {
   }
 
   if (!hasPermission("calendar:configure")) {
+    // `23-21`: the shared refusal - see `calendarAccess.tsx`'s own doc comment.
     return (
-      <>
-        <PageHead title={strings.navCalendarSetup} />
-        <Alert tone="danger">{strings.calendarSetupForbidden}</Alert>
-        <p>
-          <Link to="/">{strings.siteConfigBackToQueue}</Link>
-        </p>
-      </>
+      <CalendarAccessRefusal
+        title={strings.navCalendarSetup}
+        forbiddenMessage={strings.calendarSetupForbidden}
+        strings={strings}
+      />
     );
   }
 
