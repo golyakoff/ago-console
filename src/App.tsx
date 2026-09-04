@@ -24,6 +24,7 @@ import { TagsPage } from "./pages/TagsPage.js";
 import { BillingPage } from "./pages/BillingPage.js";
 import { AccountDeletionPage } from "./pages/AccountDeletionPage.js";
 import { OwnerSitesPage } from "./owner/OwnerSitesPage.js";
+import { OwnerSiteDetailPage } from "./owner/OwnerSiteDetailPage.js";
 import { CalendarQueuePage } from "./pages/CalendarQueuePage.js";
 import { CalendarSetupPage } from "./pages/CalendarSetupPage.js";
 import { CalendarWorkersPage } from "./pages/CalendarWorkersPage.js";
@@ -111,6 +112,22 @@ export function App() {
           <RequireAuth>
             <PermissionsProvider>
               <OwnerSitesPage />
+            </PermissionsProvider>
+          </RequireAuth>
+        }
+      />
+      {/* `23-14`: the per-tenant drill-down `ui-inventory.md` §8.1 recorded as absent - same gate,
+          same "outside the operator layout" reasoning as `/owner` immediately above, since it is a
+          detail view of the identical resource ("a site, as the platform owner sees it"), not a
+          different actor or a different policy. `GET /api/v1/owner/sites/{siteId}`'s own
+          `RequirePlatformOwner` policy is what actually decides; `OwnerSiteDetailPage` renders
+          whatever that policy answers, including a real 404 for a site id that does not exist. */}
+      <Route
+        path="/owner/sites/:siteId"
+        element={
+          <RequireAuth>
+            <PermissionsProvider>
+              <OwnerSiteDetailPage />
             </PermissionsProvider>
           </RequireAuth>
         }

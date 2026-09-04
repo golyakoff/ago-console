@@ -76,3 +76,38 @@ export function formatRecentMessagesHeader(days: number): string {
 export function formatNoRecentActivity(days: number): string {
   return `None in ${describeRecentWindow(days)}`;
 }
+
+/**
+ * `23-14`: "3 of 41 sites match" - the exact shape this item's own "must not break" clause asks for,
+ * so a search result never reads like a bare, narrower row count. Always built from the server's own
+ * `matchingSites`/`totalSites`, never from `sites.length` (which is only the current page) - the same
+ * "the predicate is explicit in the response, never implicit in a narrowed page" rule the API contract
+ * itself carries.
+ *
+ * A caller with no active search should not call this at all - `OwnerSitesPage` only renders it while
+ * a query is active, since "41 of 41 sites match" says nothing an unfiltered list's own row count
+ * does not already say plainer.
+ */
+export function formatMatchSummary(matchingSites: number, totalSites: number): string {
+  return `${formatCount(matchingSites)} of ${formatCount(totalSites)} ${totalSites === 1 ? "site" : "sites"} match.`;
+}
+
+/**
+ * `23-14`: what `expiresAt` means, rendered as a value rather than left to speak for itself - a
+ * `null` is an explicit "No end date", never a blank cell (this item's own Done-when), and a real
+ * date is handed back unformatted (the caller renders it with `formatDateStamp`, the same as every
+ * other date on this screen) so this function's only job is the null case.
+ */
+export function formatModuleExpiry(expiresAt: string | null): string | null {
+  return expiresAt === null ? "No end date" : null;
+}
+
+/**
+ * `23-14`: "Active" / "Expired" - rendered directly from the server's own `isActive`, never
+ * recomputed here by comparing `expiresAt` against the browser's own clock (this item's own
+ * Done-when: "matching what the live read-store query already decides rather than re-deriving it in
+ * the console").
+ */
+export function formatModuleStatus(isActive: boolean): string {
+  return isActive ? "Active" : "Expired";
+}

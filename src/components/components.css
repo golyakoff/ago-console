@@ -618,3 +618,28 @@
   font-size: var(--ago-text-xl);
   font-weight: 600;
 }
+
+/* `23-14`: the owner's per-tenant detail read - eight facts in a responsive grid, the main-content
+   counterpart of `ago-aside__facts` (which is sized for the narrow VisitorPanel column). A `<dl>`,
+   not a `Table`: these are eight distinct fields about one site, not rows of a repeating shape, the
+   same "the honest shape for the data" reasoning `ago-booking-flow-stats` gives for its own two
+   numbers. */
+.ago-owner-detail-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: var(--ago-space-4);
+  margin: 0 0 var(--ago-space-6);
+}
+
+.ago-owner-detail-facts dt {
+  font-size: var(--ago-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ago-ink-faint);
+}
+
+.ago-owner-detail-facts dd {
+  margin: var(--ago-space-1) 0 0;
+  font-size: var(--ago-text-base);
+}
