@@ -6,6 +6,7 @@ import { searchConversations } from "../api/conversationsApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
 import type { ConversationSearchResultDto } from "../realtime/protocol/types.js";
 import { PageHead } from "../shell/AppShell.js";
+import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
@@ -246,15 +247,8 @@ export function SearchConversationsPage() {
   }
 
   if (!hasPermission("site:configure")) {
-    return (
-      <>
-        <PageHead title={strings.navSearch} />
-        <Alert tone="danger">{strings.searchForbiddenError}</Alert>
-        <p>
-          <Link to="/">{strings.siteConfigBackToQueue}</Link>
-        </p>
-      </>
-    );
+    // `23-24`: shared `AccessRefusal`, replacing this screen's own copy of the block.
+    return <AccessRefusal title={strings.navSearch} message={strings.searchForbiddenError} strings={strings} />;
   }
 
   const searchedFromAt = parseInstant(searchedFrom);

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchBookingFlowReport } from "../api/conversationsApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
 import { formatCountComparison } from "../analytics/comparison.js";
 import { PageHead } from "../shell/AppShell.js";
+import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Alert } from "../components/Alert.js";
 import { Button } from "../components/Button.js";
 import { Field } from "../components/Field.js";
@@ -135,14 +135,9 @@ export function BookingFlowConversionPage() {
   }
 
   if (!allowed) {
+    // `23-24`: shared `AccessRefusal`, replacing this screen's own copy of the block.
     return (
-      <>
-        <PageHead title={strings.navBookingFlow} />
-        <Alert tone="danger">{strings.bookingFlowForbiddenError}</Alert>
-        <p>
-          <Link to="/">{strings.siteConfigBackToQueue}</Link>
-        </p>
-      </>
+      <AccessRefusal title={strings.navBookingFlow} message={strings.bookingFlowForbiddenError} strings={strings} />
     );
   }
 

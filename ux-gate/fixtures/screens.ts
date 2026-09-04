@@ -1,4 +1,4 @@
-import { CALENDAR_WORKER_ID, OPEN_CONVERSATION_ID } from "./data.js";
+import { CALENDAR_WORKER_ID, OPEN_CONVERSATION_ID, type SeededPermissionsOverrides } from "./data.js";
 
 /**
  * `15-11`'s own Open Questions leaves "which screens" undecided ("Probably: the author's six named
@@ -35,6 +35,11 @@ export interface UxGateScreen {
   needsHubMock?: boolean;
   /** Waited for before measuring or screenshotting, so neither ever races the initial fetch. */
   readySelector: string;
+  /** `23-24`: `undefined` for every screen but one - the fully-permissioned seeded operator
+   * (`fixtures/data.ts#seededPermissions`'s own default) is right for every screen this gate opened
+   * before this item, and stays right for all of them except the one built specifically to render
+   * this item's own muted nav treatment (`admin-limited-permissions`, below). */
+  permissionsOverride?: SeededPermissionsOverrides;
 }
 
 export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
@@ -148,5 +153,34 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
     // which `openScreen.ts` does not do for any screen (this file's own header: navigate-and-wait,
     // never navigate-and-interact).
     readySelector: "form.ago-row",
+  },
+  // `23-24`: every screen above renders the seeded operator's nav ordinary - `seededPermissions()`
+  // grants every gated permission this console has, so the muted treatment this item adds (and the
+  // `AccessRefusal` page it leads to) never once rendered in this gate before now. Note the
+  // instruction this item shipped under: "the seeded operator currently holds `calendar:configure`,
+  // so the gate never exercises a refused state - you will need to make it do so". One more screen,
+  // not a variant of `admin-conversations` above - a *different* `permissionsOverride`, real assets
+  // this gate cannot fake around (`ux-gate/lib/contrast.ts` reads real computed styles; a Vitest DOM
+  // test, `permissionGating.test.tsx`, cannot).
+  //
+  // `/admin` reached by an operator holding none of `site:configure`/`site:erase`/
+  // `calendar:configure`, on a tenant that *does* have the calendar module (`enabledModules:
+  // ["calendar"]`) - chosen to exercise every row of decision §10's table in one screen: thirteen
+  // `site:configure` entries muted, `Delete account` muted, the calendar's single `Queue` entry
+  // muted (the one row `23-21` left ordinary and this item now mutes too), and - because this
+  // operator lacks `site:configure` - `/admin` itself renders `AccessRefusal` rather than the table,
+  // so the refusal page's own `tone="info"` text is in the same screenshot and the same four
+  // assertions. `readySelector` waits for the refusal `Alert`, not `.ago-table-scroll` (which never
+  // appears here) and not a muted nav link - found live: `.ago-shell__nav-link--muted` sits in
+  // `.ago-shell__nav`, the desktop bar, which `shell.css` hides below the mobile breakpoint, so
+  // `page.waitForSelector`'s own `state: "visible"` never resolves on the 375px project even though
+  // the element exists in the DOM. The `Alert` is ordinary page content, rendered on both viewports,
+  // and (`AccessRefusal`'s own body) mounts from the same permissions state the nav does, in the same
+  // render - waiting for it is exactly as good a "has the real answer arrived" signal.
+  {
+    name: "admin-limited-permissions",
+    path: "/admin",
+    readySelector: ".ago-alert",
+    permissionsOverride: { permissions: ["conversation:close"], enabledModules: ["calendar"] },
   },
 ];

@@ -17,6 +17,7 @@ import {
   seededTenancies,
   seededVisitorHistory,
   seededWidgetConfig,
+  type SeededPermissionsOverrides,
 } from "./data.js";
 
 /**
@@ -37,7 +38,7 @@ import {
  * and the app's own `URL` already gives this file a real `pathname` to switch on, which reads more
  * plainly than five overlapping glob patterns would.
  */
-export async function installApiStubs(page: Page): Promise<void> {
+export async function installApiStubs(page: Page, permissionsOverride?: SeededPermissionsOverrides): Promise<void> {
   await page.route("**/api/v1/**", async (route: Route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -52,7 +53,11 @@ export async function installApiStubs(page: Page): Promise<void> {
     }
 
     if (path === "/api/v1/operators/me" && method === "GET") {
-      return json(seededPermissions());
+      // `23-24`: `undefined` for every screen but the one that overrides it
+      // (`screens.ts`'s own `admin-limited-permissions`) - `seededPermissions()`'s own default
+      // parameter falls back to the fully-permissioned operator every other screen in this gate
+      // relies on, unchanged.
+      return json(seededPermissions(permissionsOverride));
     }
 
     if (path === "/api/v1/conversations/queue" && method === "GET") {

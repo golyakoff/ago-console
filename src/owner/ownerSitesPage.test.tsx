@@ -62,8 +62,13 @@ function shellAt() {
   );
 }
 
+/** `23-24`: reads only `.ago-shell__nav-link-label`, not the whole link's `textContent` - a muted
+ * entry also carries `NavLockGlyph`'s own visually-hidden label right beside it
+ * (`AppShell.tsx`'s own doc comment, `permissionGating.test.tsx`'s own identical helper). */
 function navLabels(container: HTMLElement): string[] {
-  return all(container, ".ago-shell__nav a").map((link) => (link.textContent ?? "").trim());
+  return all(container, ".ago-shell__nav a").map(
+    (link) => (link.querySelector(".ago-shell__nav-link-label")?.textContent ?? "").trim(),
+  );
 }
 
 beforeEach(() => {
@@ -100,6 +105,7 @@ describe("the platform-sites page's own navigation", () => {
       "Canned responses",
       "Tags",
       "Billing",
+      "Delete account",
       "Platform sites",
     ]);
   });

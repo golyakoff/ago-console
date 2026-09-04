@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchTags, createTag, renameTag, deleteTag, type TagDto } from "../api/tagsApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
 import { PageHead } from "../shell/AppShell.js";
+import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
 import { Field } from "../components/Field.js";
 import { Input } from "../components/Input.js";
@@ -63,15 +63,8 @@ export function TagsPage() {
   }
 
   if (!hasPermission("site:configure")) {
-    return (
-      <>
-        <PageHead title={strings.navTags} />
-        <Alert tone="danger">{strings.tagsForbidden}</Alert>
-        <p>
-          <Link to="/">{strings.siteConfigBackToQueue}</Link>
-        </p>
-      </>
-    );
+    // `23-24`: shared `AccessRefusal`, replacing this screen's own copy of the block.
+    return <AccessRefusal title={strings.navTags} message={strings.tagsForbidden} strings={strings} />;
   }
 
   const handleCreate = async (event: React.FormEvent) => {

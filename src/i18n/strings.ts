@@ -1278,12 +1278,20 @@ export interface ConsoleStrings {
   calendarAvailabilityForbidden: string;
   calendarContactsForbidden: string;
 
-  /** `23-21`: appended after whichever `calendar*Forbidden` sentence above named the screen -
-   * shown only when the tenant *does* have the calendar module enabled and this operator simply
-   * does not hold `calendar:configure` yet, so the "who can grant it" half of `flows.md` 4.3's rule
-   * has a real answer to give. Never shown alongside `calendarAbsentForTenant` below - the two are
-   * mutually exclusive states, resolved by `src/calendar/calendarAccess.tsx`. */
-  calendarForbiddenGrantHint: string;
+  /** `23-21`, generalised by `23-24` beyond the calendar (renamed from `calendarForbiddenGrantHint`
+   * - the wording was already generic, "this workspace", never "the calendar"). Appended after
+   * whichever `*Forbidden` sentence named the screen, by `src/shell/accessRefusal.tsx`'s shared
+   * `AccessRefusal` - every gate an owner at this tenant could grant (`site:configure`,
+   * `site:erase`, `calendar:configure`) reaches the same sentence, so the "who can grant it" half of
+   * decision §10 has one real answer, not one worded per screen. Never shown alongside
+   * `calendarAbsentForTenant` below - that is the one gate with a third, ungrantable state, and
+   * `src/calendar/calendarAccess.tsx` is what tells the two apart. */
+  accessRefusalGrantHint: string;
+  /** `23-24`: the lock glyph's own visually-hidden label (`src/shell/AppShell.tsx`'s
+   * `NavLockGlyph`) - without a translated label here the glyph does not exist for a screen reader,
+   * only for a sighted reader who can see it is fainter than its neighbours. Read once per muted nav
+   * entry, immediately after that entry's own visible label. */
+  navLockedLabel: string;
   /** `23-21`: the *other* half of the same distinction - shown instead of a `calendar*Forbidden`
    * sentence when this tenant has never had the calendar module switched on at all, so refusing with
    * "you do not have permission" would be true of every operator anywhere, not a fact about this
