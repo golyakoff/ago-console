@@ -335,3 +335,35 @@ export function seededCalendarWorkerSlots() {
     };
   });
 }
+
+/**
+ * `23-23`: `GET /booking-readiness` for `CalendarSetupPage`/`CalendarWorkersPage`'s own
+ * `BookingReadiness` panel.
+ *
+ * <b>Deliberately not a fully-bookable tenant.</b> A ready tenant renders almost nothing - every
+ * precondition a single `Badge`, no link, no interesting layout. This fixture instead agrees with
+ * `seededCalendarConfiguration()`'s own already-seeded state, which this gate's other screens already
+ * render: the one worker offers no service (`serviceIds: []`) and the one calendar has no working
+ * hours (`workingHours: []`). Reusing that story rather than inventing a second, contradictory one
+ * means every screen this gate opens describes the same tenant - and it exercises the panel's real
+ * rendering: two preconditions met (a plain `Badge`), four unmet (a `Badge` plus a `Link` to the
+ * screen that fixes it), which is the shape a rendered-UX/i18n-completeness gate actually needs to
+ * see to be checking anything.
+ */
+export function seededCalendarBookingReadiness() {
+  return [
+    {
+      calendarId: CALENDAR_CALENDAR_ID,
+      calendarName: "Основной",
+      isBookable: false,
+      preconditions: [
+        { precondition: "CalendarPublished", isMet: true },
+        { precondition: "WorkerOnCalendar", isMet: true },
+        { precondition: "ServiceOffered", isMet: false },
+        { precondition: "WorkingHoursConfigured", isMet: false },
+        { precondition: "ScheduleSaved", isMet: false },
+        { precondition: "SlotsMaterialized", isMet: false },
+      ],
+    },
+  ];
+}
