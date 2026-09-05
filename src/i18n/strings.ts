@@ -171,6 +171,23 @@ export interface ConsoleStrings {
   /** `23-10`: the button that appears beside a message once the operator has selected text inside
    * it - clicking it pre-fills `ContactDetailsPanel`'s own draft with exactly what was selected. */
   threadPromoteToContactButton: string;
+  /** `23-19`: a persistent caption above the thread, shown for every conversation - not only channel
+   * ones - so the *absence* of a delivery badge on a widget conversation is never mistaken for a
+   * failure (`flows.md` 4.5's own "must not be made to interpret a delivery status that means
+   * something only to an engineer", read the other way: silence must not read as a status either). */
+  threadDeliveryScopeNote: string;
+  /** The badge on an operator's own message once its channel send succeeded - plain wording, never
+   * the wire enum member (`ChannelDeliveryDto.status === "Delivered"`) shown verbatim. */
+  threadDeliveryDeliveredBadge: string;
+  /** The badge on an operator's own message once its channel send was refused
+   * (`ChannelDeliveryDto.status === "Refused"`) - paired with the provider's own detail in the
+   * badge's `title`, prefixed by `threadDeliveryReasonPrefix`. */
+  threadDeliveryNotDeliveredBadge: string;
+  /** `${threadDeliveryReasonPrefix} ${failureReason}` - the refused badge's own `title`. The
+   * provider's own free-text reason is not translated (it is not this console's own vocabulary to
+   * translate, the same "relayed, not authored" posture `ChannelIdentitiesPanel`'s link-instruction
+   * text already takes for a different provider-facing string), only this prefix is. */
+  threadDeliveryReasonPrefix: string;
 
   // Composer.
   /** `${composerUploadingLabel} ${fileName} — ${percent}%`. */

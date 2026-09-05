@@ -84,6 +84,12 @@ export const en: ConsoleStrings = {
   threadAuthorOperator: "Operator",
   threadAuthorSystem: "System",
   threadPromoteToContactButton: "Add to contact details",
+  threadDeliveryScopeNote:
+    "Delivery status is shown on messages sent through a connected channel (SMS, Telegram, and similar) only. " +
+    "Messages in this website's own chat do not show a delivery status.",
+  threadDeliveryDeliveredBadge: "Delivered",
+  threadDeliveryNotDeliveredBadge: "Not delivered",
+  threadDeliveryReasonPrefix: "Reason:",
 
   composerUploadingLabel: "Uploading",
   composerAttachedBadge: "Attached",

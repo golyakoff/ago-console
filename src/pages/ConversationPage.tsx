@@ -19,6 +19,7 @@ import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
 import { Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
+import { fetchChannelDeliveries, type ChannelDeliveryDto } from "../api/channelDeliveriesApi.js";
 import { closeConversation, fetchVisitorHistory } from "../api/conversationsApi.js";
 import { generateReplyDraft, ReplyDraftError } from "../api/replyDraftApi.js";
 import type { VisitorHistoryResponse } from "../realtime/protocol/types.js";
@@ -122,6 +123,11 @@ export function ConversationPage() {
   const [visitorOnline, setVisitorOnline] = useState<boolean | null>(null);
   const [visitorHistory, setVisitorHistory] = useState<VisitorHistoryResponse | null>(null);
   const [visitorHistoryError, setVisitorHistoryError] = useState<string | null>(null);
+  // `23-19`: `null` while loading (or for a conversation this fetch has not run for yet) - `Thread`
+  // itself never distinguishes "still loading" from "nothing recorded" (both render no badges), so
+  // this state does not need its own separate loading flag the way `visitorHistory`'s sibling error
+  // state does; there is nothing on screen that would change between those two cases.
+  const [channelDeliveries, setChannelDeliveries] = useState<ChannelDeliveryDto[] | null>(null);
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ fileName: string; percent: number } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -186,6 +192,7 @@ export function ConversationPage() {
     setVisitorOnline(null);
     setVisitorHistory(null);
     setVisitorHistoryError(null);
+    setChannelDeliveries(null);
     setClosed(false);
     setJoinError(null);
     setHighlightSequence(null);
@@ -375,6 +382,34 @@ export function ConversationPage() {
       cancelled = true;
     };
   }, [conversationId, user?.access_token, strings]);
+
+  // `23-19`: one fetch per conversation open, the same shape as the visitor-history read right above -
+  // a delivery record does not change while this conversation is on screen (`ChannelDelivery` never
+  // transitions once written, `ago-chat`'s own remarks), so there is nothing here to poll for. A
+  // failure is swallowed rather than surfaced as an `Alert`: this is a supplementary badge on
+  // messages that already rendered successfully, not a reason to interrupt reading the thread - the
+  // same "does not block the primary read" posture `VisitorPresence`'s own polling failure already
+  // takes.
+  useEffect(() => {
+    if (!conversationId || !user?.access_token) {
+      return;
+    }
+
+    let cancelled = false;
+    fetchChannelDeliveries(user.access_token, conversationId)
+      .then((response) => {
+        if (!cancelled) {
+          setChannelDeliveries(response);
+        }
+      })
+      .catch(() => {
+        // Swallowed - see this effect's own doc comment.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, user?.access_token]);
 
   // `5-15`: whether this tab is actually in front of the operator. The document-title unread count
   // exists precisely so a *backgrounded* tab still tells the truth (`attention.ts`), so a
@@ -709,6 +744,7 @@ export function ConversationPage() {
           // than one that would dangle in front of a `ContactDetailsPanel` record form that is
           // itself hidden for the same operator (`ContactDetailsPanel`'s own doc comment).
           onPromoteSelection={hasPermission("conversation:send") ? handlePromoteSelection : undefined}
+          channelDeliveries={channelDeliveries}
         />
 
         {/* `11-09`: the thread stays readable and the composer goes.
