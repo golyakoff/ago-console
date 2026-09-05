@@ -5,6 +5,7 @@ import { OperatorConnectionProvider } from "./realtime/OperatorConnectionProvide
 import { OperatorShell } from "./shell/OperatorShell.js";
 import { CallbackPage } from "./pages/CallbackPage.js";
 import { SignupPage } from "./pages/SignupPage.js";
+import { PolicyPage } from "./pages/PolicyPage.js";
 import { OnboardingPage } from "./pages/OnboardingPage.js";
 import { RedeemInvitePage } from "./pages/RedeemInvitePage.js";
 import { WorkspaceLayout } from "./workspace/WorkspaceLayout.js";
@@ -80,6 +81,10 @@ export function App() {
     <Routes>
       <Route path="/callback" element={<CallbackPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      {/* `24-03`: `/policies/:documentKey` - `24-02`'s published surface, read from a screen. Public,
+          same shape as `/signup` right above: whoever reads a document has not accepted anything yet,
+          so there is no session for `RequireAuth` to require (`PolicyPage.tsx`'s own doc comment). */}
+      <Route path="/policies/:documentKey" element={<PolicyPage />} />
       <Route
         path="/onboarding"
         element={

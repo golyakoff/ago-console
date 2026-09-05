@@ -1623,4 +1623,28 @@ export interface ConsoleStrings {
    * own "Have an invite code instead?" link stays a plain literal, matching every other sentence
    * already on that page. */
   redeemInviteSetupOwnSiteLink: string;
+
+  // --- `24-03`: `PolicyPage` - the unauthenticated reading surface for `24-02`'s published
+  // documents (`GET /api/v1/documents/{documentKey}`), reached from `OnboardingPage`'s own new
+  // "you agree to our terms" link (a plain, hardcoded-English literal there, unchanged from that
+  // page's own established convention - `OnboardingPage.tsx`'s own doc comment). Mounted outside
+  // every provider, alongside `/signup`/`/callback` (`App.tsx`) - there is no signed-in identity
+  // here at all, let alone a tenant whose locale this screen could follow, the same reasoning
+  // `StringsContext.tsx`'s own doc comment gives for those three. `useStrings()`'s context default
+  // (`en`) is what actually renders here today; both entries exist below anyway, for the identical
+  // reason `RedeemInvitePage`'s own entries do - "every string through the translation files," a
+  // property of where the text lives, not a promise this screen already has a locale signal to
+  // act on. ---
+  policyPageLoading: string;
+  /** `Document.NotFound` (`404`) - no version, current or otherwise, exists under this key. */
+  policyPageNotFound: string;
+  /** Anything else - a network failure, a rate limit, or a status this screen does not otherwise
+   * name. */
+  policyPageErrorGeneric: string;
+  /** Composed with `formatAbsolute` (`time/format.ts`) at the call site: `"Published "` + the
+   * rendered instant. */
+  policyPagePublishedPrefix: string;
+  /** Composed immediately after the instant `policyPagePublishedPrefix` introduces: `" - version "`
+   * + the document's own `v{n}` string. */
+  policyPageVersionSeparator: string;
 }

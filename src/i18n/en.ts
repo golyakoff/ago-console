@@ -1133,4 +1133,10 @@ export const en: ConsoleStrings = {
     "before you can join.",
   redeemInviteErrorGeneric: "We couldn't redeem that invite. Please try again.",
   redeemInviteSetupOwnSiteLink: "Setting up your own site instead?",
+
+  policyPageLoading: "Loading…",
+  policyPageNotFound: "We couldn't find that document.",
+  policyPageErrorGeneric: "We couldn't load that document. Please try again.",
+  policyPagePublishedPrefix: "Published ",
+  policyPageVersionSeparator: " - version ",
 };

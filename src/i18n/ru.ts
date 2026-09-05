@@ -1138,4 +1138,10 @@ export const ru: ConsoleStrings = {
     "или перейти на другой тариф, прежде чем вы сможете присоединиться.",
   redeemInviteErrorGeneric: "Не удалось активировать приглашение. Попробуйте ещё раз.",
   redeemInviteSetupOwnSiteLink: "Хотите вместо этого создать свой сайт?",
+
+  policyPageLoading: "Загрузка…",
+  policyPageNotFound: "Мы не нашли этот документ.",
+  policyPageErrorGeneric: "Не удалось загрузить документ. Попробуйте ещё раз.",
+  policyPagePublishedPrefix: "Опубликовано ",
+  policyPageVersionSeparator: " - версия ",
 };
