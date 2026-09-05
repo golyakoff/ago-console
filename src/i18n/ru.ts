@@ -67,7 +67,7 @@ export const ru: ConsoleStrings = {
   queueOpenLabel: "Открыт",
   queueStartUnknown: "Время начала неизвестно",
   queueWaitingTitle: "Ожидание",
-  queueWaitingNotePrefix: "Только для чтения — диалоги назначаются автоматически, забрать их отсюда нельзя. Обновляется каждые",
+  queueWaitingNotePrefix: "Новые диалоги назначаются автоматически — нажмите, чтобы забрать диалог самостоятельно. Обновляется каждые",
   queueWaitingNoteSuffix: "секунд.",
   queueWaitingEmpty: "Никто не ждёт.",
   queueWaitingLoadingLabel: "Загрузка списка ожидания…",
@@ -100,7 +100,7 @@ export const ru: ConsoleStrings = {
   emptyStateTitle: "Выберите диалог",
   emptyStateBody:
     "Выберите один из назначенных вам диалогов слева. Новые диалоги назначаются вам автоматически, " +
-    "как только посетитель начинает переписку — забирать их отсюда не нужно.",
+    "как только посетитель начинает переписку, либо возьмите диалог из списка ожидания сами.",
 
   visitorPanelTitle: "Посетитель",
   visitorPresenceUnknown: "Присутствие неизвестно",
@@ -251,6 +251,10 @@ export const ru: ConsoleStrings = {
   adminTableCaption: "Все диалоги для этого сайта, сначала новые.",
   adminColumnActions: "Действия",
   adminConversationErasedNotice: "Диалог удалён без возможности восстановления.",
+
+  claimConversationButton: "Забрать",
+  claimConversationSubmittingLabel: "Забираем…",
+  claimConversationSubmitError: "Не удалось забрать диалог.",
 
   widgetLoadError: "Не удалось загрузить настройки виджета.",
   widgetSubmitError: "Не удалось сохранить настройки виджета.",
@@ -503,7 +507,7 @@ export const ru: ConsoleStrings = {
   searchLoadingLabel: "Поиск…",
   searchEmpty: "Совпадений в этом диапазоне нет.",
   searchOpenLabel: "Открыть →",
-  searchWaitingNote: "Не взят в работу — назначьте его из очереди, чтобы открыть.",
+  searchWaitingNote: "В ожидании — заберите, чтобы открыть.",
   searchClosedNote: "Закрыт — закрытый диалог нельзя снова открыть как активную переписку.",
   searchLoadMoreButton: "Загрузить ещё",
   searchLoadingMoreLabel: "Загрузка…",

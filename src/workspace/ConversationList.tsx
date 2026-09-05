@@ -18,21 +18,19 @@ export interface ConversationListProps {
 /**
  * `11-06`: the workspace's first region - what is mine, and what is waiting.
  *
- * ## The two decisions this list inherits and does not touch
+ * ## One decision this list inherited from `QueuePage` (`5-07`) and one `23-04` reverses
  *
- * Both come from `QueuePage`'s own doc comment (`5-07`), and this item's scope says in as many words
- * that they survive it unchanged and that "the redesign must not quietly imply otherwise":
- *
- * 1. **There is no claim button, and a waiting row is not a link.** `4-02`'s assignment engine is the
- *    only thing that ever moves a conversation between these two lists, so a clickable waiting row
- *    would have nothing correct to do - `OperatorHub.JoinConversationAsync` doubles as a claim for a
- *    still-`Waiting` conversation, which is exactly the by-hand claim `docs/vision.md`'s
- *    automatic-assignment model excludes. The redesign has to make that legible rather than merely
- *    documented, which is why the waiting rows here are `<li>`s with no anchor, no hover response, no
- *    pointer cursor and a flat sunken surface, sitting under a heading that says "read-only" in
- *    words. Making them *look* like the assigned rows above would be a design that implies a
- *    behaviour the system deliberately does not have.
- * 2. **The two halves have different freshness guarantees, and both are stated.** "Assigned to me" is
+ * 1. **`23-04`: a waiting row is a real link now, the same shape as an assigned one.**
+ *    `OperatorHub.JoinConversationAsync` already claims a still-`Waiting` conversation for whoever
+ *    joins it (`AssignConversationHandler`'s own remarks) - the only thing missing before this item was
+ *    a link that actually reached it, which is why the row used to be a bare `<li>` with no anchor, no
+ *    hover response and a flat sunken surface, under a heading that said "read-only" in words. That
+ *    absence was `decisions.md` §2's *old* model; §2 now records the opposite explicitly - "capacity
+ *    stops the auto-assigner, never the human" - so the row is a `NavLink` to the same
+ *    `/conversations/{id}` route the assigned rows already use, and clicking it is a deliberate take
+ *    (`ConversationAssignmentSource.Taken`), not an accident: nothing here fires on hover or on render,
+ *    only on the operator's own click.
+ * 2. **The two halves still have different freshness guarantees, and both are stated.** "Assigned to me" is
  *    genuinely live (`onConversationAssigned`); "Waiting" only moves on the layout's 15-second poll,
  *    because nothing broadcasts "a new conversation started waiting" to every operator of a site.
  *    That is a deliberate, documented limitation rather than an oversight, so the heading says which
@@ -140,26 +138,33 @@ export function ConversationList({ queue, attention, now, timeZone, waitingRefre
               const started = parseInstant(c.createdAt);
 
               return (
-                // Not a link, and not a button. See this component's own doc comment - the absence
-                // of an action here is the assignment model, not an unfinished screen.
-                <li key={c.conversationId} className="ago-list__row ago-list__row--static">
-                  <span className="ago-list__row-top">
-                    <Badge tone="neutral" mono>
-                      {c.visitorId.slice(0, 8)}
-                    </Badge>
-                  </span>
-                  <span className="ago-list__row-bottom">
-                    {started ? (
-                      <span
-                        className="ago-meta"
-                        title={`${strings.queueWaitingSinceTitle} ${formatAbsolute(started, timeZone, strings)} — ${formatElapsedWords(started, now, strings)}`}
-                      >
-                        {strings.queueWaitingTitle} {formatElapsed(started, now, strings)}
-                      </span>
-                    ) : (
-                      <span className="ago-meta">{strings.queueWaitingSinceUnknown}</span>
-                    )}
-                  </span>
+                // `23-04`: a real link, the same shape the assigned section above uses - see this
+                // component's own doc comment for why the absence of one used to be the assignment
+                // model, and no longer is. Navigating here reaches OperatorHub.JoinConversationAsync,
+                // which claims the conversation for this operator as a side effect of the join.
+                <li key={c.conversationId}>
+                  <NavLink
+                    to={`/conversations/${c.conversationId}`}
+                    className={({ isActive }) => (isActive ? "ago-list__row ago-list__row--active" : "ago-list__row")}
+                  >
+                    <span className="ago-list__row-top">
+                      <Badge tone="neutral" mono>
+                        {c.visitorId.slice(0, 8)}
+                      </Badge>
+                    </span>
+                    <span className="ago-list__row-bottom">
+                      {started ? (
+                        <span
+                          className="ago-meta"
+                          title={`${strings.queueWaitingSinceTitle} ${formatAbsolute(started, timeZone, strings)} — ${formatElapsedWords(started, now, strings)}`}
+                        >
+                          {strings.queueWaitingTitle} {formatElapsed(started, now, strings)}
+                        </span>
+                      ) : (
+                        <span className="ago-meta">{strings.queueWaitingSinceUnknown}</span>
+                      )}
+                    </span>
+                  </NavLink>
                 </li>
               );
             })}
