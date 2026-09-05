@@ -66,6 +66,7 @@ function app() {
           <Route path="/onboarding" element={<OnboardingPage />} />
           <Route path="/" element={<p>the queue</p>} />
           <Route path="/owner" element={<p>platform sites</p>} />
+          <Route path="/redeem-invite" element={<p>redeem an invite</p>} />
         </Routes>
       </Signed>
     </MemoryRouter>
@@ -143,6 +144,22 @@ describe("finishing setup", () => {
     await submit(container);
 
     expect(container.textContent).toContain("the queue");
+  });
+});
+
+/**
+ * `23-27`: this identity's other option - somebody handed a code by a site that already exists,
+ * rather than setting up a new one. The link is the entire fix this item makes to this file
+ * (`RedeemInvitePage.tsx`'s own doc comment has the reasoning for why the routing itself, `CallbackPage`'s
+ * unconditional "/onboarding" for state (b), is not widened instead).
+ */
+describe("the invite-code alternative", () => {
+  it("offers a way to redeem an invite instead of registering a new site", async () => {
+    const container = await render(app());
+
+    const link = byText<HTMLAnchorElement>(container, "a", "Redeem it here");
+    expect(link).not.toBeNull();
+    expect(link?.getAttribute("href")).toBe("/redeem-invite");
   });
 });
 

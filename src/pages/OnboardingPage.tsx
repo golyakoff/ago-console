@@ -224,6 +224,17 @@ export function OnboardingPage() {
           </div>
         </form>
       </Panel>
+
+      {/* `23-27`: this identity's other option - somebody handed a code by a site that already
+          exists, rather than setting up a new one. Plain, hardcoded English, matching every other
+          sentence on this page (`useStrings()` is never called here - see `StringsContext.tsx`'s own
+          doc comment on why a pre-session page with no resolvable tenant has nothing to follow) -
+          `RedeemInvitePage.tsx` is where the same link back to here lives, in its own translated
+          form, and its own doc comment has the reasoning for why the two screens do not share one
+          hardcoded-versus-translated convention. */}
+      <p className="ago-row">
+        Have an invite code instead? <Link to="/redeem-invite">Redeem it here</Link>.
+      </p>
     </AppShell>
   );
 }

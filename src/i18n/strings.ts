@@ -1528,4 +1528,48 @@ export interface ConsoleStrings {
   calendarAbsentForTenant: string;
 
   calendarNotConfigured: string;
+
+  // --- `23-27`: `RedeemInvitePage` - the other end of `13-01`'s invite (`CreateOperatorInvite`
+  // generates a code; this is where it is spent). Mounted outside `StringsProvider` (`App.tsx`'s own
+  // "outside the operator layout" group, alongside `/onboarding`) - there is no tenant yet whose
+  // locale this screen could follow, the identical reason `StringsContext.tsx`'s own doc comment
+  // gives for `/onboarding`/`/signup`/`/callback`. `useStrings()`'s context default (`en`) is what
+  // actually renders here today; both entries exist below anyway, because the requirement this item
+  // was filed against is "every string through the translation files, in every locale the console
+  // ships" - a property of where the *text* lives, not a promise that this one screen already has a
+  // locale signal to act on. See `RedeemInvitePage.tsx`'s own doc comment for the full reasoning and
+  // `ux-gate/gate.spec.ts`'s own comment for why this screen sits beside `owner-sites` in the one
+  // exemption list that check keeps. ---
+  redeemInviteTitle: string;
+  redeemInviteDescription: string;
+  redeemInviteCodeLabel: string;
+  redeemInviteValidationEmpty: string;
+  redeemInviteSubmit: string;
+  redeemInviteSubmitting: string;
+  /** Shown once redemption succeeds, for the short window before the redirect to the queue fires -
+   * `RedeemInvitePage.tsx`'s own doc comment has the reasoning for why that redirect is delayed
+   * rather than immediate. */
+  redeemInviteSuccessMessage: string;
+  /** `OperatorInvite.NotFound` (`404`) - a code that matches no row at all, whether mistyped or
+   * invented. */
+  redeemInviteErrorNotFound: string;
+  /** `OperatorInvite.Expired` (`410`) - a real invite whose window has passed. */
+  redeemInviteErrorExpired: string;
+  /** `OperatorInvite.AlreadyRedeemed` (`409`) - a real invite somebody (possibly this same person,
+   * on an earlier attempt or a second tab) has already spent. */
+  redeemInviteErrorAlreadyRedeemed: string;
+  /** `OperatorInvite.AlreadyOperatorOnSite` (`409`) - this identity already administers the inviting
+   * site; nothing to do here, not a fix to make. */
+  redeemInviteErrorAlreadyOperator: string;
+  /** `OperatorInvite.SeatLimitReached` (`402`) - the invite is real and unused, but the site's own
+   * plan has no room left; a billing fact about the *site*, not a mistake by the person redeeming. */
+  redeemInviteErrorSeatLimitReached: string;
+  /** Anything else - a network failure, or a status this screen does not otherwise name. */
+  redeemInviteErrorGeneric: string;
+  /** This screen's own link back to `/onboarding`, for a reader who followed `OnboardingPage`'s
+   * (hardcoded-English, unchanged by this item) link here by mistake. Not the reverse direction -
+   * `OnboardingPage.tsx` never calls `useStrings()` at all (this item does not change that), so its
+   * own "Have an invite code instead?" link stays a plain literal, matching every other sentence
+   * already on that page. */
+  redeemInviteSetupOwnSiteLink: string;
 }

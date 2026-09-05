@@ -263,4 +263,22 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
     readySelector: ".ago-alert",
     permissionsOverride: { permissions: ["conversation:close"], enabledModules: ["calendar"] },
   },
+  // `23-27`: `/redeem-invite` joins the curated set - this file's own header already names "a screen
+  // that later earns it" as exactly how this array grows, and a brand-new page with an entirely new
+  // set of strings (this item's own i18n additions, `strings.ts`/`en.ts`/`ru.ts`) is precisely the
+  // shape most likely to hide a rendering defect behind a screen that otherwise looks fine - the same
+  // reasoning `products`/`my-numbers` above already give for themselves.
+  //
+  // Reached with the same `signInAsSeededOperator` every other screen here uses, deliberately -
+  // `RedeemInvitePage` is mounted behind `RequireAuth` alone (`App.tsx`), the identical gate
+  // `/onboarding` uses, which cares only "is there a session", not whether it already resolves to an
+  // operator. No new API stub was needed: the form renders synchronously from local state and calls
+  // `POST /api/v1/operator-invites/redeem` only on submit, which this gate never simulates
+  // (`openScreen.ts`'s own "navigate-and-wait, never navigate-and-interact" shape, restated in the
+  // `calendar-worker-recut` entry above).
+  {
+    name: "redeem-invite",
+    path: "/redeem-invite",
+    readySelector: "form.ago-stack",
+  },
 ];

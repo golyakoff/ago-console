@@ -1082,4 +1082,25 @@ export const en: ConsoleStrings = {
   calendarNotConfigured:
     "The calendar backend is not configured for this deployment yet, so this screen cannot be " +
     "used here.",
+
+  redeemInviteTitle: "Redeem an invite code",
+  redeemInviteDescription:
+    "Enter the code you were given to become an operator on that site. It works once.",
+  redeemInviteCodeLabel: "Invite code",
+  redeemInviteValidationEmpty: "Enter the invite code you were given.",
+  redeemInviteSubmit: "Redeem code",
+  redeemInviteSubmitting: "Redeeming…",
+  redeemInviteSuccessMessage: "You're in. Taking you to your queue…",
+  redeemInviteErrorNotFound:
+    "We couldn't find an invite with that code. Check that you typed it exactly as it was given to you.",
+  redeemInviteErrorExpired: "This invite has expired. Ask whoever invited you to send a new one.",
+  redeemInviteErrorAlreadyRedeemed:
+    "This invite code has already been used. If that was you, sign in as usual - there is nothing " +
+    "left to redeem.",
+  redeemInviteErrorAlreadyOperator: "You already have access to this site - there is nothing to redeem.",
+  redeemInviteErrorSeatLimitReached:
+    "This site has reached its plan's operator limit. Ask an admin there to make room or upgrade " +
+    "before you can join.",
+  redeemInviteErrorGeneric: "We couldn't redeem that invite. Please try again.",
+  redeemInviteSetupOwnSiteLink: "Setting up your own site instead?",
 };
