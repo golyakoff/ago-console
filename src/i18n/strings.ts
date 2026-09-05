@@ -1619,6 +1619,7 @@ export interface ConsoleStrings {
    * "Have an invite code instead?" link (`onboardingRedeemInviteLinkLabel`, below) here by mistake. */
   redeemInviteSetupOwnSiteLink: string;
 
+<<<<<<< Updated upstream
   // --- `23-28`: `/callback`, `/signup`, `/onboarding` - the three pre-session pages that hardcoded
   // English literals directly, because `StringsContext.tsx`'s own default was believed to be the
   // correct behaviour for a page with no tenant to follow. The author's answer to that item settles
@@ -1696,4 +1697,61 @@ export interface ConsoleStrings {
    * screen" reasoning. */
   onboardingRedeemInvitePrompt: string;
   onboardingRedeemInviteLinkLabel: string;
+=======
+  // --- `24-15`: `DeviceStorageDisclosurePage` (`/settings/device-storage`) - what a tenant can
+  // read, from their own console, to write their own cookie or privacy notice. `site:configure`-
+  // gated the same way every settings screen above it is; the content itself is the same for every
+  // tenant (it describes the widget's code, not this site's own configuration), so unlike its
+  // neighbours this screen fetches nothing - `deviceStorageDisclosure.ts`'s own rows are the whole
+  // page. See that file's doc comment for why the key names there are a hand-maintained copy of
+  // `ago-widget/src/storage.ts`'s `WIDGET_STORAGE_DISCLOSURE`, not a live import. ---
+  navDeviceStorage: string;
+  deviceStorageTitle: string;
+  deviceStorageDescription: string;
+  deviceStorageForbidden: string;
+  /** The fact `24-15`'s own item said had to be stated in those words: a tenant auditing their site
+   * for cookies and finding none would otherwise, wrongly, conclude there is nothing to declare. */
+  deviceStorageNotCookies: string;
+  deviceStorageIntro: string;
+  /** Ties into `personal-data.md`'s own register: this store sits on the visitor's own device, which
+   * is a place AGO cannot reach - there is no server-side "forget me" for it, only the visitor
+   * clearing their own site data. */
+  deviceStorageEraseNote: string;
+  deviceStorageColumnKey: string;
+  deviceStorageColumnHolds: string;
+  deviceStorageColumnWhy: string;
+  deviceStorageColumnLifetime: string;
+  deviceStorageColumnSurvivesTabClose: string;
+  /** Every row's own answer is the same - `localStorage` always outlives the tab that wrote it - so
+   * this is the one string every row's cell renders, rather than nine copies of "Yes". */
+  deviceStorageSurvivesTabCloseYes: string;
+
+  deviceStorageVisitorTokenHolds: string;
+  deviceStorageVisitorTokenWhy: string;
+  deviceStorageVisitorTokenLifetime: string;
+  deviceStorageVisitorIdHolds: string;
+  deviceStorageVisitorIdWhy: string;
+  deviceStorageVisitorIdLifetime: string;
+  deviceStorageWidgetColorHolds: string;
+  deviceStorageWidgetColorWhy: string;
+  deviceStorageWidgetColorLifetime: string;
+  deviceStorageWidgetPositionHolds: string;
+  deviceStorageWidgetPositionWhy: string;
+  deviceStorageWidgetPositionLifetime: string;
+  deviceStorageWidgetLocaleHolds: string;
+  deviceStorageWidgetLocaleWhy: string;
+  deviceStorageWidgetLocaleLifetime: string;
+  deviceStorageWidgetNoticeTextHolds: string;
+  deviceStorageWidgetNoticeTextWhy: string;
+  deviceStorageWidgetNoticeTextLifetime: string;
+  deviceStorageWidgetNoticeUrlHolds: string;
+  deviceStorageWidgetNoticeUrlWhy: string;
+  deviceStorageWidgetNoticeUrlLifetime: string;
+  deviceStorageConversationIdHolds: string;
+  deviceStorageConversationIdWhy: string;
+  deviceStorageConversationIdLifetime: string;
+  deviceStorageLastSequenceHolds: string;
+  deviceStorageLastSequenceWhy: string;
+  deviceStorageLastSequenceLifetime: string;
+>>>>>>> Stashed changes
 }

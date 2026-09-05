@@ -1134,6 +1134,7 @@ export const en: ConsoleStrings = {
   redeemInviteErrorGeneric: "We couldn't redeem that invite. Please try again.",
   redeemInviteSetupOwnSiteLink: "Setting up your own site instead?",
 
+<<<<<<< Updated upstream
   callbackCompletingSignIn: "Completing sign-in…",
   callbackSignInFailedTitle: "Sign-in failed",
   callbackOperatorLookupFailedTitle: "Signed in, but couldn't load your account",
@@ -1174,4 +1175,75 @@ export const en: ConsoleStrings = {
     "your own deployment, but nothing in this product can take it back afterwards.",
   onboardingRedeemInvitePrompt: "Have an invite code instead?",
   onboardingRedeemInviteLinkLabel: "Redeem it here",
+=======
+  navDeviceStorage: "Data on a visitor's device",
+  deviceStorageTitle: "What the widget puts on a visitor's device",
+  deviceStorageDescription:
+    "Every fact you need to write your own cookie or privacy notice about this widget - not a notice we write for you.",
+  deviceStorageForbidden: "You do not have permission to view this page.",
+  deviceStorageNotCookies:
+    "These are not cookies. The widget sets no cookies at all - everything below is localStorage, " +
+    "which a cookie audit of this site will not find. If you only checked for cookies, you have " +
+    "missed everything on this page.",
+  deviceStorageIntro:
+    "The widget stores the following under keys named ago-chat:<your site key>:<key below>, entirely " +
+    "in the visitor's own browser. Nothing here is sent to us except when the widget itself presents " +
+    "it back to our servers - it never reaches any other site. Use the table below directly in " +
+    "whatever notice you publish; it is written for that, not for a developer reading our code.",
+  deviceStorageEraseNote:
+    "This storage lives on the visitor's own device, not on ours - we cannot reach it to delete it " +
+    "on request. The only things that clear an entry are listed in its own Lifetime column; failing " +
+    "that, only the visitor themselves can remove it, by clearing their browser's site data.",
+  deviceStorageColumnKey: "Key",
+  deviceStorageColumnHolds: "What it holds",
+  deviceStorageColumnWhy: "Why it exists",
+  deviceStorageColumnLifetime: "Lifetime",
+  deviceStorageColumnSurvivesTabClose: "Survives closing the tab",
+  deviceStorageSurvivesTabCloseYes: "Yes",
+
+  deviceStorageVisitorTokenHolds: "A signed session token (JWT) proving this browser belongs to a specific visitor.",
+  deviceStorageVisitorTokenWhy:
+    "Presented on every realtime connection and attachment upload so our server recognises the same visitor across page loads.",
+  deviceStorageVisitorTokenLifetime:
+    "Issued for 7 days and renewed automatically for as long as the visitor keeps returning, so a " +
+    "returning visitor's token effectively never expires. If the visitor never returns, nothing " +
+    "clears the stored value.",
+  deviceStorageVisitorIdHolds: "The visitor's own identifier - a persistent id for this one person, matching the token's own subject.",
+  deviceStorageVisitorIdWhy:
+    "Lets the widget recognise the same visitor across a reload without asking our server first, so a " +
+    "returning visitor resumes their own conversation instead of starting a new one. This is the " +
+    "identifying half of this page - the rest of the rows are cached configuration, not identity.",
+  deviceStorageVisitorIdLifetime:
+    "Renewed alongside the token above; replaced with a freshly minted identifier only if our server " +
+    "refuses to renew the stored one (it has expired, unrenewed, for too long). Otherwise nothing clears it.",
+  deviceStorageWidgetColorHolds: "The accent colour you configured for the widget, if you set one.",
+  deviceStorageWidgetColorWhy: "Lets the widget render in your chosen colour immediately on the next page load, before it asks our server again.",
+  deviceStorageWidgetColorLifetime:
+    "Refreshed each time the session above renews; removed the moment you unset the colour in your " +
+    "console. A cache of your own setting, not a record about the visitor.",
+  deviceStorageWidgetPositionHolds: "The on-screen corner you configured for the widget.",
+  deviceStorageWidgetPositionWhy: "Same purpose as the accent colour above - a cached rendering preference, refreshed with the session.",
+  deviceStorageWidgetPositionLifetime: "Same as the accent colour above.",
+  deviceStorageWidgetLocaleHolds: "The widget language you configured.",
+  deviceStorageWidgetLocaleWhy: "Same purpose as the accent colour above.",
+  deviceStorageWidgetLocaleLifetime: "Same as the accent colour above.",
+  deviceStorageWidgetNoticeTextHolds: "Your own processing-notice text - the words you wrote, not the widget's own.",
+  deviceStorageWidgetNoticeTextWhy: "Lets the widget show your notice without a second round trip once the session is cached.",
+  deviceStorageWidgetNoticeTextLifetime: "Same as the accent colour above.",
+  deviceStorageWidgetNoticeUrlHolds: "A link to your own privacy policy, alongside the notice text above.",
+  deviceStorageWidgetNoticeUrlWhy: "Same purpose as the notice text above.",
+  deviceStorageWidgetNoticeUrlLifetime: "Same as the accent colour above.",
+  deviceStorageConversationIdHolds: "The id of the conversation this browser last held with you.",
+  deviceStorageConversationIdWhy: "Lets a reload resume the same conversation instead of starting a new one.",
+  deviceStorageConversationIdLifetime:
+    "Replaced when a later conversation starts; cleared when the stored visitor identifier above is " +
+    "itself replaced, because a new identifier does not own the old conversation. Otherwise nothing clears it.",
+  deviceStorageLastSequenceHolds:
+    "The highest message number this browser has seen for one conversation - a position marker, never message text.",
+  deviceStorageLastSequenceWhy: "Lets a reconnect or reload ask for only what it missed, instead of the whole conversation again.",
+  deviceStorageLastSequenceLifetime:
+    "One entry per conversation this browser has ever resumed. The entry for whichever conversation " +
+    "was current is removed when the visitor identifier above is replaced; an entry for an earlier, " +
+    "already-superseded conversation is not otherwise cleared.",
+>>>>>>> Stashed changes
 };

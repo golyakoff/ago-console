@@ -8,6 +8,7 @@ import { OperatorShell } from "../shell/OperatorShell.js";
 import { AdminConversationsPage } from "../pages/AdminConversationsPage.js";
 import { WidgetConfigPage } from "../pages/WidgetConfigPage.js";
 import { InstallSnippetPage } from "../pages/InstallSnippetPage.js";
+import { DeviceStorageDisclosurePage } from "../pages/DeviceStorageDisclosurePage.js";
 import { OfflineAutoReplyPage } from "../pages/OfflineAutoReplyPage.js";
 import { CannedResponsesPage } from "../pages/CannedResponsesPage.js";
 import { FaqModulePage } from "../pages/FaqModulePage.js";
@@ -266,6 +267,7 @@ describe("the operator navigation", () => {
       "Canned responses",
       "Tags",
       "Billing",
+      "Data on a visitor's device",
       "Delete account",
       "Team",
     ]);
@@ -284,6 +286,7 @@ describe("the operator navigation", () => {
       "Canned responses",
       "Tags",
       "Billing",
+      "Data on a visitor's device",
       "Delete account",
       "Team",
     ]);
@@ -313,6 +316,7 @@ describe("the operator navigation", () => {
         "Canned responses",
         "Tags",
         "Billing",
+        "Data on a visitor's device",
         "Delete account",
         "Team",
       ]);
@@ -360,6 +364,7 @@ describe("the operator navigation", () => {
       "Canned responses",
       "Tags",
       "Billing",
+      "Data on a visitor's device",
       "Delete account",
       "Team",
       "Queue",
@@ -382,6 +387,7 @@ describe("the operator navigation", () => {
       "Canned responses",
       "Tags",
       "Billing",
+      "Data on a visitor's device",
       "Delete account",
       "Team",
     ]);
@@ -488,6 +494,7 @@ describe("the operator navigation", () => {
       "Canned responses",
       "Tags",
       "Billing",
+      "Data on a visitor's device",
       "Delete account",
       "Team",
       "Platform sites",
@@ -606,6 +613,7 @@ describe("the mobile navigation drawer", () => {
       "Canned responses",
       "Tags",
       "Billing",
+      "Data on a visitor's device",
       "Delete account",
       "Team",
     ]);
@@ -710,6 +718,7 @@ describe("a gated page reached directly by URL", () => {
     ["/settings/auto-reply", <OfflineAutoReplyPage key="auto-reply" />],
     ["/settings/canned-responses", <CannedResponsesPage key="canned-responses" />],
     ["/settings/faq", <FaqModulePage key="faq" />],
+    ["/settings/device-storage", <DeviceStorageDisclosurePage key="device-storage" />],
   ])("renders %s in the shell's full width, the same as the workspace routes", async (path, page) => {
     grants(["site:configure"]);
 
@@ -732,6 +741,7 @@ describe("a gated page reached directly by URL", () => {
     ["/settings/auto-reply", <OfflineAutoReplyPage key="auto-reply" />],
     ["/settings/canned-responses", <CannedResponsesPage key="canned-responses" />],
     ["/settings/faq", <FaqModulePage key="faq" />],
+    ["/settings/device-storage", <DeviceStorageDisclosurePage key="device-storage" />],
   ])("keeps %s page-scrollable - it has no internal scroll region of its own", async (path, page) => {
     grants(["site:configure"]);
 
@@ -831,6 +841,27 @@ describe("a gated page reached directly by URL", () => {
     expect(container.textContent).not.toContain("You do not have permission");
     expect(installationApi.fetchSiteInstallation).toHaveBeenCalledWith("token", SITE_ID);
     expect(container.textContent).toContain("shop_7f3a");
+  });
+
+  /** `24-15`. Same shape as `/settings/install`/`/settings/widget` right above - the one difference
+   * (no API to assert against, `DeviceStorageDisclosurePage`'s own doc comment has why) is why this
+   * pair checks rendered content rather than a mock call. */
+  it("refuses the device-storage disclosure page", async () => {
+    grants(["conversation:read"]);
+
+    const container = await render(pageOnly("/settings/device-storage", <DeviceStorageDisclosurePage />));
+
+    expect(container.textContent).toContain("You do not have permission to view this page.");
+    expect(container.querySelector("table")).toBeNull();
+  });
+
+  it("renders the device-storage disclosure page for an operator who holds the permission", async () => {
+    grants(["site:configure"]);
+
+    const container = await render(pageOnly("/settings/device-storage", <DeviceStorageDisclosurePage />));
+
+    expect(container.textContent).not.toContain("You do not have permission");
+    expect(container.textContent).toContain("These are not cookies.");
   });
 
   it("refuses the canned-responses form, and does not load the site's library", async () => {
