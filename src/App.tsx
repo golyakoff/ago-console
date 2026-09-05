@@ -6,6 +6,7 @@ import { PreSessionStringsProvider } from "./i18n/PreSessionStringsProvider.js";
 import { OperatorShell } from "./shell/OperatorShell.js";
 import { CallbackPage } from "./pages/CallbackPage.js";
 import { SignupPage } from "./pages/SignupPage.js";
+import { PolicyPage } from "./pages/PolicyPage.js";
 import { OnboardingPage } from "./pages/OnboardingPage.js";
 import { RedeemInvitePage } from "./pages/RedeemInvitePage.js";
 import { WorkspaceLayout } from "./workspace/WorkspaceLayout.js";
@@ -101,6 +102,20 @@ export function App() {
         element={
           <PreSessionStringsProvider>
             <SignupPage />
+          </PreSessionStringsProvider>
+        }
+      />
+      {/* `24-03`: `/policies/:documentKey` - `24-02`'s published surface, read from a screen. Public,
+          the same shape as `/signup` above: whoever reads a document has not accepted anything yet, so
+          there is no session for `RequireAuth` to require (`PolicyPage.tsx`'s own doc comment).
+          Wrapped in `PreSessionStringsProvider` for the same reason those two are (`23-28`): a reader
+          with no site has no locale to follow, and the answer to that is Russian rather than English.
+          The two items landed within an hour of each other and this is where they met. */}
+      <Route
+        path="/policies/:documentKey"
+        element={
+          <PreSessionStringsProvider>
+            <PolicyPage />
           </PreSessionStringsProvider>
         }
       />

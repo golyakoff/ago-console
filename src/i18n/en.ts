@@ -1174,4 +1174,9 @@ export const en: ConsoleStrings = {
     "your own deployment, but nothing in this product can take it back afterwards.",
   onboardingRedeemInvitePrompt: "Have an invite code instead?",
   onboardingRedeemInviteLinkLabel: "Redeem it here",
+  policyPageLoading: "Loading…",
+  policyPageNotFound: "We couldn't find that document.",
+  policyPageErrorGeneric: "We couldn't load that document. Please try again.",
+  policyPagePublishedPrefix: "Published ",
+  policyPageVersionSeparator: " - version ",
 };

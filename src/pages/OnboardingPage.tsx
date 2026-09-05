@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { operatorDisplayName } from "../auth/operatorDisplayName.js";
 import { useOwnerEligibility } from "../auth/useOwnerEligibility.js";
 import { registerSite, RegisterSiteError } from "../api/sitesApi.js";
 import { useStrings } from "../i18n/StringsContext.js";
+import { getRequiredDocuments, type RequiredDocumentSummary } from "../api/documentsApi.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Field } from "../components/Field.js";
@@ -68,6 +69,17 @@ import { Alert } from "../components/Alert.js";
  * browser-rendered `placeholder` attribute is not a DOM text node `ux-gate`'s untranslated-text
  * assertion (or a screen reader) ever sees, and an example domain is not a phrase to translate
  * either way.
+ * `24-03`: **this form has no consent checkbox, and that is not an oversight.** `RegisterSiteHandler`
+ * (`ago-chat`) records this submission as acceptance of whichever documents `IRequiredDocumentRepository`
+ * currently names for a tenant - which document(s), if any, is server-side data this screen never
+ * hardcodes; `getRequiredDocuments("tenant")` (`documentsApi.ts`) is what this page reads instead.
+ * When that list is empty (today, for every deployment - `RegisterSiteHandler`'s own remarks: "if
+ * there is nothing beyond contract necessity today, say so and ship no control at all"), this screen
+ * renders nothing extra, exactly as it always has. When it is not, the paragraph below links to
+ * `/policies/{documentKey}` (`PolicyPage`, `24-02`'s published surface) so the agreement is readable
+ * before the "Finish setup" click that accepts it - never a tick-box, because accepting a contract's
+ * own terms is not a consent this subject could decline and still get the service (`152-ФЗ` art. 6
+ * ч.1 п.5), and a checkbox here would misstate that as if it were.
  */
 export function OnboardingPage() {
   const { user, logout } = useAuth();
@@ -79,6 +91,22 @@ export function OnboardingPage() {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [requiredDocuments, setRequiredDocuments] = useState<RequiredDocumentSummary[]>([]);
+
+  // Fire-and-forget, not part of the submit path: `getRequiredDocuments` already fails open to `[]`
+  // on any error (`documentsApi.ts`'s own remarks), and `RegisterSiteHandler` is the actual authority
+  // over what registering requires - this read only decides what the form *shows* beforehand.
+  useEffect(() => {
+    let cancelled = false;
+    void getRequiredDocuments("tenant").then((documents) => {
+      if (!cancelled) {
+        setRequiredDocuments(documents);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // UX-only - `10-02`'s `RegisterSiteHandler`/`OriginValidator` are the real gate (server-side,
   // authoritative) and reject anything this check would have let through incorrectly. This mirrors
@@ -219,6 +247,27 @@ export function OnboardingPage() {
               `<p role="alert">` paragraphs here did before `11-05`. */}
           {validationError && <Alert tone="danger">{validationError}</Alert>}
           {submitError && <Alert tone="danger">{submitError}</Alert>}
+
+          {/* `24-03`: no tick-box - see this component's own doc comment for why one would be wrong
+              here, not merely unnecessary. Rendered only when `requiredDocuments` is non-empty, so a
+              deployment with nothing configured yet (every deployment today) shows nothing extra at
+              all, unchanged from this page's shape before this item. */}
+          {requiredDocuments.length > 0 && (
+            <p className="ago-row">
+              By clicking "Finish setup" below, you agree to{" "}
+              {requiredDocuments.map((document, index) => (
+                <span key={document.documentKey}>
+                  {index > 0 && ", "}
+                  {document.version ? (
+                    <Link to={`/policies/${document.documentKey}`}>{document.title ?? document.documentKey}</Link>
+                  ) : (
+                    document.title ?? document.documentKey
+                  )}
+                </span>
+              ))}
+              .
+            </p>
+          )}
 
           <div className="ago-row">
             <Button type="submit" variant="primary" disabled={submitting}>
