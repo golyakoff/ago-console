@@ -307,7 +307,27 @@ export function seededAnalytics() {
       { channel: "Widget", bucket: bucket({ conversationCount: 30 }) },
       { channel: "WhatsApp", bucket: bucket({ conversationCount: 12 }) },
     ],
-    byOperator: [{ operatorId: OPERATOR_ID, bucket: bucket({ conversationCount: 27 }) }],
+    // `23-17`: a real `load` on the seeded operator, the identical shape `seededOwnAnalytics` below
+    // already uses for the same operator's own view - so the gate's overflow/contrast/untranslated-text
+    // checks actually exercise the new Held/Standard/Additional columns and the operator-by-load-bucket
+    // table, not an empty-state sentence.
+    byOperator: [
+      {
+        operatorId: OPERATOR_ID,
+        bucket: bucket({ conversationCount: 27 }),
+        load: {
+          conversationsHeld: 27,
+          intervalsHeld: 29,
+          standardIntervals: 24,
+          additionalIntervals: 5,
+          byLoad: [
+            { bucketLabel: "1", intervalCount: 18, replyCount: 18, averageFirstReplySeconds: 40 },
+            { bucketLabel: "2-3", intervalCount: 8, replyCount: 7, averageFirstReplySeconds: 95 },
+            { bucketLabel: "4-5", intervalCount: 3, replyCount: 2, averageFirstReplySeconds: 180 },
+          ],
+        },
+      },
+    ],
     byReferrer: [{ referrerHost: "Direct", bucket: bucket({ conversationCount: 20 }) }],
     // `11-16`: a UTM campaign tag really can carry non-ASCII text (query values are not restricted to
     // Latin script), so this is real, plausible tenant-supplied data, not interface chrome - Cyrillic

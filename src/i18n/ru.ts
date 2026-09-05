@@ -686,6 +686,12 @@ export const ru: ConsoleStrings = {
   analyticsOperatorColumn: "Оператор",
   analyticsByOperatorEmpty: "В этом периоде нет диалогов, отнесённых к оператору.",
 
+  analyticsLoadNoDataValue: "Нет данных",
+  analyticsLoadIntervalNote:
+    "«Удержано» считает диалог один раз, даже если этот оператор вёл его дважды (передан и возвращён). «Стандартные» и «Дополнительные» считают интервалы назначения, где тот же диалог учитывается дважды.",
+  analyticsByOperatorLoadHeading: "Время ответа по нагрузке, по операторам",
+  analyticsByOperatorLoadEmpty: "В этом периоде пока нет данных о назначениях.",
+
   analyticsByReferrerHeading: "По источникам перехода",
   analyticsReferrerColumn: "Источник",
   analyticsByReferrerEmpty: "В этом периоде нет диалогов.",

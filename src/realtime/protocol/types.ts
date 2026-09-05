@@ -186,11 +186,19 @@ export interface OperatorAnalyticsChannelBucketDto {
  * `23-02`: `operatorName` is that operator's own display name - `null`/absent for a row that predates
  * the column. `OperatorAnalyticsPage` renders it with the truncated id as the fallback, the same
  * mono-truncated style it already used for the id alone.
+ *
+ * `23-17`: `load` is a second, independent view of this same operator - "held", from
+ * `conversation_assignments`, rather than "attributed to", from message authorship (`bucket`'s own
+ * definition). `null`/absent when the operator has no assignment interval starting in the window at
+ * all - a row that predates `23-03`'s own table, or an operator whose only work in the window closed
+ * entirely before it started. That is a real "no data", not a zero: see `OperatorLoadSummaryDto`'s own
+ * remarks for why it renders differently from an operator whose load report says zero additional.
  */
 export interface OperatorAnalyticsOperatorBucketDto {
   operatorId: string;
   bucket: OperatorAnalyticsBucketDto;
   operatorName?: string | null;
+  load?: OperatorLoadSummaryDto | null;
 }
 
 /**

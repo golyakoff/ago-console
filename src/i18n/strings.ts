@@ -962,6 +962,37 @@ export interface ConsoleStrings {
    * from `analyticsEmpty`, which means the whole report is empty. */
   analyticsByOperatorEmpty: string;
 
+  // `23-17`: the console half of "an operator's work is reported with the load it was carried under" -
+  // extends the per-operator table above with `docs/design/decisions.md` §2's standard/additional
+  // split, reusing `MyNumbersPage`'s own column labels (`myNumbersHeldColumn` etc., `23-18`) rather than
+  // inventing a second presentation for the identical `OperatorLoadSummaryDto` shape. Never combined
+  // into one score, and "forced" appears in none of these strings, on either report.
+  /** Shown in the Held/Standard/Additional cells for an operator row whose `load` is `null` - a real
+   * "no assignment interval started in the window at all" (`OperatorAnalyticsOperatorBucketDto.Load`'s
+   * own remarks, `ago-chat`), never rendered as `analyticsNoResponsesValue`'s "—" - that em dash already
+   * means something different ("nothing to average, because zero") and reusing it here would blur a
+   * distinction the backend deliberately keeps: absent load data is not a zero count. */
+  analyticsLoadNoDataValue: string;
+  /** The explicit statement `docs/backlog/23-17-*.md`'s own Done-when requires: `myNumbersHeldColumn`
+   * ("Held") counts a conversation once even when transferred away and back to the same operator, while
+   * `myNumbersStandardColumn`/`myNumbersAdditionalColumn` count assignment intervals, where that same
+   * conversation counts twice. Shown once, directly under the per-operator table, whenever it has at
+   * least one row - a reader must not be left to infer the unit difference from two column headers that
+   * happen to sit side by side. */
+  analyticsLoadIntervalNote: string;
+  /** `23-17`: a second table below the per-operator one - operator × load-bucket is a different,
+   * unbounded-in-principle dimension pair than the operator table's own fixed columns, the same
+   * "a second table, not more columns" call `18-12`'s own `analyticsByReferrerHeading`/
+   * `analyticsByCampaignHeading` already made for referrer/campaign. Reuses `myNumbersLoadBucketColumn`/
+   * `myNumbersIntervalsColumn`/`myNumbersRepliesColumn`/`myNumbersAverageFirstReplyColumn` verbatim, with
+   * `analyticsOperatorColumn` as the one column this table adds that `MyNumbersPage`'s own single-row
+   * version does not need. */
+  analyticsByOperatorLoadHeading: string;
+  /** Shown when the per-operator table has rows but none of them carry any `byLoad` entries - every
+   * operator's own `load` is `null`, or every present `load.byLoad` is empty. Distinct from
+   * `analyticsByOperatorEmpty`, which means no operator row exists at all. */
+  analyticsByOperatorLoadEmpty: string;
+
   // `18-12`: the referrer-host and UTM-campaign breakdowns, two more tables on the same page - the
   // identical "a second, separately-captioned table for a genuinely different dimension" shape `18-09`
   // already established for the per-operator one (`OperatorAnalyticsPage`'s own doc comment).
