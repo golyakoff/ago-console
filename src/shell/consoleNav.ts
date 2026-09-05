@@ -131,6 +131,20 @@ export function buildTenantNavItems(
       label: strings.navDeleteAccount,
       muted: !hasPermission("site:erase"),
     });
+
+    // `23-22`: a third dedicated-permission block, the same "always drawn, muted when lacking" shape
+    // `site:erase` right above already established for a screen no colleague at this tenant is ever
+    // without the option to grant - the account owner already holds `site:manage_operators` by
+    // construction (`RegisterSiteHandler` grants the registering operator both built-in roles, and
+    // `5-08`'s seeded "Admin" role carries it too), the identical fact that makes `site:configure`/
+    // `site:erase` two-row gates rather than three-row ones (this block's own comment on why `calendar
+    // :configure` alone needs a third "tenant does not have this at all" row). `ui-inventory.md` §13.4's
+    // own finding, closed: "the console never checks that permission, has no route for it."
+    items.push({
+      to: "/settings/operators",
+      label: strings.navOperatorsTeam,
+      muted: !hasPermission("site:manage_operators"),
+    });
   }
 
   // `22-06`/`adr/0093`: AGO Calendar's screens, moved from `ago-calendar-console` - a distinct

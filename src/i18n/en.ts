@@ -19,6 +19,7 @@ export const en: ConsoleStrings = {
   navPlatformSites: "Platform sites",
   navDeleteAccount: "Delete account",
   navBilling: "Billing",
+  navOperatorsTeam: "Team",
   signOut: "Sign out",
   siteIdTooltip: "Site id",
   siteIdPrefix: "site",
@@ -583,6 +584,55 @@ export const en: ConsoleStrings = {
     "Answer common questions automatically, from a knowledge base you write - so operators only handle " +
     "what actually needs a person.",
   productsFaqActionLabel: "Open your automatic answers",
+
+  operatorsTeamTitle: "Team",
+  operatorsTeamDescription: "Everyone who works here - invite a colleague, see who holds a seat, and remove anyone who has left.",
+  operatorsTeamForbidden: "You do not have permission to manage this site's team.",
+  operatorsTeamLoadError: "Could not load your team. Try reloading the page.",
+  operatorsTeamLoadingLabel: "Loading your team…",
+
+  operatorsTeamPanelTitle: "Who works here",
+  operatorsTeamTableCaption: "Every operator on this site",
+  operatorsTeamNameColumn: "Name",
+  operatorsTeamEmailColumn: "Email",
+  operatorsTeamSeatColumn: "Seat",
+  operatorsTeamActionsColumn: "Actions",
+  operatorsTeamSeatHeld: "Holds a seat",
+  operatorsTeamSeatNotHeld: "No seat",
+  operatorsTeamSeatsSummaryLabel: "Seats occupied:",
+
+  operatorsTeamOverSeatsTitle: "Over your seat limit",
+  operatorsTeamOverSeatsBody:
+    "This site is holding more seats than its plan allows - most likely after a downgrade. Everyone below still " +
+    "works; free a seat, or raise your limit in Billing, when you are ready. Occupied:",
+
+  operatorsTeamGrantSeatButton: "Grant seat",
+  operatorsTeamRevokeSeatButton: "Revoke seat",
+  operatorsTeamSeatToggleError: "Could not change that seat. Try again.",
+
+  operatorsTeamRemoveButton: "Remove",
+  operatorsTeamRemoveDialogTitle: "Remove this colleague?",
+  operatorsTeamRemoveDialogBody:
+    "will immediately have any conversation currently assigned to them released back to the waiting queue. Their " +
+    "own history stays intact - but the removal itself cannot be undone.",
+  operatorsTeamRemoveConfirmButton: "Remove",
+  operatorsTeamRemoveError: "Could not remove that operator. Try again.",
+
+  operatorsTeamInviteButton: "Invite a colleague",
+  operatorsTeamInviteDialogTitle: "Invite a colleague",
+  operatorsTeamInviteCostBody: "This will use one more of your seats, bringing your site to",
+  operatorsTeamInviteConfirmButton: "Send invite",
+  operatorsTeamInviteSendingButton: "Sending…",
+  operatorsTeamInviteAtLimitTitle: "You are at your seat limit",
+  operatorsTeamInviteAtLimitBody:
+    "Free a seat above, or raise your seat limit in Billing, before inviting another colleague - your site already " +
+    "has",
+  operatorsTeamInviteSubmitError: "Could not create that invite. Try again.",
+  operatorsTeamInviteSuccessTitle: "Invite created",
+  operatorsTeamInviteSuccessBody: "Share this code with your colleague. It is shown here only once.",
+  operatorsTeamInviteCodeLabel: "Invite code",
+  operatorsTeamInviteExpiresLabel: "Expires",
+  operatorsTeamInviteCloseButton: "Close",
 
   navAnalytics: "Analytics",
   analyticsPageDescription:

@@ -11,9 +11,11 @@ import {
   seededCalendarPendingBookings,
   seededCalendarWorkers,
   seededCalendarWorkerSlots,
+  seededOperatorTeam,
   seededOwnerSitesPage,
   seededPermissions,
   seededQueue,
+  seededSeatAssignmentSummary,
   seededTenancies,
   seededVisitorHistory,
   seededWidgetConfig,
@@ -99,6 +101,18 @@ export async function installApiStubs(page: Page, permissionsOverride?: SeededPe
 
     if (path === "/api/v1/owner/sites" && method === "GET") {
       return json(seededOwnerSitesPage());
+    }
+
+    // `23-22`: the team screen's own two reads - `GetOperatorTeamHandler` (new) and
+    // `GetSeatAssignmentSummaryHandler` (`13-03`, unchanged). Exact-string matched like every other
+    // handler in this file, so `.../operators` never accidentally matches
+    // `.../operators/seat-assignment-summary`'s longer path or vice versa.
+    if (path === `/api/v1/sites/${SITE_ID}/operators` && method === "GET") {
+      return json(seededOperatorTeam());
+    }
+
+    if (path === `/api/v1/sites/${SITE_ID}/operators/seat-assignment-summary` && method === "GET") {
+      return json(seededSeatAssignmentSummary());
     }
 
     // `22-06`/`adr/0093`: `Ago.Calendar.Api`'s own `/api/v1/console/*` shape

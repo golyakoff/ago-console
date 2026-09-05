@@ -52,6 +52,12 @@ export interface ConsoleStrings {
   /** `13-04`: `site:configure`-gated, sits beside `navWidgetAppearance`/`navOfflineAutoReply` in
    * `consoleNav.ts` - the same permission group, one more tenant self-service screen. */
   navBilling: string;
+  /** `23-22`: gated on `site:manage_operators` - its own, separate permission group in
+   * `consoleNav.ts`, deliberately not folded into the `site:configure` block above (an operator who
+   * may reconfigure the widget must not, by that alone, manage who else works here - the same
+   * separation `navDeleteAccount`'s own `site:erase` gate already draws for a different dedicated
+   * permission). */
+  navOperatorsTeam: string;
   signOut: string;
   /** The `title` attribute on the operator's own site-id badge - "Site id", not the badge's visible
    * text (`siteIdPrefix` below). */
@@ -802,6 +808,73 @@ export interface ConsoleStrings {
    * `productsCalendarDescription` above. */
   productsFaqDescription: string;
   productsFaqActionLabel: string;
+
+  // `23-22`: OperatorsTeamPage (`/settings/operators`) - "the tenant can see and manage who works
+  // here". Its own dedicated permission (`site:manage_operators`), the same
+  // `SITE_ERASE_PERMISSION`/`CONVERSATION_ERASE_PERMISSION` precedent every other screen with its own
+  // gate already follows - see `OperatorsTeamPage`'s own doc comment for the full reasoning, including
+  // why the pre-invite seat check reads the team list's own length rather than the seat-assignment
+  // summary's `heldSeats`.
+  operatorsTeamTitle: string;
+  operatorsTeamDescription: string;
+  operatorsTeamForbidden: string;
+  operatorsTeamLoadError: string;
+  operatorsTeamLoadingLabel: string;
+
+  operatorsTeamPanelTitle: string;
+  operatorsTeamTableCaption: string;
+  operatorsTeamNameColumn: string;
+  operatorsTeamEmailColumn: string;
+  operatorsTeamSeatColumn: string;
+  operatorsTeamActionsColumn: string;
+  operatorsTeamSeatHeld: string;
+  operatorsTeamSeatNotHeld: string;
+  /** Trailing interpolation - `${operatorsTeamSeatsSummaryLabel} ${heldSeats}/${seatLimit}`, the same
+   * "fixed label, one value appended" shape `searchRangeLabel`'s own doc comment establishes. */
+  operatorsTeamSeatsSummaryLabel: string;
+
+  /** `13-03`'s own over-seats case: a site sitting above its seat limit after a downgrade. Trailing
+   * interpolation, same shape as `operatorsTeamSeatsSummaryLabel` above - `${operatorsTeamOverSeatsBody}
+   * ${heldSeats}/${seatLimit}.` */
+  operatorsTeamOverSeatsTitle: string;
+  operatorsTeamOverSeatsBody: string;
+
+  operatorsTeamGrantSeatButton: string;
+  operatorsTeamRevokeSeatButton: string;
+  operatorsTeamSeatToggleError: string;
+
+  operatorsTeamRemoveButton: string;
+  operatorsTeamRemoveDialogTitle: string;
+  /** Names the real consequence directly - `${operatorsTeamRemoveDialogBody} ${displayName}` -
+   * `RemoveOperatorButton`'s own doc comment: "somebody removing a colleague mid-shift should know
+   * that before clicking, not after" (this item's own Scope, verbatim). */
+  operatorsTeamRemoveDialogBody: string;
+  operatorsTeamRemoveConfirmButton: string;
+  operatorsTeamRemoveError: string;
+
+  operatorsTeamInviteButton: string;
+  operatorsTeamInviteDialogTitle: string;
+  /** Trailing interpolation - `${operatorsTeamInviteCostBody} ${activeCount + 1}/${seatLimit}.` -
+   * "what an invite costs against the seat limit before it is sent" (this item's own Scope,
+   * verbatim), shown in the confirmation step itself rather than only as an inline aside. */
+  operatorsTeamInviteCostBody: string;
+  operatorsTeamInviteConfirmButton: string;
+  operatorsTeamInviteSendingButton: string;
+  /** Shown, and the invite never created, when the site is already at its seat limit -
+   * `${operatorsTeamInviteAtLimitBody} ${seatLimit}.` Done-when: "refused *before* the invite is
+   * created" - no `createOperatorInvite` call happens on this branch at all. */
+  operatorsTeamInviteAtLimitTitle: string;
+  operatorsTeamInviteAtLimitBody: string;
+  operatorsTeamInviteSubmitError: string;
+  /** Shown once the invite is created - the plaintext `code` is present in the server's response
+   * exactly once (`CreateOperatorInviteEndpoints`'s own remarks: "shown exactly once"), never
+   * retrievable again afterward. */
+  operatorsTeamInviteSuccessTitle: string;
+  operatorsTeamInviteSuccessBody: string;
+  operatorsTeamInviteCodeLabel: string;
+  /** `${operatorsTeamInviteExpiresLabel} ${date}` - the invite's own `expiresAt`. */
+  operatorsTeamInviteExpiresLabel: string;
+  operatorsTeamInviteCloseButton: string;
 
   // `18-08`: OperatorAnalyticsPage (`/analytics`) - the site owner's own basic self-service report,
   // gated on `site:configure` the same way `SearchConversationsPage`/`AdminConversationsPage` already

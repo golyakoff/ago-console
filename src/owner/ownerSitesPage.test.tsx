@@ -106,6 +106,7 @@ describe("the platform-sites page's own navigation", () => {
       "Tags",
       "Billing",
       "Delete account",
+      "Team",
       "Platform sites",
     ]);
   });

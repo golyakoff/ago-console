@@ -252,6 +252,7 @@ describe("the operator navigation", () => {
       "Tags",
       "Billing",
       "Delete account",
+      "Team",
     ]);
     // Every gated entry, muted - "Conversations" itself never is, holding it needs no permission.
     expect(mutedNavLabels(container)).toEqual([
@@ -269,38 +270,44 @@ describe("the operator navigation", () => {
       "Tags",
       "Billing",
       "Delete account",
+      "Team",
     ]);
   });
 
-  it("offers the site-wide sections ordinary, and only Delete account muted, to an operator who holds site:configure but not site:erase", async () => {
-    grants(["site:configure"]);
+  it(
+    "offers the site-wide sections ordinary, and only Delete account and Team muted, to an operator who holds " +
+      "site:configure but neither site:erase nor site:manage_operators",
+    async () => {
+      grants(["site:configure"]);
 
-    const container = await render(shellAt("/"));
+      const container = await render(shellAt("/"));
 
-    expect(navLabels(container)).toEqual([
-      "Conversations",
-      "All conversations",
-      "Search",
-      "Analytics",
-      "Conversion",
-      "Tag report",
-      "Booking flow",
-      "Install widget",
-      "Widget appearance",
-      "AI FAQ assistant",
-      "Offline auto-reply",
-      "Canned responses",
-      "Tags",
-      "Billing",
-      "Delete account",
-    ]);
-    // `16-02`'s own independent gate: `site:configure` says nothing about `site:erase`, so this is
-    // the one entry still muted for this operator.
-    expect(mutedNavLabels(container)).toEqual(["Delete account"]);
-  });
+      expect(navLabels(container)).toEqual([
+        "Conversations",
+        "All conversations",
+        "Search",
+        "Analytics",
+        "Conversion",
+        "Tag report",
+        "Booking flow",
+        "Install widget",
+        "Widget appearance",
+        "AI FAQ assistant",
+        "Offline auto-reply",
+        "Canned responses",
+        "Tags",
+        "Billing",
+        "Delete account",
+        "Team",
+      ]);
+      // `16-02`/`23-22`'s own independent gates: `site:configure` says nothing about `site:erase` or
+      // `site:manage_operators`, so these are the two entries still muted for this operator.
+      expect(mutedNavLabels(container)).toEqual(["Delete account", "Team"]);
+    },
+  );
 
-  it("mutes nothing at all for an operator who holds both site:configure and site:erase", async () => {
-    grants(["site:configure", "site:erase"]);
+  it("mutes nothing at all for an operator who holds site:configure, site:erase and site:manage_operators", async () => {
+    grants(["site:configure", "site:erase", "site:manage_operators"]);
 
     const container = await render(shellAt("/"));
 
@@ -337,6 +344,7 @@ describe("the operator navigation", () => {
       "Tags",
       "Billing",
       "Delete account",
+      "Team",
       "Queue",
       "Setup",
       "Workers",
@@ -358,6 +366,7 @@ describe("the operator navigation", () => {
       "Tags",
       "Billing",
       "Delete account",
+      "Team",
     ]);
   });
 
@@ -377,9 +386,10 @@ describe("the operator navigation", () => {
     // `23-24`: the one inconsistency between this gate and the other two, before this item - this
     // entry used to be drawn ordinary. Now it carries the identical muted treatment
     // `site:configure`/`site:erase` entries get above, so the three gates are one treatment, not two
-    // (`docs/backlog/23-24-*.md`'s own Done-when). `Delete account` is muted too - this grant holds
-    // `site:configure` but not `site:erase`, an independent gate.
-    expect(mutedNavLabels(container)).toEqual(["Delete account", "Queue"]);
+    // (`docs/backlog/23-24-*.md`'s own Done-when). `Delete account` and `Team` are muted too - this
+    // grant holds `site:configure` but neither `site:erase` nor `site:manage_operators`, both
+    // independent gates.
+    expect(mutedNavLabels(container)).toEqual(["Delete account", "Team", "Queue"]);
   });
 
   it("offers no calendar entry at all to an operator on a tenant that has never enabled the module", async () => {
@@ -461,6 +471,7 @@ describe("the operator navigation", () => {
       "Tags",
       "Billing",
       "Delete account",
+      "Team",
       "Platform sites",
     ]);
   });
@@ -482,7 +493,10 @@ describe("the operator navigation", () => {
  */
 describe("the lock glyph on a muted nav entry", () => {
   it("carries a visually-hidden, translated label - present for a muted entry, absent for an ordinary one", async () => {
-    grants(["site:configure"]); // holds site:configure, lacks site:erase
+    // `23-22`: `site:manage_operators` granted alongside `site:configure` so `Team` is not also
+    // muted here - this test is about `site:erase`'s own gate specifically, and `one(...)` below
+    // needs exactly one muted link to find.
+    grants(["site:configure", "site:manage_operators"]); // holds site:configure, lacks site:erase
 
     const container = await render(shellAt("/"));
 
@@ -574,6 +588,7 @@ describe("the mobile navigation drawer", () => {
       "Tags",
       "Billing",
       "Delete account",
+      "Team",
     ]);
   });
 
