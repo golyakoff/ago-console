@@ -60,6 +60,9 @@ export const en: ConsoleStrings = {
   queueAssignedNote: "Live — a new assignment appears without a refresh.",
   queueAssignedLoadingLabel: "Loading your assigned conversations…",
   queueAssignedEmpty: "Nothing assigned yet. New conversations arrive here automatically.",
+  queueEmptyInstallPrompt:
+    "No conversations will arrive until the script is on your site - until then visitors have nothing to write to you with.",
+  queueEmptyInstallLink: "How to install the script",
   queueNewBadge: "New",
   queueUnreadMessageOne: "unread message",
   queueUnreadMessageOther: "unread messages",
