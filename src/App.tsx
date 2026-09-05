@@ -6,6 +6,7 @@ import { OperatorShell } from "./shell/OperatorShell.js";
 import { CallbackPage } from "./pages/CallbackPage.js";
 import { SignupPage } from "./pages/SignupPage.js";
 import { OnboardingPage } from "./pages/OnboardingPage.js";
+import { RedeemInvitePage } from "./pages/RedeemInvitePage.js";
 import { WorkspaceLayout } from "./workspace/WorkspaceLayout.js";
 import { NoConversationSelected } from "./workspace/NoConversationSelected.js";
 import { ConversationPage } from "./pages/ConversationPage.js";
@@ -84,6 +85,21 @@ export function App() {
         element={
           <RequireAuth>
             <OnboardingPage />
+          </RequireAuth>
+        }
+      />
+      {/* `23-27`: `/redeem-invite` - the other end of `13-01`'s invite, on the identical shape as
+          `/onboarding` right above it and for the identical reason: `RequireAuth` alone, never
+          wrapped in `PermissionsProvider`/`OperatorConnectionProvider`, because a caller here by
+          definition carries no `OperatorId`/`SiteId` claim yet. `RedeemInvitePage.tsx`'s own doc
+          comment has the full reasoning, including why this route is not folded into `/onboarding`
+          as a second mode of the same screen (they submit to different endpoints under different
+          server-side gates, and offer each other a link rather than sharing one component). */}
+      <Route
+        path="/redeem-invite"
+        element={
+          <RequireAuth>
+            <RedeemInvitePage />
           </RequireAuth>
         }
       />
