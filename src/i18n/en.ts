@@ -306,6 +306,21 @@ export const en: ConsoleStrings = {
   installSnippetCopyButton: "Copy the code",
   installSnippetCopiedLabel: "Copied to the clipboard.",
 
+  installStatusPanelTitle: "Is it working?",
+  installStatusNotSeenYet:
+    "Your script has not arrived yet. Paste the snippet below onto your site, then come back and " +
+    "check this page again.",
+  installStatusSeenAndQuiet: "Your widget is installed and reporting in.",
+  installStatusLastSeenLabel: "Last seen",
+  installStatusFirstSeenLabel: "First seen",
+  installStatusRefusedPrefix: "Your widget is installed, but every request from",
+  installStatusRefusedSuffix:
+    "is being refused. Check that this exact address is in your website address below - a mismatch " +
+    "like www. against the bare domain is the most common cause.",
+  installStatusNeverSeenButInUse:
+    "We have not seen your widget yet, but conversations are already reaching you through a " +
+    "connected channel - that's fine, there is nothing to fix here.",
+
   autoReplyForbidden: "You do not have permission to configure this site's offline auto-reply.",
   autoReplyDescription:
     "When this is on and nobody on your team is online, a visitor's first message gets an automatic " +

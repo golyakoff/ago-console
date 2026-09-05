@@ -10,7 +10,76 @@ import { Button } from "../components/Button.js";
 import { Alert } from "../components/Alert.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
+import type { ConsoleStrings } from "../i18n/strings.js";
 import { config } from "../config.js";
+import { formatAbsolute, formatDateStamp, formatElapsed, parseInstant, resolveTimeZone } from "../time/format.js";
+
+/**
+ * `23-06`: the install screen's own headline panel, above the three `10-06` shipped. One of four
+ * states, resolved server-side (`SiteInstallationState`) rather than re-derived here - this component
+ * only picks the wording and the `Alert` tone that go with the state the API already chose, never a
+ * second copy of `SiteInstallationStateResolver`'s own rule.
+ *
+ * **Why `Alert`, not a new component.** `adr/0030` closes the console's component set at eleven; a
+ * fifth tone or a dedicated "status card" would be a new one. `Alert`'s three existing tones already
+ * carry the right meaning for three of the four states (`info` for a next step, `success` for working,
+ * `danger` for a live problem); `NeverSeenButInUse` also gets `info` - it is not a problem, and `info`
+ * is the tone this set already uses for "here is where you stand, no action needed" (`installLoadingLabel`'s
+ * sibling states use it identically elsewhere in this codebase).
+ *
+ * **Why <c>EveryRequestRefused</c> is `danger` even though nobody is currently failing to be helped.**
+ * A refused origin is the one state here that names a concrete, fixable defect - `decisions.md`'s own
+ * "the wrong one is the discouraging one" is about **silence** being misread as failure, not about
+ * softening a real, live misconfiguration once it is actually found. `NotSeenYet` and
+ * `NeverSeenButInUse` get `info` because neither has anything to fix yet.
+ */
+function InstallStatus({
+  installation,
+  now,
+  timeZone,
+  strings,
+}: {
+  installation: SiteInstallationDto;
+  now: Date;
+  timeZone: string | null;
+  strings: ConsoleStrings;
+}) {
+  if (installation.state === "NotSeenYet") {
+    return <Alert tone="info">{strings.installStatusNotSeenYet}</Alert>;
+  }
+
+  if (installation.state === "NeverSeenButInUse") {
+    return <Alert tone="info">{strings.installStatusNeverSeenButInUse}</Alert>;
+  }
+
+  if (installation.state === "EveryRequestRefused") {
+    return (
+      <Alert tone="danger">
+        {strings.installStatusRefusedPrefix} <code className="ago-mono">{installation.lastRefusedOrigin}</code>{" "}
+        {strings.installStatusRefusedSuffix}
+      </Alert>
+    );
+  }
+
+  // SiteInstallationState.SeenAndQuiet - the only state carrying real timestamps to show.
+  const lastSeen = parseInstant(installation.lastSeenAt);
+  const firstSeen = parseInstant(installation.firstSeenAt);
+  return (
+    <Alert tone="success">
+      <div>{strings.installStatusSeenAndQuiet}</div>
+      {lastSeen && (
+        <div>
+          {strings.installStatusLastSeenLabel} {formatElapsed(lastSeen, now, strings)} {strings.agoSuffix}
+        </div>
+      )}
+      {firstSeen && (
+        <div title={formatAbsolute(firstSeen, timeZone, strings)}>
+          {strings.installStatusFirstSeenLabel} {formatDateStamp(firstSeen, timeZone, strings)}
+        </div>
+      )}
+    </Alert>
+  );
+}
 
 /**
  * `10-06`: the screen the backlog item's own Gap section names as entirely missing - "the console
@@ -42,6 +111,11 @@ export function InstallSnippetPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [snippetCopied, setSnippetCopied] = useState(false);
+  // `23-06`: resolved once per mount, the same `useState(() => resolveTimeZone())` shape every other
+  // report page in this console already uses - this screen is not a live ticking display, so `now` is
+  // frozen at load rather than re-read on every render.
+  const [timeZone] = useState(() => resolveTimeZone());
+  const [now] = useState(() => new Date());
 
   const load = useCallback(() => {
     const accessToken = user?.access_token;
@@ -115,6 +189,10 @@ export function InstallSnippetPage() {
         </Panel>
       ) : (
         <div className="ago-stack">
+          <Panel title={strings.installStatusPanelTitle}>
+            <InstallStatus installation={installation} now={now} timeZone={timeZone} strings={strings} />
+          </Panel>
+
           <Panel title={strings.installKeyPanelTitle} description={strings.installKeyPanelDescription}>
             <div className="ago-row">
               <code className="ago-mono ago-install-value">{installation.publicKey}</code>

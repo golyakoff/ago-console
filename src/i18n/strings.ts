@@ -440,6 +440,31 @@ export interface ConsoleStrings {
   installSnippetCopyButton: string;
   installSnippetCopiedLabel: string;
 
+  // `23-06`: the install screen's own headline panel - the two facts (was the widget seen, is the
+  // product being used) folded into one of four states by `Ago.Chat.Domain.SiteInstallationStateResolver`
+  // server-side, worded here so *not seen at all* reads as a next step, *installed and quiet* says how
+  // long, and *never seen but in use* never tells a channel-only tenant to go fix an install
+  // (`docs/design/decisions.md` §3's two-facts amendment).
+  installStatusPanelTitle: string;
+  /** `SiteInstallationState.NotSeenYet` - the state a brand-new tenant gets on day one. Framed as a
+   * next step ("paste it below"), never as a failure - `decisions.md`'s own "the wrong one is the
+   * discouraging one". */
+  installStatusNotSeenYet: string;
+  /** `SiteInstallationState.SeenAndQuiet` - paired in the UI with {@link installStatusLastSeenLabel}/
+   * {@link installStatusFirstSeenLabel} and a formatted elapsed time, never shown alone. */
+  installStatusSeenAndQuiet: string;
+  installStatusLastSeenLabel: string;
+  installStatusFirstSeenLabel: string;
+  /** `SiteInstallationState.EveryRequestRefused`, the text *before* the refused origin - the origin
+   * itself is rendered as a `<code>` chip between this and {@link installStatusRefusedSuffix}, the
+   * same "prefix, formatted value, suffix" composition {@link installStatusLastSeenLabel} already
+   * uses for a timestamp instead of an origin. */
+  installStatusRefusedPrefix: string;
+  installStatusRefusedSuffix: string;
+  /** `SiteInstallationState.NeverSeenButInUse` - the channel-only tenant `decisions.md`'s two-facts
+   * amendment exists to protect. Must never suggest fixing an install that was never broken. */
+  installStatusNeverSeenButInUse: string;
+
   // OfflineAutoReplyPage.
   autoReplyForbidden: string;
   autoReplyDescription: string;

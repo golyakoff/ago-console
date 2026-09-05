@@ -16,10 +16,12 @@ import {
   seededPermissions,
   seededQueue,
   seededSeatAssignmentSummary,
+  seededSiteInstallation,
   seededTenancies,
   seededVisitorHistory,
   seededWidgetConfig,
   type SeededPermissionsOverrides,
+  type SeededSiteInstallation,
 } from "./data.js";
 
 /**
@@ -40,7 +42,11 @@ import {
  * and the app's own `URL` already gives this file a real `pathname` to switch on, which reads more
  * plainly than five overlapping glob patterns would.
  */
-export async function installApiStubs(page: Page, permissionsOverride?: SeededPermissionsOverrides): Promise<void> {
+export async function installApiStubs(
+  page: Page,
+  permissionsOverride?: SeededPermissionsOverrides,
+  installationOverride?: Partial<SeededSiteInstallation>,
+): Promise<void> {
   await page.route("**/api/v1/**", async (route: Route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -97,6 +103,13 @@ export async function installApiStubs(page: Page, permissionsOverride?: SeededPe
 
     if (path === `/api/v1/sites/${SITE_ID}/widget-config` && method === "GET") {
       return json(seededWidgetConfig());
+    }
+
+    // `23-06`: `undefined` for every screen but the one that overrides it (`screens.ts`'s own
+    // `installation-never-seen`) - `seededSiteInstallation`'s own default parameter falls back to a
+    // fully-configured, `SeenAndQuiet` tenant, unchanged from what every screen before this item saw.
+    if (path === `/api/v1/sites/${SITE_ID}/installation` && method === "GET") {
+      return json(seededSiteInstallation(installationOverride));
     }
 
     if (path === "/api/v1/owner/sites" && method === "GET") {

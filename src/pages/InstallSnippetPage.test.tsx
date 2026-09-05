@@ -66,6 +66,12 @@ beforeEach(() => {
   installationApi.fetchSiteInstallation.mockResolvedValue({
     publicKey: "shop_7f3a",
     allowedOrigins: ["https://tenant.example"],
+    firstSeenAt: "2026-08-01T09:00:00.000Z",
+    lastSeenAt: "2026-09-04T09:00:00.000Z",
+    lastRefusedOrigin: null,
+    lastRefusedOriginAt: null,
+    usedRecently: false,
+    state: "SeenAndQuiet",
   });
   // jsdom does not implement the Clipboard API - every browser this console actually ships to does,
   // so this stands in for it rather than skipping the assertion. Stored in its own variable, not read
@@ -154,5 +160,92 @@ describe("the install screen", () => {
 
     expect(container.textContent).toContain("Failed to load your installation details.");
     expect(byText(container, "code", "shop_7f3a")).toBeNull();
+  });
+
+  /**
+   * `23-06`'s own Done-when: "`/settings/install` renders every state, and *never seen* is the one a
+   * brand-new tenant gets on day one." Four states, one test each - the resolved `state` alone decides
+   * the wording; no other field on the seeded DTO changes between them.
+   */
+  describe("the install status panel (23-06)", () => {
+    it("tells a brand-new tenant the script has not arrived yet, worded as a next step", async () => {
+      installationApi.fetchSiteInstallation.mockResolvedValue({
+        publicKey: "shop_7f3a",
+        allowedOrigins: ["https://tenant.example"],
+        firstSeenAt: null,
+        lastSeenAt: null,
+        lastRefusedOrigin: null,
+        lastRefusedOriginAt: null,
+        usedRecently: false,
+        state: "NotSeenYet",
+      });
+
+      const container = await render(page());
+
+      expect(container.textContent).toContain("Your script has not arrived yet");
+      // Not a failure-worded page - the key/snippet panels a fresh tenant needs are still on screen.
+      expect(container.textContent).toContain("shop_7f3a");
+    });
+
+    it("shows an installed-and-quiet tenant how long it has been since the widget was last seen", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-04T09:00:00.000Z"));
+      installationApi.fetchSiteInstallation.mockResolvedValue({
+        publicKey: "shop_7f3a",
+        allowedOrigins: ["https://tenant.example"],
+        firstSeenAt: "2026-08-01T09:00:00.000Z",
+        lastSeenAt: "2026-09-02T09:00:00.000Z",
+        lastRefusedOrigin: null,
+        lastRefusedOriginAt: null,
+        usedRecently: false,
+        state: "SeenAndQuiet",
+      });
+
+      const container = await render(page());
+
+      expect(container.textContent).toContain("Your widget is installed and reporting in.");
+      expect(container.textContent).toContain("Last seen");
+      expect(container.textContent).toContain("2d");
+      expect(container.textContent).toContain("First seen");
+      vi.useRealTimers();
+    });
+
+    it("names the refused origin and does not soften it as a mere quiet period", async () => {
+      installationApi.fetchSiteInstallation.mockResolvedValue({
+        publicKey: "shop_7f3a",
+        allowedOrigins: ["https://tenant.example"],
+        firstSeenAt: null,
+        lastSeenAt: null,
+        lastRefusedOrigin: "https://www.tenant.example",
+        lastRefusedOriginAt: "2026-09-04T09:00:00.000Z",
+        usedRecently: false,
+        state: "EveryRequestRefused",
+      });
+
+      const container = await render(page());
+
+      expect(container.textContent).toContain("https://www.tenant.example");
+      expect(container.textContent).toContain("is being refused");
+    });
+
+    /** `decisions.md`'s two-facts amendment: a channel-only tenant must never be told to fix an
+     * install that was never broken. */
+    it("reassures a channel-only tenant instead of telling them the script never arrived", async () => {
+      installationApi.fetchSiteInstallation.mockResolvedValue({
+        publicKey: "shop_7f3a",
+        allowedOrigins: ["https://tenant.example"],
+        firstSeenAt: null,
+        lastSeenAt: null,
+        lastRefusedOrigin: null,
+        lastRefusedOriginAt: null,
+        usedRecently: true,
+        state: "NeverSeenButInUse",
+      });
+
+      const container = await render(page());
+
+      expect(container.textContent).toContain("conversations are already reaching you through a");
+      expect(container.textContent).not.toContain("Your script has not arrived yet");
+    });
   });
 });

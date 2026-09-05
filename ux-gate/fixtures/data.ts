@@ -33,6 +33,13 @@ function minutesAgo(minutes: number): string {
   return new Date(NOW.getTime() - minutes * 60_000).toISOString();
 }
 
+// `23-06`: days, not minutes - the install screen's own "how long" wording is measured in days for
+// any tenant that has been live more than a few hours, and a `minutesAgo` call for a two-week-old
+// timestamp would read strangely at this file's own call sites.
+function daysAgo(days: number): string {
+  return new Date(NOW.getTime() - days * 86_400_000).toISOString();
+}
+
 /** A short, realistic-looking exchange - long enough that the thread has real message bubbles on
  * both sides (the "closest to the two historical defects" surface `15-11`'s brief names), short
  * enough to fit one screenshot without scrolling on a laptop viewport. */
@@ -234,6 +241,38 @@ export function seededOwnerSitesPage() {
     nextBefore: null,
     recentWindowDays: 7,
   };
+}
+
+/**
+ * `23-06`: the install screen's own read. Default state is `SeenAndQuiet` - a genuinely configured
+ * tenant, matching this file's own "the gate's seeded tenant is fully configured" baseline every other
+ * `seeded*` function here already establishes. `installation-never-seen` (`screens.ts`) overrides this
+ * to the `NotSeenYet` state instead - the one a brand-new tenant gets on day one, and the state this
+ * item's own instruction says will not render unless a fixture is made to produce it.
+ */
+export function seededSiteInstallation(overrides: Partial<SeededSiteInstallation> = {}) {
+  return {
+    publicKey: "shop_7f3a_ux_gate",
+    allowedOrigins: ["https://cafe-u-reki.example"],
+    firstSeenAt: daysAgo(45),
+    lastSeenAt: daysAgo(2),
+    lastRefusedOrigin: null,
+    lastRefusedOriginAt: null,
+    usedRecently: true,
+    state: "SeenAndQuiet" as const,
+    ...overrides,
+  };
+}
+
+export interface SeededSiteInstallation {
+  publicKey: string;
+  allowedOrigins: string[];
+  firstSeenAt: string | null;
+  lastSeenAt: string | null;
+  lastRefusedOrigin: string | null;
+  lastRefusedOriginAt: string | null;
+  usedRecently: boolean;
+  state: "NotSeenYet" | "SeenAndQuiet" | "EveryRequestRefused" | "NeverSeenButInUse";
 }
 
 export function seededWidgetConfig() {

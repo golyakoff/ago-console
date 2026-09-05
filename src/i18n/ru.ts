@@ -310,6 +310,21 @@ export const ru: ConsoleStrings = {
   installSnippetCopyButton: "Скопировать код",
   installSnippetCopiedLabel: "Скопировано в буфер обмена.",
 
+  installStatusPanelTitle: "Всё работает?",
+  installStatusNotSeenYet:
+    "Ваш скрипт ещё не подключался. Вставьте код ниже на свой сайт и вернитесь на эту страницу, " +
+    "чтобы проверить снова.",
+  installStatusSeenAndQuiet: "Виджет установлен и выходит на связь.",
+  installStatusLastSeenLabel: "Последний раз виден",
+  installStatusFirstSeenLabel: "Впервые увиден",
+  installStatusRefusedPrefix: "Виджет установлен, но все запросы с адреса",
+  installStatusRefusedSuffix:
+    "отклоняются. Проверьте, что именно этот адрес указан в разделе «Адрес вашего сайта» ниже - чаще " +
+    "всего причина в несовпадении www. и адреса без него.",
+  installStatusNeverSeenButInUse:
+    "Мы ещё не видели ваш виджет, но к вам уже приходят обращения через подключённый канал - всё в " +
+    "порядке, здесь ничего исправлять не нужно.",
+
   autoReplyForbidden: "У вас нет права настраивать автоответ офлайн для этого сайта.",
   autoReplyDescription:
     "Когда это включено и никто из вашей команды не в сети, на первое сообщение посетителя " +

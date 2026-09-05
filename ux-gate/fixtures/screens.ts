@@ -1,4 +1,9 @@
-import { CALENDAR_WORKER_ID, OPEN_CONVERSATION_ID, type SeededPermissionsOverrides } from "./data.js";
+import {
+  CALENDAR_WORKER_ID,
+  OPEN_CONVERSATION_ID,
+  type SeededPermissionsOverrides,
+  type SeededSiteInstallation,
+} from "./data.js";
 
 /**
  * `15-11`'s own Open Questions leaves "which screens" undecided ("Probably: the author's six named
@@ -40,6 +45,11 @@ export interface UxGateScreen {
    * before this item, and stays right for all of them except the one built specifically to render
    * this item's own muted nav treatment (`admin-limited-permissions`, below). */
   permissionsOverride?: SeededPermissionsOverrides;
+  /** `23-06`: `undefined` for every screen but `installation-never-seen` - the fully-configured
+   * `SeenAndQuiet` tenant (`fixtures/data.ts#seededSiteInstallation`'s own default) is right for every
+   * other screen, but it is also exactly why this item's own "nothing has arrived yet" state would
+   * never once render in this gate without a second screen overriding it. */
+  installationOverride?: Partial<SeededSiteInstallation>;
 }
 
 export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
@@ -68,6 +78,33 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
     name: "settings-widget",
     path: "/settings/widget",
     readySelector: "form.ago-stack",
+  },
+  // `23-06`: `/settings/install` joins the curated set - this file's own header already names "screens
+  // that later earn it" as exactly how this array grows, and the item that built this screen's newest
+  // panel is the reason it earns it now: a rendered state on this exact screen reached CI once with a
+  // defect the gate would have caught, and nothing before this item ever opened this route at all.
+  //
+  // Two entries, not one - `seededSiteInstallation`'s own default is `SeenAndQuiet` (a fully
+  // configured, working tenant, matching this gate's usual fully-configured baseline), which on its
+  // own would never once exercise `SiteInstallationState.NotSeenYet` - the state a brand-new tenant
+  // gets on day one, and the reason this item exists. `installation-never-seen` below overrides it.
+  {
+    name: "settings-install",
+    path: "/settings/install",
+    readySelector: ".ago-alert",
+  },
+  {
+    name: "installation-never-seen",
+    path: "/settings/install",
+    readySelector: ".ago-alert",
+    installationOverride: {
+      firstSeenAt: null,
+      lastSeenAt: null,
+      lastRefusedOrigin: null,
+      lastRefusedOriginAt: null,
+      usedRecently: false,
+      state: "NotSeenYet",
+    },
   },
   // `23-25`: `/settings/products` joins the curated set - a brand-new screen, and this file's own
   // header already names "screens that later earn it" as exactly how this array grows. Chosen

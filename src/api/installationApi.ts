@@ -8,10 +8,26 @@ import { problemDetailsFrom } from "./problemDetails.js";
  * gated the same way `fetchWidgetConfig` already is) and the origin(s) `allowed_origins` currently
  * holds, so `InstallSnippetPage` can show what the widget's own browser-side origin check will compare
  * against without leaving the tenant to remember what they typed at signup.
+ *
+ * `23-06` adds six fields: the four raw facts, the second fact (`usedRecently` - "the product was
+ * used", independent of whether the widget was ever seen), and `state` - the one resolved reading of
+ * all of them, computed server-side (`SiteInstallationStateResolver`) so this screen never re-derives
+ * the rule. `state` is a plain union of string literals, matching how every other server-defined
+ * closed set already crosses this boundary in this codebase, rather than a TypeScript `enum`. The four
+ * timestamps arrive as ISO-8601 strings, like every other instant on the wire - `parseInstant` turns
+ * them into `Date`s at the point of use.
  */
+export type SiteInstallationState = "NotSeenYet" | "SeenAndQuiet" | "EveryRequestRefused" | "NeverSeenButInUse";
+
 export interface SiteInstallationDto {
   publicKey: string;
   allowedOrigins: string[];
+  firstSeenAt: string | null;
+  lastSeenAt: string | null;
+  lastRefusedOrigin: string | null;
+  lastRefusedOriginAt: string | null;
+  usedRecently: boolean;
+  state: SiteInstallationState;
 }
 
 /**
