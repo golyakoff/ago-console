@@ -679,6 +679,12 @@ export const en: ConsoleStrings = {
   analyticsOperatorColumn: "Operator",
   analyticsByOperatorEmpty: "No conversations attribute to an operator in this range.",
 
+  analyticsLoadNoDataValue: "No data",
+  analyticsLoadIntervalNote:
+    "\"Held\" counts a conversation once, even if this operator held it twice (transferred away and back). \"Standard\" and \"Additional\" count assignment intervals instead, where that same conversation counts twice.",
+  analyticsByOperatorLoadHeading: "Response time by load, per operator",
+  analyticsByOperatorLoadEmpty: "No assignment data yet in this range.",
+
   analyticsByReferrerHeading: "By referrer",
   analyticsReferrerColumn: "Referrer",
   analyticsByReferrerEmpty: "No conversations in this range.",

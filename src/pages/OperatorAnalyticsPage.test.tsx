@@ -79,6 +79,9 @@ type Bucket = {
   missedCount: number;
 };
 
+type LoadBucketEntry = { bucketLabel: string; intervalCount: number; replyCount: number; averageFirstReplySeconds: number | null };
+type Load = { conversationsHeld: number; intervalsHeld: number; standardIntervals: number; additionalIntervals: number; byLoad: LoadBucketEntry[] };
+
 function response(overrides: {
   from?: string;
   to?: string;
@@ -87,7 +90,7 @@ function response(overrides: {
   previousTo?: string;
   previousOverall?: Bucket;
   byChannel?: { channel: string; bucket: Bucket }[];
-  byOperator?: { operatorId: string; operatorName?: string | null; bucket: Bucket }[];
+  byOperator?: { operatorId: string; operatorName?: string | null; bucket: Bucket; load?: Load | null }[];
   byReferrer?: { referrerHost: string; bucket: Bucket }[];
   byCampaign?: { utmCampaign: string; bucket: Bucket }[];
 } = {}) {
@@ -115,14 +118,29 @@ function response(overrides: {
     // shape - a real id, not a placeholder, so `operatorLabel`'s truncation has something real to prove.
     // `18-13`: `averageDurationSeconds` values distinct from `averageFirstResponseSeconds`'s own, so a
     // test asserting on one column can never accidentally pass by reading the other's value.
+    // `23-17`: operator 1 carries a real `load` - a genuine standard/additional split and one entry per
+    // bucket. Operator 2 carries none (`load: null`), the real "no assignment interval started in this
+    // window" case, distinct from a zero - both states exercised by default so every test in this file
+    // that reuses `response()` unmodified renders both branches at least once.
     byOperator: [
       {
         operatorId: "11111111-2222-3333-4444-555555555555",
         bucket: { conversationCount: 2, averageFirstResponseSeconds: 60, averageDurationSeconds: 180, missedCount: 0 },
+        load: {
+          conversationsHeld: 3,
+          intervalsHeld: 4,
+          standardIntervals: 3,
+          additionalIntervals: 1,
+          byLoad: [
+            { bucketLabel: "1", intervalCount: 3, replyCount: 3, averageFirstReplySeconds: 15 },
+            { bucketLabel: "4+", intervalCount: 1, replyCount: 1, averageFirstReplySeconds: 75 },
+          ],
+        },
       },
       {
         operatorId: "66666666-7777-8888-9999-000000000000",
         bucket: { conversationCount: 1, averageFirstResponseSeconds: 20, averageDurationSeconds: 300, missedCount: 0 },
+        load: null,
       },
     ],
     // `18-12`: one real referrer host and one `"Direct"` bucket - the server's own wire literal, so
@@ -371,6 +389,182 @@ describe("the per-operator breakdown", () => {
     expect(container.textContent).toContain("All channels");
     expect(container.textContent).toContain("No conversations attribute to an operator in this range.");
     expect(container.textContent).not.toContain("No conversations in this range.");
+  });
+});
+
+/** `23-17`: the console half of "an operator's work is reported with the load it was carried under" -
+ * three more columns on the existing per-operator table (`docs/backlog/23-17-*.md`'s own Scope: "it
+ * extends the existing per-operator table rather than creating a fifth report screen"), plus one more
+ * table below it for the operator × load-bucket breakdown. */
+describe("the per-operator load split", () => {
+  it("shows standard and additional as two separate absolute counts, with the held total, and never a combined figure", async () => {
+    conversationsApi.fetchOperatorAnalytics.mockResolvedValue(
+      response({
+        byOperator: [
+          {
+            operatorId: "aaaaaaaa-bbbb-cccc-dddd-111111111111",
+            operatorName: "Nadia",
+            bucket: { conversationCount: 5, averageFirstResponseSeconds: 33, averageDurationSeconds: 222, missedCount: 0 },
+            // Three deliberately distinct numbers, so this assertion cannot pass by reading the wrong
+            // column - the same "distinct numbers" discipline `18-13`'s own fixture comment establishes.
+            load: { conversationsHeld: 8, intervalsHeld: 10, standardIntervals: 7, additionalIntervals: 3, byLoad: [] },
+          },
+        ],
+      }),
+    );
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("8"); // Held (conversationsHeld)
+    expect(container.textContent).toContain("7"); // Standard
+    expect(container.textContent).toContain("3"); // Additional
+    // `docs/design/decisions.md` §2's naming amendment: the word this codebase never shows a person.
+    expect(container.textContent).not.toContain("forced");
+    expect(container.textContent).not.toContain("Forced");
+  });
+
+  it("renders zero additional as a plain 0, with no distinguishing style and no reordering against a busier operator", async () => {
+    conversationsApi.fetchOperatorAnalytics.mockResolvedValue(
+      response({
+        byOperator: [
+          {
+            operatorId: "aaaaaaaa-0000-0000-0000-000000000001",
+            operatorName: "Quiet Operator",
+            bucket: { conversationCount: 4, averageFirstResponseSeconds: 30, averageDurationSeconds: 120, missedCount: 0 },
+            load: { conversationsHeld: 4, intervalsHeld: 4, standardIntervals: 4, additionalIntervals: 0, byLoad: [] },
+          },
+          {
+            operatorId: "aaaaaaaa-0000-0000-0000-000000000002",
+            operatorName: "Busy Operator",
+            bucket: { conversationCount: 9, averageFirstResponseSeconds: 30, averageDurationSeconds: 120, missedCount: 0 },
+            load: { conversationsHeld: 9, intervalsHeld: 13, standardIntervals: 9, additionalIntervals: 4, byLoad: [] },
+          },
+        ],
+      }),
+    );
+
+    const container = await render(page());
+
+    // Table 0 is overall/by-channel, table 1 is the per-operator table - fixed by render order, the
+    // same indexing every other test in this file relies on implicitly via `toContain`.
+    const operatorTable = container.querySelectorAll("table")[1];
+    const rows = Array.from(operatorTable.querySelectorAll("tbody tr"));
+    // Row order matches the server's own array order - never sorted by additional load, matching
+    // `docs/design/decisions.md` §7: "operators must not be sorted by a rate" extended here to counts.
+    expect(rows[0].textContent).toContain("Quiet Operator");
+    expect(rows[1].textContent).toContain("Busy Operator");
+
+    const quietCells = Array.from(rows[0].querySelectorAll("td"));
+    const busyCells = Array.from(rows[1].querySelectorAll("td"));
+    const quietAdditionalCell = quietCells[quietCells.length - 1];
+    const busyAdditionalCell = busyCells[busyCells.length - 1];
+    expect(quietAdditionalCell.textContent).toBe("0");
+    // The zero-additional cell carries the identical class the non-zero cell in the same column
+    // carries - no `ago-table__cell--warn`/highlight class exists anywhere in this codebase to begin
+    // with, but this locks the *absence* of any such divergence rather than trusting that silently.
+    expect(quietAdditionalCell.className).toBe(busyAdditionalCell.className);
+  });
+
+  it("shows 'No data' rather than 0 for an operator whose load is null - a real absence, not a zero", async () => {
+    conversationsApi.fetchOperatorAnalytics.mockResolvedValue(
+      response({
+        byOperator: [
+          {
+            operatorId: "aaaaaaaa-0000-0000-0000-000000000003",
+            operatorName: "No Load Report",
+            bucket: { conversationCount: 2, averageFirstResponseSeconds: 30, averageDurationSeconds: 120, missedCount: 0 },
+            load: null,
+          },
+        ],
+      }),
+    );
+
+    const container = await render(page());
+
+    const operatorTable = container.querySelectorAll("table")[1];
+    const cells = Array.from(operatorTable.querySelectorAll("tbody tr td"));
+    const [heldCell, standardCell, additionalCell] = cells.slice(-3);
+    expect(heldCell.textContent).toBe("No data");
+    expect(standardCell.textContent).toBe("No data");
+    expect(additionalCell.textContent).toBe("No data");
+  });
+
+  it("states once, under the table, that Held counts a conversation and Standard/Additional count intervals", async () => {
+    conversationsApi.fetchOperatorAnalytics.mockResolvedValue(response());
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain(
+      "\"Held\" counts a conversation once, even if this operator held it twice (transferred away and back).",
+    );
+    expect(container.textContent).toContain("count assignment intervals instead, where that same conversation counts twice.");
+  });
+
+  it("renders the operator-by-load-bucket breakdown as its own table, one row per operator and bucket", async () => {
+    conversationsApi.fetchOperatorAnalytics.mockResolvedValue(
+      response({
+        byOperator: [
+          {
+            operatorId: "aaaaaaaa-0000-0000-0000-000000000004",
+            operatorName: "First Op",
+            bucket: { conversationCount: 3, averageFirstResponseSeconds: 30, averageDurationSeconds: 120, missedCount: 0 },
+            load: {
+              conversationsHeld: 3,
+              intervalsHeld: 3,
+              standardIntervals: 3,
+              additionalIntervals: 0,
+              byLoad: [{ bucketLabel: "2-3", intervalCount: 3, replyCount: 3, averageFirstReplySeconds: 12 }],
+            },
+          },
+          {
+            operatorId: "aaaaaaaa-0000-0000-0000-000000000005",
+            operatorName: "Second Op",
+            bucket: { conversationCount: 5, averageFirstResponseSeconds: 30, averageDurationSeconds: 120, missedCount: 0 },
+            // Same bucket label as First Op, on purpose - proves the row key does not collide across
+            // operators sharing a bucket, and that the reply count/average shown is this operator's own.
+            load: {
+              conversationsHeld: 5,
+              intervalsHeld: 5,
+              standardIntervals: 5,
+              additionalIntervals: 0,
+              byLoad: [{ bucketLabel: "2-3", intervalCount: 5, replyCount: 2, averageFirstReplySeconds: 96 }],
+            },
+          },
+        ],
+      }),
+    );
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Response time by load, per operator");
+    // Table 0 is overall/by-channel, table 1 is the per-operator table, table 2 is this one.
+    const bucketTable = container.querySelectorAll("table")[2];
+    const bodyText = bucketTable.textContent ?? "";
+    expect(bodyText).toContain("First Op");
+    expect(bodyText).toContain("Second Op");
+    expect(bodyText).toContain("12s"); // First Op's own average first reply in the "2-3" bucket
+    expect(bodyText).toContain("1m 36s"); // Second Op's own average first reply in the same bucket
+  });
+
+  it("shows a dedicated empty state for the load-bucket table when operators exist but none carry load data", async () => {
+    conversationsApi.fetchOperatorAnalytics.mockResolvedValue(
+      response({
+        byOperator: [
+          {
+            operatorId: "aaaaaaaa-0000-0000-0000-000000000006",
+            operatorName: "No Buckets",
+            bucket: { conversationCount: 1, averageFirstResponseSeconds: 30, averageDurationSeconds: 120, missedCount: 0 },
+            load: null,
+          },
+        ],
+      }),
+    );
+
+    const container = await render(page());
+
+    // The operator table itself still renders - only the bucket breakdown is empty.
+    expect(container.textContent).toContain("No Buckets");
+    expect(container.textContent).toContain("No assignment data yet in this range.");
   });
 });
 

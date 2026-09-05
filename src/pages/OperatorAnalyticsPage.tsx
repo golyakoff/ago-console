@@ -10,6 +10,7 @@ import type {
   OperatorAnalyticsChannelBucketDto,
   OperatorAnalyticsOperatorBucketDto,
   OperatorAnalyticsReferrerBucketDto,
+  OperatorLoadSummaryDto,
 } from "../realtime/protocol/types.js";
 import { PageHead } from "../shell/AppShell.js";
 import { AccessRefusal } from "../shell/accessRefusal.js";
@@ -76,6 +77,26 @@ interface OperatorRow {
   operatorId: string;
   operatorName: string | null | undefined;
   bucket: OperatorAnalyticsBucketDto;
+  /** `23-17`: `undefined`/`null` is a real "no assignment data", never rendered as `0` -
+   * `loadCellValue` below is the only place that distinction is resolved into a cell. */
+  load: OperatorLoadSummaryDto | null | undefined;
+}
+
+/** `23-17`: `analyticsLoadNoDataValue` for a row whose `load` is absent, the raw count otherwise - the
+ * one place this file decides between "no data" and "a real zero" for a load figure, so the three
+ * Held/Standard/Additional columns below cannot drift out of sync with each other on that call. */
+function loadCellValue(load: OperatorLoadSummaryDto | null | undefined, select: (load: OperatorLoadSummaryDto) => number, strings: ConsoleStrings): ReactNode {
+  return load ? select(load) : strings.analyticsLoadNoDataValue;
+}
+
+interface OperatorLoadBucketRow {
+  key: string;
+  operatorId: string;
+  operatorName: string | null | undefined;
+  bucketLabel: string;
+  intervalCount: number;
+  replyCount: number;
+  averageFirstReplySeconds: number | null;
 }
 
 /** `18-12`: the server's own `DirectReferrerLabel` wire literal (`OperatorAnalyticsReadStore.cs`,
@@ -116,6 +137,24 @@ interface CampaignRow {
  * is "All channels" - simpler than a summary block above a second, separate table for the same three
  * columns, and it is still exactly the "plain table/summary, not a charting library" shape this item's
  * own Done-when asks for.
+ *
+ * <b>`23-17`: the standard/additional load split lands as three more columns on the existing
+ * per-operator table, not a fifth report screen.</b> `docs/backlog/23-17-*.md`'s own Scope is explicit
+ * about this: `load` is a second view of the identical dimension (operator) `byOperator` already rows
+ * by, so it is the `18-09` table's own case for "a second table for a genuinely different dimension" run
+ * in reverse - here the dimension is the same one, so it is columns, not a table. The operator ×
+ * load-bucket breakdown right below it is the genuinely different pair of dimensions, and gets the
+ * `18-09`/`18-12` treatment (its own table) for the same reason those did. `docs/design/decisions.md`
+ * §2's naming amendment holds throughout: standard and additional are two absolute counts, a `0` in
+ * either is a real fact rendered with no distinguishing style, and "forced" is not a word this file
+ * prints. `Held` counts a conversation once (`conversationsHeld`) while `Standard`/`Additional` count
+ * assignment intervals (`standardIntervals`/`additionalIntervals`, where a conversation transferred away
+ * and back to the same operator counts twice) - `analyticsLoadIntervalNote` says so once, in words,
+ * because two adjacent column headers do not make a unit difference self-evident. A `null`/absent `load`
+ * renders as `analyticsLoadNoDataValue` ("No data"), never as `analyticsNoResponsesValue`'s "—" - that
+ * em dash already means "nothing to average, because zero" elsewhere on this same table, and reusing it
+ * here would blur the real "no assignment interval in this window at all" the backend deliberately keeps
+ * distinct (`OperatorAnalyticsOperatorBucketDto.load`'s own remarks, `ago-console`'s `types.ts`).
  *
  * <b>`18-09`: a second table for the per-operator breakdown, not a third row-kind folded into the
  * first.</b> Unlike channel (a property every conversation always has - `Widget` is the fallback), an
@@ -280,6 +319,7 @@ export function OperatorAnalyticsPage() {
     operatorId: entry.operatorId,
     operatorName: entry.operatorName,
     bucket: entry.bucket,
+    load: entry.load,
   }));
 
   const operatorColumns: TableColumn<OperatorRow>[] = [
@@ -317,6 +357,70 @@ export function OperatorAnalyticsPage() {
       header: strings.analyticsMissedCountColumn,
       align: "end",
       render: (row) => row.bucket.missedCount,
+    },
+    // `23-17`: three more columns on the same row-per-operator table, not a parallel table - `load` is
+    // a second view of the identical dimension (operator) this table already keys its rows on, unlike
+    // the operator × load-bucket breakdown below, which is a genuinely different pair of dimensions and
+    // gets its own table for the same reason `18-12`'s referrer/campaign tables did.
+    // `docs/design/decisions.md` §2: standard and additional stay two absolute counts, never combined
+    // into a score or a ratio - `Held` is the third, in conversation units rather than interval units
+    // (`analyticsLoadIntervalNote` states that difference explicitly, once, below this table).
+    {
+      key: "held",
+      header: strings.myNumbersHeldColumn,
+      align: "end",
+      render: (row) => loadCellValue(row.load, (load) => load.conversationsHeld, strings),
+    },
+    {
+      key: "standard",
+      header: strings.myNumbersStandardColumn,
+      align: "end",
+      render: (row) => loadCellValue(row.load, (load) => load.standardIntervals, strings),
+    },
+    {
+      key: "additional",
+      header: strings.myNumbersAdditionalColumn,
+      align: "end",
+      // Deliberately the same `align: "end"`/no-style cell every other numeric column here gets - an
+      // operator whose `additionalIntervals` is `0` renders as the plain digit `0`, with no colour, no
+      // icon and no different alignment from a non-zero row, because a zero here is not a criticism
+      // (`docs/backlog/23-17-*.md`'s own Done-when says so explicitly).
+      render: (row) => loadCellValue(row.load, (load) => load.additionalIntervals, strings),
+    },
+  ];
+
+  // `23-17`: operator × load-bucket, flattened into one row per (operator, bucket) pair - an operator
+  // with no `load` at all, or a `load` whose own `byLoad` is empty, contributes nothing here (it already
+  // shows "No data" in the table above; a second empty row here would just repeat that fact).
+  const operatorLoadBucketRows: OperatorLoadBucketRow[] = byOperator.flatMap((entry) =>
+    (entry.load?.byLoad ?? []).map((bucketEntry) => ({
+      key: `${entry.operatorId}-${bucketEntry.bucketLabel}`,
+      operatorId: entry.operatorId,
+      operatorName: entry.operatorName,
+      bucketLabel: bucketEntry.bucketLabel,
+      intervalCount: bucketEntry.intervalCount,
+      replyCount: bucketEntry.replyCount,
+      averageFirstReplySeconds: bucketEntry.averageFirstReplySeconds,
+    })),
+  );
+
+  const operatorLoadBucketColumns: TableColumn<OperatorLoadBucketRow>[] = [
+    {
+      key: "operator",
+      header: strings.analyticsOperatorColumn,
+      render: (row) => operatorLabel(row.operatorId, row.operatorName),
+    },
+    { key: "bucketLabel", header: strings.myNumbersLoadBucketColumn, render: (row) => row.bucketLabel },
+    { key: "intervalCount", header: strings.myNumbersIntervalsColumn, align: "end", render: (row) => row.intervalCount },
+    { key: "replyCount", header: strings.myNumbersRepliesColumn, align: "end", render: (row) => row.replyCount },
+    {
+      key: "averageFirstReply",
+      header: strings.myNumbersAverageFirstReplyColumn,
+      align: "end",
+      render: (row) =>
+        row.averageFirstReplySeconds === null
+          ? strings.analyticsNoResponsesValue
+          : formatDurationSeconds(row.averageFirstReplySeconds),
     },
   ];
 
@@ -468,12 +572,33 @@ export function OperatorAnalyticsPage() {
           {operatorRows.length === 0 ? (
             <p className="ago-empty">{strings.analyticsByOperatorEmpty}</p>
           ) : (
-            <Table
-              caption={strings.analyticsByOperatorHeading}
-              columns={operatorColumns}
-              rows={operatorRows}
-              rowKey={(row) => row.key}
-            />
+            <>
+              <Table
+                caption={strings.analyticsByOperatorHeading}
+                columns={operatorColumns}
+                rows={operatorRows}
+                rowKey={(row) => row.key}
+              />
+              {/* `23-17`: stated once, directly under the table it explains - `Held` and
+                  `Standard`/`Additional` are two different units of the same underlying work, and a
+                  reader must not be left to infer that from two column headers alone. */}
+              {/* `23-17`: stated once, directly under the table it explains - `Held` and
+                  `Standard`/`Additional` are two different units of the same underlying work, and a
+                  reader must not be left to infer that from two column headers alone. */}
+              <p className="ago-meta">{strings.analyticsLoadIntervalNote}</p>
+
+              <h3>{strings.analyticsByOperatorLoadHeading}</h3>
+              {operatorLoadBucketRows.length === 0 ? (
+                <p className="ago-empty">{strings.analyticsByOperatorLoadEmpty}</p>
+              ) : (
+                <Table
+                  caption={strings.analyticsByOperatorLoadHeading}
+                  columns={operatorLoadBucketColumns}
+                  rows={operatorLoadBucketRows}
+                  rowKey={(row) => row.key}
+                />
+              )}
+            </>
           )}
 
           <p className="ago-meta">{strings.analyticsTrafficSourceNote}</p>
