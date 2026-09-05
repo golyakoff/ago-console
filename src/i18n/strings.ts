@@ -136,7 +136,9 @@ export interface ConsoleStrings {
    * `conversation.state === "Waiting"` badge text - one field, one English word, everywhere it
    * appears. */
   queueWaitingTitle: string;
-  /** `${queueWaitingNotePrefix} ${seconds} ${queueWaitingNoteSuffix}`. */
+  /** `${queueWaitingNotePrefix} ${seconds} ${queueWaitingNoteSuffix}`. `23-04`: reworded from
+   * "Read-only" now that a row here is a real link (`ConversationList`'s own doc comment) - the poll
+   * cadence this composes is still true and still worth stating, but "never claimed here" is not. */
   queueWaitingNotePrefix: string;
   queueWaitingNoteSuffix: string;
   queueWaitingEmpty: string;
@@ -180,6 +182,8 @@ export interface ConsoleStrings {
   // NoConversationSelected - the empty state.
   emptyStateAriaLabel: string;
   emptyStateTitle: string;
+  /** `23-04`: no longer says "nothing here needs claiming" - a waiting row in the rail this empty
+   * state sits beside is a real, clickable take now (`ConversationList`'s own doc comment). */
   emptyStateBody: string;
 
   // VisitorPanel.
@@ -350,13 +354,20 @@ export interface ConsoleStrings {
   adminEmpty: string;
   adminTableCaption: string;
   /** `16-02`: the row-actions column header - present only when the signed-in operator holds
-   * `conversation:erase` (`AdminConversationsPage`'s own `buildColumns`), so an operator without it
-   * never sees an all-empty column. */
+   * `conversation:erase` and/or (`23-04`) `conversation:assign` (`AdminConversationsPage`'s own
+   * `buildColumns`), so an operator with neither never sees an all-empty column. */
   adminColumnActions: string;
   /** Shown once at least one row in this list has actually been confirmed erased (the poll's own
    * `"erased"` outcome, never the optimistic click) - `16-02`'s own Done-when: "the console must not
    * claim it is done before it is." */
   adminConversationErasedNotice: string;
+
+  // ClaimConversationButton (`23-04`) - shared by AdminConversationsPage's own row action and
+  // SearchConversationsPage's own per-hit action, the same "one component, two pages" shape
+  // EraseConversationButton already establishes for AdminConversationsPage alone.
+  claimConversationButton: string;
+  claimConversationSubmittingLabel: string;
+  claimConversationSubmitError: string;
 
   // WidgetConfigPage.
   widgetLoadError: string;
@@ -669,9 +680,10 @@ export interface ConsoleStrings {
   /** The link text on an `Assigned` hit - real click-through, attempted (`ConversationPage`'s own
    * `?at=` handling), not guaranteed to succeed (`searchConversations`'s own doc comment). */
   searchOpenLabel: string;
-  /** A `Waiting` hit's own inline note, replacing a link entirely - opening one here would silently
-   * *claim* it (`AssignTo`'s only non-no-op path), which a read-only search must never do as a side
-   * effect of a click. */
+  /** A `Waiting` hit's own inline note, alongside a `ClaimConversationButton` rather than a link -
+   * `23-04`: opening this row by navigation would still silently *claim* it as a side effect of a
+   * click a read-only search must never do, so the deliberate act stays a distinct, explicit button
+   * rather than the row itself becoming a link. */
   searchWaitingNote: string;
   /** A `Closed` hit's own inline note - nobody can rejoin a closed conversation through the hub, ever
    * (`Conversation.AssignTo`), so this is a structural fact, not a permission gap. */

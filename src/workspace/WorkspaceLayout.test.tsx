@@ -56,14 +56,23 @@ function signedIn(): User {
   return { access_token: "token", profile: { sub: "operator-sub", preferred_username: "kim" } } as unknown as User;
 }
 
+// `23-04`: exposed as a plain local, refreshed in `beforeEach` - `OperatorConnection` is a real
+// interface, so its own method trips `@typescript-eslint/unbound-method` the moment it is asserted on
+// as a value (`expect(connectionMock.joinConversation)`) rather than called directly, the same
+// `ConversationPage.test.tsx#fakeConnection` precedent already works around for `joinConversation`/
+// `loadOlderHistory` there.
+let joinConversationMock: ReturnType<typeof vi.fn>;
+
 function fakeConnection(): OperatorConnection {
+  joinConversationMock = vi.fn(() => Promise.resolve({ messages: [], nextBeforeSequence: null }));
+
   return {
     onMessage: vi.fn(),
     onAnyMessage: vi.fn(),
     onConversationAssigned: vi.fn(),
     onReconnectHint: vi.fn(),
     onStateChange: vi.fn(),
-    joinConversation: vi.fn(() => Promise.resolve({ messages: [], nextBeforeSequence: null })),
+    joinConversation: joinConversationMock,
     leaveConversation: vi.fn(),
     getVisitorPresence: vi.fn(() => Promise.resolve(null)),
     loadOlderHistory: vi.fn(() => Promise.resolve({ messages: [], nextBeforeSequence: null })),
@@ -87,6 +96,10 @@ function queue(): OperatorQueueResponse {
   };
 }
 
+// `23-04`: refreshed in `beforeEach`, read by `Signed`'s own `connectionValue` below - see that
+// component's own comment for why this indirection exists.
+let connectionMock: OperatorConnection;
+
 function Signed({ children }: { children: React.ReactNode }) {
   const auth = useMemo<AuthState>(
     () => ({ user: signedIn(), isLoading: false, login: () => Promise.resolve(), logout: () => Promise.resolve() }),
@@ -107,8 +120,12 @@ function Signed({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  // `23-04`: the same instance every render within one mount, taken from the module-level slot
+  // `beforeEach` refreshes - so a test can assert on `connectionMock.joinConversation` after the fact,
+  // which a fresh `fakeConnection()` call here (this file's own original shape) would put out of
+  // reach.
   const connectionValue = useMemo<OperatorConnectionState>(
-    () => ({ connection: fakeConnection(), connectionState: "connected", serverDraining: false }),
+    () => ({ connection: connectionMock, connectionState: "connected", serverDraining: false }),
     [],
   );
 
@@ -152,6 +169,7 @@ function keyDown(element: Element, key: string): void {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  connectionMock = fakeConnection();
   conversationsApi.fetchOperatorQueue.mockResolvedValue(queue());
   conversationsApi.markConversationRead.mockResolvedValue({ operatorUnreadCount: 0, operatorLastReadSequence: 0 });
   conversationsApi.fetchVisitorHistory.mockResolvedValue({ hasChannelIdentity: false, conversations: [], nextBeforeId: null });
@@ -179,6 +197,45 @@ describe("the workspace's own shell mode", () => {
 
     expect(container.querySelector(".ago-shell")?.classList.contains("ago-shell--fixed")).toBe(true);
     expect(container.querySelector(".ago-shell__main")?.classList.contains("ago-shell__main--fixed")).toBe(true);
+  });
+});
+
+/**
+ * `23-04`: the rail's own end of "an operator can take a waiting conversation" - `ConversationList`'s
+ * own doc comment on why the waiting row is a real `NavLink` now, proven here through the real
+ * production tree rather than `ConversationList` mounted in isolation. Claiming itself
+ * (`ConversationAssignmentSource.Taken`, the capacity charge) is `ago-chat`'s own server-side behaviour
+ * behind `OperatorHub.JoinConversationAsync` - what this test proves is that the console actually
+ * reaches that call when a waiting row is clicked, which is the one thing a frontend test can check.
+ */
+describe("taking a waiting conversation from the rail", () => {
+  it("navigates a clicked waiting row into the conversation, reaching the real join call", async () => {
+    const WAITING_ID = "dddddddd-dddd-dddd-dddd-dddddddddddd";
+    const WAITING_VISITOR_ID = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee";
+    conversationsApi.fetchOperatorQueue.mockResolvedValue({
+      assignedToMe: [],
+      waiting: [
+        {
+          conversationId: WAITING_ID,
+          visitorId: WAITING_VISITOR_ID,
+          state: "Waiting",
+          createdAt: "2026-08-25T09:00:00+00:00",
+          operatorUnreadCount: 0,
+        },
+      ],
+    });
+
+    const container = await render(workspaceAt("/"));
+    const waitingRow = one<HTMLAnchorElement>(container, `a[href="/conversations/${WAITING_ID}"]`);
+    // Not `.ago-list__row--static` any more - the class the pre-`23-04` non-link row carried.
+    expect(waitingRow.className).not.toContain("ago-list__row--static");
+
+    await interact(() => waitingRow.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 })));
+
+    expect(container.querySelector(`a[href="/conversations/${WAITING_ID}"]`)?.className).toContain("ago-list__row--active");
+    // The claim itself: OperatorConnection.joinConversation is what reaches
+    // OperatorHub.JoinConversationAsync -> AssignConversationHandler server-side.
+    expect(joinConversationMock).toHaveBeenCalledWith(WAITING_ID);
   });
 });
 

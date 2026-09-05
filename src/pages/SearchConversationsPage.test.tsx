@@ -26,7 +26,7 @@ vi.mock("../config.js", () => ({
 const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
-const conversationsApi = vi.hoisted(() => ({ searchConversations: vi.fn() }));
+const conversationsApi = vi.hoisted(() => ({ searchConversations: vi.fn(), claimConversation: vi.fn() }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
 vi.mock("../api/ownerApi.js", () => ownerApi);
@@ -236,7 +236,79 @@ describe("a result row's own openability, by conversation state", () => {
     await search(container, "refund");
 
     expect(container.querySelector("a.ago-list__row")).toBeNull();
-    expect(container.textContent).toContain("Unclaimed — assign it from the queue to open it.");
+    expect(container.textContent).toContain("Waiting — take it to open it.");
+  });
+
+  it("hides the Claim button for a Waiting hit when the operator lacks conversation:assign", async () => {
+    conversationsApi.searchConversations.mockResolvedValue({
+      results: [hit({ conversationState: "Waiting" })],
+      nextBeforeMessageId: null,
+      searchedFrom: "2026-05-29T00:00:00+00:00",
+      searchedTo: "2026-08-29T00:00:00+00:00",
+    });
+
+    const container = await render(page());
+    await search(container, "refund");
+
+    expect(byText(container, "button", "Take")).toBeNull();
+  });
+
+  /**
+   * `23-04`'s own reachable act, proven at this page: a `Waiting` hit gets a real `ClaimConversationButton`
+   * when the operator holds `conversation:assign`, and a successful claim turns the row into the
+   * `Assigned` branch above - a real link, at its own matched sequence - without a second search round
+   * trip.
+   */
+  it("lets an operator with conversation:assign take a Waiting hit, which then renders as a real link", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({
+      permissions: ["site:configure", "conversation:assign"],
+      siteId: SITE_ID,
+    });
+    conversationsApi.searchConversations.mockResolvedValue({
+      results: [hit({ conversationState: "Waiting", sequence: 9 })],
+      nextBeforeMessageId: null,
+      searchedFrom: "2026-05-29T00:00:00+00:00",
+      searchedTo: "2026-08-29T00:00:00+00:00",
+    });
+    conversationsApi.claimConversation.mockResolvedValue(undefined);
+
+    const container = await render(page());
+    await search(container, "refund");
+
+    const claimButton = byText<HTMLButtonElement>(container, "button", "Take");
+    expect(claimButton).not.toBeNull();
+    await interact(() => claimButton.click());
+
+    expect(conversationsApi.claimConversation).toHaveBeenCalledWith("token", CONVERSATION_ID);
+    const link = one<HTMLAnchorElement>(container, "a.ago-list__row");
+    expect(link.getAttribute("href")).toBe(`/conversations/${CONVERSATION_ID}?at=9`);
+  });
+
+  /** The loser's own outcome, told plainly rather than swallowed - `ClaimConversationButton`'s own
+   * doc comment on why there is no code-by-code mapping here. */
+  it("shows the server's own message inline when a claim loses a race, and keeps the row Waiting", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({
+      permissions: ["site:configure", "conversation:assign"],
+      siteId: SITE_ID,
+    });
+    conversationsApi.searchConversations.mockResolvedValue({
+      results: [hit({ conversationState: "Waiting" })],
+      nextBeforeMessageId: null,
+      searchedFrom: "2026-05-29T00:00:00+00:00",
+      searchedTo: "2026-08-29T00:00:00+00:00",
+    });
+    conversationsApi.claimConversation.mockRejectedValue(
+      new ApiProblemError("Conversation.InvalidState", "already taken by someone else", 409),
+    );
+
+    const container = await render(page());
+    await search(container, "refund");
+    const claimButton = byText<HTMLButtonElement>(container, "button", "Take");
+    expect(claimButton).not.toBeNull();
+    await interact(() => claimButton.click());
+
+    expect(container.textContent).toContain("already taken by someone else");
+    expect(container.querySelector("a.ago-list__row")).toBeNull();
   });
 
   it("renders a Closed hit as non-interactive, with its own note - nobody can rejoin a closed conversation", async () => {

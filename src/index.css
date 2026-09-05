@@ -146,3 +146,17 @@
   font-size: var(--ago-text-xs);
   color: var(--ago-ink-soft);
 }
+
+/* `23-04`: `ClaimConversationButton`'s own wrapper - used from both `AdminConversationsPage`'s table
+   cell and `SearchConversationsPage`'s result row, so it lives here beside that page's own rules
+   rather than in either page-specific block. */
+.ago-claim-conversation {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ago-space-2);
+}
+
+.ago-claim-conversation__error {
+  font-size: var(--ago-text-xs);
+  color: var(--ago-danger);
+}

@@ -59,10 +59,11 @@ const BASE_DOCUMENT_TITLE = "AGO Chat operator console";
  *
  * ## Where `QueuePage` went
  *
- * `QueuePage.tsx` is deleted, and its two documented decisions moved rather than lapsed: the freshness
- * split (live assignments, polled waiting list) is the effect below plus the note in
- * `ConversationList`'s heading, and the "no claim button" reasoning is `ConversationList`'s own doc
- * comment, where the read-only rows it governs actually live. Its third behaviour - calling
+ * `QueuePage.tsx` is deleted, and its documented freshness split (live assignments, polled waiting
+ * list) moved rather than lapsed - the effect below plus the note in `ConversationList`'s heading.
+ * `QueuePage`'s own "no claim button" reasoning did not survive the same way: `23-04` reversed it -
+ * see `ConversationList`'s own doc comment for why a waiting row is a real link now. Its third
+ * behaviour - calling
  * `connection.leaveConversation()` on mount, so a push for the conversation just left was not routed
  * to a stale listener - is now unnecessary from here: `ConversationPage`'s own effect cleanup already
  * calls it on unmount, which is the same moment, and this layout never unmounts between the two.

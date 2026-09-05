@@ -145,6 +145,34 @@ export async function closeConversation(accessToken: string, conversationId: str
 }
 
 /**
+ * `23-04`: `POST /api/v1/conversations/{id}/claim` (`Ago.Chat.Api.Conversations.ConversationsEndpoints`,
+ * this item's own addition) - an operator taking a `Waiting` conversation deliberately, from `/admin`
+ * or `/search`, without opening a hub connection first (the rail's own equivalent act still goes
+ * through `OperatorHub.JoinConversationAsync`, since navigating into `/conversations/{id}` already
+ * opens one - see `ConversationList`'s own doc comment). Dispatches the identical
+ * `AssignConversationHandler` the hub calls, gated on the same `conversation:assign` permission and the
+ * same `17-01` belongs-to-site guard.
+ *
+ * <b>`204 No Content` on success</b>, the same "nothing to return, the caller already knows what it
+ * asked for" contract `closeConversation` above documents in full. <b>Throws `ApiProblemError`</b>, not
+ * a bare `Error`: a caller has to tell a genuine race (`Conversation.InvalidState` - someone else took
+ * it first) apart from a permission or contention failure, the same reason `closeConversation` throws
+ * a typed error rather than a plain one.
+ */
+export async function claimConversation(accessToken: string, conversationId: string): Promise<void> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/conversations/${conversationId}/claim`, {
+    method: "POST",
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (response.ok) {
+    return;
+  }
+
+  throw await problemDetailsFrom(response);
+}
+
+/**
  * `16-02`: `POST /api/v1/conversations/{id}/erase` - erasure on the visitor's own request, initiated
  * by the tenant (`16-02`'s own Scope: "the visitor has no account and no login - they ask the shop,
  * the shop acts"). `202 Accepted`, the same "a Worker job started, nothing is gone yet" contract

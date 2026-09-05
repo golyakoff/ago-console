@@ -66,7 +66,7 @@ export const en: ConsoleStrings = {
   queueOpenLabel: "Open",
   queueStartUnknown: "Start time unknown",
   queueWaitingTitle: "Waiting",
-  queueWaitingNotePrefix: "Read-only — conversations are assigned automatically, never claimed here. Refreshed every",
+  queueWaitingNotePrefix: "New conversations are assigned automatically — click one to take it yourself. Refreshed every",
   queueWaitingNoteSuffix: "seconds.",
   queueWaitingEmpty: "Nothing waiting.",
   queueWaitingLoadingLabel: "Loading the waiting list…",
@@ -99,7 +99,7 @@ export const en: ConsoleStrings = {
   emptyStateTitle: "Pick a conversation",
   emptyStateBody:
     "Choose one of the conversations assigned to you on the left. New ones are assigned to you " +
-    "automatically as visitors start chatting — nothing here needs claiming.",
+    "automatically as visitors start chatting, or take a waiting one yourself from the list.",
 
   visitorPanelTitle: "Visitor",
   visitorPresenceUnknown: "Presence unknown",
@@ -250,6 +250,10 @@ export const en: ConsoleStrings = {
   adminTableCaption: "Every conversation for this site, newest first.",
   adminColumnActions: "Actions",
   adminConversationErasedNotice: "The conversation has been erased.",
+
+  claimConversationButton: "Take",
+  claimConversationSubmittingLabel: "Taking…",
+  claimConversationSubmitError: "Failed to take the conversation.",
 
   widgetLoadError: "Failed to load the widget configuration.",
   widgetSubmitError: "Failed to save the widget configuration.",
@@ -499,7 +503,7 @@ export const en: ConsoleStrings = {
   searchLoadingLabel: "Searching…",
   searchEmpty: "No matches in this range.",
   searchOpenLabel: "Open →",
-  searchWaitingNote: "Unclaimed — assign it from the queue to open it.",
+  searchWaitingNote: "Waiting — take it to open it.",
   searchClosedNote: "Closed — a closed conversation cannot be reopened as a live thread.",
   searchLoadMoreButton: "Load more",
   searchLoadingMoreLabel: "Loading more…",

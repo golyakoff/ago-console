@@ -7,6 +7,7 @@ import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { AdminConversationsPage } from "./AdminConversationsPage.js";
 import { CONVERSATION_ERASE_PERMISSION } from "./EraseConversationButton.js";
+import { CONVERSATION_CLAIM_PERMISSION } from "./ClaimConversationButton.js";
 import { all, byText, interact, render, unmount } from "../testing/dom.js";
 
 /**
@@ -33,6 +34,7 @@ const conversationsApi = vi.hoisted(() => ({
   fetchAllConversationsForSite: vi.fn(),
   eraseConversation: vi.fn(),
   checkConversationErasure: vi.fn(),
+  claimConversation: vi.fn(),
 }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
@@ -71,11 +73,11 @@ function page(): ReactNode {
   );
 }
 
-function oneConversation() {
+function oneConversation(state: "Waiting" | "Assigned" | "Closed" = "Closed") {
   return {
     conversationId: CONVERSATION_ID,
     visitorId: "vvvvvvvv-vvvv-vvvv-vvvv-vvvvvvvvvvvv",
-    state: "Closed" as const,
+    state,
     createdAt: "2026-08-27T00:00:00Z",
     operatorUnreadCount: 0,
     operatorId: null,
@@ -212,5 +214,86 @@ describe("the row-erasure action", () => {
 
     expect(all(container, "tbody tr")).toHaveLength(0);
     expect(container.textContent).toContain("The conversation has been erased.");
+  });
+});
+
+/**
+ * `23-04`: `/admin`'s own "rows are not links" note is corrected by this item - a `Waiting` row now
+ * offers a `Take` action, gated on `conversation:assign` the same "hidden, not disabled" shape
+ * `conversation:erase`'s own tests above prove for `Erase`.
+ */
+describe("the row-claim action", () => {
+  it("adds no Actions column at all for an operator without conversation:erase or conversation:assign", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID });
+    conversationsApi.fetchAllConversationsForSite.mockResolvedValue({ conversations: [oneConversation("Waiting")] });
+
+    const container = await render(page());
+
+    expect(byText(container, "th", "Actions")).toBeNull();
+    expect(byText(container, "button", "Take")).toBeNull();
+  });
+
+  it("offers Take for a Waiting row when the operator holds conversation:assign", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({
+      permissions: ["site:configure", CONVERSATION_CLAIM_PERMISSION],
+      siteId: SITE_ID,
+    });
+    conversationsApi.fetchAllConversationsForSite.mockResolvedValue({ conversations: [oneConversation("Waiting")] });
+
+    const container = await render(page());
+
+    expect(byText(container, "th", "Actions")).not.toBeNull();
+    expect(byText(container, "button", "Take")).not.toBeNull();
+  });
+
+  it("does not offer Take for an already-Assigned or Closed row, even with conversation:assign", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({
+      permissions: ["site:configure", CONVERSATION_CLAIM_PERMISSION],
+      siteId: SITE_ID,
+    });
+    conversationsApi.fetchAllConversationsForSite.mockResolvedValue({ conversations: [oneConversation("Closed")] });
+
+    const container = await render(page());
+
+    expect(byText(container, "button", "Take")).toBeNull();
+  });
+
+  it("re-fetches the list once a claim succeeds, so the row shows its new state", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({
+      permissions: ["site:configure", CONVERSATION_CLAIM_PERMISSION],
+      siteId: SITE_ID,
+    });
+    conversationsApi.fetchAllConversationsForSite
+      .mockResolvedValueOnce({ conversations: [oneConversation("Waiting")] })
+      .mockResolvedValueOnce({ conversations: [oneConversation("Assigned")] });
+    conversationsApi.claimConversation.mockResolvedValue(undefined);
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Take").click());
+
+    expect(conversationsApi.claimConversation).toHaveBeenCalledWith("token", CONVERSATION_ID);
+    expect(conversationsApi.fetchAllConversationsForSite).toHaveBeenCalledTimes(2);
+    // Assigned now - no more Take button for this row, the same "hidden, not disabled" shape a
+    // permission gate uses, applied to a state that makes the action meaningless rather than forbidden.
+    expect(byText(container, "button", "Take")).toBeNull();
+  });
+
+  it("shows the server's own message inline when a claim loses a race, and leaves the row Waiting", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({
+      permissions: ["site:configure", CONVERSATION_CLAIM_PERMISSION],
+      siteId: SITE_ID,
+    });
+    conversationsApi.fetchAllConversationsForSite.mockResolvedValue({ conversations: [oneConversation("Waiting")] });
+    const { ApiProblemError } = await import("../api/problemDetails.js");
+    conversationsApi.claimConversation.mockRejectedValue(
+      new ApiProblemError("Conversation.InvalidState", "already taken by someone else", 409),
+    );
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Take").click());
+
+    expect(container.textContent).toContain("already taken by someone else");
+    // No re-fetch on failure - the row's own state is exactly what the last successful read said.
+    expect(conversationsApi.fetchAllConversationsForSite).toHaveBeenCalledTimes(1);
   });
 });

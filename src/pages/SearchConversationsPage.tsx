@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
-import { searchConversations } from "../api/conversationsApi.js";
+import { searchConversations, claimConversation } from "../api/conversationsApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
 import type { ConversationSearchResultDto } from "../realtime/protocol/types.js";
 import { PageHead } from "../shell/AppShell.js";
@@ -16,6 +16,7 @@ import { Skeleton, Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
 import { formatAbsolute, formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
+import { ClaimConversationButton } from "./ClaimConversationButton.js";
 
 /** `ConversationSearchResultDto.conversationState`'s three values, given the same tones
  * `AdminConversationsPage`'s `STATE_TONE` already picked for the identical wire values - one mapping,
@@ -71,17 +72,25 @@ interface ResultRowProps {
   result: ConversationSearchResultDto;
   timeZone: string | null;
   strings: ConsoleStrings;
+  /** `23-04`: undefined when the caller has no access token yet - the same "nothing to act with"
+   * guard `AdminConversationsPage`'s own row actions already apply. */
+  accessToken: string | undefined;
+  /** Told once a `Waiting` hit's own claim actually succeeds, so the page can turn this row into a
+   * real, linkable `Assigned` one without re-running the whole search. */
+  onClaimed: (conversationId: string) => void;
 }
 
 /**
  * One search hit. `Assigned` is the only state rendered as a real link - `searchConversations`'s own
- * doc comment has the full reasoning: `Waiting` would silently claim the conversation if opened this
- * way, and `Closed` can never be rejoined by anyone through the hub. Both get the identical row shape
- * (state, author, timestamp, the complete matched body) minus the link, plus one line explaining why
- * there is not one - context to recognise the conversation is not withheld just because opening it
- * is.
+ * doc comment has the full reasoning: opening a `Waiting` hit by navigation would silently claim it,
+ * and `Closed` can never be rejoined by anyone through the hub. `23-04`: a `Waiting` hit is no longer
+ * inert, though - it gets an explicit `ClaimConversationButton` instead of a link, the deliberate act
+ * `conversationsApi.ts#claimConversation`'s own doc comment distinguishes from a navigation click. A
+ * successful claim turns the row into the `Assigned` branch below on this same render, via
+ * `onClaimed` updating the parent's own result list - no second search round trip needed for a fact
+ * this page already knows.
  */
-function ResultRow({ result, timeZone, strings }: ResultRowProps) {
+function ResultRow({ result, timeZone, strings, accessToken, onClaimed }: ResultRowProps) {
   const createdAt = parseInstant(result.createdAt);
 
   const meta = (
@@ -119,9 +128,19 @@ function ResultRow({ result, timeZone, strings }: ResultRowProps) {
       <div className="ago-list__row ago-list__row--static">
         {meta}
         {body}
-        <span className="ago-search-result__note">
-          {result.conversationState === "Waiting" ? strings.searchWaitingNote : strings.searchClosedNote}
-        </span>
+        {result.conversationState === "Waiting" ? (
+          <span className="ago-claim-conversation">
+            <span className="ago-search-result__note">{strings.searchWaitingNote}</span>
+            {accessToken && (
+              <ClaimConversationButton
+                onClaim={() => claimConversation(accessToken, result.conversationId)}
+                onClaimed={() => onClaimed(result.conversationId)}
+              />
+            )}
+          </span>
+        ) : (
+          <span className="ago-search-result__note">{strings.searchClosedNote}</span>
+        )}
       </div>
     </li>
   );
@@ -242,6 +261,17 @@ export function SearchConversationsPage() {
     void runSearch(activeQuery, nextBeforeMessageId);
   };
 
+  /** `23-04`: a claimed hit becomes `Assigned` in place - every occurrence of this conversation
+   * across the current result set, not just the message that was clicked, since one search can
+   * surface several hits from the same conversation and all of them are now equally real links. No
+   * second `searchConversations` round trip: the search index itself has not changed, only who holds
+   * the conversation, which this page already knows without asking again. */
+  const handleClaimed = (conversationId: string) => {
+    setResults((prev) =>
+      prev.map((result) => (result.conversationId === conversationId ? { ...result, conversationState: "Assigned" } : result)),
+    );
+  };
+
   if (permissions === null) {
     return <Spinner label={strings.siteConfigCheckingPermissions} />;
   }
@@ -321,7 +351,14 @@ export function SearchConversationsPage() {
       ) : results.length > 0 ? (
         <ul className="ago-list">
           {results.map((result) => (
-            <ResultRow key={result.messageId} result={result} timeZone={timeZone} strings={strings} />
+            <ResultRow
+              key={result.messageId}
+              result={result}
+              timeZone={timeZone}
+              strings={strings}
+              accessToken={user?.access_token}
+              onClaimed={handleClaimed}
+            />
           ))}
         </ul>
       ) : null}

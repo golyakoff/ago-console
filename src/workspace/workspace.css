@@ -214,9 +214,12 @@ a.ago-list__row--active:hover {
   box-shadow: inset 3px 0 0 var(--ago-brand);
 }
 
-/* A waiting row is read-only by design (`ConversationList`'s own doc comment on why there is no
-   claim action). It is visibly not a control: no anchor, no hover response, no pointer, a flat
-   sunken surface and a dashed edge that reads as "information", not "target". */
+/* `23-04`: no longer used by the rail's own waiting rows (`ConversationList`'s own doc comment - a
+   waiting row is a real `NavLink` now, styled like `.ago-list__row` above rather than this class).
+   Still used by `SearchConversationsPage`'s own `Waiting`/`Closed` result rows and
+   `ConversationNotesPanel`'s notes list, where "visibly not a control" is still the honest shape:
+   no anchor, no hover response, no pointer, a flat sunken surface and a dashed edge that reads as
+   "information", not "target". */
 .ago-list__row--static {
   background: var(--ago-surface-sunken);
   border-style: dashed;

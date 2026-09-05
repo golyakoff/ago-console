@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
-import { fetchAllConversationsForSite, eraseConversation, checkConversationErasure } from "../api/conversationsApi.js";
+import {
+  fetchAllConversationsForSite,
+  eraseConversation,
+  checkConversationErasure,
+  claimConversation,
+} from "../api/conversationsApi.js";
 import { fetchTags, type TagDto } from "../api/tagsApi.js";
 import type { ConversationSummaryDto } from "../realtime/protocol/types.js";
 import { formatAbsolute, parseInstant, resolveTimeZone } from "../time/format.js";
@@ -15,6 +20,7 @@ import { Skeleton, Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
 import { EraseConversationButton, CONVERSATION_ERASE_PERMISSION } from "./EraseConversationButton.js";
+import { ClaimConversationButton, CONVERSATION_CLAIM_PERMISSION } from "./ClaimConversationButton.js";
 
 /** The conversation lifecycle's three states, given the tones the palette reserves for them.
  * Declared outside the component so the mapping is a constant, not something rebuilt per render -
@@ -59,6 +65,7 @@ function buildColumns(
   strings: ConsoleStrings,
   timeZone: string | null,
   canErase: boolean,
+  canClaim: boolean,
   renderActions: (row: ConversationSummaryDto) => ReactNode,
 ): TableColumn<ConversationSummaryDto>[] {
   const columns: TableColumn<ConversationSummaryDto>[] = [
@@ -122,7 +129,10 @@ function buildColumns(
     },
   ];
 
-  if (canErase) {
+  // `23-04`: canClaim joins canErase as a reason this column exists at all - an operator who holds
+  // neither still sees no all-empty "Actions" header, the same reasoning this condition already
+  // applied to canErase alone.
+  if (canErase || canClaim) {
     columns.push({
       key: "actions",
       header: strings.adminColumnActions,
@@ -189,28 +199,16 @@ export function AdminConversationsPage() {
 
   const accessToken = user?.access_token;
   const canErase = hasPermission(CONVERSATION_ERASE_PERMISSION);
+  // `23-04`: the same client-side-only, server-is-the-real-gate posture `canErase` already has -
+  // `AssignConversationHandler`'s own `Permission.ConversationAssign` check is what actually matters.
+  const canClaim = hasPermission(CONVERSATION_CLAIM_PERMISSION);
   // `343`/`344`: resolved once, the same `useState(() => resolveTimeZone())` shape every other
   // page-level (not nested-in-workspace) screen already uses, e.g. `BillingPage.tsx`.
   const [timeZone] = useState(() => resolveTimeZone());
-  const columns = useMemo(
-    () =>
-      buildColumns(strings, timeZone, canErase, (row) =>
-        accessToken ? (
-          <EraseConversationButton
-            onErase={() => eraseConversation(accessToken, row.conversationId)}
-            checkErased={() => checkConversationErasure(accessToken, row.conversationId)}
-            onErased={() => setErasedIds((prev) => new Set(prev).add(row.conversationId))}
-          />
-        ) : null,
-      ),
-    [strings, timeZone, canErase, accessToken],
-  );
 
-  const visibleConversations = useMemo(
-    () => conversations?.filter((c) => !erasedIds.has(c.conversationId)) ?? null,
-    [conversations, erasedIds],
-  );
-
+  // `23-04`: moved above `columns` below (it used to sit after `visibleConversations`) - `columns`
+  // now closes over it for `ClaimConversationButton`'s own `onClaimed`, and a `const` referenced
+  // before its own declaration is a real `ReferenceError` in JS, not merely a lint complaint.
   const refresh = useCallback(() => {
     if (!user?.access_token) {
       return;
@@ -223,6 +221,37 @@ export function AdminConversationsPage() {
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : strings.adminLoadError));
   }, [user?.access_token, strings, tagFilter]);
+
+  const columns = useMemo(
+    () =>
+      buildColumns(strings, timeZone, canErase, canClaim, (row) => (
+        <>
+          {/* `23-04`: only a `Waiting` row has anything to claim - an already-`Assigned` or `Closed`
+              one renders no button at all, the same "hidden, not disabled" shape the permission gate
+              itself uses, applied to a state that makes the action meaningless rather than
+              forbidden. */}
+          {row.state === "Waiting" && accessToken && (
+            <ClaimConversationButton
+              onClaim={() => claimConversation(accessToken, row.conversationId)}
+              onClaimed={refresh}
+            />
+          )}
+          {accessToken && (
+            <EraseConversationButton
+              onErase={() => eraseConversation(accessToken, row.conversationId)}
+              checkErased={() => checkConversationErasure(accessToken, row.conversationId)}
+              onErased={() => setErasedIds((prev) => new Set(prev).add(row.conversationId))}
+            />
+          )}
+        </>
+      )),
+    [strings, timeZone, canErase, canClaim, accessToken, refresh],
+  );
+
+  const visibleConversations = useMemo(
+    () => conversations?.filter((c) => !erasedIds.has(c.conversationId)) ?? null,
+    [conversations, erasedIds],
+  );
 
   useEffect(() => {
     if (!hasPermission("site:configure")) {
