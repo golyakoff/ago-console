@@ -218,7 +218,7 @@ function Harness({
   );
 
   const realtime = useMemo<OperatorConnectionState>(
-    () => ({ connection, connectionState: "connected", serverDraining: false }),
+    () => ({ connection, connectionState: "connected", serverDraining: false, isAway: false, setAway: () => Promise.resolve() }),
     [connection],
   );
 

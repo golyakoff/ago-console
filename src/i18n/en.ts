@@ -192,6 +192,17 @@ export const en: ConsoleStrings = {
   workspaceNewAssignmentAnnouncement: "A new conversation was assigned to you.",
   workspaceDoneButton: "Done",
 
+  workspaceAwayGoAwayButton: "Step away",
+  workspaceAwayGoAwayDetail:
+    "New conversations stop being routed to you until you come back. Conversations already assigned " +
+    "to you are unaffected.",
+  workspaceAwayComeBackButton: "I'm back",
+  workspaceAwayComeBackDetail: "Come back online and start receiving new conversations again.",
+  workspaceAwayActiveNotice:
+    "You're marked away. New conversations aren't being routed to you, and a visitor who arrives while " +
+    "every operator is away gets the automatic away reply. Conversations already assigned to you are unaffected.",
+  workspaceAwayToggleError: "Failed to update your presence.",
+
   linkLiveLabel: "Live",
   linkLiveDetail: "Connected to the operator hub. New messages arrive without a refresh.",
   linkConnectingLabel: "Connecting…",

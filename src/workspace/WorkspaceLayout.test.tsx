@@ -125,7 +125,13 @@ function Signed({ children }: { children: React.ReactNode }) {
   // which a fresh `fakeConnection()` call here (this file's own original shape) would put out of
   // reach.
   const connectionValue = useMemo<OperatorConnectionState>(
-    () => ({ connection: connectionMock, connectionState: "connected", serverDraining: false }),
+    () => ({
+      connection: connectionMock,
+      connectionState: "connected",
+      serverDraining: false,
+      isAway: false,
+      setAway: () => Promise.resolve(),
+    }),
     [],
   );
 

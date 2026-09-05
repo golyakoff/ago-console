@@ -290,6 +290,25 @@ export interface ConsoleStrings {
   workspaceNewAssignmentAnnouncement: string;
   workspaceDoneButton: string;
 
+  // `23-20`: AwayControl - deliberately distinct from ConnectionStateBadge above (that is the
+  // *connection*; this is the operator's own deliberate choice). Every string names what the act
+  // does to a visitor, not just "Away"/"Online" - a label alone repeats the problem the item exists
+  // to fix, in a smaller font. See AwayControl's own doc comment for why this is not a twelfth
+  // adr/0030 component.
+  /** The button shown while online - clicking it goes away. */
+  workspaceAwayGoAwayButton: string;
+  /** Its title/tooltip - said before the operator clicks, not just after. */
+  workspaceAwayGoAwayDetail: string;
+  /** The button shown while away - clicking it comes back online. */
+  workspaceAwayComeBackButton: string;
+  workspaceAwayComeBackDetail: string;
+  /** A persistent, visible sentence (an Alert, not a tooltip) while away - the effect is happening
+   * right now, not merely on the next click, so it must not be hidden behind a hover. */
+  workspaceAwayActiveNotice: string;
+  /** The toggle's own fallback error - same "message if it's an Error, else this" convention every
+   * other load/save error in this codebase uses. */
+  workspaceAwayToggleError: string;
+
   // linkStatus.ts - the connection-state indicator. `linkStatusOf` is a third pure function taking a
   // defaulted `ConsoleStrings` (called from `ConnectionStateBadge` and `WorkspaceLayout`, both of
   // which do hold a strings value from `useStrings()` and pass it through explicitly).

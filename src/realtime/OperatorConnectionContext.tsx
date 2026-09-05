@@ -8,6 +8,15 @@ export interface OperatorConnectionState {
    * has not happened yet - the one genuinely observable degradation, see `linkStatus.ts` for why it
    * is the only one shown. Cleared by the next successful (re)connect. */
   serverDraining: boolean;
+  /** `23-20`: the operator's own deliberate presence, read from the server (`OperatorConnection.getMyPresence`)
+   * whenever `connectionState` becomes `"connected"` - a first connect and every reconnect alike - so
+   * this never renders a locally-remembered value a reconnect has already made stale. See
+   * `AwayControl`'s own doc comment for why it must be read rather than assumed. */
+  isAway: boolean;
+  /** `23-20`: the one action `AwayControl` needs - calls `OperatorConnection.setAway` and, once the
+   * server confirms, updates `isAway` itself, so no second component has to remember to do that.
+   * Rejects (and leaves `isAway` unchanged) on failure - `AwayControl` decides how to surface that. */
+  setAway: (away: boolean) => Promise<void>;
 }
 
 export const OperatorConnectionContext = createContext<OperatorConnectionState | null>(null);

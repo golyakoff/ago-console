@@ -111,7 +111,13 @@ function Signed({ locale, children }: { locale: string | null; children: React.R
   );
 
   const connectionValue = useMemo<OperatorConnectionState>(
-    () => ({ connection: fakeConnection(), connectionState: "connected", serverDraining: false }),
+    () => ({
+      connection: fakeConnection(),
+      connectionState: "connected",
+      serverDraining: false,
+      isAway: false,
+      setAway: () => Promise.resolve(),
+    }),
     [],
   );
 
