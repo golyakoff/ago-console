@@ -373,6 +373,16 @@ export const ru: ConsoleStrings = {
   autoReplyValidationReplyTooLongPrefix: "Ответ не может быть длиннее",
   autoReplyValidationReplyTooLongSuffix: "символов.",
 
+  assignmentPenaltyPanelTitle: "Штраф ожидания",
+  assignmentPenaltyDescription:
+    "Если ожидающий диалог никто не взял в течение этого числа секунд, он будет назначен принудительно наименее занятому онлайн-оператору, лимит нагрузки при этом не учитывается. Ожидающий клиент хуже, чем неравномерная нагрузка.",
+  assignmentPenaltyFieldLabel: "Секунд до принудительного назначения",
+  assignmentPenaltyLoadingLabel: "Загрузка штрафа ожидания…",
+  assignmentPenaltyLoadError: "Не удалось загрузить штраф ожидания.",
+  assignmentPenaltySubmitError: "Не удалось сохранить штраф ожидания.",
+  assignmentPenaltyValidationRequired: "Укажите, сколько секунд ждать до принудительного назначения.",
+  assignmentPenaltyValidationMustBePositive: "Штраф ожидания должен быть положительным целым числом секунд.",
+
   cannedResponsesForbidden: "У вас нет права настраивать готовые ответы для этого сайта.",
   cannedResponsesDescription:
     "Готовые ответы, которые ваша команда может вставить в сообщение вместо того, чтобы печатать их " +

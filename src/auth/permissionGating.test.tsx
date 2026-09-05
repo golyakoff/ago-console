@@ -57,6 +57,13 @@ const conversationsApi = vi.hoisted(() => ({ fetchAllConversationsForSite: vi.fn
 const widgetConfigApi = vi.hoisted(() => ({ fetchWidgetConfig: vi.fn(), updateWidgetConfig: vi.fn() }));
 const installationApi = vi.hoisted(() => ({ fetchSiteInstallation: vi.fn() }));
 const offlineAutoReplyApi = vi.hoisted(() => ({ fetchOfflineAutoReply: vi.fn(), updateOfflineAutoReply: vi.fn() }));
+// `23-05`: OfflineAutoReplyPage now renders a second, independent panel on the same mount - mocked
+// the same way its sibling above is, so this file's own renders of it do not trigger a real,
+// unmocked `fetch`.
+const assignmentPenaltyApi = vi.hoisted(() => ({
+  fetchAssignmentPenalty: vi.fn(),
+  updateAssignmentPenalty: vi.fn(),
+}));
 const cannedResponsesApi = vi.hoisted(() => ({ fetchCannedResponses: vi.fn(), updateCannedResponses: vi.fn() }));
 const modulesApi = vi.hoisted(() => ({ fetchModules: vi.fn(), updateModule: vi.fn() }));
 const calendarApi = vi.hoisted(() => ({ getPendingBookings: vi.fn() }));
@@ -86,6 +93,12 @@ vi.mock("../api/offlineAutoReplyApi.js", async () => {
   const actual =
     await vi.importActual<typeof import("../api/offlineAutoReplyApi.js")>("../api/offlineAutoReplyApi.js");
   return { ...actual, ...offlineAutoReplyApi };
+});
+vi.mock("../api/assignmentPenaltyApi.js", async () => {
+  // Same reasoning again - AssignmentPenaltyError is a real class the page does `instanceof` against.
+  const actual =
+    await vi.importActual<typeof import("../api/assignmentPenaltyApi.js")>("../api/assignmentPenaltyApi.js");
+  return { ...actual, ...assignmentPenaltyApi };
 });
 vi.mock("../api/cannedResponsesApi.js", async () => {
   // Same reasoning again - CannedResponsesError is a real class the page does `instanceof` against.
@@ -216,6 +229,7 @@ beforeEach(() => {
     allowedOrigins: ["https://tenant.example"],
   });
   offlineAutoReplyApi.fetchOfflineAutoReply.mockResolvedValue({ enabled: false, fallbackReply: "", rules: [] });
+  assignmentPenaltyApi.fetchAssignmentPenalty.mockResolvedValue({ penaltySeconds: 120 });
   cannedResponsesApi.fetchCannedResponses.mockResolvedValue([]);
   modulesApi.fetchModules.mockResolvedValue({ modules: [] });
   calendarApi.getPendingBookings.mockResolvedValue([]);
