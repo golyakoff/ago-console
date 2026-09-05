@@ -127,6 +127,8 @@ export interface ConsoleStrings {
   queueAssignedNote: string;
   queueAssignedLoadingLabel: string;
   queueAssignedEmpty: string;
+  queueEmptyInstallPrompt: string;
+  queueEmptyInstallLink: string;
   /** The badge on a row assigned during this session and not yet opened. */
   queueNewBadge: string;
   /** The visually-hidden unread count suffix - `${count} ${queueUnreadMessageOne|Other}`. */

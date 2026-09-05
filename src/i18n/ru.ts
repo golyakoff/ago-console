@@ -61,6 +61,9 @@ export const ru: ConsoleStrings = {
   queueAssignedNote: "В реальном времени — новое назначение появляется без обновления страницы.",
   queueAssignedLoadingLabel: "Загрузка назначенных вам диалогов…",
   queueAssignedEmpty: "Пока ничего не назначено. Новые диалоги появляются здесь автоматически.",
+  queueEmptyInstallPrompt:
+    "Диалоги не появятся, пока скрипт не стоит на вашем сайте — до этого посетителям просто нечем вам написать.",
+  queueEmptyInstallLink: "Как поставить скрипт",
   queueNewBadge: "Новое",
   queueUnreadMessageOne: "непрочитанное сообщение",
   queueUnreadMessageOther: "непрочитанных сообщений",

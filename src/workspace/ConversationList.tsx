@@ -69,7 +69,22 @@ export function ConversationList({ queue, attention, now, timeZone, waitingRefre
         {queue === null ? (
           <Skeleton lines={3} label={strings.queueAssignedLoadingLabel} />
         ) : queue.assignedToMe.length === 0 ? (
-          <p className="ago-empty">{strings.queueAssignedEmpty}</p>
+          // `23-29`: the elaborate version of this - a first-run page a tenant could message
+          // themselves from - was priced and cancelled (see that item). What answers the same
+          // question, "why is nothing here yet", is one sentence and a link.
+          //
+          // Worded as a fact rather than a diagnosis, deliberately. This component cannot tell an
+          // uninstalled site from an installed one having a quiet hour - that is `23-06`'s
+          // installation read, and wiring it here would be the scope creep the cancelled item was
+          // cancelled for. "Nothing arrives until the script is on your site" is true for both
+          // readers; "your script is missing" would be an accusation aimed at one of them.
+          <>
+            <p className="ago-empty">{strings.queueAssignedEmpty}</p>
+            <p className="ago-empty">
+              {strings.queueEmptyInstallPrompt}{" "}
+              <NavLink to="/settings/install">{strings.queueEmptyInstallLink}</NavLink>
+            </p>
+          </>
         ) : (
           <ul className="ago-list">
             {oldestFirst(queue.assignedToMe).map((c) => {
