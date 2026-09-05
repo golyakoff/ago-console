@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { keycloakRegistrationRedirect } from "../auth/userManager.js";
+import { useStrings } from "../i18n/StringsContext.js";
 import { AppShell, PageHead } from "../shell/AppShell.js";
 import { Alert } from "../components/Alert.js";
 import { Button } from "../components/Button.js";
@@ -38,8 +39,15 @@ import { Button } from "../components/Button.js";
  * neither a permission to gate a nav item on nor anybody to name. That is precisely why the shell
  * takes what it displays as props instead of reading context (`AppShell`'s own doc comment). The
  * `10-03` note above about deferring "a full design pass" is now answered by this item.
+ *
+ * `23-28`: every string below now goes through `useStrings()` - this route wraps itself in
+ * `App.tsx`'s `PreSessionStringsProvider` (Russian, by the author's own answer to that item: a
+ * visitor with no session at all has no site to read a locale from, and the absence of one means
+ * Russian, not English going forward - `StringsContext.tsx`'s own doc comment has the full
+ * reasoning). Before this item every string here was a plain English literal.
  */
 export function SignupPage() {
+  const strings = useStrings();
   const [redirecting, setRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,24 +63,21 @@ export function SignupPage() {
       setRedirecting(false);
       setError(
         err instanceof Error
-          ? `Could not open the sign-up page: ${err.message}`
-          : "Could not open the sign-up page. Please try again.",
+          ? `${strings.signupErrorPrefix}${err.message}`
+          : strings.signupErrorGeneric,
       );
     }
   };
 
   return (
     <AppShell>
-      <PageHead
-        title="Sign up for AGO Chat"
-        description="Create your site and operator account. You'll fill in your email and choose a password on Keycloak's own sign-up page."
-      />
+      <PageHead title={strings.signupTitle} description={strings.signupDescription} />
       {/* No `Panel` around this. There is exactly one control on the screen, and wrapping it in a
           full-width surface renders as a mostly-empty card - found by looking at the actual rendered
           page rather than at the markup. A panel groups things; one button is not a group. */}
       <div className="ago-row">
         <Button variant="primary" disabled={redirecting} onClick={() => void handleSignup()}>
-          {redirecting ? "Opening sign-up…" : "Sign up"}
+          {redirecting ? strings.signupButtonRedirecting : strings.signupButton}
         </Button>
       </div>
 

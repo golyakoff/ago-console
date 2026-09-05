@@ -68,26 +68,27 @@ import { Alert } from "../components/Alert.js";
  * read, not a flash between two renders - `interact`/`flush` in this page's own tests advance past it
  * explicitly rather than asserting on a redirect that raced the paint.
  *
- * <b>Why this page's own strings render in English regardless of the target site's language, and why
- * that is not silently accepted.</b> `useStrings()` is used throughout (unlike `OnboardingPage`,
- * `SignupPage`, `CallbackPage`, which hardcode English literals directly) - the backlog item's own
- * Scope is explicit: "Every string through the translation files, in every locale the console
- * ships." Both `en.ts` and `ru.ts` carry a real translation for every key below. What this cannot
- * do, without a backend change this item's own Out of scope forbids, is *choose* the Russian one at
- * the right moment: this screen has no site to read a `locale` from until *after* redemption
- * succeeds, and `RedeemOperatorInviteResponse` carries only `operatorId`/`siteId`, no `locale`
- * (`OperatorInviteEndpoints.cs`'s own contract) - unlike `operators/me`'s response, which is exactly
- * where `PermissionsProvider` reads the tenant's locale from once an identity resolves to one.
- * `StringsContext.tsx`'s own doc comment records that `/onboarding`/`/signup`/`/callback` are in the
- * identical position ("there is no tenant whose language those pages could follow") and renders
- * `useStrings()`'s built-in English default rather than inventing a client-side signal (a browser
- * locale, a query parameter) that would be the only mechanism of its kind in this codebase, and would
- * still be a guess this project has no way to confirm is what the *inviting site* actually uses. So:
- * `ux-gate/gate.spec.ts` exempts this screen from its "no untranslated interface text" assertion by
- * name, next to `owner-sites`, for a related but distinct reason spelled out where that exemption
- * lives - `/owner`'s English is permanent by design; this screen's is a consequence of not yet having
- * a locale signal, the same category `/onboarding` has always been in, now made real rather than
- * skipped by the backlog item's own explicit ask for a translated string table.
+ * <b>Why this page rendered in English regardless of the target site's language, and why that
+ * stopped being accepted.</b> `useStrings()` was used throughout from the start (unlike
+ * `OnboardingPage`, `SignupPage`, `CallbackPage` at the time, which hardcoded English literals
+ * directly) - the backlog item's own Scope was explicit: "Every string through the translation
+ * files, in every locale the console ships." Both `en.ts` and `ru.ts` carried a real translation for
+ * every key below from day one. What this page could not do, without a backend change this item's
+ * own Out of scope forbade, was *choose* the Russian one at the right moment: this screen has no site
+ * to read a `locale` from until *after* redemption succeeds, and `RedeemOperatorInviteResponse`
+ * carries only `operatorId`/`siteId`, no `locale` (`OperatorInviteEndpoints.cs`'s own contract) -
+ * unlike `operators/me`'s response, which is exactly where `PermissionsProvider` reads the tenant's
+ * locale from once an identity resolves to one. So this screen rendered `useStrings()`'s bare English
+ * default, and `ux-gate/gate.spec.ts` exempted it from the "no untranslated interface text" assertion
+ * by name, next to `owner-sites`, while it did.
+ *
+ * `23-28` removes that premise rather than solving the puzzle it posed. `StringsContext.tsx`'s own
+ * doc comment has the full account: the site is not the only thing that can decide a locale, and
+ * where nothing is set, the answer is Russian, not a guess and not English. This page needed no
+ * change of its own to benefit - it already called `useStrings()` for every string, so wrapping this
+ * route (and `/onboarding`, `/signup`, `/callback`) in `App.tsx`'s `PreSessionStringsProvider` is the
+ * entire fix, and the `ux-gate` exemption named above is gone along with it - this screen is no
+ * longer in the position `/owner`'s permanent English is.
  */
 export function RedeemInvitePage() {
   const { user, logout } = useAuth();

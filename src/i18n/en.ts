@@ -1133,4 +1133,45 @@ export const en: ConsoleStrings = {
     "before you can join.",
   redeemInviteErrorGeneric: "We couldn't redeem that invite. Please try again.",
   redeemInviteSetupOwnSiteLink: "Setting up your own site instead?",
+
+  callbackCompletingSignIn: "Completing sign-in…",
+  callbackSignInFailedTitle: "Sign-in failed",
+  callbackOperatorLookupFailedTitle: "Signed in, but couldn't load your account",
+  callbackOperatorLookupFailedDetailPrefix: "GET /api/v1/operators/me failed: ",
+  callbackOperatorLookupFailedDetailSuffix:
+    "Reload this page to try again. If it keeps happening, the API is unreachable or this " +
+    "origin has not been allowed to call it yet - this is not a problem with your Keycloak sign-in.",
+  callbackUnknownError: "Unknown error.",
+
+  signupTitle: "Sign up for AGO Chat",
+  signupDescription:
+    "Create your site and operator account. You'll fill in your email and choose a password on " +
+    "Keycloak's own sign-up page.",
+  signupButton: "Sign up",
+  signupButtonRedirecting: "Opening sign-up…",
+  signupErrorPrefix: "Could not open the sign-up page: ",
+  signupErrorGeneric: "Could not open the sign-up page. Please try again.",
+
+  onboardingTitle: "Finish setting up your site",
+  onboardingDescription:
+    "Your Keycloak account is verified. Choose a display name and the one website origin your " +
+    "widget will be embedded on.",
+  onboardingSiteNameLabel: "Site display name",
+  onboardingSiteNameEmptyError: "Site display name cannot be empty.",
+  onboardingOriginLabel: "Embed origin",
+  onboardingOriginDescription: "Scheme, host and port only - no path, e.g. https://shop.example.com.",
+  onboardingOriginInvalidScheme: "Embed origin must start with http:// or https://.",
+  onboardingOriginInvalidUrl: "Embed origin must look like a URL, e.g. https://shop.example.com.",
+  onboardingSubmit: "Finish setup",
+  onboardingSubmitting: "Setting up…",
+  onboardingGenericSubmitError: "Failed to set up your site. Please try again.",
+  onboardingPlatformOwnerAlertTitle: "You are signed in as the platform owner",
+  onboardingPlatformOwnerAlertLinkLabel: "Go to the platform operations view",
+  onboardingPlatformOwnerAlertBody:
+    "Being the platform owner is a Keycloak realm role, not a seat inside any one site, and it " +
+    "stays that way whatever you do here. Registering below additionally makes this account an " +
+    "operator of a new site of its own - a normal thing to want, and the way to run a tenant on " +
+    "your own deployment, but nothing in this product can take it back afterwards.",
+  onboardingRedeemInvitePrompt: "Have an invite code instead?",
+  onboardingRedeemInviteLinkLabel: "Redeem it here",
 };
