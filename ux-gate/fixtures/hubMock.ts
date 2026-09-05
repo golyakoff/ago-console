@@ -105,7 +105,7 @@ export async function installOperatorHubMock(page: Page): Promise<void> {
           continue;
         }
 
-        // type 1: Invocation - the only kind this mock's two supported targets ever send.
+        // type 1: Invocation - the only kind this mock's supported targets ever send.
         if (record.type === 1) {
           const { invocationId, target, arguments: args = [] } = record;
 
@@ -115,6 +115,15 @@ export async function installOperatorHubMock(page: Page): Promise<void> {
           }
 
           if (target === "GetVisitorPresenceAsync") {
+            ws.send(encode({ type: 3, invocationId, result: false }));
+            continue;
+          }
+
+          // `23-20`: `OperatorConnectionProvider` calls this once on every "connected" - including
+          // this mock's own fake handshake - so every gate screen would otherwise log the unhandled-
+          // target warning below on every run. `false` (not away) is the correct default for every
+          // screen this gate opens: none of them are about the away control's own active state.
+          if (target === "GetMyPresenceAsync") {
             ws.send(encode({ type: 3, invocationId, result: false }));
             continue;
           }

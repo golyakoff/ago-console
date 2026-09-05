@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { useOperatorConnection } from "../realtime/OperatorConnectionContext.js";
 import { ConnectionStateBadge } from "../realtime/ConnectionStateBadge.js";
+import { AwayControl } from "../realtime/AwayControl.js";
 import { linkStatusOf } from "../realtime/linkStatus.js";
 import { fetchOperatorQueue, markConversationRead } from "../api/conversationsApi.js";
 import { fetchCannedResponses, type CannedResponseDto } from "../api/cannedResponsesApi.js";
@@ -99,7 +100,7 @@ const BASE_DOCUMENT_TITLE = "AGO Chat operator console";
 export function WorkspaceLayout() {
   const { user } = useAuth();
   const { siteId } = usePermissions();
-  const { connection, connectionState, serverDraining } = useOperatorConnection();
+  const { connection, connectionState, serverDraining, isAway, setAway } = useOperatorConnection();
   const strings = useStrings();
   const navigate = useNavigate();
   const [queue, setQueue] = useState<OperatorQueueResponse | null>(null);
@@ -394,6 +395,10 @@ export function WorkspaceLayout() {
           <span className="ago-workspace__rail-title">{strings.workspaceConversationsLabel}</span>
           <ConnectionStateBadge state={connectionState} serverDraining={serverDraining} />
         </div>
+
+        {/* `23-20`: the operator's own deliberate presence, distinct from the connection badge right
+            above - see AwayControl's own doc comment for why it is not folded into it. */}
+        <AwayControl isAway={isAway} onToggle={setAway} />
 
         {/* `18-05`. Two buttons rather than a preferences page, and they live in the rail rather
             than in the shell header for a reason worth stating: both are properties of *this

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { OperatorConnection, type ConnectionState } from "./operatorConnection.js";
@@ -71,6 +71,9 @@ export function OperatorConnectionProvider({ children }: { children: ReactNode }
   const { tenancies } = usePermissions();
   const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
   const [serverDraining, setServerDraining] = useState(false);
+  // `23-20`: defaults to `false` only until the first "connected" resolves the real value below - see
+  // this effect's own remarks on why every "connected" (not only the first) re-reads it.
+  const [isAway, setIsAway] = useState(false);
 
   // The live token. Assigned during render (the same pattern `WorkspaceLayout` uses for the open
   // conversation id) so `accessTokenFactory` reads the newest renewal without the connection
@@ -113,6 +116,16 @@ export function OperatorConnectionProvider({ children }: { children: ReactNode }
       // down. `linkStatus.ts` has the state table this feeds.
       if (state === "connected") {
         setServerDraining(false);
+
+        // `23-20`: re-read on *every* "connected", the same "not only the first" reasoning as
+        // serverDraining right above - this fires after a reconnect too, which is exactly the moment
+        // a locally-remembered isAway would otherwise silently disagree with the server (this
+        // item's own reconnect-survives-Away rule, ago-chat's OperatorHub.OnConnectedAsync). Logged,
+        // not surfaced as an error banner: a stale toggle for one refresh cycle is a cosmetic gap the
+        // next successful call fixes, not a reason to interrupt the operator's session.
+        connection.getMyPresence().then(setIsAway).catch((error: unknown) => {
+          console.warn("Failed to read the operator's own presence", error);
+        });
       }
     });
     // Nothing consumed this before `11-06`: `5-07` wired the listener up and left it informational.
@@ -145,9 +158,20 @@ export function OperatorConnectionProvider({ children }: { children: ReactNode }
     // anyway - neither needs this cleanup to run to behave correctly.
   }, [connection, tenancies]);
 
+  // `23-20`: the one write path `AwayControl` calls. Updates `isAway` only after the server confirms
+  // - an optimistic update here would show a control that already claims a state a failed call never
+  // actually reached, exactly the "control says something untrue" failure this item exists to fix.
+  const setAway = useCallback(
+    async (away: boolean) => {
+      await connection.setAway(away);
+      setIsAway(away);
+    },
+    [connection],
+  );
+
   const value = useMemo<OperatorConnectionState>(
-    () => ({ connection, connectionState, serverDraining }),
-    [connection, connectionState, serverDraining],
+    () => ({ connection, connectionState, serverDraining, isAway, setAway }),
+    [connection, connectionState, serverDraining, isAway, setAway],
   );
 
   return <OperatorConnectionContext.Provider value={value}>{children}</OperatorConnectionContext.Provider>;

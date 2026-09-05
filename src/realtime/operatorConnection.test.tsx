@@ -334,6 +334,34 @@ describe("an access-token renewal", () => {
   });
 });
 
+describe("OperatorConnection's own presence control (`23-20`)", () => {
+  it("invokes SetAwayAsync with the requested value", async () => {
+    const connection = new OperatorConnection(() => "token");
+    await connection.start();
+
+    await connection.setAway(true);
+    await connection.setAway(false);
+
+    const hub = signalr.hubs[0];
+    expect(hub.invocationsOf("SetAwayAsync").map((i) => i.args)).toEqual([[true], [false]]);
+  });
+
+  it("invokes GetMyPresenceAsync with no arguments and returns its result", async () => {
+    const connection = new OperatorConnection(() => "token");
+    await connection.start();
+
+    const hub = signalr.hubs[0];
+    hub.invoke = (method: string, ...args: unknown[]) => {
+      hub.invocations.push({ method, args });
+      return Promise.resolve(method === "GetMyPresenceAsync" ? true : null);
+    };
+
+    await expect(connection.getMyPresence()).resolves.toBe(true);
+    expect(hub.invocationsOf("GetMyPresenceAsync")).toHaveLength(1);
+    expect(hub.invocationsOf("GetMyPresenceAsync")[0].args).toEqual([]);
+  });
+});
+
 describe("OperatorConnection's subscription record", () => {
   it("is replayed with the last known sequence after SignalR reconnects", async () => {
     const connection = new OperatorConnection(() => "token");

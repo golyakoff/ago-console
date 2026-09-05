@@ -366,6 +366,25 @@ export class OperatorConnection {
   }
 
   /**
+   * `23-20`: the operator's own deliberate presence - `true` steps away, `false` comes back online.
+   * No `operatorId` parameter, mirroring `OperatorHub.SetAwayAsync` (`ago-chat`) - the caller's
+   * identity is always this connection's own, never a value this class could get wrong.
+   */
+  async setAway(away: boolean): Promise<void> {
+    await this.requireConnection().invoke("SetAwayAsync", away);
+  }
+
+  /**
+   * `23-20`: a snapshot, not a subscription - the identical shape as `getVisitorPresence` above, for
+   * the operator's own away control instead of a visitor's. `OperatorConnectionProvider` calls this
+   * once whenever `onStateChange` reports `"connected"` - a first connect and every reconnect alike -
+   * so the console's own toggle never renders a state the server has already moved past.
+   */
+  async getMyPresence(): Promise<boolean> {
+    return this.requireConnection().invoke<boolean>("GetMyPresenceAsync");
+  }
+
+  /**
    * `18-07`: "open one" from the returning-visitor-history panel. `conversationId` is the
    * operator's own standing - the conversation actually open in this console right now, which is
    * what proves they may read *some* live conversation with this visitor; `historicalConversationId`

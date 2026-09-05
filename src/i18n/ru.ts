@@ -193,6 +193,15 @@ export const ru: ConsoleStrings = {
   workspaceNewAssignmentAnnouncement: "Вам назначен новый диалог.",
   workspaceDoneButton: "Готово",
 
+  workspaceAwayGoAwayButton: "Отойти",
+  workspaceAwayGoAwayDetail: "Новые диалоги перестанут направляться вам, пока вы не вернётесь. Уже назначенные вам диалоги это не затронет.",
+  workspaceAwayComeBackButton: "Я на месте",
+  workspaceAwayComeBackDetail: "Вернуться в сеть и снова получать новые диалоги.",
+  workspaceAwayActiveNotice:
+    "Вы отметили, что отошли. Новые диалоги вам не направляются, а посетитель, обратившийся, пока все " +
+    "операторы отошли, получает автоматический ответ об отсутствии. Уже назначенные вам диалоги это не затронет.",
+  workspaceAwayToggleError: "Не удалось обновить статус присутствия.",
+
   linkLiveLabel: "Онлайн",
   linkLiveDetail: "Подключено к серверу оператора. Новые сообщения приходят без обновления страницы.",
   linkConnectingLabel: "Подключение…",
