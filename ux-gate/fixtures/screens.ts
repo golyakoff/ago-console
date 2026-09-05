@@ -122,6 +122,19 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
     path: "/analytics",
     readySelector: ".ago-table-scroll",
   },
+  // `23-18`: `/analytics/me` joins the curated set - this file's own header already names "a screen
+  // that later earns it" as exactly how this array grows, and a screen with an entirely new set of
+  // strings (this item's own i18n additions) is precisely the shape most likely to hide an
+  // untranslated literal behind a screen that otherwise looks fine, the same reasoning `products`
+  // above already gives for itself. Unlike `/analytics/conversion`/`/analytics/tags`/
+  // `/analytics/booking-flow` (deliberately *not* covered, as "thin variants" of `/analytics`), this
+  // page has no permission gate at all and a genuinely different set of sections (load, by-load
+  // buckets, conversion) - not a thin variant of anything already in this array.
+  {
+    name: "my-numbers",
+    path: "/analytics/me",
+    readySelector: ".ago-table-scroll",
+  },
   // `23-22`: the team screen - ordinary state (the seeded operator holds `site:manage_operators` by
   // default, `data.ts#seededPermissions`'s own list). Waits for the table, matching `admin-conversations`/
   // `analytics` above.

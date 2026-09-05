@@ -1006,6 +1006,52 @@ export interface ConsoleStrings {
    * requires on `/analytics/conversion`'s both tables and `/analytics/tags`. */
   analyticsFractionOfLabel: string;
 
+  // `23-18`: MyNumbersPage (`/analytics/me`) - an operator's own row of `/analytics`/
+  // `/conversion-report`, reachable with no `site:configure` grant at all (`flows.md` 2.4: "a metric
+  // an operator first learns about from their manager ... is a metric they will manage rather than
+  // work to"). `navMyNumbers` sits unconditionally in `consoleNav.ts`, the same way `navConversations`
+  // does - every operator reaches this, not only an admin. Reuses `analyticsInvalidRangeError`/
+  // `analyticsLoadError` for its own error states (the same reuse `TagBreakdownReportPage`'s own
+  // comment already establishes a precedent for) and every column header the tenant-wide reports
+  // already declare (`analyticsConversationCountColumn` etc., `conversionReportConvertedColumn` etc.)
+  // - the same metric, the same label, on a screen with one row instead of many.
+  navMyNumbers: string;
+  myNumbersPageDescription: string;
+  myNumbersFromFieldLabel: string;
+  myNumbersToFieldLabel: string;
+  myNumbersApplyButton: string;
+  myNumbersRangeLabel: string;
+  myNumbersLoadingLabel: string;
+  /** Shown only when this operator held nothing, converted nothing, and started no assignment
+   * interval anywhere in the range - a real, boring fact, not an error (`GetOwnAnalyticsForOperatorHandler`'s
+   * own remarks: "own page, never a 404"). */
+  myNumbersEmpty: string;
+
+  myNumbersConversationsHeading: string;
+
+  // `23-17`'s own standard/additional split and load buckets, rendered here for the first time
+  // anywhere in the console - `docs/design/decisions.md` §2's naming amendment: the two counts stay
+  // two counts, never combined into one score, and the word this codebase never shows a person is
+  // "forced".
+  myNumbersLoadHeading: string;
+  /** Shown when `load` is `null` - this operator started no assignment interval in the range, a real
+   * "no data" distinct from a row full of zeros. */
+  myNumbersLoadEmpty: string;
+  myNumbersHeldColumn: string;
+  myNumbersStandardColumn: string;
+  myNumbersAdditionalColumn: string;
+
+  myNumbersByLoadHeading: string;
+  myNumbersLoadBucketColumn: string;
+  myNumbersIntervalsColumn: string;
+  myNumbersRepliesColumn: string;
+  myNumbersAverageFirstReplyColumn: string;
+
+  myNumbersConversionHeading: string;
+  /** Shown when `conversion` is `null` - nothing this operator handled has a recorded outcome yet in
+   * the range. */
+  myNumbersConversionEmpty: string;
+
   // `18-10`: ConversationOutcomePanel - what an operator says one conversation led to. Three real,
   // settable values plus the unset default's own display label.
   outcomeSectionTitle: string;

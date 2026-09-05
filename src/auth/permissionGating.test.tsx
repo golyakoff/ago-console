@@ -238,6 +238,7 @@ describe("the operator navigation", () => {
 
     expect(navLabels(container)).toEqual([
       "Conversations",
+      "My numbers",
       "All conversations",
       "Search",
       "Analytics",
@@ -284,6 +285,7 @@ describe("the operator navigation", () => {
 
       expect(navLabels(container)).toEqual([
         "Conversations",
+        "My numbers",
         "All conversations",
         "Search",
         "Analytics",
@@ -330,6 +332,7 @@ describe("the operator navigation", () => {
 
     expect(navLabels(container)).toEqual([
       "Conversations",
+      "My numbers",
       "All conversations",
       "Search",
       "Analytics",
@@ -410,7 +413,7 @@ describe("the operator navigation", () => {
 
     const container = await render(shellAt("/"));
 
-    expect(navLabels(container)).toEqual(["Conversations"]);
+    expect(navLabels(container)).toEqual(["Conversations", "My numbers"]);
   });
 
   it("offers nothing gated when the permissions call fails", async () => {
@@ -420,7 +423,7 @@ describe("the operator navigation", () => {
 
     const container = await render(shellAt("/"));
 
-    expect(navLabels(container)).toEqual(["Conversations"]);
+    expect(navLabels(container)).toEqual(["Conversations", "My numbers"]);
     expect(logged).toHaveBeenCalled();
   });
 
@@ -457,6 +460,7 @@ describe("the operator navigation", () => {
 
     expect(navLabels(container)).toEqual([
       "Conversations",
+      "My numbers",
       "All conversations",
       "Search",
       "Analytics",
@@ -574,6 +578,7 @@ describe("the mobile navigation drawer", () => {
 
     expect(drawerNavLabels(container)).toEqual([
       "Conversations",
+      "My numbers",
       "All conversations",
       "Search",
       "Analytics",

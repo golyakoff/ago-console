@@ -62,6 +62,16 @@ export function buildTenantNavItems(
 ): AppShellNavItem[] {
   const items: AppShellNavItem[] = [{ to: "/", label: strings.navConversations, end: true }];
 
+  // `23-18`: unconditional, the same reasoning `navConversations` above already has, and for the
+  // first time a *reason* rather than only a precedent - this is not "always drawn, muted when
+  // lacking" like every entry in the `site:configure` block below, because there is no permission to
+  // lack. `GetOwnAnalyticsForOperatorHandler` (`ago-chat`) checks nothing beyond being a real operator
+  // of this site, on purpose: a grant here would be a thing a tenant could withhold, which is the
+  // failure `docs/design/flows.md` 2.4 exists to prevent - "a metric an operator first learns about
+  // from their manager." So this entry is never `muted`, and does not wait on `permissionsKnown`
+  // either, matching `navConversations`'s own unconditional placement.
+  items.push({ to: "/analytics/me", label: strings.navMyNumbers });
+
   // `23-24`: this whole block used to be `if (hasPermission("site:configure")) { ... }`, which is
   // exactly `flows.md` 4.3's own must-never-happen generalised past the calendar - "you cannot
   // configure this site" and "this operator was never granted it" rendered as one indistinguishable

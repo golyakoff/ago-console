@@ -700,6 +700,32 @@ export const ru: ConsoleStrings = {
   analyticsComparisonPointsSuffix: "п.п.",
   analyticsFractionOfLabel: "из",
 
+  navMyNumbers: "Мои показатели",
+  myNumbersPageDescription: "Ваши собственные цифры - те же, что видит ваш тенант, и вы видите их первыми.",
+  myNumbersFromFieldLabel: "С (необязательно)",
+  myNumbersToFieldLabel: "По (необязательно)",
+  myNumbersApplyButton: "Применить",
+  myNumbersRangeLabel: "Отчёт за период",
+  myNumbersLoadingLabel: "Загрузка ваших показателей…",
+  myNumbersEmpty: "В этом периоде у вас не было диалогов.",
+
+  myNumbersConversationsHeading: "Ваши диалоги",
+
+  myNumbersLoadHeading: "Ваша нагрузка",
+  myNumbersLoadEmpty: "В этом периоде пока нет данных о назначениях.",
+  myNumbersHeldColumn: "Всего вели",
+  myNumbersStandardColumn: "Штатно",
+  myNumbersAdditionalColumn: "Сверх нормы",
+
+  myNumbersByLoadHeading: "Время ответа по вашей собственной одновременной нагрузке",
+  myNumbersLoadBucketColumn: "Одновременная нагрузка",
+  myNumbersIntervalsColumn: "Периодов",
+  myNumbersRepliesColumn: "Ответов",
+  myNumbersAverageFirstReplyColumn: "Сред. время до первого ответа",
+
+  myNumbersConversionHeading: "Ваша конверсия",
+  myNumbersConversionEmpty: "У того, что вы вели, пока нет отмеченного результата в этом периоде.",
+
   outcomeSectionTitle: "Результат",
   outcomeLoadingLabel: "Загрузка результата…",
   outcomeLoadError: "Не удалось загрузить результат этого диалога.",

@@ -8,6 +8,7 @@ import type {
   ConversionReportResponse,
   OperatorAnalyticsResponse,
   OperatorQueueResponse,
+  OwnOperatorAnalyticsResponse,
   SearchConversationsResponse,
   TagBreakdownReportResponse,
   VisitorHistoryResponse,
@@ -383,6 +384,47 @@ export async function fetchOperatorAnalytics(
 
   if (response.ok) {
     return (await response.json()) as OperatorAnalyticsResponse;
+  }
+
+  throw await problemDetailsFrom(response);
+}
+
+/** `23-18`: the same optional-bounds shape `OperatorAnalyticsParams` establishes for `18-08`, reused
+ * for the operator's own screen rather than a third near-identical interface. */
+export interface OwnAnalyticsParams {
+  from?: string;
+  to?: string;
+}
+
+/**
+ * `23-18`: `GET /api/v1/conversations/analytics/me` - an operator's own row of `/analytics` and
+ * `/conversion-report`, gated server-side on nothing beyond being a real operator of the site
+ * (`GetOwnAnalyticsForOperatorHandler`'s own remarks, `ago-chat`: no `site:configure`, and no other
+ * grant either - a permission here would be a thing a tenant could withhold, which is the failure
+ * `docs/design/flows.md` 2.4 exists to prevent). There is no operator id in `params` for the same
+ * reason there is none on the response - the server reads who is asking from the token, never from
+ * anything this function could be made to pass it. Throws `ApiProblemError` like its siblings above,
+ * though in practice the only code `MyNumbersPage` should ever see from this call is
+ * `Analytics.InvalidRange` - there is no permission check left here to fail.
+ */
+export async function fetchOwnAnalytics(
+  accessToken: string,
+  params: OwnAnalyticsParams,
+): Promise<OwnOperatorAnalyticsResponse> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/conversations/analytics/me`);
+  if (params.from) {
+    url.searchParams.set("from", params.from);
+  }
+  if (params.to) {
+    url.searchParams.set("to", params.to);
+  }
+
+  const response = await fetch(url, {
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (response.ok) {
+    return (await response.json()) as OwnOperatorAnalyticsResponse;
   }
 
   throw await problemDetailsFrom(response);
