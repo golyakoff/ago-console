@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthContext.js";
 import { operatorDisplayName } from "../auth/operatorDisplayName.js";
 import { useOwnerEligibility } from "../auth/useOwnerEligibility.js";
 import { registerSite, RegisterSiteError } from "../api/sitesApi.js";
+import { useStrings } from "../i18n/StringsContext.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Field } from "../components/Field.js";
@@ -57,11 +58,22 @@ import { Alert } from "../components/Alert.js";
  * to route, once here on mount - exactly the same shape, and the same small stated cost, as the
  * duplicate `GET /api/v1/operators/me` this file's `10-03` paragraph already accepts above. Caching
  * it across two routes that never render together would be more machinery than the request saves.
+ *
+ * `23-28`: every string below now goes through `useStrings()` rather than a hardcoded English
+ * literal, including the "Have an invite code instead?" link at the foot of this page - this route
+ * wraps itself in `App.tsx`'s `PreSessionStringsProvider` (Russian, by the author's own answer to
+ * that item: an identity with no `operators` row yet has no site to read a locale from, and the
+ * absence of one means Russian, not English - `StringsContext.tsx`'s own doc comment has the full
+ * reasoning). The placeholder example URL (`https://shop.example.com`) stays a plain literal - a
+ * browser-rendered `placeholder` attribute is not a DOM text node `ux-gate`'s untranslated-text
+ * assertion (or a screen reader) ever sees, and an example domain is not a phrase to translate
+ * either way.
  */
 export function OnboardingPage() {
   const { user, logout } = useAuth();
   const ownerEligibility = useOwnerEligibility();
   const navigate = useNavigate();
+  const strings = useStrings();
   const [siteName, setSiteName] = useState("");
   const [origin, setOrigin] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -76,16 +88,16 @@ export function OnboardingPage() {
   // catches it instead and this page surfaces that `detail` text unchanged.
   function validate(): string | null {
     if (siteName.trim().length === 0) {
-      return "Site display name cannot be empty.";
+      return strings.onboardingSiteNameEmptyError;
     }
 
     try {
       const parsed = new URL(origin);
       if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-        return "Embed origin must start with http:// or https://.";
+        return strings.onboardingOriginInvalidScheme;
       }
     } catch {
-      return "Embed origin must look like a URL, e.g. https://shop.example.com.";
+      return strings.onboardingOriginInvalidUrl;
     }
 
     return null;
@@ -136,7 +148,7 @@ export function OnboardingPage() {
         return;
       }
 
-      setSubmitError(err instanceof RegisterSiteError ? err.message : "Failed to set up your site. Please try again.");
+      setSubmitError(err instanceof RegisterSiteError ? err.message : strings.onboardingGenericSubmitError);
     } finally {
       setSubmitting(false);
     }
@@ -156,10 +168,7 @@ export function OnboardingPage() {
       }
       demoNoticeAudience={isPlatformOwner ? "platform-owner" : "shared-login"}
     >
-      <PageHead
-        title="Finish setting up your site"
-        description="Your Keycloak account is verified. Choose a display name and the one website origin your widget will be embedded on."
-      />
+      <PageHead title={strings.onboardingTitle} description={strings.onboardingDescription} />
 
       {isPlatformOwner && (
         /* `tone="info"`, not `"danger"`: nothing has gone wrong and nothing is being refused. The
@@ -170,19 +179,16 @@ export function OnboardingPage() {
            browser. */
         <Alert
           tone="info"
-          title="You are signed in as the platform owner"
-          action={<Link to="/owner">Go to the platform operations view</Link>}
+          title={strings.onboardingPlatformOwnerAlertTitle}
+          action={<Link to="/owner">{strings.onboardingPlatformOwnerAlertLinkLabel}</Link>}
         >
-          Being the platform owner is a Keycloak realm role, not a seat inside any one site, and it
-          stays that way whatever you do here. Registering below additionally makes this account an
-          operator of a new site of its own - a normal thing to want, and the way to run a tenant on
-          your own deployment, but nothing in this product can take it back afterwards.
+          {strings.onboardingPlatformOwnerAlertBody}
         </Alert>
       )}
 
       <Panel>
         <form className="ago-stack" onSubmit={(e) => void handleSubmit(e)}>
-          <Field label="Site display name">
+          <Field label={strings.onboardingSiteNameLabel}>
             {(controlProps) => (
               <Input
                 {...controlProps}
@@ -193,10 +199,7 @@ export function OnboardingPage() {
             )}
           </Field>
 
-          <Field
-            label="Embed origin"
-            description="Scheme, host and port only - no path, e.g. https://shop.example.com."
-          >
+          <Field label={strings.onboardingOriginLabel} description={strings.onboardingOriginDescription}>
             {(controlProps) => (
               <Input
                 {...controlProps}
@@ -219,21 +222,19 @@ export function OnboardingPage() {
 
           <div className="ago-row">
             <Button type="submit" variant="primary" disabled={submitting}>
-              {submitting ? "Setting up…" : "Finish setup"}
+              {submitting ? strings.onboardingSubmitting : strings.onboardingSubmit}
             </Button>
           </div>
         </form>
       </Panel>
 
       {/* `23-27`: this identity's other option - somebody handed a code by a site that already
-          exists, rather than setting up a new one. Plain, hardcoded English, matching every other
-          sentence on this page (`useStrings()` is never called here - see `StringsContext.tsx`'s own
-          doc comment on why a pre-session page with no resolvable tenant has nothing to follow) -
-          `RedeemInvitePage.tsx` is where the same link back to here lives, in its own translated
-          form, and its own doc comment has the reasoning for why the two screens do not share one
-          hardcoded-versus-translated convention. */}
+          exists, rather than setting up a new one. `RedeemInvitePage.tsx` is where the same link
+          back to here lives.
+          `23-28`: now translated, like every other string on this page - see this file's own doc
+          comment. */}
       <p className="ago-row">
-        Have an invite code instead? <Link to="/redeem-invite">Redeem it here</Link>.
+        {strings.onboardingRedeemInvitePrompt} <Link to="/redeem-invite">{strings.onboardingRedeemInviteLinkLabel}</Link>.
       </p>
     </AppShell>
   );

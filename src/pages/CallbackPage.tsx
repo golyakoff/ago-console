@@ -4,6 +4,7 @@ import { userManager } from "../auth/userManager.js";
 import { isReplayedCallback } from "../auth/replayedCallback.js";
 import { resolveOperatorState } from "../api/operatorsApi.js";
 import { probeOwnerEligibility } from "../api/ownerApi.js";
+import { useStrings } from "../i18n/StringsContext.js";
 import { CenteredShell } from "../shell/AppShell.js";
 import { Alert } from "../components/Alert.js";
 import { Spinner } from "../components/Spinner.js";
@@ -100,6 +101,15 @@ async function destinationWithoutAnOperatorRow(accessToken: string): Promise<str
  * told the same distinction: `"sign-in"` is Keycloak's own round trip failing (unchanged text, unchanged
  * meaning); `"operator-lookup"` is `11-17`'s new case - sign-in already succeeded, the call *after* it
  * did not. */
+/**
+ * `23-28`: every string below now goes through `useStrings()` rather than a hardcoded English
+ * literal - this route wraps itself in `App.tsx`'s `PreSessionStringsProvider` (Russian, by the
+ * author's own answer to that item: nobody returning here has a site yet to read a locale from, and
+ * the absence of one means Russian, not English). The one interpolated value (`err.message`, which
+ * may itself be an untranslated string a library or the API produced) is composed at the call site
+ * against two fixed fragments here, the same "never a function stored in the table" convention
+ * `strings.ts`'s own header states for every other interpolation in this file.
+ */
 interface CallbackFailure {
   readonly kind: "sign-in" | "operator-lookup";
   readonly title: string;
@@ -108,6 +118,7 @@ interface CallbackFailure {
 
 export function CallbackPage() {
   const navigate = useNavigate();
+  const strings = useStrings();
   const [failure, setFailure] = useState<CallbackFailure | null>(null);
 
   useEffect(() => {
@@ -126,11 +137,11 @@ export function CallbackPage() {
         } catch (err: unknown) {
           setFailure({
             kind: "operator-lookup",
-            title: "Signed in, but couldn't load your account",
+            title: strings.callbackOperatorLookupFailedTitle,
             detail:
-              `GET /api/v1/operators/me failed: ${err instanceof Error ? err.message : "Unknown error."} ` +
-              "Reload this page to try again. If it keeps happening, the API is unreachable or this " +
-              "origin has not been allowed to call it yet - this is not a problem with your Keycloak sign-in.",
+              `${strings.callbackOperatorLookupFailedDetailPrefix}` +
+              `${err instanceof Error ? err.message : strings.callbackUnknownError} ` +
+              strings.callbackOperatorLookupFailedDetailSuffix,
           });
           return;
         }
@@ -154,11 +165,11 @@ export function CallbackPage() {
 
         setFailure({
           kind: "sign-in",
-          title: "Sign-in failed",
-          detail: err instanceof Error ? err.message : "Unknown error.",
+          title: strings.callbackSignInFailedTitle,
+          detail: err instanceof Error ? err.message : strings.callbackUnknownError,
         });
       });
-  }, [navigate]);
+  }, [navigate, strings]);
 
   if (failure) {
     // `11-05`: this was a plain `<p>` with no `role` at all, which meant a screen-reader user who
@@ -177,7 +188,7 @@ export function CallbackPage() {
 
   return (
     <CenteredShell>
-      <Spinner label="Completing sign-in…" />
+      <Spinner label={strings.callbackCompletingSignIn} />
     </CenteredShell>
   );
 }

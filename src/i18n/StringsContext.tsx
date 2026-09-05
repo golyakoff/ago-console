@@ -16,11 +16,30 @@ import type { ConsoleStrings } from "./strings.js";
  * is exactly what this gives it, rather than threading every one of `ConsoleStrings`' fields through
  * as individual props.
  *
- * The one provider is `OperatorShell` - the only place a specific tenant's locale is ever known.
- * `OwnerSitesPage` and every pre-session page (`/onboarding`, `/signup`, `/callback`) never provide
- * one, by design (confirmed with the author, `11-11`'s own backlog item): there is no tenant whose
- * language those pages could follow, and the default English they fall back to is the correct
- * behaviour, not a gap.
+ * The one provider that resolves a *tenant's* locale is `OperatorShell`. `OwnerSitesPage` is the one
+ * page that deliberately never provides one at all (`11-11`'s own settled call, restated in that
+ * page's own doc comment: `/owner` is not scoped to one tenant, so it always falls through to this
+ * bare `en` default, on purpose, forever).
+ *
+ * `23-28`: **the four pre-session pages are a third case, not the same as `/owner`'s.** Before this
+ * item they also fell through to this bare default - the doc comment here used to call that "the
+ * correct behaviour, not a gap", reasoning that there is no tenant whose language they could follow.
+ * The author's answer (`docs/backlog/23-28-*.md`, 2026-09-05) rejects that premise rather than the
+ * conclusion: a locale does not have to be *derived* from a tenant to be chosen - for a product
+ * selling to Russian shops, Russian is the correct default for "nobody has told us yet", not a guess
+ * standing in for a missing signal. So `/callback`, `/signup`, `/onboarding` and `/redeem-invite` now
+ * wrap themselves in `PreSessionStringsProvider` (`PreSessionStringsProvider.tsx`, used from
+ * `App.tsx`'s four route elements) rather than relying on this bare default - kept in its own file
+ * rather than beside `useStrings()` here purely because `react-refresh/only-export-components` flags
+ * a file that exports both a component and a hook once it holds more than one component's worth of
+ * reason to exist; nothing about the split changes which file owns the *decision*, which is this one
+ * - the bare `en` below stays exactly what it was for every other caller (`/owner`'s permanent
+ * English, and the safety net for a route this file's own author has not yet wired to either
+ * provider), and is deliberately *not* changed to `ru` itself: doing that would silently widen
+ * `/owner` into Russian too the moment its own signed-in identity's tenancy happens to be one, which
+ * is precisely the "must not quietly widen itself" trap the backlog item warns against - `/owner`'s
+ * English has to keep coming from a fact about `/owner`, not from every unwired route happening to
+ * agree with it today.
  */
 const StringsContext = createContext<ConsoleStrings>(en);
 

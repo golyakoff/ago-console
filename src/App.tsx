@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { RequireAuth } from "./auth/RequireAuth.js";
 import { PermissionsProvider } from "./auth/PermissionsProvider.js";
 import { OperatorConnectionProvider } from "./realtime/OperatorConnectionProvider.js";
+import { PreSessionStringsProvider } from "./i18n/PreSessionStringsProvider.js";
 import { OperatorShell } from "./shell/OperatorShell.js";
 import { CallbackPage } from "./pages/CallbackPage.js";
 import { SignupPage } from "./pages/SignupPage.js";
@@ -74,18 +75,43 @@ import { CalendarContactsPage } from "./pages/CalendarContactsPage.js";
  * outside those providers render `AppShell`/`CenteredShell` themselves instead, which take
  * everything they display as props and read no context. No route's guarding changed - this is a
  * presentation change and the tree is the same shape it was, one element deeper.
+ *
+ * `23-28`: **the four routes with no site wrap themselves in `PreSessionStringsProvider`.** Before
+ * this item `/callback`/`/signup`/`/onboarding`/`/redeem-invite` read no `<StringsProvider>` at all
+ * and fell through to `StringsContext`'s bare `en` default; the author's answer to that item's own
+ * question ("where does the locale come from for somebody who has no site?") is that the absence of
+ * a site means Russian, not English (`StringsContext.tsx`'s own doc comment has the full reasoning).
+ * `/owner` right below this group is deliberately left exactly as it was - no provider at all - since
+ * its English is a permanent, per-page design call (`11-11`), not a stand-in for a locale nobody
+ * supplied yet, and the two must not be allowed to converge onto one mechanism.
  */
 export function App() {
   return (
     <Routes>
-      <Route path="/callback" element={<CallbackPage />} />
-      <Route path="/signup" element={<SignupPage />} />
+      <Route
+        path="/callback"
+        element={
+          <PreSessionStringsProvider>
+            <CallbackPage />
+          </PreSessionStringsProvider>
+        }
+      />
+      <Route
+        path="/signup"
+        element={
+          <PreSessionStringsProvider>
+            <SignupPage />
+          </PreSessionStringsProvider>
+        }
+      />
       <Route
         path="/onboarding"
         element={
-          <RequireAuth>
-            <OnboardingPage />
-          </RequireAuth>
+          <PreSessionStringsProvider>
+            <RequireAuth>
+              <OnboardingPage />
+            </RequireAuth>
+          </PreSessionStringsProvider>
         }
       />
       {/* `23-27`: `/redeem-invite` - the other end of `13-01`'s invite, on the identical shape as
@@ -94,13 +120,19 @@ export function App() {
           definition carries no `OperatorId`/`SiteId` claim yet. `RedeemInvitePage.tsx`'s own doc
           comment has the full reasoning, including why this route is not folded into `/onboarding`
           as a second mode of the same screen (they submit to different endpoints under different
-          server-side gates, and offer each other a link rather than sharing one component). */}
+          server-side gates, and offer each other a link rather than sharing one component).
+          `23-28`: `PreSessionStringsProvider` joins it here on the identical shape as `/onboarding`
+          above - this route already called `useStrings()` throughout and used to read the bare `en`
+          default for want of a provider; that is the exemption `ux-gate/gate.spec.ts` named by this
+          screen, and it is what this wrapping removes. */}
       <Route
         path="/redeem-invite"
         element={
-          <RequireAuth>
-            <RedeemInvitePage />
-          </RequireAuth>
+          <PreSessionStringsProvider>
+            <RequireAuth>
+              <RedeemInvitePage />
+            </RequireAuth>
+          </PreSessionStringsProvider>
         }
       />
       {/* `12-03`: `/owner` - the platform owner's cross-tenant operations view. Three things about

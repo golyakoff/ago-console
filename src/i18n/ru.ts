@@ -1138,4 +1138,46 @@ export const ru: ConsoleStrings = {
     "или перейти на другой тариф, прежде чем вы сможете присоединиться.",
   redeemInviteErrorGeneric: "Не удалось активировать приглашение. Попробуйте ещё раз.",
   redeemInviteSetupOwnSiteLink: "Хотите вместо этого создать свой сайт?",
+
+  callbackCompletingSignIn: "Завершаем вход…",
+  callbackSignInFailedTitle: "Не удалось войти",
+  callbackOperatorLookupFailedTitle: "Вы вошли, но не удалось загрузить данные аккаунта",
+  callbackOperatorLookupFailedDetailPrefix: "Запрос GET /api/v1/operators/me завершился ошибкой: ",
+  callbackOperatorLookupFailedDetailSuffix:
+    "Перезагрузите страницу, чтобы попробовать снова. Если это повторяется, значит API недоступен " +
+    "или этому адресу пока не разрешено его вызывать - это не связано с вашим входом через Keycloak.",
+  callbackUnknownError: "Неизвестная ошибка.",
+
+  signupTitle: "Регистрация в AGO Chat",
+  signupDescription:
+    "Создайте свой сайт и аккаунт оператора. Электронную почту и пароль вы укажете на " +
+    "собственной странице регистрации Keycloak.",
+  signupButton: "Зарегистрироваться",
+  signupButtonRedirecting: "Открываем регистрацию…",
+  signupErrorPrefix: "Не удалось открыть страницу регистрации: ",
+  signupErrorGeneric: "Не удалось открыть страницу регистрации. Попробуйте ещё раз.",
+
+  onboardingTitle: "Завершите настройку своего сайта",
+  onboardingDescription:
+    "Ваш аккаунт Keycloak подтверждён. Укажите отображаемое имя и единственный адрес сайта, " +
+    "на котором будет установлен виджет.",
+  onboardingSiteNameLabel: "Отображаемое имя сайта",
+  onboardingSiteNameEmptyError: "Отображаемое имя сайта не может быть пустым.",
+  onboardingOriginLabel: "Адрес для встраивания",
+  onboardingOriginDescription:
+    "Только схема, хост и порт - без пути, например https://shop.example.com.",
+  onboardingOriginInvalidScheme: "Адрес для встраивания должен начинаться с http:// или https://.",
+  onboardingOriginInvalidUrl: "Адрес для встраивания должен выглядеть как URL, например https://shop.example.com.",
+  onboardingSubmit: "Завершить настройку",
+  onboardingSubmitting: "Настраиваем…",
+  onboardingGenericSubmitError: "Не удалось настроить ваш сайт. Попробуйте ещё раз.",
+  onboardingPlatformOwnerAlertTitle: "Вы вошли как владелец платформы",
+  onboardingPlatformOwnerAlertLinkLabel: "Перейти к управлению платформой",
+  onboardingPlatformOwnerAlertBody:
+    "Роль владельца платформы - это роль в realm Keycloak, а не место в каком-то одном сайте, и " +
+    "это не изменится, что бы вы здесь ни сделали. Регистрация ниже дополнительно сделает этот " +
+    "аккаунт оператором нового собственного сайта - обычное дело, если вы хотите вести свой " +
+    "тенант на этом развёртывании, но отменить это потом уже нельзя.",
+  onboardingRedeemInvitePrompt: "Вместо этого есть код приглашения?",
+  onboardingRedeemInviteLinkLabel: "Активировать его здесь",
 };

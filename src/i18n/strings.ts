@@ -1581,16 +1581,14 @@ export interface ConsoleStrings {
   calendarNotConfigured: string;
 
   // --- `23-27`: `RedeemInvitePage` - the other end of `13-01`'s invite (`CreateOperatorInvite`
-  // generates a code; this is where it is spent). Mounted outside `StringsProvider` (`App.tsx`'s own
-  // "outside the operator layout" group, alongside `/onboarding`) - there is no tenant yet whose
-  // locale this screen could follow, the identical reason `StringsContext.tsx`'s own doc comment
-  // gives for `/onboarding`/`/signup`/`/callback`. `useStrings()`'s context default (`en`) is what
-  // actually renders here today; both entries exist below anyway, because the requirement this item
-  // was filed against is "every string through the translation files, in every locale the console
-  // ships" - a property of where the *text* lives, not a promise that this one screen already has a
-  // locale signal to act on. See `RedeemInvitePage.tsx`'s own doc comment for the full reasoning and
-  // `ux-gate/gate.spec.ts`'s own comment for why this screen sits beside `owner-sites` in the one
-  // exemption list that check keeps. ---
+  // generates a code; this is where it is spent). Every string below was in the table from `23-27`
+  // itself, in both `en.ts` and `ru.ts` - what `23-27` could not do was pick the Russian half at the
+  // right moment, since this screen has no site to read a locale from. `23-28` wraps this route (and
+  // `/onboarding`/`/signup`/`/callback`) in `App.tsx`'s `PreSessionStringsProvider` instead of solving
+  // that puzzle - `StringsContext.tsx`'s own doc comment has the reasoning - so these render Russian
+  // by default now, the same as the rest of this screen set. See `RedeemInvitePage.tsx`'s own doc
+  // comment for the full account, including why the `ux-gate/gate.spec.ts` exemption this screen used
+  // to share with `owner-sites` is gone. ---
   redeemInviteTitle: string;
   redeemInviteDescription: string;
   redeemInviteCodeLabel: string;
@@ -1617,10 +1615,85 @@ export interface ConsoleStrings {
   redeemInviteErrorSeatLimitReached: string;
   /** Anything else - a network failure, or a status this screen does not otherwise name. */
   redeemInviteErrorGeneric: string;
-  /** This screen's own link back to `/onboarding`, for a reader who followed `OnboardingPage`'s
-   * (hardcoded-English, unchanged by this item) link here by mistake. Not the reverse direction -
-   * `OnboardingPage.tsx` never calls `useStrings()` at all (this item does not change that), so its
-   * own "Have an invite code instead?" link stays a plain literal, matching every other sentence
-   * already on that page. */
+  /** This screen's own link back to `/onboarding`, for a reader who followed that page's own
+   * "Have an invite code instead?" link (`onboardingRedeemInviteLinkLabel`, below) here by mistake. */
   redeemInviteSetupOwnSiteLink: string;
+
+  // --- `23-28`: `/callback`, `/signup`, `/onboarding` - the three pre-session pages that hardcoded
+  // English literals directly, because `StringsContext.tsx`'s own default was believed to be the
+  // correct behaviour for a page with no tenant to follow. The author's answer to that item settles
+  // it the other way: where nothing is set, the locale is Russian, not English, so these three pages
+  // needed real translations for the first time rather than a provider to pick between two that
+  // already existed (`redeemInvite*`'s own situation, above). Grouped by page, in the order each page
+  // renders its own strings. ---
+
+  /** `CallbackPage`'s `Spinner` label while `signinRedirectCallback()` and the state lookup that
+   * follows it are both still in flight. */
+  callbackCompletingSignIn: string;
+  /** The alert title when Keycloak's own round trip itself fails or is refused - unchanged in
+   * meaning since `11-17`, now translated. */
+  callbackSignInFailedTitle: string;
+  /** `11-17`'s other failure kind - sign-in already succeeded, and the call *after* it (`GET
+   * /api/v1/operators/me`) did not. */
+  callbackOperatorLookupFailedTitle: string;
+  /** The fixed fragment before the interpolated `err.message` in that failure's detail text - see
+   * this interface's own header for why an interpolated value is composed at the call site against a
+   * fixed fragment here, never a function stored in the table. Ends with `": "`, matching the
+   * original literal exactly. */
+  callbackOperatorLookupFailedDetailPrefix: string;
+  /** The fixed fragment after the interpolated `err.message` in that same detail text. */
+  callbackOperatorLookupFailedDetailSuffix: string;
+  /** The fallback for `err instanceof Error` being false, in either of `CallbackPage`'s two failure
+   * branches - an error value that is not an `Error` at all is not something this screen can say
+   * anything more specific about. */
+  callbackUnknownError: string;
+
+  /** `SignupPage`'s `<PageHead>` title. */
+  signupTitle: string;
+  /** `SignupPage`'s `<PageHead>` description. */
+  signupDescription: string;
+  /** The button's resting label. */
+  signupButton: string;
+  /** The button's label while `keycloakRegistrationRedirect()` is in flight and the browser is about
+   * to leave for Keycloak. */
+  signupButtonRedirecting: string;
+  /** The fixed fragment before the interpolated `err.message` when the redirect itself throws -
+   * Keycloak's discovery document could not be fetched, or the registration URL it derives from that
+   * document could not be built. */
+  signupErrorPrefix: string;
+  /** The fallback for `err instanceof Error` being false. */
+  signupErrorGeneric: string;
+
+  /** `OnboardingPage`'s `<PageHead>` title. */
+  onboardingTitle: string;
+  /** `OnboardingPage`'s `<PageHead>` description. */
+  onboardingDescription: string;
+  onboardingSiteNameLabel: string;
+  /** `validate()`'s own client-side check, before the server's - `RegisterSiteHandler`'s real gate is
+   * unchanged and still surfaces its own message if this one somehow lets something through. */
+  onboardingSiteNameEmptyError: string;
+  onboardingOriginLabel: string;
+  onboardingOriginDescription: string;
+  /** `validate()`'s own check for a scheme other than `http`/`https` - the placeholder example URL
+   * itself (`https://shop.example.com`) stays an untranslated literal on the `<Input>` (a `placeholder`
+   * attribute renders no DOM text node, so it is invisible to both a screen reader label and
+   * `ux-gate`'s untranslated-text assertion, and an example domain name is not a phrase either
+   * language translates). */
+  onboardingOriginInvalidScheme: string;
+  /** `validate()`'s own check for a value `new URL()` cannot parse at all. */
+  onboardingOriginInvalidUrl: string;
+  onboardingSubmit: string;
+  onboardingSubmitting: string;
+  /** The fallback when `registerSite` fails with anything other than a `RegisterSiteError` - that
+   * error type's own `.message` is a server-supplied `detail` and is shown verbatim, unchanged. */
+  onboardingGenericSubmitError: string;
+  /** `12-05`'s own alert, shown only when `useOwnerEligibility()` answers `"eligible"`. */
+  onboardingPlatformOwnerAlertTitle: string;
+  onboardingPlatformOwnerAlertLinkLabel: string;
+  onboardingPlatformOwnerAlertBody: string;
+  /** `23-27`'s own link to `/redeem-invite`, added to this page as a single line at its foot -
+   * `RedeemInvitePage.tsx`'s own doc comment has the "why here, why a link rather than a merged
+   * screen" reasoning. */
+  onboardingRedeemInvitePrompt: string;
+  onboardingRedeemInviteLinkLabel: string;
 }

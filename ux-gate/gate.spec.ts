@@ -78,21 +78,16 @@ for (const screen of UX_GATE_SCREENS) {
     // `RequirePlatformOwner` and client-side by `useOwnerEligibility` - seen by one person, who wrote
     // it in English on purpose.
     //
-    // `23-27`: skipped for `redeem-invite` too, for a related but distinct reason -
-    // `RedeemInvitePage.tsx`'s own doc comment has the full reasoning. `/owner`'s English is
-    // permanent by design; this screen's is a consequence of having no tenant to read a locale from
-    // *yet* (the same category `StringsContext.tsx` already places `/onboarding`/`/signup`/
-    // `/callback` in), not a deliberate "this reader gets English forever" choice - `RedeemInvitePage`
-    // does call `useStrings()`, and both `en.ts`/`ru.ts` carry a real translation for every string it
-    // renders, satisfying `23-27`'s own "every string through the translation files, in every
-    // locale" requirement at the level that requirement can be met without a backend change: the
-    // *table* is complete, even though this route has no provider to pick the Russian half of it.
-    //
-    // Both screens stay in the run for the three assertions above; only this fourth one treats them
-    // differently, and each is named here rather than matched by any property of the screen
-    // (`ux-gate/lib/i18nCompleteness.ts`'s own doc comment has the element-level exemptions this one
-    // complements).
-    if (screen.name !== "owner-sites" && screen.name !== "redeem-invite") {
+    // `23-27` also skipped `redeem-invite` here, for a related but distinct reason: that screen
+    // called `useStrings()` throughout and both `en.ts`/`ru.ts` carried a real translation for every
+    // string it rendered, but it had no site to read a `locale` from yet, so it fell through to the
+    // context's bare English default regardless. `23-28` removes that reason rather than working
+    // around it - `RedeemInvitePage.tsx`'s own doc comment and `StringsContext.tsx`'s have the full
+    // account - so this screen now renders Russian like every other one this gate opens, and the
+    // exemption is gone. `owner-sites` is the one screen left here, and its English is permanent by
+    // design, not a consequence of a missing locale signal - the two were never the same kind of gap,
+    // which is exactly why removing one did not mean removing both.
+    if (screen.name !== "owner-sites") {
       await test.step("no untranslated interface text", async () => {
         const result = await page.evaluate(measureUntranslatedLatinText);
         expect(result.violations, JSON.stringify(result.violations, null, 2)).toEqual([]);
