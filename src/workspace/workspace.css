@@ -263,6 +263,15 @@ a.ago-list__row--active:hover {
   padding-bottom: var(--ago-space-3);
 }
 
+/* `23-19`: a persistent caption, not an alert - it states a scope, not a problem, so it takes the same
+   quiet treatment `.ago-message__meta` gives secondary text rather than `Alert`'s own attention-getting
+   tones. */
+.ago-thread__delivery-note {
+  margin: 0 0 var(--ago-space-3);
+  font-size: var(--ago-text-xs);
+  color: var(--ago-ink-soft);
+}
+
 /* A day separator is a horizontal rule with the day sitting in it - drawn with borders on the
    pseudo-elements rather than a background image so it inherits the surface behind it. */
 .ago-thread__day {

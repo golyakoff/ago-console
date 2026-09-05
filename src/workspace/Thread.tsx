@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { MessageDto } from "../realtime/protocol/types.js";
+import type { ChannelDeliveryDto } from "../api/channelDeliveriesApi.js";
+import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
 import { Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
@@ -53,6 +55,12 @@ export interface ThreadProps {
    * gate; `Thread` itself does not know about permissions at all, the same separation `renderAttachment`
    * already draws between "this component renders" and "the page decides what is allowed". */
   onPromoteSelection?: (text: string) => void;
+  /** `23-19`: `docs/design/decisions.md` §9 - what `DeliverChannelMessageHandler` (`ago-chat`) recorded
+   * for whichever of these operator messages were actually relayed out through a linked channel.
+   * `null`/absent (a widget conversation, or one still loading) renders no badges at all - the
+   * `threadDeliveryScopeNote` caption below is what tells the operator that absence is expected, not
+   * a sign something failed. Keyed by `ChannelDeliveryDto.messageId`, which matches `MessageDto.id`. */
+  channelDeliveries?: ChannelDeliveryDto[] | null;
 }
 
 /** One message's own selected substring, kept only long enough for the operator to click the
@@ -111,9 +119,14 @@ export function Thread({
   highlightSequence = null,
   locating = false,
   onPromoteSelection,
+  channelDeliveries = null,
 }: ThreadProps) {
   const strings = useStrings();
   const items = buildThread(messages, timeZone);
+  // `23-19`: one lookup per render rather than a `.find()` per message - this thread's own message
+  // count is what `channelDeliveries` is bounded by (one delivery per operator message, at most), so
+  // this stays small the same way `channelDeliveries` itself does.
+  const deliveryByMessageId = new Map<string, ChannelDeliveryDto>((channelDeliveries ?? []).map((d) => [d.messageId, d]));
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const pinnedToBottom = useRef(true);
@@ -238,13 +251,28 @@ export function Thread({
         </div>
       )}
 
+      {/* `23-19`: shown for every conversation, not only channel ones - `flows.md` 4.5's own "the
+          screen says which conversations this covers and which it does not", so a widget
+          conversation's silence never reads as a failure. */}
+      <p className="ago-thread__delivery-note">{strings.threadDeliveryScopeNote}</p>
+
       <ol className="ago-thread" aria-label={strings.threadAriaLabel}>
-        {items.map((item) =>
-          item.kind === "day" ? (
-            <li className="ago-thread__day" key={`day-${item.key}`}>
-              <span>{formatDayLabel(item.at, now, timeZone, strings)}</span>
-            </li>
-          ) : (
+        {items.map((item) => {
+          if (item.kind === "day") {
+            return (
+              <li className="ago-thread__day" key={`day-${item.key}`}>
+                <span>{formatDayLabel(item.at, now, timeZone, strings)}</span>
+              </li>
+            );
+          }
+
+          // `23-19`: computed once per message - never for a visitor/system one, which
+          // `deliveryByMessageId` never carries a key for anyway (only an operator message is ever
+          // relayed, `DeliverChannelMessageHandler`'s own loop guard, `ago-chat`).
+          const delivery =
+            item.message.authorKind === "Operator" ? deliveryByMessageId.get(item.message.id) : undefined;
+
+          return (
             <li
               key={item.message.id}
               data-sequence={item.message.sequence}
@@ -280,6 +308,25 @@ export function Thread({
                   )}
                   {import.meta.env.DEV && <span className="ago-message__sequence">#{item.message.sequence}</span>}
                 </span>
+                {/* `23-19`: only ever an operator's own message, and only when a delivery was
+                    actually recorded for it - see `channelDeliveries`'s own doc comment. */}
+                {delivery &&
+                  (delivery.status === "Delivered" ? (
+                    <Badge tone="success">{strings.threadDeliveryDeliveredBadge}</Badge>
+                  ) : (
+                    // `title`, not a Badge prop: `adr/0030` closes the component set at eleven, and
+                    // the console has no tooltip - a native `title` is the same fallback the bubble
+                    // itself already uses above for its own timestamp/sequence detail.
+                    <span
+                      title={
+                        delivery.failureReason
+                          ? `${strings.threadDeliveryReasonPrefix} ${delivery.failureReason}`
+                          : undefined
+                      }
+                    >
+                      <Badge tone="danger">{strings.threadDeliveryNotDeliveredBadge}</Badge>
+                    </span>
+                  ))}
                 {/* `23-10`: only ever rendered for the one message whose body currently holds the
                     selection - never a per-message button sitting there unconditionally. `onMouseDown`
                     stops the browser's own default (collapsing the text selection when a mousedown
@@ -299,8 +346,8 @@ export function Thread({
                 )}
               </div>
             </li>
-          ),
-        )}
+          );
+        })}
       </ol>
 
       <div ref={bottomRef} />

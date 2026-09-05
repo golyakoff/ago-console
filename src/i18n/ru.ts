@@ -85,6 +85,12 @@ export const ru: ConsoleStrings = {
   threadAuthorOperator: "Оператор",
   threadAuthorSystem: "Система",
   threadPromoteToContactButton: "Добавить в контактные данные",
+  threadDeliveryScopeNote:
+    "Статус доставки показывается только для сообщений, отправленных через подключённый канал " +
+    "(SMS, Telegram и т. п.). Сообщения в чате на сайте статус доставки не показывают.",
+  threadDeliveryDeliveredBadge: "Доставлено",
+  threadDeliveryNotDeliveredBadge: "Не доставлено",
+  threadDeliveryReasonPrefix: "Причина:",
 
   composerUploadingLabel: "Загрузка",
   composerAttachedBadge: "Вложено",
