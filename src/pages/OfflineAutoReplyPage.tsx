@@ -12,6 +12,12 @@ import {
   validateDraft,
   type DraftRule,
 } from "./offlineAutoReplyValidation.js";
+import {
+  fetchAssignmentPenalty,
+  updateAssignmentPenalty,
+  AssignmentPenaltyError,
+} from "../api/assignmentPenaltyApi.js";
+import { validatePenaltySeconds } from "./assignmentPenaltyValidation.js";
 import { PageHead } from "../shell/AppShell.js";
 import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
@@ -250,6 +256,139 @@ export function OfflineAutoReplyPage() {
           </form>
         </Panel>
       )}
+
+      {/* `23-05`: a second, independent panel on this same screen - "the settings screen that
+          already owns site behaviour", the item's own words - for a second, independent
+          site-configuration resource. Its own load/save state, deliberately not folded into the
+          offline-auto-reply form above: the two are different backend resources
+          (`assignmentPenaltyApi.ts` vs `offlineAutoReplyApi.ts`), and coupling their state would
+          make one screen's failure look like the other's. */}
+      <AssignmentPenaltySection />
     </>
+  );
+}
+
+/**
+ * `23-05`: `/settings/auto-reply`'s second control - how long a `Waiting` conversation may sit with
+ * nobody having taken it before the assignment engine assigns it anyway, capacity ignored
+ * (`decisions.md` §2). Gated identically to `OfflineAutoReplyPage` itself: the same `usePermissions()`
+ * client-side check (UX only) backed by the same server-side `site:configure` gate on both `GET` and
+ * `PUT` (`AssignmentPenaltyEndpoints`, `ago-chat`) - a caller who reaches this some other way still
+ * gets a real `403` from the server, this component just does not render a form for it.
+ */
+function AssignmentPenaltySection() {
+  const { user } = useAuth();
+  const { siteId, hasPermission } = usePermissions();
+  const strings = useStrings();
+  const [loaded, setLoaded] = useState(false);
+  const [penaltySeconds, setPenaltySeconds] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const load = useCallback(() => {
+    const accessToken = user?.access_token;
+    if (!accessToken || !siteId) {
+      return;
+    }
+
+    fetchAssignmentPenalty(accessToken, siteId)
+      .then((dto) => {
+        setPenaltySeconds(String(dto.penaltySeconds));
+        setLoaded(true);
+        setLoadError(null);
+      })
+      .catch((err: unknown) =>
+        setLoadError(
+          err instanceof AssignmentPenaltyError ? err.message : strings.assignmentPenaltyLoadError,
+        ),
+      );
+  }, [user?.access_token, siteId, strings]);
+
+  useEffect(() => {
+    if (!hasPermission("site:configure")) {
+      return;
+    }
+    load();
+  }, [load, hasPermission]);
+
+  if (!hasPermission("site:configure")) {
+    return null;
+  }
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSaved(false);
+    setSubmitError(null);
+
+    const problem = validatePenaltySeconds(penaltySeconds, strings);
+    setValidationError(problem);
+    if (problem !== null) {
+      return;
+    }
+
+    const accessToken = user?.access_token;
+    if (!accessToken || !siteId) {
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const dto = await updateAssignmentPenalty(accessToken, siteId, {
+        penaltySeconds: Number(penaltySeconds.trim()),
+      });
+      setPenaltySeconds(String(dto.penaltySeconds));
+      setSaved(true);
+    } catch (err) {
+      setSubmitError(
+        err instanceof AssignmentPenaltyError ? err.message : strings.assignmentPenaltySubmitError,
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!loaded && !loadError) {
+    return (
+      <Panel>
+        <Skeleton lines={1} label={strings.assignmentPenaltyLoadingLabel} />
+      </Panel>
+    );
+  }
+
+  if (loadError) {
+    return <Alert tone="danger">{loadError}</Alert>;
+  }
+
+  return (
+    <Panel title={strings.assignmentPenaltyPanelTitle}>
+      <form className="ago-stack" onSubmit={(e) => void handleSubmit(e)}>
+        <Field label={strings.assignmentPenaltyFieldLabel} description={strings.assignmentPenaltyDescription}>
+          {(controlProps) => (
+            <Input
+              {...controlProps}
+              type="number"
+              min={1}
+              step={1}
+              value={penaltySeconds}
+              onChange={(e) => setPenaltySeconds(e.target.value)}
+              disabled={submitting}
+            />
+          )}
+        </Field>
+
+        {validationError && <Alert tone="danger">{validationError}</Alert>}
+        {submitError && <Alert tone="danger">{submitError}</Alert>}
+        {saved && <Alert tone="success">{strings.siteConfigSavedAlert}</Alert>}
+
+        <div className="ago-row">
+          <Button type="submit" variant="primary" disabled={submitting}>
+            {submitting ? strings.siteConfigSavingButton : strings.siteConfigSaveButton}
+          </Button>
+        </div>
+      </form>
+    </Panel>
   );
 }

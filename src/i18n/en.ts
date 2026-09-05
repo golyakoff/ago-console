@@ -370,6 +370,16 @@ export const en: ConsoleStrings = {
   autoReplyValidationReplyTooLongPrefix: "A reply cannot exceed",
   autoReplyValidationReplyTooLongSuffix: "characters.",
 
+  assignmentPenaltyPanelTitle: "Assignment penalty",
+  assignmentPenaltyDescription:
+    "If nobody takes a waiting conversation within this many seconds, it is assigned anyway - to the least-busy online operator, capacity ignored. A waiting customer is worse than uneven load.",
+  assignmentPenaltyFieldLabel: "Seconds before assigning anyway",
+  assignmentPenaltyLoadingLabel: "Loading the assignment penalty…",
+  assignmentPenaltyLoadError: "Failed to load the assignment penalty.",
+  assignmentPenaltySubmitError: "Failed to save the assignment penalty.",
+  assignmentPenaltyValidationRequired: "Enter how many seconds to wait before assigning anyway.",
+  assignmentPenaltyValidationMustBePositive: "The assignment penalty must be a positive whole number of seconds.",
+
   cannedResponsesForbidden: "You do not have permission to configure this site's canned responses.",
   cannedResponsesDescription:
     "Prepared answers your team can insert into a reply instead of typing them again. Type \"/\" in " +

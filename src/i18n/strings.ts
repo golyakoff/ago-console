@@ -523,6 +523,19 @@ export interface ConsoleStrings {
   autoReplyValidationReplyTooLongPrefix: string;
   autoReplyValidationReplyTooLongSuffix: string;
 
+  // `23-05`: the assignment-penalty control on the same `/settings/auto-reply` screen - a second,
+  // independent panel for a second, independent site-configuration resource
+  // (`assignmentPenaltyApi.ts`/`assignmentPenaltyValidation.ts`), not folded into the offline
+  // auto-reply form above it.
+  assignmentPenaltyPanelTitle: string;
+  assignmentPenaltyDescription: string;
+  assignmentPenaltyFieldLabel: string;
+  assignmentPenaltyLoadingLabel: string;
+  assignmentPenaltyLoadError: string;
+  assignmentPenaltySubmitError: string;
+  assignmentPenaltyValidationRequired: string;
+  assignmentPenaltyValidationMustBePositive: string;
+
   // `18-03`: CannedResponsesPage - the same list-editor shape `OfflineAutoReplyPage` established just
   // above (one blank row to type into, dropped on save), reused for a genuinely different concept -
   // see `CannedResponse`'s own doc comment (`ago-chat`) for why this is not that page's rules reused.

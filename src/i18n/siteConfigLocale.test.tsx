@@ -38,6 +38,13 @@ const offlineAutoReplyApi = vi.hoisted(() => ({
   fetchOfflineAutoReply: vi.fn(),
   updateOfflineAutoReply: vi.fn(),
 }));
+// `23-05`: the second, independent panel `OfflineAutoReplyPage` now renders on this same route -
+// mocked the same way its sibling above is, so this file's own render of `/settings/auto-reply`
+// does not trigger a real, unmocked `fetch` for it.
+const assignmentPenaltyApi = vi.hoisted(() => ({
+  fetchAssignmentPenalty: vi.fn(),
+  updateAssignmentPenalty: vi.fn(),
+}));
 const cannedResponsesApi = vi.hoisted(() => ({
   fetchCannedResponses: vi.fn(),
   updateCannedResponses: vi.fn(),
@@ -57,6 +64,12 @@ vi.mock("../api/offlineAutoReplyApi.js", async () => {
     "../api/offlineAutoReplyApi.js",
   );
   return { ...actual, ...offlineAutoReplyApi };
+});
+vi.mock("../api/assignmentPenaltyApi.js", async () => {
+  const actual = await vi.importActual<typeof import("../api/assignmentPenaltyApi.js")>(
+    "../api/assignmentPenaltyApi.js",
+  );
+  return { ...actual, ...assignmentPenaltyApi };
 });
 vi.mock("../api/cannedResponsesApi.js", async () => {
   const actual = await vi.importActual<typeof import("../api/cannedResponsesApi.js")>(
@@ -146,6 +159,7 @@ beforeEach(() => {
     fallbackReply: "",
     rules: [],
   });
+  assignmentPenaltyApi.fetchAssignmentPenalty.mockResolvedValue({ penaltySeconds: 120 });
   cannedResponsesApi.fetchCannedResponses.mockResolvedValue([]);
 });
 
@@ -192,10 +206,18 @@ describe("the site-configuration screens for an active site with Locale = Ru", (
     const container = await render(siteConfigAt("/settings/auto-reply", "Ru"));
 
     expect(container.querySelector(".ago-page-head__title")?.textContent).toBe("Автоответ офлайн");
-    expect(container.querySelector(".ago-panel__title")?.textContent).toBe("Ответы, пока вас нет на месте");
+    // `23-05`: two panels on this route now - the offline auto-reply form, and its own sibling panel
+    // for the assignment penalty, both rendered in Russian.
+    const panelTitles = all(container, ".ago-panel__title").map((t) => t.textContent?.trim());
+    expect(panelTitles).toEqual(["Ответы, пока вас нет на месте", "Штраф ожидания"]);
     expect(container.querySelector("legend")?.textContent).toBe("Правила по ключевым словам");
     const labels = all(container, ".ago-field__label").map((l) => l.textContent?.trim());
-    expect(labels).toEqual(["Ответ по умолчанию", "Ключевое слово 1", "Ответ 1"]);
+    expect(labels).toEqual([
+      "Ответ по умолчанию",
+      "Ключевое слово 1",
+      "Ответ 1",
+      "Секунд до принудительного назначения",
+    ]);
     const removeButton = one<HTMLButtonElement>(container, "button[aria-label='Удалить правило 1']");
     expect(removeButton.textContent).toBe("Удалить");
 
@@ -269,6 +291,11 @@ describe("the site-configuration screens for an active site with no Locale set",
     expect(autoReply.querySelector("legend")?.textContent).toBe("Keyword rules");
     const removeButton = one<HTMLButtonElement>(autoReply, "button[aria-label='Remove keyword rule 1']");
     expect(removeButton.textContent).toBe("Remove");
+    // `23-05`: the sibling panel's own English title and label, unchanged from the default locale.
+    const panelTitles = all(autoReply, ".ago-panel__title").map((t) => t.textContent?.trim());
+    expect(panelTitles).toEqual(["Replies while you are away", "Assignment penalty"]);
+    const autoReplyLabels = all(autoReply, ".ago-field__label").map((l) => l.textContent?.trim());
+    expect(autoReplyLabels.at(-1)).toBe("Seconds before assigning anyway");
   });
 
   it("renders CannedResponsesPage's form unchanged, in English", async () => {
