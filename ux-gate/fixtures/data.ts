@@ -15,6 +15,11 @@ export const OPERATOR_ID = "22222222-2222-4222-8222-222222222222";
 export const OPERATOR_SUB = "33333333-3333-4333-8333-333333333333";
 export const VISITOR_ID = "44444444-4444-4444-8444-444444444444";
 export const OTHER_OPERATOR_ID = "55555555-5555-4555-8555-555555555555";
+/** `23-22`: the team screen's own third row - active, but seat-less (`holds_seat: false`) and with
+ * no `display_name`/`email` at all, the `adr/0104` shape a minted demo tenant's own operator carries.
+ * Exercises the "no name, so the id itself" fallback and the `operatorsTeamSeatNotHeld` badge in the
+ * same screenshot the two named rows already cover. */
+export const UNSEATED_OPERATOR_ID = "dddddddd-5555-4555-8555-555555555555";
 
 /** The conversation the gate opens on `/conversations/:id` - assigned to the seeded operator, so
  * `OperatorConnection.joinConversation` is a legitimate call (`operatorConnection.ts`'s own doc
@@ -91,6 +96,10 @@ export function seededPermissions(overrides: SeededPermissionsOverrides = {}) {
       "attachment:delete",
       "site:configure",
       "site:erase",
+      // `23-22`: without this, `operators-team` below would render `AccessRefusal` instead of the
+      // team table for every screen in this gate's default run - the identical reasoning the six
+      // permissions already here follow for their own screens.
+      "site:manage_operators",
       // `22-06`/`adr/0093`: without this, the four calendar screens this gate opens
       // (`ux-gate/fixtures/screens.ts`) would refuse themselves before ever reaching their own
       // "render the data" assertions - the identical shape `site:configure` above already has for
@@ -158,6 +167,35 @@ export function seededAllConversations() {
     ],
     nextBeforeId: null,
   };
+}
+
+/** `23-22`: the team screen's own list - `GET /api/v1/sites/{siteId}/operators`'s wire body
+ * (`GetOperatorTeamHandler`, `OperatorTeamResponseDto`). Three rows, deliberately: two named,
+ * seat-holding operators and one unseated, unnamed one (`UNSEATED_OPERATOR_ID`'s own doc comment) -
+ * so both `Badge` tones this screen uses (`operatorsTeamSeatHeld`/`operatorsTeamSeatNotHeld`) and
+ * both name renderings (a real name, and the id-fallback) appear in the same screenshot. */
+export function seededOperatorTeam() {
+  return {
+    operators: [
+      // `11-16`'s own discipline, applied to a field this gate had not seeded before: every free-text
+      // fixture value in this file is Cyrillic, emails included - a Cyrillic-domain address (real
+      // under IDNA, and unremarkable for a Russian small business) rather than an ASCII one, so this
+      // screen's own "no untranslated interface text" run has nothing incidentally Latin to flag
+      // (found live: an ASCII `@example-shop.ru` address failed that assertion the first time this
+      // screen ran).
+      { operatorId: OPERATOR_ID, displayName: "Мария Кузнецова", email: "мария@кофейня.рф", holdsSeat: true },
+      { operatorId: OTHER_OPERATOR_ID, displayName: "Иван Петров", email: "иван@кофейня.рф", holdsSeat: true },
+      { operatorId: UNSEATED_OPERATOR_ID, displayName: null, email: null, holdsSeat: false },
+    ],
+  };
+}
+
+/** `23-22`: the same screen's other call - `GET .../operators/seat-assignment-summary`
+ * (`GetSeatAssignmentSummaryHandler`, unchanged by this item). `seatLimit: 1` against the two held
+ * seats `seededOperatorTeam` above seeds makes `overSeats: true`, so the default gate run exercises
+ * `operatorsTeamOverSeatsBody`'s own banner without a second, dedicated screen. */
+export function seededSeatAssignmentSummary() {
+  return { heldSeats: 2, seatLimit: 1, overSeats: true };
 }
 
 /** The **raw HTTP body** `GET /api/v1/owner/sites` returns - a plain `OwnerSitesPage`, not

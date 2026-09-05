@@ -20,6 +20,7 @@ export const ru: ConsoleStrings = {
   navPlatformSites: "Сайты платформы",
   navDeleteAccount: "Удалить аккаунт",
   navBilling: "Оплата",
+  navOperatorsTeam: "Команда",
   signOut: "Выйти",
   siteIdTooltip: "ID сайта",
   siteIdPrefix: "сайт",
@@ -587,6 +588,58 @@ export const ru: ConsoleStrings = {
     "Отвечайте на частые вопросы автоматически - по базе знаний, которую вы сами наполняете, - " +
     "операторы включаются только там, где действительно нужен человек.",
   productsFaqActionLabel: "Открыть автоматические ответы",
+
+  operatorsTeamTitle: "Команда",
+  operatorsTeamDescription:
+    "Все, кто здесь работает - пригласите коллегу, посмотрите, кто занимает место в тарифе, и уберите тех, кто " +
+    "уже не с вами.",
+  operatorsTeamForbidden: "У вас нет прав на управление командой этого сайта.",
+  operatorsTeamLoadError: "Не удалось загрузить команду. Попробуйте перезагрузить страницу.",
+  operatorsTeamLoadingLabel: "Загружаем команду…",
+
+  operatorsTeamPanelTitle: "Кто здесь работает",
+  operatorsTeamTableCaption: "Все операторы этого сайта",
+  operatorsTeamNameColumn: "Имя",
+  operatorsTeamEmailColumn: "Почта",
+  operatorsTeamSeatColumn: "Место",
+  operatorsTeamActionsColumn: "Действия",
+  operatorsTeamSeatHeld: "Занимает место",
+  operatorsTeamSeatNotHeld: "Без места",
+  operatorsTeamSeatsSummaryLabel: "Занято мест:",
+
+  operatorsTeamOverSeatsTitle: "Превышен лимит мест",
+  operatorsTeamOverSeatsBody:
+    "На этом сайте занято больше мест, чем позволяет текущий тариф - скорее всего, после понижения тарифа. Все " +
+    "ниже по-прежнему работают; освободите место или повысьте лимит в разделе «Оплата», когда будете готовы. " +
+    "Занято:",
+
+  operatorsTeamGrantSeatButton: "Выделить место",
+  operatorsTeamRevokeSeatButton: "Забрать место",
+  operatorsTeamSeatToggleError: "Не удалось изменить место. Попробуйте ещё раз.",
+
+  operatorsTeamRemoveButton: "Удалить",
+  operatorsTeamRemoveDialogTitle: "Удалить этого коллегу?",
+  operatorsTeamRemoveDialogBody:
+    "сразу же вернёт все назначенные на него обращения в очередь ожидания. История сохранится, но само удаление " +
+    "отменить будет нельзя.",
+  operatorsTeamRemoveConfirmButton: "Удалить",
+  operatorsTeamRemoveError: "Не удалось удалить оператора. Попробуйте ещё раз.",
+
+  operatorsTeamInviteButton: "Пригласить коллегу",
+  operatorsTeamInviteDialogTitle: "Пригласить коллегу",
+  operatorsTeamInviteCostBody: "Это займёт ещё одно место - на сайте станет",
+  operatorsTeamInviteConfirmButton: "Отправить приглашение",
+  operatorsTeamInviteSendingButton: "Отправляем…",
+  operatorsTeamInviteAtLimitTitle: "Достигнут лимит мест",
+  operatorsTeamInviteAtLimitBody:
+    "Освободите место выше или повысьте лимит в разделе «Оплата», прежде чем приглашать ещё одного коллегу - на " +
+    "сайте уже занято",
+  operatorsTeamInviteSubmitError: "Не удалось создать приглашение. Попробуйте ещё раз.",
+  operatorsTeamInviteSuccessTitle: "Приглашение создано",
+  operatorsTeamInviteSuccessBody: "Передайте этот код коллеге - он показывается здесь только один раз.",
+  operatorsTeamInviteCodeLabel: "Код приглашения",
+  operatorsTeamInviteExpiresLabel: "Действует до",
+  operatorsTeamInviteCloseButton: "Закрыть",
 
   navAnalytics: "Аналитика",
   analyticsPageDescription:

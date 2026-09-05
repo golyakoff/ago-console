@@ -106,6 +106,7 @@ describe("the console shell for an active site with Locale = Ru", () => {
       "Метки",
       "Оплата",
       "Удалить аккаунт",
+      "Команда",
     ]);
     // `23-24`'s own Done-when: the lock glyph's hidden label, present and translated here too.
     expect(container.querySelector(".ago-shell__nav-lock .ago-visually-hidden")?.textContent).toBe(
@@ -160,6 +161,7 @@ describe("the console shell for an active site with no Locale set", () => {
       "Tags",
       "Billing",
       "Delete account",
+      "Team",
     ]);
     expect(container.querySelector(".ago-shell__identity button")?.textContent).toBe("Sign out");
     expect(container.querySelector(".ago-demo-notice__text")?.textContent).toContain("This is a public demo console");

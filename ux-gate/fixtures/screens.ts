@@ -85,6 +85,25 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
     path: "/analytics",
     readySelector: ".ago-table-scroll",
   },
+  // `23-22`: the team screen - ordinary state (the seeded operator holds `site:manage_operators` by
+  // default, `data.ts#seededPermissions`'s own list). Waits for the table, matching `admin-conversations`/
+  // `analytics` above.
+  {
+    name: "operators-team",
+    path: "/settings/operators",
+    readySelector: ".ago-table-scroll",
+  },
+  // `23-22`: the same route, this screen's own refused state - `23-24`'s own pattern
+  // (`admin-limited-permissions` above it in this file), a *second* screen entry for the identical
+  // route rather than a variant of the one above, because a permissions override changes what
+  // renders at the same path. `site:manage_operators` omitted from the override's `permissions` list
+  // is what puts this behind `AccessRefusal` instead of the table.
+  {
+    name: "operators-team-forbidden",
+    path: "/settings/operators",
+    readySelector: ".ago-alert",
+    permissionsOverride: { permissions: ["conversation:close"], enabledModules: ["calendar"] },
+  },
   // `22-06`/`adr/0093`: four of AGO Calendar's five console screens, moved from
   // `ago-calendar-console`'s own gate (which covered all eight of its own routes - six screens plus
   // the two worker-slots/re-cut drill-downs, `15-11`'s addendum in that repository) into this one's

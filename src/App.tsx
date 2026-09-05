@@ -24,6 +24,7 @@ import { TagsPage } from "./pages/TagsPage.js";
 import { BillingPage } from "./pages/BillingPage.js";
 import { ProductsPage } from "./pages/ProductsPage.js";
 import { AccountDeletionPage } from "./pages/AccountDeletionPage.js";
+import { OperatorsTeamPage } from "./pages/OperatorsTeamPage.js";
 import { OwnerSitesPage } from "./owner/OwnerSitesPage.js";
 import { OwnerSiteDetailPage } from "./owner/OwnerSiteDetailPage.js";
 import { CalendarQueuePage } from "./pages/CalendarQueuePage.js";
@@ -214,6 +215,11 @@ export function App() {
             page gates itself internally" shape - but on `site:erase`, not `site:configure`
             (`AccountDeletionPage`'s own doc comment). */}
         <Route path="/settings/delete-account" element={<AccountDeletionPage />} />
+        {/* `23-22`: an eighth settings screen, same "route stays outside the workspace layout, page
+            gates itself internally" shape - but on its own `site:manage_operators`, not
+            `site:configure` or `site:erase` (`OperatorsTeamPage`'s own doc comment: an operator who
+            may reconfigure the widget must not, by that alone, manage who else works here). */}
+        <Route path="/settings/operators" element={<OperatorsTeamPage />} />
         {/* `22-06`/`adr/0093`: AGO Calendar's screens, moved from `ago-calendar-console`. Under
             `/calendar`, not `/settings/*` - `consoleNav.ts`'s own remarks have the "why this prefix"
             reasoning. Same "route stays outside the workspace layout, page gates itself internally"
