@@ -1180,4 +1180,9 @@ export const ru: ConsoleStrings = {
     "тенант на этом развёртывании, но отменить это потом уже нельзя.",
   onboardingRedeemInvitePrompt: "Вместо этого есть код приглашения?",
   onboardingRedeemInviteLinkLabel: "Активировать его здесь",
+  policyPageLoading: "Загрузка…",
+  policyPageNotFound: "Мы не нашли этот документ.",
+  policyPageErrorGeneric: "Не удалось загрузить документ. Попробуйте ещё раз.",
+  policyPagePublishedPrefix: "Опубликовано ",
+  policyPageVersionSeparator: " - версия ",
 };

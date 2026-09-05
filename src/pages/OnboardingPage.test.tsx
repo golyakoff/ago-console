@@ -34,8 +34,14 @@ vi.mock("../config.js", () => ({
 
 const sitesApi = vi.hoisted(() => ({ registerSite: vi.fn() }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn(), fetchOwnerSites: vi.fn() }));
+// `24-03`: this page's own new read - mocked the same way `ownerApi` is, rather than left to hit a
+// real (fake-origin) `fetch` that `getRequiredDocuments` would otherwise swallow into `[]` anyway
+// (`documentsApi.ts`'s own "fails open" remarks) - explicit here so every existing test in this file
+// keeps its own "nothing beyond contract necessity today" default without a real network attempt.
+const documentsApi = vi.hoisted(() => ({ getRequiredDocuments: vi.fn() }));
 
 vi.mock("../api/ownerApi.js", () => ownerApi);
+vi.mock("../api/documentsApi.js", () => documentsApi);
 
 vi.mock("../api/sitesApi.js", async () => {
   // `RegisterSiteError` is a real class the page does `instanceof` against, so the module keeps its
@@ -102,6 +108,8 @@ beforeEach(() => {
     siteId: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
     operatorId: "ffffffff-ffff-ffff-ffff-ffffffffffff",
   });
+  // `24-03`'s own default, matching the real `required_documents` table's default state today.
+  documentsApi.getRequiredDocuments.mockResolvedValue([]);
 });
 
 afterEach(async () => {
@@ -153,6 +161,60 @@ describe("finishing setup", () => {
  * (`RedeemInvitePage.tsx`'s own doc comment has the reasoning for why the routing itself, `CallbackPage`'s
  * unconditional "/onboarding" for state (b), is not widened instead).
  */
+/**
+ * `24-03`'s own Done-when: "No control on that screen asks for consent to processing the contract
+ * already requires" and "if a separate optional consent exists, it is unticked by default and
+ * refusing it still registers the tenant." This file ships no optional-consent control at all (this
+ * item's own decided outcome: nothing beyond contract necessity exists today - see
+ * `RegisterSiteHandler`'s own remarks), so what these tests prove is the other half: the
+ * required-agreement link is data-driven, not a hardcoded string, and its presence or absence never
+ * blocks the form itself from submitting.
+ */
+describe("the agreement link (24-03)", () => {
+  it("shows nothing extra when nothing is required, exactly as this page always has", async () => {
+    const container = await render(app());
+
+    expect(container.textContent).not.toContain("you agree to");
+  });
+
+  it("links to the current published version of a required document, by title", async () => {
+    documentsApi.getRequiredDocuments.mockResolvedValue([
+      { documentKey: "tenant-terms", version: "v1", title: "Tenant Terms", publishedAt: "2026-03-01T00:00:00Z" },
+    ]);
+
+    const container = await render(app());
+
+    expect(container.textContent).toContain("you agree to");
+    const link = byText<HTMLAnchorElement>(container, "a", "Tenant Terms");
+    expect(link).not.toBeNull();
+    expect(link?.getAttribute("href")).toBe("/policies/tenant-terms");
+  });
+
+  it("asks documentsApi for the tenant's own required documents, not the operator's or visitor's", async () => {
+    await render(app());
+
+    expect(documentsApi.getRequiredDocuments).toHaveBeenCalledWith("tenant");
+  });
+
+  it("still submits normally when a required document has no published version yet - the server, not this screen, is the gate", async () => {
+    documentsApi.getRequiredDocuments.mockResolvedValue([
+      { documentKey: "tenant-terms", version: null, title: null, publishedAt: null },
+    ]);
+
+    const container = await render(app());
+
+    expect(container.textContent).toContain("you agree to");
+    // No link for a key with nothing published under it yet - just its own key, as plain text.
+    expect(byText<HTMLAnchorElement>(container, "a", "tenant-terms")).toBeNull();
+
+    await fill(container, "Kim's shop", "https://shop.example.com");
+    await submit(container);
+
+    expect(sitesApi.registerSite).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toContain("the queue");
+  });
+});
+
 describe("the invite-code alternative", () => {
   it("offers a way to redeem an invite instead of registering a new site", async () => {
     const container = await render(app());
