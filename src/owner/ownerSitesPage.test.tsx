@@ -92,6 +92,7 @@ describe("the platform-sites page's own navigation", () => {
 
     expect(navLabels(container)).toEqual([
       "Conversations",
+      "My numbers",
       "All conversations",
       "Search",
       "Analytics",

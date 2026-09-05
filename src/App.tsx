@@ -11,6 +11,7 @@ import { NoConversationSelected } from "./workspace/NoConversationSelected.js";
 import { ConversationPage } from "./pages/ConversationPage.js";
 import { AdminConversationsPage } from "./pages/AdminConversationsPage.js";
 import { OperatorAnalyticsPage } from "./pages/OperatorAnalyticsPage.js";
+import { MyNumbersPage } from "./pages/MyNumbersPage.js";
 import { ConversionReportPage } from "./pages/ConversionReportPage.js";
 import { TagBreakdownReportPage } from "./pages/TagBreakdownReportPage.js";
 import { BookingFlowConversionPage } from "./pages/BookingFlowConversionPage.js";
@@ -165,6 +166,11 @@ export function App() {
         {/* `18-08`: same "outside the workspace layout, page gates itself internally" shape as
             `/admin`/`/search` above - `OperatorAnalyticsPage` checks `site:configure` itself. */}
         <Route path="/analytics" element={<OperatorAnalyticsPage />} />
+        {/* `23-18`: a sibling route, not a query mode on `/analytics` - `MyNumbersPage` gates on
+            nothing but a real operator identity (`RequireAuth`/`RequireOperatorIdentity` alone), the
+            one route in this whole analytics group with no `site:configure` check inside it either -
+            `MyNumbersPage`'s own doc comment states why a permission would be the wrong shape here. */}
+        <Route path="/analytics/me" element={<MyNumbersPage />} />
         {/* `18-10`: same "outside the workspace layout, page gates itself internally" shape as
             `/analytics` right above it - `ConversionReportPage` checks `site:configure` itself. A
             sibling route, not a query-parameter mode on `/analytics`, matching that page's own doc

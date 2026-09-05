@@ -245,6 +245,63 @@ export interface OperatorAnalyticsResponse {
 }
 
 /**
+ * `23-17`: `Ago.Chat.Contracts.OperatorLoadBucketEntryDto` - response time for the intervals this
+ * operator held that started at one given concurrent-load bucket. `bucketLabel` is a display string
+ * (`"1"`, `"2-3"`, `"9+"`) from the server's own configured boundaries - never parsed back apart.
+ * `averageFirstReplySeconds` is `null` when `replyCount` is zero - never `0` itself, the same
+ * "nothing to average yet" convention `OperatorAnalyticsBucketDto.averageFirstResponseSeconds` already
+ * follows.
+ */
+export interface OperatorLoadBucketEntryDto {
+  bucketLabel: string;
+  intervalCount: number;
+  replyCount: number;
+  averageFirstReplySeconds: number | null;
+}
+
+/**
+ * `23-17`: `Ago.Chat.Contracts.OperatorLoadSummaryDto` - one operator's own load summary: how many
+ * conversations they *held* (`conversation_assignments`), not how many were *attributed* to them
+ * (`OperatorAnalyticsBucketDto` - message authorship) - a different question over the same window
+ * (`Ago.Chat.Application.Abstractions.IOperatorLoadReportReadStore`'s own remarks, `ago-chat`).
+ *
+ * `standardIntervals`/`additionalIntervals` are `docs/design/decisions.md` §2's naming amendment: the
+ * two counts a tenant is shown as two counts, never combined into one score - "additional" is an
+ * interval where this operator's own concurrent load, counting the interval itself, exceeded their
+ * capacity when it started. `standardIntervals + additionalIntervals === intervalsHeld` always, and a
+ * `0` in either is a real fact, not a criticism.
+ *
+ * `conversationsHeld` counts a conversation once even if this operator held it twice (transferred away
+ * and back); `intervalsHeld` counts that same conversation twice - never less than `conversationsHeld`.
+ */
+export interface OperatorLoadSummaryDto {
+  conversationsHeld: number;
+  intervalsHeld: number;
+  standardIntervals: number;
+  additionalIntervals: number;
+  byLoad: OperatorLoadBucketEntryDto[];
+}
+
+/**
+ * `23-18`: `Ago.Chat.Contracts.OwnOperatorAnalyticsResponse` - `GET /api/v1/conversations/analytics/me`'s
+ * body: the caller's own row of `OperatorAnalyticsResponse`/`ConversionReportResponse`, and nothing
+ * else - no `operatorId` field anywhere on this shape, and no other operator's numbers, by
+ * construction (`Ago.Chat.Application.UseCases.GetOwnAnalyticsForOperator`'s own remarks, `ago-chat`).
+ *
+ * `bucket` is zero-filled, never absent, even when this operator did nothing in the window - the
+ * screen this response feeds is not allowed to look broken on a slow day.
+ * `load`/`conversion` are `null` when this operator held no assignment interval / recorded no
+ * outcome in the window - a real "no data", not a zero (`OperatorLoadSummaryDto`'s own remarks).
+ */
+export interface OwnOperatorAnalyticsResponse {
+  from: string;
+  to: string;
+  bucket: OperatorAnalyticsBucketDto;
+  load: OperatorLoadSummaryDto | null;
+  conversion: ConversionBucketDto | null;
+}
+
+/**
  * `18-10`: `Ago.Chat.Contracts.ConversationOutcomeResponse` - the CLR member name of
  * `Ago.Chat.Domain.ConversationOutcome`, always one of `"Unset"`/`"Converted"`/`"NotConverted"`/
  * `"FollowUpNeeded"`.

@@ -693,6 +693,32 @@ export const en: ConsoleStrings = {
   analyticsComparisonPointsSuffix: "pp",
   analyticsFractionOfLabel: "of",
 
+  navMyNumbers: "My numbers",
+  myNumbersPageDescription: "Your own figures, the same measure your tenant sees - and yours first.",
+  myNumbersFromFieldLabel: "From (optional)",
+  myNumbersToFieldLabel: "To (optional)",
+  myNumbersApplyButton: "Apply",
+  myNumbersRangeLabel: "Reporting on",
+  myNumbersLoadingLabel: "Loading your numbers…",
+  myNumbersEmpty: "You held no conversations in this range.",
+
+  myNumbersConversationsHeading: "Your conversations",
+
+  myNumbersLoadHeading: "Your load",
+  myNumbersLoadEmpty: "No assignment data yet in this range.",
+  myNumbersHeldColumn: "Held",
+  myNumbersStandardColumn: "Standard",
+  myNumbersAdditionalColumn: "Additional",
+
+  myNumbersByLoadHeading: "Response time by your own concurrent load",
+  myNumbersLoadBucketColumn: "Concurrent load",
+  myNumbersIntervalsColumn: "Intervals",
+  myNumbersRepliesColumn: "Replies",
+  myNumbersAverageFirstReplyColumn: "Avg. first reply",
+
+  myNumbersConversionHeading: "Your conversion",
+  myNumbersConversionEmpty: "Nothing you handled has a recorded outcome yet in this range.",
+
   outcomeSectionTitle: "Outcome",
   outcomeLoadingLabel: "Loading outcome…",
   outcomeLoadError: "Could not load this conversation's outcome.",

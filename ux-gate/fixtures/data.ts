@@ -316,6 +316,39 @@ export function seededAnalytics() {
   };
 }
 
+/**
+ * `23-18`: `/analytics/me`'s own fixture - the seeded operator's own row, with real standard/
+ * additional numbers and a real recorded outcome, so the gate's untranslated-Latin-text check has
+ * every one of this new screen's sections (conversations, load, by-load buckets, conversion) actually
+ * rendered rather than short-circuited into an empty-state sentence.
+ */
+export function seededOwnAnalytics() {
+  return {
+    from: "2026-08-02T00:00:00.000Z",
+    to: "2026-09-01T00:00:00.000Z",
+    bucket: { conversationCount: 27, averageFirstResponseSeconds: 88, averageDurationSeconds: 610, missedCount: 1 },
+    load: {
+      conversationsHeld: 27,
+      intervalsHeld: 29,
+      standardIntervals: 24,
+      additionalIntervals: 5,
+      byLoad: [
+        { bucketLabel: "1", intervalCount: 18, replyCount: 18, averageFirstReplySeconds: 40 },
+        { bucketLabel: "2-3", intervalCount: 8, replyCount: 7, averageFirstReplySeconds: 95 },
+        { bucketLabel: "4-5", intervalCount: 3, replyCount: 2, averageFirstReplySeconds: 180 },
+      ],
+    },
+    conversion: {
+      convertedCount: 9,
+      notConvertedCount: 4,
+      followUpNeededCount: 2,
+      unsetCount: 12,
+      recordedCount: 13,
+      conversionRate: 9 / 13,
+    },
+  };
+}
+
 export function seededVisitorHistory() {
   return { hasChannelIdentity: false, conversations: [], nextBeforeId: null };
 }

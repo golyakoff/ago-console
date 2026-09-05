@@ -92,6 +92,7 @@ describe("the console shell for an active site with Locale = Ru", () => {
     );
     expect(navLabels).toEqual([
       "Диалоги",
+      "Мои показатели",
       "Все диалоги",
       "Поиск",
       "Аналитика",
@@ -147,6 +148,7 @@ describe("the console shell for an active site with no Locale set", () => {
     );
     expect(navLabels).toEqual([
       "Conversations",
+      "My numbers",
       "All conversations",
       "Search",
       "Analytics",

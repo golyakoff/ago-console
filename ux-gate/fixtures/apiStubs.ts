@@ -5,6 +5,7 @@ import {
   OPEN_CONVERSATION_ID,
   seededAllConversations,
   seededAnalytics,
+  seededOwnAnalytics,
   seededCalendarBookingReadiness,
   seededCalendarConfiguration,
   seededCalendarContacts,
@@ -78,6 +79,10 @@ export async function installApiStubs(
 
     if (path === "/api/v1/conversations/analytics" && method === "GET") {
       return json(seededAnalytics());
+    }
+
+    if (path === "/api/v1/conversations/analytics/me" && method === "GET") {
+      return json(seededOwnAnalytics());
     }
 
     if (path === `/api/v1/conversations/${OPEN_CONVERSATION_ID}/visitor-history` && method === "GET") {
