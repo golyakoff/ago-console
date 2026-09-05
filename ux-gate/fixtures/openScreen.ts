@@ -23,7 +23,10 @@ export async function openScreen(page: Page, screen: UxGateScreen): Promise<void
   // `23-24`: `screen.permissionsOverride` is `undefined` for every screen but the one that sets it
   // (`screens.ts`'s own `admin-limited-permissions`) - `installApiStubs`'s own default parameter
   // falls back to the fully-permissioned seeded operator unchanged.
-  await installApiStubs(page, screen.permissionsOverride);
+  //
+  // `23-06`: the identical shape for `screen.installationOverride` - `undefined` for every screen but
+  // `installation-never-seen`, falling back to `seededSiteInstallation`'s own fully-configured default.
+  await installApiStubs(page, screen.permissionsOverride, screen.installationOverride);
   await installFontStubs(page);
   if (screen.needsHubMock) {
     await installOperatorHubMock(page);

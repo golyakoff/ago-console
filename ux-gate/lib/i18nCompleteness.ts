@@ -44,6 +44,14 @@
  *   необязательно)"`). Both are the translator's own deliberate, reviewed choice already merged into
  *   the string table, not a gap this assertion is discovering - "ID" and "hex" are common, unremarkable
  *   loanwords in Russian technical writing, the same register `ru.ts` uses throughout the console.
+ * - **An HTML tag name, rendered as itself, inside an instruction** - `"body"` inside
+ *   `installSnippetPanelDescription` (`"...вставьте её на страницы вашего сайта — прямо перед
+ *   закрывающим тегом </body>."`, rendered on `/settings/install`) - the identical "a translator must
+ *   not touch it" reasoning the URL-scheme exemption below already gives for `"https"`: the closing
+ *   `</body>` tag is a fact about HTML, not a phrase to render in the reader's language, and the
+ *   Russian sentence around it already is translated. Found running this assertion for real once
+ *   `23-06` added `/settings/install` to `UX_GATE_SCREENS` - a real, pre-existing gap this screen's own
+ *   absence from the gate had kept invisible, not something that item introduced.
  * - **A URL, or a URL scheme name, rendered as itself** - `"https"` inside `widgetNoticeUrlFieldDescription`
  *   (`"Должна начинаться с https://."`, rendered on `/settings/widget`) is a protocol name inside an
  *   instruction, the same "a translator must not touch it" reasoning the backlog item gives for a
@@ -88,15 +96,17 @@
  *   in this gate's own Chromium) rather than either a fixed convention or the app's own locale. A
  *   second, narrower instance of the same underlying gap.
  *
- * ## What this deliberately never had to decide
+ * ## `23-06`: `InstallSnippetPage` joins the gate, and its `<code>` elements needed no new exemption
  *
- * `<code>` elements: this repository has exactly two (`InstallSnippetPage.tsx`'s public key and
- * origin), and that screen is not one of `UX_GATE_SCREENS` (`ux-gate/fixtures/screens.ts`'s own doc
- * comment - not chosen among the five). No exemption for `<code>` is declared here, on purpose:
- * inventing one for content this gate never actually renders would be exactly the "silently skipping
- * every `<code>` is a pattern in disguise" trap the backlog item warns against. If `InstallSnippetPage`
- * ever joins this gate, its two `<code>` elements carry a real site key and a real origin string -
- * genuinely non-translatable technical values - and would earn a named entry then, not before.
+ * This function's own header used to note that `InstallSnippetPage.tsx`'s `<code>` elements (the site
+ * key, an allowed origin) were never exercised because that screen was not among `UX_GATE_SCREENS`, and
+ * that a future addition would "earn a named entry then, not before." It did not, in the event: every
+ * one of those elements already renders with `className="ago-mono ..."` (`ago-install-value`), so the
+ * existing `EXEMPT_ANCESTOR_SELECTOR` rule above - the same structural, by-convention exemption
+ * `Badge.tsx`'s own doc comment states for "literally an identifier" - already covers them without a
+ * new literal phrase. `23-06`'s own new `<code>` (a refused origin, `InstallSnippetPage.tsx`'s
+ * `InstallStatus`) carries the identical class for the identical reason. Left here as the record that
+ * this was checked and found already handled, not skipped.
  *
  * `<option>` elements are excluded by tag, not measured and found harmless - a closed native
  * `<select>` (`Select.tsx`'s own doc comment: "the option list itself stays the platform's own popup")
@@ -127,7 +137,7 @@ export function measureUntranslatedLatinText(): UntranslatedTextResult {
   // See this function's own file-level doc comment above for why each of these is here. Longer
   // phrases first, so "AGO Chat" is removed whole rather than leaving a stray "Chat" behind once
   // "AGO" has already matched inside it.
-  const EXEMPT_PHRASES = ["AGO Chat", "AGO", "WhatsApp", "Telegram", "Escape", "Shift", "Enter", "SMS", "MAX", "ID", "hex", "https", "Europe/Moscow"];
+  const EXEMPT_PHRASES = ["AGO Chat", "AGO", "WhatsApp", "Telegram", "Escape", "Shift", "Enter", "SMS", "MAX", "ID", "hex", "https", "</body>", "Europe/Moscow"];
   const EXEMPT_ANCESTOR_SELECTOR = ".ago-mono, .ago-badge--mono";
   const LATIN_RUN = /[A-Za-z]{2,}/g;
 
