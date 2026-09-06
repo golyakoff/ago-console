@@ -84,7 +84,7 @@ afterEach(async () => {
 describe("the console shell for an active site with Locale = Ru", () => {
   beforeEach(() => {
     operatorsApi.fetchMyPermissions.mockResolvedValue({
-      permissions: ["site:configure"], siteId: SITE_ID, locale: "Ru",
+      permissions: ["site:configure"], siteId: SITE_ID, locale: "Ru", credentialsArePublished: true,
     });
   });
 
@@ -127,7 +127,7 @@ describe("the console shell for an active site with no Locale set", () => {
   beforeEach(() => {
     // Every existing tenant today: the response predates the `locale` field entirely, not merely
     // set to `"En"` - the real regression case, matching `ago-widget/locale.test.ts`'s own choice.
-    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID });
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID, credentialsArePublished: true });
   });
 
   it("renders unchanged, in English", async () => {

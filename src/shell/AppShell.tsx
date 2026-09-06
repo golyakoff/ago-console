@@ -16,7 +16,6 @@ import { useStrings } from "../i18n/StringsContext.js";
  * learns about it - understates nothing. The value is only ever narrowed by a caller that has the
  * server's own answer in hand.
  */
-export type DemoNoticeAudience = "shared-login" | "platform-owner";
 
 /**
  * `8-06`. The standing statement that this console is the public demo one, rendered by both shells
@@ -40,44 +39,45 @@ export type DemoNoticeAudience = "shared-login" | "platform-owner";
  * would have to be passed correctly by every one of the shells' call sites for the notice to appear,
  * and a disclosure that goes missing when someone adds a route is worse than one this component owns.
  *
- * **`12-04`: *whether* it appears still reads `config`; *what it says* took a
- * `DemoNoticeAudience` prop.** Those are different questions and the argument above only
- * settles the first. "Its login is published on the demo pages, so anyone can sign in here" is false
- * of the platform owner's account - that login is published nowhere and is held by one person - and a
- * standing disclosure that is verifiably false to its reader is worth less than no disclosure,
- * because it teaches them the strip is boilerplate. `8-11` made the widget's own notice follow the
- * tenant rather than the page for the same reason, and an identity is the same kind of fact as a
- * tenant here.
+ * **`12-04` gave it two wordings; `23-42` removed one of them; `23-45` replaced the whole idea.**
  *
- * **`23-42`: the platform owner is shown nothing at all**, which `12-04` considered and did not do.
- * Its reasoning was that the sentence surviving every variant - the conversations are strangers' and
- * nothing real should be typed here - is true of every reader including this one, so the variant
- * corrected the false clause and kept the true one.
+ * `12-04`'s insight was right and is worth keeping: *"its login is published on the demo pages, so
+ * anyone can sign in here"* is **false** of the platform owner's account, and a standing disclosure a
+ * reader can personally verify as wrong is worth less than no disclosure, because it teaches them the
+ * strip is boilerplate. `23-42` then removed the band for that reader entirely, because the audience
+ * it was reasoning about turned out to have one member who already knew every fact in it.
  *
- * That reasoning still holds and is not what changed. What changed is the audience: `12-04` was
- * reasoning about a *class* of reader, and this class has exactly one member, who has now read the
- * sentence every day for a fortnight and asked for it to stop. A permanent band is a disclosure to
- * someone who might not know; to someone who does, and cannot dismiss it, it is furniture that costs
- * a line of vertical space on every screen and teaches them to stop reading banners - the exact
- * failure `12-04` was avoiding, reached from the other direction.
+ * **What neither could fix is that the console had no way to ask the question.** Both inferred the
+ * answer from *who is not the platform owner*, so a **real tenant** signing in with their own account
+ * was told their login is published - which the author found by doing exactly that. A minted demo
+ * tenant was told the same, equally wrongly: its credentials are shown once, on one screen, and
+ * printed on no page.
  *
- * **It is a removal for one identity, not a softening for everybody.** The shared demo login, every
- * unidentified reader, and every pre-session screen are untouched, which is where the disclosure was
- * actually load-bearing: the operator treating a public queue as their own sandbox.
+ * **So `23-45` moved the question to the only place that can answer it.** The API now says whether
+ * *this site's console credentials are printed on a public page* (`credentialsArePublished`), from
+ * configuration naming the shared demo shops. It cannot be derived: a minted tenant is identifiable by
+ * its expiry but its credentials are not published, and the seeded shared shops have no expiry at all,
+ * so in the database they are indistinguishable from a real tenant. It is also not a property of the
+ * tenant - the same row on another deployment has no password on any web page.
  *
- * **A dismissible band was the alternative and was not chosen.** It would need somewhere to remember
- * the dismissal, and browser storage is per-device and silently empty in a private window - so the
- * owner would meet it again on every new machine, which is most of the complaint. For an audience of
- * one whose identity the server already confirms on every page, not rendering it is both simpler and
- * more reliable than remembering that it was closed.
+ * **The band is therefore shown to exactly one kind of account**, the one for which every clause in it
+ * is true. Everyone else - real tenants, minted demo tenants, the platform owner - sees nothing.
  *
- * The prop's failure mode is the inverse of the one the paragraph above rejects, and this change does
- * not touch it: "unknown" and "ineligible" both still produce the strict text, so forgetting to pass
- * the prop, or a probe that has not answered yet, shows *more* rather than nothing.
+ * **The failure direction is inverted, deliberately and at a cost.** `12-04` was careful that
+ * forgetting the prop showed the *stricter* text; this default shows nothing, because "we do not know
+ * that your password is published" cannot honestly render as "your password is published". The cost is
+ * that an empty configuration would silently un-warn the one account that needs it - so
+ * `Ago.Chat.Api`'s `DemoTenantOptionsValidator` refuses to start a demo deployment whose published-site
+ * list is empty. The guard moved from a default to a boot failure.
+ *
+ * **Pre-session screens now show nothing either**, and that is a real loss: `8-06` wanted this on the
+ * sign-in screen, and a reader about to use the published login is no longer warned before they use
+ * it. Accepted because nothing before sign-in knows whose account is coming, and the band appears the
+ * instant that account lands in the console - which is before they can type anything into it.
  */
-function PublicDemoNotice({ audience }: { audience: DemoNoticeAudience }) {
+function PublicDemoNotice({ credentialsArePublished }: { credentialsArePublished: boolean }) {
   const strings = useStrings();
-  if (!config.isPublicDemo || audience === "platform-owner") {
+  if (!config.isPublicDemo || !credentialsArePublished) {
     return null;
   }
 
@@ -372,7 +372,10 @@ export interface AppShellProps {
    * request). Everything else omits it and gets the stricter shared-login wording, which is the
    * correct thing to say to a reader nobody has established anything about.
    */
-  demoNoticeAudience?: DemoNoticeAudience;
+  /** `23-45`: whether this reader's own console credentials are published on a public page, from the
+   * API (`credentialsArePublished`). Defaults to `false`, so a shell that does not pass it draws no
+   * band - see `PublicDemoNotice`'s own remarks on why that direction was chosen over `12-04`'s. */
+  credentialsArePublished?: boolean;
   children: ReactNode;
 }
 
@@ -417,7 +420,7 @@ export function AppShell({
   identity,
   wide = false,
   fixed = false,
-  demoNoticeAudience = "shared-login",
+  credentialsArePublished = false,
   children,
 }: AppShellProps) {
   const strings = useStrings();
@@ -516,7 +519,7 @@ export function AppShell({
           </div>
         </header>
 
-        <PublicDemoNotice audience={demoNoticeAudience} />
+        <PublicDemoNotice credentialsArePublished={credentialsArePublished} />
       </div>
 
       {/* `23-31`: renders nothing - see its own doc comment for why this, and not a bare
@@ -687,7 +690,7 @@ export function CenteredShell({ children }: { children: ReactNode }) {
             </span>
           </div>
         </header>
-        <PublicDemoNotice audience="shared-login" />
+        <PublicDemoNotice credentialsArePublished={false} />
       </div>
       <main className="ago-shell__centered" id="ago-main">
         {children}

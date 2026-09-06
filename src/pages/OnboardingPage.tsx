@@ -194,7 +194,10 @@ export function OnboardingPage() {
           onSignOut={() => void logout()}
         />
       }
-      demoNoticeAudience={isPlatformOwner ? "platform-owner" : "shared-login"}
+      // `23-45`: this screen registers a *new* tenant, so there is no site yet whose credentials
+      // could be published. Nothing to draw, and the old strict wording was at its most wrong here -
+      // told to somebody in the act of creating a real tenant.
+      credentialsArePublished={false}
     >
       <PageHead title={strings.onboardingTitle} description={strings.onboardingDescription} />
 

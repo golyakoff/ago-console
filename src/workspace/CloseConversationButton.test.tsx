@@ -28,6 +28,7 @@ function Permitted({ permissions, children }: { permissions: string[]; children:
       // English.
       locale: null,
       enabledModules: [],
+      credentialsArePublished: false,
       hasPermission: (permission: string) => permissions.includes(permission),
       // `13-07`: this file is about the close button's own gating, not the switcher - a single,
       // already-resolved tenancy, the same shape every operator before this item had.

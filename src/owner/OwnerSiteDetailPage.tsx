@@ -115,7 +115,8 @@ export function OwnerSiteDetailPage() {
       // "unknown" draws nothing either - a link that appears for a moment and then vanishes on
       // the refusal has already said it.
       pinnedItem={access === "granted" ? { to: "/owner", label: en.navPlatformSites, end: false } : undefined}
-      demoNoticeAudience={access === "granted" ? "platform-owner" : "shared-login"}
+      // `23-45`: as OwnerSitesPage - see that file, and `PublicDemoNotice`'s own remarks.
+      credentialsArePublished={false}
       wide
       identity={
         <ShellIdentity operator={operatorDisplayName(user)} siteId={ownSiteId} onSignOut={() => void logout()} />

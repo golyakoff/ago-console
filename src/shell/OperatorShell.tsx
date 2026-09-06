@@ -36,7 +36,7 @@ import { TenancySwitcher } from "./TenancySwitcher.js";
  */
 export function OperatorShell() {
   const { user, logout } = useAuth();
-  const { siteId, locale, hasPermission, permissions, enabledModules, tenancies, activeSiteId, switchTenancy } =
+  const { siteId, locale, hasPermission, permissions, enabledModules, credentialsArePublished, tenancies, activeSiteId, switchTenancy } =
     usePermissions();
   const ownerEligibility = useOwnerEligibility();
   // `11-11`: the one place a specific tenant's locale is ever known - resolved from the active
@@ -107,7 +107,10 @@ export function OperatorShell() {
         // false of the platform owner's account, and this shell is where the owner-who-is-also-an-
         // operator spends their whole session. Taken from the eligibility answer already fetched above
         // for the navigation link, so this costs no extra request and cannot disagree with the link.
-        demoNoticeAudience={ownerEligibility === "eligible" ? "platform-owner" : "shared-login"}
+        // `23-45`: straight from the API, not inferred from who is not the platform owner - see
+        // `PublicDemoNotice`'s own remarks. `null` (not yet answered) is `false` here: unknown must not
+        // draw the band, or a real tenant would see it flash on every load before it vanished.
+        credentialsArePublished={credentialsArePublished === true}
         identity={
           <ShellIdentity
             operator={operatorDisplayName(user)}
