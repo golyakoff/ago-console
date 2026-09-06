@@ -710,6 +710,13 @@ export const ru: ConsoleStrings = {
   teamChatSendError: "Не удалось отправить сообщение. Попробуйте ещё раз.",
   teamChatAdminBadge: "Владелец",
   teamChatUnnamedAuthor: "Коллега",
+  teamChatRemovedPlaceholder: "Сообщение удалено",
+  teamChatRemoveButton: "Удалить",
+  teamChatRemoveDialogTitle: "Удалить это сообщение?",
+  teamChatRemoveDialogBody:
+    "Все в этом чате увидят на его месте «Сообщение удалено» вместо текста. Это действие нельзя отменить.",
+  teamChatRemoveConfirmButton: "Удалить сообщение",
+  teamChatRemoveError: "Не удалось удалить сообщение. Попробуйте ещё раз.",
 
   navAnalytics: "Аналитика",
   analyticsPageDescription:

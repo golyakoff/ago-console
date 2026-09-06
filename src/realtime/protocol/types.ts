@@ -44,6 +44,11 @@ export interface HistoryPage {
  * `23-32`'s own Goal requires - stamped at send time from whether the author held
  * `site:manage_operators` for the site that moment, not recomputed from their role today
  * (`Ago.Chat.Domain.TeamMessage.AuthorIsAdmin`'s own remarks, `ago-chat`).
+ *
+ * `23-33`: `body` is `null` exactly when `removedAt` is not - the tombstone the backlog item chose
+ * over silent disappearance. Redacted server-side (`TeamMessageReadStore`, `ago-chat`), never at
+ * rest - a client must render a fixed placeholder whenever `removedAt` is set and must never treat a
+ * `null` `body` any other way.
  */
 export interface TeamMessageDto {
   id: string;
@@ -52,9 +57,10 @@ export interface TeamMessageDto {
   authorDisplayName: string | null;
   authorEmail: string | null;
   authorIsAdmin: boolean;
-  body: string;
+  body: string | null;
   createdAt: string;
   clientMessageId?: string | null;
+  removedAt?: string | null;
 }
 
 /** `23-32`: `Ago.Chat.Contracts.TeamHistoryPage` - the team chat's own keyset page, the same shape as

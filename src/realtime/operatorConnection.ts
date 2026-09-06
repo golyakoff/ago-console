@@ -97,6 +97,13 @@ export class OperatorConnection {
   // arrives twice by design (local echo plus fan-out).
   private teamMessageListener: ((message: TeamMessageDto) => void) | null = null;
   private seenTeamMessageIds = new SeenMessageIds();
+  // `23-33`: the removal's own push - deliberately not fed through seenTeamMessageIds above. That
+  // set exists to collapse a *new* post's local echo against its fan-out copy (both name the same,
+  // freshly-minted message id); a removal push names an id already seen once for its original post,
+  // so routing it through the same dedup would silently drop it forever
+  // (`Ago.Chat.Contracts.TeamMessageRemoved`'s own remarks, `ago-chat`). Applying the same removal
+  // twice is a harmless idempotent state update, so no dedup is needed here at all.
+  private teamMessageRemovedListener: ((message: TeamMessageDto) => void) | null = null;
 
   /**
    * `accessTokenFactory` is a factory, not a token, and is called on every connect and every
@@ -196,6 +203,9 @@ export class OperatorConnection {
         this.teamMessageListener(dto);
       }
     });
+    // `23-33`: a distinct push, distinct method name - see teamMessageRemovedListener's own remarks
+    // for why this is never routed through TeamMessageReceived's own dedup.
+    connection.on("TeamMessageRemoved", (dto: TeamMessageDto) => this.teamMessageRemovedListener?.(dto));
     // realtime.md: the server may ask a client to reconnect on its own schedule before a draining
     // node shuts down - informational here (see `types.ts`'s `ReconnectHint` doc comment for the
     // doc/code drift this corrects), since the drain sequence's own subsequent disconnect is what
@@ -250,6 +260,14 @@ export class OperatorConnection {
    * `teamMessageListener`. */
   onTeamMessage(listener: (message: TeamMessageDto) => void): void {
     this.teamMessageListener = listener;
+  }
+
+  /** `23-33`: the removal's own push listener - see `teamMessageRemovedListener`'s own remarks for
+   * why it is separate from `onTeamMessage` above. The `TeamMessageDto` this hands back is the
+   * message's own post-removal state (`body: null`, `removedAt` set) - a caller updates its existing
+   * row by `id`, it does not append a new one. */
+  onTeamMessageRemoved(listener: (message: TeamMessageDto) => void): void {
+    this.teamMessageRemovedListener = listener;
   }
 
   get state(): ConnectionState {
@@ -427,6 +445,16 @@ export class OperatorConnection {
 
       throw error;
     }
+  }
+
+  /** `23-33`: the tenant's own removal - `OperatorHub.RemoveTeamMessageAsync`'s own remarks state
+   * exactly which permission gates this server-side; a caller lacking it sees the same
+   * `HubException` shape every other permission refusal in this console already surfaces. No return
+   * value: the caller's own tab learns the outcome through its own `TeamMessageRemoved` push
+   * (`onTeamMessageRemoved`), the identical local-echo-via-push shape `sendTeamMessage` takes for
+   * `TeamMessageReceived`, so there is nothing else for this call to hand back. */
+  async removeTeamMessage(teamMessageId: string): Promise<void> {
+    await this.requireConnection().invoke("RemoveTeamMessageAsync", teamMessageId);
   }
 
   /** `23-32`: the team chat's own backward-keyset page - `beforeSequence: null` is the initial "most

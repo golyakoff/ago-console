@@ -1027,6 +1027,17 @@ export interface ConsoleStrings {
   /** Falls back to this when a message's author has no display name recorded (`adr/0104`'s minted
     * demo operator). */
   teamChatUnnamedAuthor: string;
+  /** `23-33`: shown in a removed message's own place - the tombstone this backlog item chose over
+    * silent disappearance ("«сообщение удалено» is honest"). */
+  teamChatRemovedPlaceholder: string;
+  /** The row action, gated on `site:manage_operators` - `RemoveTeamMessageButton`'s own doc comment. */
+  teamChatRemoveButton: string;
+  teamChatRemoveDialogTitle: string;
+  /** States the consequence directly - what every other operator in the room will see in this
+    * message's place - the same `operatorsTeamRemoveDialogBody` precedent. */
+  teamChatRemoveDialogBody: string;
+  teamChatRemoveConfirmButton: string;
+  teamChatRemoveError: string;
 
   // `18-08`: OperatorAnalyticsPage (`/analytics`) - the site owner's own basic self-service report,
   // gated on `site:configure` the same way `SearchConversationsPage`/`AdminConversationsPage` already

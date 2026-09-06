@@ -3,16 +3,25 @@ import { useOperatorConnection } from "../realtime/OperatorConnectionContext.js"
 import type { ConnectionState } from "../realtime/operatorConnection.js";
 import { newClientMessageId } from "../realtime/protocol/dedup.js";
 import type { TeamMessageDto } from "../realtime/protocol/types.js";
+import { usePermissions } from "../auth/PermissionsContext.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
 import { Alert } from "../components/Alert.js";
 import { Spinner } from "../components/Spinner.js";
+import { RemoveTeamMessageButton } from "./RemoveTeamMessageButton.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { formatClockTime, resolveTimeZone } from "../time/format.js";
 
 const HISTORY_PAGE_SIZE = 50;
+
+/** `23-33`: the account owner's own capability, reused from the exact permission
+ * `SendTeamMessageHandler` already checks to decide the admin label (`ago-chat`'s own remarks state
+ * why this codebase treats `site:manage_operators` as the precise definition of "the account owner"
+ * rather than minting a dedicated permission) - the same per-page-constant precedent
+ * `OperatorsTeamPage.OPERATORS_TEAM_PERMISSION` establishes. */
+const TEAM_MESSAGE_REMOVE_PERMISSION = "site:manage_operators";
 
 /**
  * `23-32`: `/team/chat` - "people working the same queue can talk to each other without leaving the
@@ -64,6 +73,8 @@ const HISTORY_PAGE_SIZE = 50;
  */
 export function TeamChatPage() {
   const { connection, connectionState } = useOperatorConnection();
+  const { hasPermission } = usePermissions();
+  const canRemove = hasPermission(TEAM_MESSAGE_REMOVE_PERMISSION);
   const strings = useStrings();
   const [timeZone] = useState(() => resolveTimeZone());
 
@@ -97,6 +108,29 @@ export function TeamChatPage() {
   useEffect(() => {
     connection.onTeamMessage(appendIncoming);
   }, [connection, appendIncoming]);
+
+  /** `23-33`: updates the message already on screen by `id` - never appended, and deliberately not
+   * routed through `appendIncoming`'s own "already seen, skip" dedup above (that logic exists for a
+   * *new* post's local echo against its fan-out copy; a removal names an id already rendered once and
+   * must always take effect - `operatorConnection.ts`'s own `teamMessageRemovedListener` remarks). A
+   * removal for a message this page has not loaded yet (older than the current page, or from before
+   * this page's first history load) is silently ignored - there is no row on screen for it to
+   * update, and the next `getTeamHistory`/`getTeamDelta` call will simply return it already redacted. */
+  const applyRemoval = useCallback((removed: TeamMessageDto) => {
+    setMessages((current) => {
+      if (current === null) {
+        return current;
+      }
+      if (!current.some((existing) => existing.id === removed.id)) {
+        return current;
+      }
+      return current.map((existing) => (existing.id === removed.id ? removed : existing));
+    });
+  }, []);
+
+  useEffect(() => {
+    connection.onTeamMessageRemoved(applyRemoval);
+  }, [connection, applyRemoval]);
 
   const loadHistory = useCallback(async () => {
     setLoadError(null);
@@ -235,8 +269,16 @@ export function TeamChatPage() {
                   <span className="ago-team-message__time ago-mono">
                     {formatClockTime(new Date(message.createdAt), timeZone, strings)}
                   </span>
+                  {/* `23-33`: hidden once already removed - nothing left to remove, the same
+                      "tolerate already-gone" idempotency RemoveTeamMessageHandler's own server-side
+                      check gives a retry; there is simply no button to retry from here. */}
+                  {canRemove && !message.removedAt && (
+                    <RemoveTeamMessageButton onRemove={() => connection.removeTeamMessage(message.id)} />
+                  )}
                 </div>
-                <p className="ago-team-message__body">{message.body}</p>
+                <p className="ago-team-message__body">
+                  {message.removedAt ? <em>{strings.teamChatRemovedPlaceholder}</em> : message.body}
+                </p>
               </div>
             ))}
           </div>

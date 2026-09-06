@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { PermissionsContext, type PermissionsState } from "../auth/PermissionsContext.js";
 import { OperatorConnectionContext, type OperatorConnectionState } from "../realtime/OperatorConnectionContext.js";
 import { NotConnectedError, type OperatorConnection } from "../realtime/operatorConnection.js";
 import type { TeamMessageDto } from "../realtime/protocol/types.js";
 import { TeamChatPage } from "./TeamChatPage.js";
-import { interact, one, render, unmount } from "../testing/dom.js";
+import { all, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
  * `23-32`: what the team chat page itself decides - loading the room, rendering the owner's own
@@ -43,12 +44,19 @@ function teamMessage(id: string, sequence: number, overrides: Partial<TeamMessag
 /** Only the methods `TeamChatPage` reaches for. */
 function fakeConnection() {
   let pushMessage: ((message: TeamMessageDto) => void) | null = null;
+  let pushRemoval: ((message: TeamMessageDto) => void) | null = null;
   let nextSendFails: "not-connected" | null = null;
   const sends: { body: string; clientMessageId: string }[] = [];
 
   const connection = {
     onTeamMessage(listener: (message: TeamMessageDto) => void) {
       pushMessage = listener;
+    },
+    // `23-33`: a separate listener slot, mirroring the real class - see
+    // `operatorConnection.ts`'s own `teamMessageRemovedListener` remarks for why this is never
+    // folded into `onTeamMessage`/`push` above.
+    onTeamMessageRemoved(listener: (message: TeamMessageDto) => void) {
+      pushRemoval = listener;
     },
     getTeamHistory: vi.fn(() => Promise.resolve({ messages: [] as TeamMessageDto[], nextBeforeSequence: null })),
     getTeamDelta: vi.fn(() => Promise.resolve({ messages: [] as TeamMessageDto[], nextBeforeSequence: null })),
@@ -60,6 +68,7 @@ function fakeConnection() {
 
       return Promise.resolve(1);
     }),
+    removeTeamMessage: vi.fn(() => Promise.resolve()),
   };
 
   return {
@@ -67,6 +76,7 @@ function fakeConnection() {
     sends,
     getTeamHistory: connection.getTeamHistory,
     getTeamDelta: connection.getTeamDelta,
+    removeTeamMessage: connection.removeTeamMessage,
     historyReturns(messages: TeamMessageDto[]) {
       connection.getTeamHistory.mockResolvedValue({ messages, nextBeforeSequence: null });
     },
@@ -76,13 +86,23 @@ function fakeConnection() {
     failNextSend() {
       nextSendFails = "not-connected";
     },
+    failNextRemove() {
+      connection.removeTeamMessage.mockRejectedValueOnce(new Error("hub refused it"));
+    },
     push(message: TeamMessageDto) {
       pushMessage?.(message);
+    },
+    pushRemoval(message: TeamMessageDto) {
+      pushRemoval?.(message);
     },
   };
 }
 
-function harness(connection: OperatorConnection, connectionState: OperatorConnectionState["connectionState"] = "connected") {
+function harness(
+  connection: OperatorConnection,
+  connectionState: OperatorConnectionState["connectionState"] = "connected",
+  permissions: string[] = [],
+) {
   const state: OperatorConnectionState = {
     connection,
     connectionState,
@@ -91,10 +111,27 @@ function harness(connection: OperatorConnection, connectionState: OperatorConnec
     setAway: () => Promise.resolve(),
   };
 
+  // `23-33`: TeamChatPage's own new dependency - the same minimal `PermissionsState` shape
+  // `ConversationPage.test.tsx`'s own harness builds, for the identical reason: this file is about
+  // gating a row action, not about tenancy switching or locale.
+  const permissionsValue: PermissionsState = {
+    permissions,
+    siteId: null,
+    locale: null,
+    enabledModules: [],
+    credentialsArePublished: false,
+    hasPermission: (p: string) => permissions.includes(p),
+    tenancies: null,
+    activeSiteId: null,
+    switchTenancy: () => undefined,
+  };
+
   return (
-    <OperatorConnectionContext.Provider value={state}>
-      <TeamChatPage />
-    </OperatorConnectionContext.Provider>
+    <PermissionsContext.Provider value={permissionsValue}>
+      <OperatorConnectionContext.Provider value={state}>
+        <TeamChatPage />
+      </OperatorConnectionContext.Provider>
+    </PermissionsContext.Provider>
   );
 }
 
@@ -269,5 +306,104 @@ describe("TeamChatPage", () => {
     expect(fake.getTeamHistory).toHaveBeenCalledTimes(1); // never re-fetched as a whole page.
     const bodies = Array.from(container.querySelectorAll(".ago-team-message__body")).map((el) => el.textContent);
     expect(bodies).toEqual(["before", "missed while disconnected"]);
+  });
+
+  // `23-33`: the tenant's own removal.
+  describe("removal", () => {
+    it("does not show a remove button to an operator who lacks site:manage_operators", async () => {
+      const fake = fakeConnection();
+      fake.historyReturns([teamMessage("m1", 1)]);
+
+      const container = await render(harness(fake.connection, "connected", []));
+
+      expect(all(container, "button").some((b) => b.textContent === "Remove")).toBe(false);
+    });
+
+    it("shows a remove button to an operator who holds site:manage_operators", async () => {
+      const fake = fakeConnection();
+      fake.historyReturns([teamMessage("m1", 1)]);
+
+      const container = await render(harness(fake.connection, "connected", ["site:manage_operators"]));
+
+      expect(all(container, "button").some((b) => b.textContent === "Remove")).toBe(true);
+    });
+
+    it("removes a message, after confirming, and never calls the hub before confirmation", async () => {
+      const fake = fakeConnection();
+      fake.historyReturns([teamMessage("m1", 1)]);
+
+      const container = await render(harness(fake.connection, "connected", ["site:manage_operators"]));
+      const removeButton = all(container, "button").find((b) => b.textContent === "Remove");
+      await interact(() => removeButton?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+
+      // The confirmation names the real consequence.
+      expect(container.textContent).toContain("Everyone in this room will see");
+      expect(fake.removeTeamMessage).not.toHaveBeenCalled();
+
+      const confirmButton = all(container, "button").find((b) => b.textContent === "Remove message");
+      await interact(() => confirmButton?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+
+      expect(fake.removeTeamMessage).toHaveBeenCalledWith("m1");
+    });
+
+    it("cancelling the confirmation never calls the hub", async () => {
+      const fake = fakeConnection();
+      fake.historyReturns([teamMessage("m1", 1)]);
+
+      const container = await render(harness(fake.connection, "connected", ["site:manage_operators"]));
+      const removeButton = all(container, "button").find((b) => b.textContent === "Remove");
+      await interact(() => removeButton?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+
+      const cancelButton = all(container, "button").find((b) => b.textContent === "Cancel");
+      await interact(() => cancelButton?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+
+      expect(fake.removeTeamMessage).not.toHaveBeenCalled();
+    });
+
+    it("shows an error and keeps the dialog open when the hub refuses the removal", async () => {
+      const fake = fakeConnection();
+      fake.historyReturns([teamMessage("m1", 1)]);
+      fake.failNextRemove();
+
+      const container = await render(harness(fake.connection, "connected", ["site:manage_operators"]));
+      const removeButton = all(container, "button").find((b) => b.textContent === "Remove");
+      await interact(() => removeButton?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+      const confirmButton = all(container, "button").find((b) => b.textContent === "Remove message");
+      await interact(() => confirmButton?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+
+      expect(container.textContent).toContain("Could not remove that message");
+      // Still open - the operator can retry without re-finding the row.
+      expect(all(container, "button").some((b) => b.textContent === "Remove message")).toBe(true);
+    });
+
+    it("renders the tombstone in place of the body, and hides the remove button, once a TeamMessageRemoved push arrives", async () => {
+      const fake = fakeConnection();
+      fake.historyReturns([teamMessage("m1", 1, { body: "regrettable" })]);
+
+      const container = await render(harness(fake.connection, "connected", ["site:manage_operators"]));
+      expect(one(container, ".ago-team-message__body").textContent).toBe("regrettable");
+      expect(all(container, "button").some((b) => b.textContent === "Remove")).toBe(true);
+
+      await interact(() =>
+        fake.pushRemoval(teamMessage("m1", 1, { body: null, removedAt: "2026-09-06T12:00:00+00:00" })),
+      );
+
+      expect(one(container, ".ago-team-message__body").textContent).toBe("Message removed");
+      expect(all(container, "button").some((b) => b.textContent === "Remove")).toBe(false);
+    });
+
+    it("ignores a removal push for a message this page has not loaded", async () => {
+      const fake = fakeConnection();
+      fake.historyReturns([teamMessage("m1", 1, { body: "still here" })]);
+
+      const container = await render(harness(fake.connection, "connected", ["site:manage_operators"]));
+
+      await interact(() =>
+        fake.pushRemoval(teamMessage("unknown-id", 99, { body: null, removedAt: "2026-09-06T12:00:00+00:00" })),
+      );
+
+      expect(container.querySelectorAll(".ago-team-message").length).toBe(1);
+      expect(one(container, ".ago-team-message__body").textContent).toBe("still here");
+    });
   });
 });
