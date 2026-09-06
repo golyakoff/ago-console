@@ -708,6 +708,13 @@ export const en: ConsoleStrings = {
   teamChatSendError: "Could not send that message. Try again.",
   teamChatAdminBadge: "Owner",
   teamChatUnnamedAuthor: "A colleague",
+  teamChatRemovedPlaceholder: "Message removed",
+  teamChatRemoveButton: "Remove",
+  teamChatRemoveDialogTitle: "Remove this message?",
+  teamChatRemoveDialogBody:
+    "Everyone in this room will see “Message removed” in its place instead of the text. This cannot be undone.",
+  teamChatRemoveConfirmButton: "Remove message",
+  teamChatRemoveError: "Could not remove that message. Try again.",
 
   navAnalytics: "Analytics",
   analyticsPageDescription:
