@@ -211,6 +211,13 @@ export function InstallSnippetPage() {
                 ))}
               </ul>
             ) : null}
+            {/* `23-46`: right under the value, not folded into the panel description above it. This
+                address is read-only and this console has no editor for it anywhere - `5-01` deferred
+                one and nothing has built it since - so a tenant reading an address that is wrong has
+                no next step unless one is written here. The panel description does mention getting in
+                touch, but only inside a conditional about going live, three lines above the value; a
+                person looking at the address itself never reaches it. */}
+            <p className="ago-install-origin-hint">{strings.installOriginChangeHint}</p>
           </Panel>
 
           <Panel title={strings.installSnippetPanelTitle} description={strings.installSnippetPanelDescription}>

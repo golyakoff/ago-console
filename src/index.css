@@ -116,6 +116,15 @@
   list-style: none;
 }
 
+/* `23-46`: the same treatment `Field`'s own description gets - one step down in size and one step
+   softer in ink, from the same two tokens, so a hint reads as a hint on this screen exactly as it
+   does on every form. No new colour and no new size: `adr/0030`'s closed set is the point. */
+.ago-install-origin-hint {
+  margin: var(--ago-space-2) 0 0;
+  font-size: var(--ago-text-sm);
+  color: var(--ago-ink-soft);
+}
+
 /* --- Conversation search (`18-01`) -------------------------------------------------------------
  * `SearchConversationsPage`'s own layout. Lives here rather than in `workspace.css` because this
  * page is a standalone route (`AdminConversationsPage`'s own precedent), not one of the workspace's

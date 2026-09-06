@@ -127,6 +127,14 @@ describe("pre-session pages, wrapped exactly as App.tsx wraps them (23-28)", () 
     expect(container.querySelector("button[type='submit']")?.textContent).toBe("Завершить настройку");
     expect(container.textContent).toContain("Активировать его здесь");
     expect(container.textContent).not.toContain("Finish setting up your site");
+
+    // `23-46`: the address example, which is the one thing on this form a person has to *invent*
+    // rather than choose. It is a translated string now, and this is the assertion that made it worth
+    // being one: a Russian form showing `.com` reads as somebody else's example rather than a shape to
+    // copy. The scheme is the part that actually matters - an origin without one never matches, so a
+    // field that leaves the reader guessing produces a widget that silently never connects.
+    const address = container.querySelector<HTMLInputElement>("input[placeholder]");
+    expect(address?.placeholder).toBe("https://your.site.ru");
   });
 
   it("/redeem-invite renders Russian - the exact screen `ux-gate` used to exempt by name", async () => {

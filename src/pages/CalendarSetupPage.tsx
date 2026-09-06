@@ -268,7 +268,7 @@ function OriginsForm({
     >
       <Field label={strings.calendarSetupOriginsFieldLabel}>
         {(controlProps) => (
-          <Textarea {...controlProps} rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder="https://shop.example" disabled={disabled} />
+          <Textarea {...controlProps} rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder={strings.siteAddressPlaceholder} disabled={disabled} />
         )}
       </Field>
       <div className="ago-row">

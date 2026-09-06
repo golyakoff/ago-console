@@ -107,6 +107,26 @@ describe("the install screen", () => {
     expect(body.indexOf("https://tenant.example")).toBeGreaterThan(-1);
   });
 
+  /**
+   * `23-46`: the address on this screen is read-only, and this console has no editor for it anywhere -
+   * `5-01` deferred one and nothing has built it since. So a tenant who reads an address that is wrong
+   * has no next step at all unless one is written next to it.
+   *
+   * The panel description does mention getting in touch, but inside a conditional about going live,
+   * three lines above the value. A person looking at the address itself never reaches it - which is
+   * how the author came to have their own site's address changed by hand in the database.
+   */
+  it("says how to change the address, beside the address rather than in the panel prose", async () => {
+    const container = await render(page());
+
+    const hint = container.querySelector(".ago-install-origin-hint");
+    expect(hint?.textContent).toContain("contact support");
+    // Beside the value, not somewhere else on the page: the hint follows the origin list inside the
+    // same panel, which is the whole difference between this and the sentence that was already there.
+    const list = container.querySelector(".ago-install-origin-list");
+    expect(list?.parentElement).toBe(hint?.parentElement);
+  });
+
   it("shows every configured origin when a site has more than one", async () => {
     installationApi.fetchSiteInstallation.mockResolvedValue({
       publicKey: "shop_7f3a",
