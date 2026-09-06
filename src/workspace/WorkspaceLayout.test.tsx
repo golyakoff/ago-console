@@ -112,6 +112,7 @@ function Signed({ children }: { children: React.ReactNode }) {
       siteId: SITE_ID,
       locale: null,
       enabledModules: [],
+      credentialsArePublished: false,
       hasPermission: (p: string) => p === "conversation:close",
       tenancies: [{ siteId: SITE_ID, siteName: "Test Site" }],
       activeSiteId: SITE_ID,

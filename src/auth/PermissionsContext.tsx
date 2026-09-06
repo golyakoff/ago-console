@@ -27,6 +27,12 @@ export interface PermissionsState {
    * it for. `null` under the identical "not yet known" rule `permissions` already follows -
    * `src/calendar/calendarAccess.tsx` is the one place today that reads this. */
   enabledModules: string[] | null;
+
+  /** `23-45`: whether the signed-in account's console credentials are published on a public page.
+   * `null` while unknown, the same rule `permissions` and `enabledModules` already follow - and it
+   * matters here more than for those two, because the demo band keys off it: unknown must not draw
+   * the band, or a real tenant sees it flash on every load before it disappears. */
+  credentialsArePublished: boolean | null;
   hasPermission: (permission: string) => boolean;
   /** `13-07`/`adr/0068`: every tenancy (`Site`) this signed-in identity administers, from
    * `GET /api/v1/me/tenancies` - the new step `PermissionsProvider` takes before its existing

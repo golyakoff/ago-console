@@ -32,6 +32,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const [siteId, setSiteId] = useState<string | null>(null);
   const [locale, setLocale] = useState<string | null>(null);
   const [enabledModules, setEnabledModules] = useState<string[] | null>(null);
+  const [credentialsArePublished, setCredentialsArePublished] = useState<boolean | null>(null);
   const [tenancies, setTenancies] = useState<TenancyDto[] | null>(null);
   const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
 
@@ -75,6 +76,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         // same defensive read `PermissionsContext`'s own doc comment describes for "not yet known"
         // vs. "known to be none".
         setEnabledModules(response.enabledModules ?? []);
+        setCredentialsArePublished(response.credentialsArePublished ?? false);
       })
       .catch((err: unknown) => {
         // A permissions fetch failing must not crash the console - every gated UI element (the admin
@@ -108,8 +110,8 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<PermissionsState>(
-    () => ({ permissions, siteId, locale, enabledModules, hasPermission, tenancies, activeSiteId, switchTenancy }),
-    [permissions, siteId, locale, enabledModules, hasPermission, tenancies, activeSiteId, switchTenancy],
+    () => ({ permissions, siteId, locale, enabledModules, credentialsArePublished, hasPermission, tenancies, activeSiteId, switchTenancy }),
+    [permissions, siteId, locale, enabledModules, credentialsArePublished, hasPermission, tenancies, activeSiteId, switchTenancy],
   );
 
   return <PermissionsContext.Provider value={value}>{children}</PermissionsContext.Provider>;

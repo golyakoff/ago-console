@@ -213,7 +213,9 @@ export function OwnerSitesPage() {
       // `12-04`: narrowed only once `12-02`'s endpoint has actually accepted this caller. While the
       // answer is still `"unknown"`, and on a refusal, the reader is not demonstrably the owner, and
       // the stricter shared-login wording is the true thing to say to them.
-      demoNoticeAudience={access === "granted" ? "platform-owner" : "shared-login"}
+      // `23-45`: the platform owner's own screens are reached by an account whose credentials are
+      // published nowhere, and a refused caller is not identified at all - neither draws the band.
+      credentialsArePublished={false}
       // Found live, 2026-08-27: this page's own content is a site table, the same "not prose" case
       // `OperatorShell`'s tenant-management tabs already settled - the reading-width cap left the
       // identical unexplained gap here that it did on those.

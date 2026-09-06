@@ -22,6 +22,15 @@ export interface OperatorPermissionsResponse {
    * `permissions` - `Ago.Chat.Contracts.OperatorPermissionsResponse`'s own remarks explain why
    * collapsing the two into one list is the exact bug this item exists to close. */
   enabledModules: string[];
+
+  /** `23-45`: whether this site's console credentials are printed on a public page - true for
+   * exactly one kind of account, the shared demo shop whose password the demo pages publish, and
+   * false for every real tenant, every minted demo tenant (shown its credentials once, published
+   * nowhere) and every non-demo deployment. It is the one fact `8-06`'s standing warning actually
+   * depends on, and nothing carried it until this item - which is why a real tenant was being told
+   * their own login is published. Optional on the wire so a console can talk to an API that
+   * predates it; absent reads as false, the same direction the empty list means server-side. */
+  credentialsArePublished?: boolean;
 }
 
 export async function fetchMyPermissions(accessToken: string): Promise<OperatorPermissionsResponse> {

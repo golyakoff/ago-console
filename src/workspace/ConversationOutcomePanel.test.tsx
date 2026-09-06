@@ -28,6 +28,7 @@ function Permitted({ permissions, children }: { permissions: string[]; children:
       siteId: SITE_ID,
       locale: null,
       enabledModules: [],
+      credentialsArePublished: false,
       hasPermission: (permission: string) => permissions.includes(permission),
       tenancies: [{ siteId: SITE_ID, siteName: "Test Site" }],
       activeSiteId: SITE_ID,
