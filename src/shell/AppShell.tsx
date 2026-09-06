@@ -40,7 +40,7 @@ export type DemoNoticeAudience = "shared-login" | "platform-owner";
  * would have to be passed correctly by every one of the shells' call sites for the notice to appear,
  * and a disclosure that goes missing when someone adds a route is worse than one this component owns.
  *
- * **`12-04`: *whether* it appears still reads `config`; *what it says* now takes a
+ * **`12-04`: *whether* it appears still reads `config`; *what it says* took a
  * `DemoNoticeAudience` prop.** Those are different questions and the argument above only
  * settles the first. "Its login is published on the demo pages, so anyone can sign in here" is false
  * of the platform owner's account - that login is published nowhere and is held by one person - and a
@@ -49,13 +49,35 @@ export type DemoNoticeAudience = "shared-login" | "platform-owner";
  * tenant rather than the page for the same reason, and an identity is the same kind of fact as a
  * tenant here.
  *
- * The prop's failure mode is the inverse of the one the paragraph above rejects: forgetting to pass
- * it shows the *stricter* text, never nothing at all. What no variant drops is the part that is true
- * for every reader - the conversations are strangers', and nothing real should be typed here.
+ * **`23-42`: the platform owner is shown nothing at all**, which `12-04` considered and did not do.
+ * Its reasoning was that the sentence surviving every variant - the conversations are strangers' and
+ * nothing real should be typed here - is true of every reader including this one, so the variant
+ * corrected the false clause and kept the true one.
+ *
+ * That reasoning still holds and is not what changed. What changed is the audience: `12-04` was
+ * reasoning about a *class* of reader, and this class has exactly one member, who has now read the
+ * sentence every day for a fortnight and asked for it to stop. A permanent band is a disclosure to
+ * someone who might not know; to someone who does, and cannot dismiss it, it is furniture that costs
+ * a line of vertical space on every screen and teaches them to stop reading banners - the exact
+ * failure `12-04` was avoiding, reached from the other direction.
+ *
+ * **It is a removal for one identity, not a softening for everybody.** The shared demo login, every
+ * unidentified reader, and every pre-session screen are untouched, which is where the disclosure was
+ * actually load-bearing: the operator treating a public queue as their own sandbox.
+ *
+ * **A dismissible band was the alternative and was not chosen.** It would need somewhere to remember
+ * the dismissal, and browser storage is per-device and silently empty in a private window - so the
+ * owner would meet it again on every new machine, which is most of the complaint. For an audience of
+ * one whose identity the server already confirms on every page, not rendering it is both simpler and
+ * more reliable than remembering that it was closed.
+ *
+ * The prop's failure mode is the inverse of the one the paragraph above rejects, and this change does
+ * not touch it: "unknown" and "ineligible" both still produce the strict text, so forgetting to pass
+ * the prop, or a probe that has not answered yet, shows *more* rather than nothing.
  */
 function PublicDemoNotice({ audience }: { audience: DemoNoticeAudience }) {
   const strings = useStrings();
-  if (!config.isPublicDemo) {
+  if (!config.isPublicDemo || audience === "platform-owner") {
     return null;
   }
 
@@ -65,7 +87,10 @@ function PublicDemoNotice({ audience }: { audience: DemoNoticeAudience }) {
           `--ago-shell-max` measure as the header row above, so it starts on the brand's own left
           edge instead of running the whole width of a 1440px monitor. */}
       <span className="ago-demo-notice__text">
-        {audience === "platform-owner" ? strings.publicDemoNoticePlatformOwner : strings.publicDemoNoticeSharedLogin}
+        {/* `23-42`: one string, not a ternary. The only audience that reaches this line is the one
+            the guard above did not return for, so a second branch here would be unreachable code
+            claiming a variant exists. `publicDemoNoticePlatformOwner` is deleted with it. */}
+        {strings.publicDemoNoticeSharedLogin}
       </span>
     </div>
   );
