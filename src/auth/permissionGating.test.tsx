@@ -287,7 +287,9 @@ describe("the operator navigation", () => {
     expect(itemLabels(container)).toEqual(["My numbers"]);
     await openSection(container, "Team");
     expect(itemLabels(container)).toEqual(["Team chat"]);
-    expect(reservedItemLabels(container)).toEqual(["Team chat"]);
+    // `23-32`: no longer reserved - TeamChatPage is a real route now, unconditional like every other
+    // entry `buildTeamItems` draws.
+    expect(reservedItemLabels(container)).toEqual([]);
     expect(mutedItemLabels(container)).toEqual([]);
   });
 

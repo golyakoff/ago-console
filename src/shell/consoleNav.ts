@@ -185,7 +185,9 @@ function buildTeamItems(
   if (permissionsKnown && hasPermission("site:manage_operators")) {
     items.push({ to: "/team/people", label: strings.navOperatorsTeam });
   }
-  items.push({ label: strings.navTeamChat, reserved: true });
+  // `23-32`: no longer reserved - TeamChatPage is a real route, unconditional like every other entry
+  // in this function (see this function's own top-level remarks on why "Общение" carries no gate).
+  items.push({ to: "/team/chat", label: strings.navTeamChat });
   return items;
 }
 

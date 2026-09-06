@@ -155,6 +155,17 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
     readySelector: ".ago-alert",
     permissionsOverride: { permissions: ["conversation:close"], enabledModules: ["calendar"] },
   },
+  // `23-32`: the team chat's own screen - unconditional like `queue-conversation`
+  // (`consoleNav.ts#buildTeamItems`'s own remarks: no permission gates it), and needs the hub mock
+  // for the identical reason that screen does - `TeamChatPage`'s history load is a hub `invoke`
+  // (`GetTeamHistoryAsync`), not a REST call `apiStubs.ts` could answer. Waits for a rendered
+  // message, matching `queue-conversation`'s own `readySelector` reasoning.
+  {
+    name: "team-chat",
+    path: "/team/chat",
+    needsHubMock: true,
+    readySelector: ".ago-team-message",
+  },
   // `22-06`/`adr/0093`: four of AGO Calendar's five console screens, moved from
   // `ago-calendar-console`'s own gate (which covered all eight of its own routes - six screens plus
   // the two worker-slots/re-cut drill-downs, `15-11`'s addendum in that repository) into this one's

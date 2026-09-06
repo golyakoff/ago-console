@@ -10,6 +10,8 @@ import type {
   JoinConversationResult,
   MessageDto,
   ReconnectHint,
+  TeamHistoryPage,
+  TeamMessageDto,
 } from "./protocol/types.js";
 
 export type ConnectionState = "connecting" | "connected" | "reconnecting" | "disconnected";
@@ -89,6 +91,12 @@ export class OperatorConnection {
   private reconnectHintListener: ((hint: ReconnectHint) => void) | null = null;
   private subscribedConversationId: string | null = null;
   private sequenceTracker = new SequenceTracker();
+  // `23-32`: the team chat's own listener - a site-wide push, not scoped to whichever conversation is
+  // open, so it needs none of subscribedConversationId's filtering. Deduplicated on its own
+  // SeenMessageIds instance for the identical reason onAnyMessage's does: the sender's own message
+  // arrives twice by design (local echo plus fan-out).
+  private teamMessageListener: ((message: TeamMessageDto) => void) | null = null;
+  private seenTeamMessageIds = new SeenMessageIds();
 
   /**
    * `accessTokenFactory` is a factory, not a token, and is called on every connect and every
@@ -181,6 +189,13 @@ export class OperatorConnection {
       this.handleIncoming(dto);
     });
     connection.on("ConversationAssigned", (dto: ConversationAssignedDto) => this.conversationAssignedListener?.(dto));
+    // `23-32`: the team chat's own push - see this class's own field-level remarks on
+    // teamMessageListener for why this needs no conversationId-shaped filtering.
+    connection.on("TeamMessageReceived", (dto: TeamMessageDto) => {
+      if (this.teamMessageListener !== null && this.seenTeamMessageIds.markSeen(dto.id)) {
+        this.teamMessageListener(dto);
+      }
+    });
     // realtime.md: the server may ask a client to reconnect on its own schedule before a draining
     // node shuts down - informational here (see `types.ts`'s `ReconnectHint` doc comment for the
     // doc/code drift this corrects), since the drain sequence's own subsequent disconnect is what
@@ -229,6 +244,12 @@ export class OperatorConnection {
 
   onReconnectHint(listener: (hint: ReconnectHint) => void): void {
     this.reconnectHintListener = listener;
+  }
+
+  /** `23-32`: the team chat's own push listener - see this class's own field-level remarks on
+   * `teamMessageListener`. */
+  onTeamMessage(listener: (message: TeamMessageDto) => void): void {
+    this.teamMessageListener = listener;
   }
 
   get state(): ConnectionState {
@@ -382,6 +403,45 @@ export class OperatorConnection {
    */
   async getMyPresence(): Promise<boolean> {
     return this.requireConnection().invoke<boolean>("GetMyPresenceAsync");
+  }
+
+  /**
+   * `23-32`: the team chat's own send - unlike `sendMessage`, there is no conversation id: a site's
+   * operator claim already names the one room this connection may ever write to. Same retry-safety
+   * contract as `sendMessage`: `NotConnectedError` is safe to retry with a fresh `clientMessageId`;
+   * `SendOutcomeUnknownError` is safe to retry only with the *same* one, wired through to
+   * `TeamChatRepository`'s own server-side dedup.
+   */
+  async sendTeamMessage(body: string, clientMessageId: string): Promise<number> {
+    if (this.connection?.state !== signalR.HubConnectionState.Connected) {
+      throw new NotConnectedError();
+    }
+
+    const connection = this.connection;
+    try {
+      return await connection.invoke<number>("SendTeamMessageAsync", body, clientMessageId);
+    } catch (error) {
+      if (connection.state !== signalR.HubConnectionState.Connected) {
+        throw new SendOutcomeUnknownError(error);
+      }
+
+      throw error;
+    }
+  }
+
+  /** `23-32`: the team chat's own backward-keyset page - `beforeSequence: null` is the initial "most
+   * recent page" load, a real value is "load older", the same convention `loadOlderHistory` uses. */
+  async getTeamHistory(beforeSequence: number | null, pageSize: number): Promise<TeamHistoryPage> {
+    return this.requireConnection().invoke<TeamHistoryPage>("GetTeamHistoryAsync", beforeSequence, pageSize);
+  }
+
+  /** `23-32`: the team chat's own reconnect catch-up - every message strictly after
+   * `afterSequence`, oldest first. Called once per reconnect by `TeamChatPage` itself, not folded
+   * into this class's own `resumeSubscription` - unlike a conversation, the team room has no per-page
+   * "currently open" record for this connection to replay, so there is nothing for `stop()`/`start()`
+   * to lose track of: any page mounted while connected can simply ask for its own delta again. */
+  async getTeamDelta(afterSequence: number): Promise<TeamHistoryPage> {
+    return this.requireConnection().invoke<TeamHistoryPage>("GetTeamDeltaAsync", afterSequence);
   }
 
   /**

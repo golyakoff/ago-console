@@ -78,6 +78,31 @@ export const SEEDED_MESSAGES = [
   },
 ];
 
+/** `23-32`: the team chat's own seeded room - one admin-labelled message and one ordinary one, so the
+ * `team-chat` screen exercises `TeamChatPage`'s own badge rendering in the same screenshot. */
+export const SEEDED_TEAM_MESSAGES = [
+  {
+    id: "bbbbbbbb-0000-4000-8000-000000000001",
+    sequence: 1,
+    authorOperatorId: OPERATOR_ID,
+    authorDisplayName: "Марина",
+    authorEmail: "marina@example.invalid",
+    authorIsAdmin: true,
+    body: "Я забираю сердитого клиента себе.",
+    createdAt: minutesAgo(6),
+  },
+  {
+    id: "bbbbbbbb-0000-4000-8000-000000000002",
+    sequence: 2,
+    authorOperatorId: OTHER_OPERATOR_ID,
+    authorDisplayName: "Ольга",
+    authorEmail: "olga@example.invalid",
+    authorIsAdmin: false,
+    body: "Хорошо, тогда я возьму следующего.",
+    createdAt: minutesAgo(5),
+  },
+];
+
 /**
  * `23-31`: **two different APIs answer `/api/v1/me/tenancies`, and this gate serves both from one
  * origin**, so this one body has to satisfy both readers.

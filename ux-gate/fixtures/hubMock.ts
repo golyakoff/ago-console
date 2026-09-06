@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { SEEDED_MESSAGES } from "./data.js";
+import { SEEDED_MESSAGES, SEEDED_TEAM_MESSAGES } from "./data.js";
 
 /**
  * A minimal, hand-rolled mock of `OperatorHub` (`ago-chat`) over `@microsoft/signalr`'s own wire
@@ -24,12 +24,14 @@ import { SEEDED_MESSAGES } from "./data.js";
  *    with an empty JSON object (`{}\x1e`) before anything else - a mis-ordered or missing handshake
  *    reply is indistinguishable, from the client's side, from a hub that never came up.
  *
- * Everything else is deliberately not implemented. `SendMessageAsync`, `GetHistoryAsync` and
- * `GetVisitorHistoryConversationAsync` have no handler here because no screen this gate opens calls
- * them - a real send is a write this gate never performs (there is nothing to observe from a
- * screenshot that a fixed seeded thread does not already show), and a caller reaching one of the
- * unhandled targets gets a `HubException`-shaped rejection rather than a silently hanging `invoke`,
- * which would otherwise be a much harder failure to diagnose from a CI log.
+ * Everything else is deliberately not implemented. `SendMessageAsync`, `GetHistoryAsync`,
+ * `GetVisitorHistoryConversationAsync` and - `23-32` - `SendTeamMessageAsync`/`GetTeamDeltaAsync` have
+ * no handler here because no screen this gate opens calls them - a real send is a write this gate
+ * never performs (there is nothing to observe from a screenshot that a fixed seeded thread does not
+ * already show), `GetTeamDeltaAsync` is a reconnect-only call this gate's single page load never
+ * triggers, and a caller reaching one of the unhandled targets gets a `HubException`-shaped rejection
+ * rather than a silently hanging `invoke`, which would otherwise be a much harder failure to diagnose
+ * from a CI log.
  */
 const RECORD_SEPARATOR = "\x1e";
 
@@ -59,6 +61,16 @@ function joinConversationResult() {
   // one page - true here, four messages against `HISTORY_PAGE_SIZE` (50) in `ConversationPage.tsx`.
   return {
     messages: [...SEEDED_MESSAGES].reverse(),
+    nextBeforeSequence: null,
+  };
+}
+
+/** `23-32`: `GetTeamHistoryAsync`'s own contract (`operatorConnection.ts#getTeamHistory`) - the
+ * identical "newest-first, `nextBeforeSequence: null` once everything fits on one page" shape
+ * `joinConversationResult` above already establishes for the conversation side. */
+function teamHistoryResult() {
+  return {
+    messages: [...SEEDED_TEAM_MESSAGES].reverse(),
     nextBeforeSequence: null,
   };
 }
@@ -111,6 +123,11 @@ export async function installOperatorHubMock(page: Page): Promise<void> {
 
           if (target === "JoinConversationAsync") {
             ws.send(encode({ type: 3, invocationId, result: joinConversationResult() }));
+            continue;
+          }
+
+          if (target === "GetTeamHistoryAsync") {
+            ws.send(encode({ type: 3, invocationId, result: teamHistoryResult() }));
             continue;
           }
 

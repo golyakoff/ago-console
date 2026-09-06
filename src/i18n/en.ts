@@ -696,6 +696,19 @@ export const en: ConsoleStrings = {
   operatorsTeamInviteExpiresLabel: "Expires",
   operatorsTeamInviteCloseButton: "Close",
 
+  teamChatTitle: "Team chat",
+  teamChatDescription: "Talk to your colleagues without leaving the console. Nobody outside your team sees this.",
+  teamChatLoadingLabel: "Loading the team chat…",
+  teamChatLoadError: "Could not load the team chat. Try reloading the page.",
+  teamChatRetryButton: "Retry",
+  teamChatEmptyState: "Nobody has said anything here yet.",
+  teamChatComposerPlaceholder: "Message your team…",
+  teamChatSendButton: "Send",
+  teamChatSendingButton: "Sending…",
+  teamChatSendError: "Could not send that message. Try again.",
+  teamChatAdminBadge: "Owner",
+  teamChatUnnamedAuthor: "A colleague",
+
   navAnalytics: "Analytics",
   analyticsPageDescription:
     "How your site is doing: conversation volume, average time to first reply, and conversations " +

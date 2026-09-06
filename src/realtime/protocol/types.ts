@@ -31,6 +31,39 @@ export interface HistoryPage {
   nextBeforeSequence: number | null;
 }
 
+/**
+ * `23-32`: `Ago.Chat.Contracts.TeamMessageDto` - one message in the tenant's own team chat
+ * (`OperatorHub.SendTeamMessageAsync`/`GetTeamHistoryAsync`/`GetTeamDeltaAsync`). A separate shape
+ * from `MessageDto`, not a reuse - a team message has no conversation, no attachment and no author
+ * kind (the author is always an operator), and reusing `MessageDto` would either leave those fields
+ * always-null noise or invite treating the two message kinds as interchangeable, when a team message
+ * is deliberately invisible to a visitor.
+ *
+ * `authorDisplayName`/`authorEmail` are resolved server-side at read time, `null` for the one row
+ * shape that carries neither (a minted demo tenant's own operator). `authorIsAdmin` is the label
+ * `23-32`'s own Goal requires - stamped at send time from whether the author held
+ * `site:manage_operators` for the site that moment, not recomputed from their role today
+ * (`Ago.Chat.Domain.TeamMessage.AuthorIsAdmin`'s own remarks, `ago-chat`).
+ */
+export interface TeamMessageDto {
+  id: string;
+  sequence: number;
+  authorOperatorId: string;
+  authorDisplayName: string | null;
+  authorEmail: string | null;
+  authorIsAdmin: boolean;
+  body: string;
+  createdAt: string;
+  clientMessageId?: string | null;
+}
+
+/** `23-32`: `Ago.Chat.Contracts.TeamHistoryPage` - the team chat's own keyset page, the same shape as
+ * `HistoryPage` over `TeamMessageDto` instead of `MessageDto`. */
+export interface TeamHistoryPage {
+  messages: TeamMessageDto[];
+  nextBeforeSequence: number | null;
+}
+
 /** `OperatorHub.JoinConversationAsync`'s return shape - same `HistoryPage` type
  * `GetHistoryAsync` returns, per the hub's own doc comment ("one handler, two entry points"). */
 export type JoinConversationResult = HistoryPage;
