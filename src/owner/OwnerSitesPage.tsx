@@ -203,7 +203,13 @@ export function OwnerSitesPage() {
       // regardless of any tenant this identity also administers (confirmed with the author, `11-11`'s
       // own backlog item: `/owner` is not scoped to one tenant, so it never follows one's language).
       sections={siteId ? buildTenantNavSections(hasPermission, en, enabledModules ?? []) : []}
-      pinnedItem={{ to: "/owner", label: en.navPlatformSites, end: true }}
+      // `23-43`: only once the server has actually accepted this caller, exactly as
+      // `demoNoticeAudience` below already is. The demo console's operator login is published,
+      // so anyone can sign in and type `/owner`; drawing a rail link to a view they were just
+      // refused tells a stranger that a platform-operations view exists and where it lives.
+      // "unknown" draws nothing either - a link that appears for a moment and then vanishes on
+      // the refusal has already said it.
+      pinnedItem={access === "granted" ? { to: "/owner", label: en.navPlatformSites, end: true } : undefined}
       // `12-04`: narrowed only once `12-02`'s endpoint has actually accepted this caller. While the
       // answer is still `"unknown"`, and on a refusal, the reader is not demonstrably the owner, and
       // the stricter shared-login wording is the true thing to say to them.
@@ -228,9 +234,14 @@ export function OwnerSitesPage() {
           {/* `Alert tone="danger"` carries `role="alert"`, the same assertive live region every
               refusal branch in this console uses. No table, no skeleton, no partial row: the server
               refused before any site data existed in this browser. */}
+          {/* `23-43`: says that the caller was refused, and no longer says by what. "Restricted to
+              the platform owner" told a reader who is not one that such a role exists on this
+              deployment - which on a console whose operator login is published means telling
+              anybody. Refusing without naming the thing refused is the smaller disclosure and is
+              equally true; the reader who *is* the owner never sees this branch. */}
           <Alert tone="danger" title="Not authorized">
-            This view is restricted to the platform owner. The server refused the request, so no site
-            data was loaded.
+            This view is not available to you. The server refused the request, so no site data was
+            loaded.
           </Alert>
           {/* `4-06`(console): no separate "back" link here any more - the nav bar above already
               offers "Conversations" whenever `siteId` says this identity has somewhere to go back

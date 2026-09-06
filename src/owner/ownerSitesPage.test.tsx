@@ -120,6 +120,43 @@ describe("the platform-sites page's own navigation", () => {
     expect(pinnedLink(container)?.textContent?.trim()).toBe("Platform sites");
   });
 
+  /**
+   * `23-43`: what a **stranger** sees here, which until this item nobody asserted.
+   *
+   * This console's demo operator login is published on the demo pages, so anyone can sign in and
+   * type `/owner`. They were refused by the server - `12-01`'s policy is the gate and it held - but
+   * the page still drew a "Platform sites" link in the rail and told them, in prose, that the view is
+   * "restricted to the platform owner".
+   *
+   * No data leaked either way. What leaked is that the role exists on this deployment and where its
+   * view lives, to a reader who is not it - and on a console with a published login, that is
+   * everybody. The author asked for the demo operator to be told nothing about the owner at all.
+   */
+  it("draws no platform-sites link for a caller the server refused", async () => {
+    tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [{ siteId: SITE_ID, siteName: "Demo Shop One" }] });
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID });
+    ownerApi.fetchOwnerSites.mockResolvedValue({ status: "not-authorized" });
+
+    const container = await render(shellAt());
+
+    expect(pinnedLink(container)).toBeUndefined();
+    // Their own console is untouched - this hides one link, it does not strand them.
+    expect(sectionLabels(container).length).toBeGreaterThan(0);
+  });
+
+  it("names no role when it refuses", async () => {
+    tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [] });
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: [], siteId: null });
+    ownerApi.fetchOwnerSites.mockResolvedValue({ status: "not-authorized" });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).toContain("Not authorized");
+    expect(container.textContent).toContain("no site data was loaded");
+    expect(container.textContent).not.toContain("platform owner");
+    expect(container.textContent).not.toContain("Platform sites");
+  });
+
   it("marks Platform sites as the active link, since this page is what it points at", async () => {
     tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [] });
     operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: [], siteId: null });
