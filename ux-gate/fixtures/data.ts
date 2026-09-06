@@ -78,8 +78,34 @@ export const SEEDED_MESSAGES = [
   },
 ];
 
+/**
+ * `23-31`: **two different APIs answer `/api/v1/me/tenancies`, and this gate serves both from one
+ * origin**, so this one body has to satisfy both readers.
+ *
+ * `apiStubs.ts` matches on pathname alone, and `.env.ux-gate` deliberately points
+ * `VITE_CALENDAR_API_BASE_URL` at the same `127.0.0.1:4173` the chat API is served from. Both files
+ * carried a comment asserting that no calendar path collides with a chat one, because every calendar
+ * route sits under `/api/v1/console/*`. This one does not - `calendarTenanciesApi.ts`'s own doc
+ * comment says why it is outside that prefix: it answers for the *identity* rather than for a tenant.
+ *
+ * Until `23-31` nothing noticed, because `CalendarElsewhereNotice` is mounted on exactly one screen
+ * and no gate screen opened it. The moment one did, the calendar's reader got the chat's shape,
+ * `tenantName` was `undefined`, and `tenantName.trim()` took the **whole application** blank - no
+ * error page, no partial render, an empty `<body>`.
+ *
+ * Carrying all four fields is the honest fixture for a collision that is real: `siteId`/`siteName`
+ * for the shell's shop picker, `tenantId`/`tenantName` for the calendar's notice. Splitting the two
+ * by origin is not available here (they are one origin on purpose), and splitting them by a request
+ * header would make this fixture depend on which headers each caller happens to send today.
+ *
+ * The single entry is the *current* site, so `CalendarElsewhereNotice` correctly finds nothing
+ * "elsewhere" and renders `null` - which is what the `calendar-nav-muted` screen wants: the refusal
+ * underneath it, not a notice about another workspace.
+ */
 export function seededTenancies() {
-  return { tenancies: [{ siteId: SITE_ID, siteName: SITE_NAME }] };
+  return {
+    tenancies: [{ siteId: SITE_ID, siteName: SITE_NAME, tenantId: SITE_ID, tenantName: SITE_NAME }],
+  };
 }
 
 /** `23-24`: what a screen may override on top of the base seeded operator - just enough to draw a

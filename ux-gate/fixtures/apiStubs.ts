@@ -136,9 +136,14 @@ export async function installApiStubs(
     // `22-06`/`adr/0093`: `Ago.Calendar.Api`'s own `/api/v1/console/*` shape
     // (`src/api/calendarApi.ts`) - same-origin here too, since `.env.ux-gate` points
     // `VITE_CALENDAR_API_BASE_URL` at this identical `127.0.0.1:4173` origin for the identical
-    // same-origin-fixture reason `gateEnv.ts`'s own doc comment gives for `VITE_API_BASE_URL`. No
-    // path here collides with `Ago.Chat.Api`'s own shapes above - `/console/*` is a prefix `ago-chat`
-    // never uses.
+    // same-origin-fixture reason `gateEnv.ts`'s own doc comment gives for `VITE_API_BASE_URL`.
+    //
+    // `23-31`: this comment used to end "no path here collides with `Ago.Chat.Api`'s own shapes
+    // above - `/console/*` is a prefix `ago-chat` never uses". That was wrong, and the exception is
+    // the one calendar route deliberately outside the prefix: `/api/v1/me/tenancies`, handled above
+    // and shared by both APIs. See `seededTenancies`' own doc comment - a collision on one origin
+    // matched by pathname alone, which took the whole app blank the first time a gate screen opened
+    // the screen that reads it.
     if (path === "/api/v1/console/pending-bookings" && method === "GET") {
       return json(seededCalendarPendingBookings());
     }
