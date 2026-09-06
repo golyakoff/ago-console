@@ -1472,6 +1472,11 @@ export interface ConsoleStrings {
    * deferred one and nothing has built it since - so a tenant who reads the wrong address here has
    * no next step unless one is written down. */
   installOriginChangeHint: string;
+  /** `23-51`: the two directions the auth guard's spinner can be travelling in. It said
+   * `Signing in…` for both, as an English literal, which was wrong about the language on every
+   * Russian screen and wrong about the fact itself while somebody was leaving. */
+  authSigningIn: string;
+  authSigningOut: string;
   calendarSetupSaveOriginsButton: string;
   calendarSetupCalendarsTitle: string;
   calendarPublishedLabel: string;

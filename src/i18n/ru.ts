@@ -958,6 +958,8 @@ export const ru: ConsoleStrings = {
   calendarSetupOriginsFieldLabel: "По одному источнику на строку",
   siteAddressPlaceholder: "https://your.site.ru",
   installOriginChangeHint: "Для изменения напишите в поддержку.",
+  authSigningIn: "Входим…",
+  authSigningOut: "Выходим…",
   calendarSetupSaveOriginsButton: "Сохранить источники",
   calendarSetupCalendarsTitle: "Календари",
   calendarPublishedLabel: "опубликован",

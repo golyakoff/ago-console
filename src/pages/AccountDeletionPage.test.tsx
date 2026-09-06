@@ -49,7 +49,8 @@ function signedIn(): User {
 
 function Signed({ logout, children }: { logout: () => Promise<void>; children: ReactNode }) {
   const auth = useMemo<AuthState>(
-    () => ({ user: signedIn(), isLoading: false, login: () => Promise.resolve(), logout }),
+    () => ({ user: signedIn(), isLoading: false,
+ isSigningOut: false, login: () => Promise.resolve(), logout }),
     [logout],
   );
 
