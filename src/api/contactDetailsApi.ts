@@ -3,21 +3,32 @@ import { withActiveSiteHeader } from "./activeSite.js";
 import { problemDetailsFrom } from "./problemDetails.js";
 
 /**
- * `14-14`/`adr/0079` section 6's exact wire shape (`Ago.Chat.Api`'s `ContactDetailEndpoints`, backed by
- * `RecordVisitorContactDetailHandler`/`ListVisitorContactDetailsHandler`/`DeleteVisitorContactDetailHandler`).
- * `kind` is the `Domain.VisitorContactDetailKind` member name verbatim (`"Phone"`, `"Email"`, `"Other"`)
- * - never a display label, the same "technical value, rendered by the console" split
- * `ChannelIdentityDto.kind` already establishes for `ago-chat`'s other closed-enum wire field.
+ * `14-14`/`23-09`/`adr/0079` section 6's exact wire shape (`Ago.Chat.Api`'s `ContactDetailEndpoints`,
+ * backed by `RecordVisitorContactDetailHandler`/`ListVisitorContactDetailsHandler`/
+ * `DeleteVisitorContactDetailHandler`). `kind` is the `Domain.VisitorContactDetailKind` member name
+ * verbatim (`"Phone"`, `"Email"`, `"Other"`) - never a display label, the same "technical value,
+ * rendered by the console" split `ChannelIdentityDto.kind` already establishes for `ago-chat`'s other
+ * closed-enum wire field. `source` is `Domain.VisitorContactDetailSource`'s member name the same way
+ * (`"Operator"` | `"Visitor"`).
  *
- * **Never confuse this with `ChannelIdentityDto`.** A contact detail is a hand-typed, unverified fact
- * an operator recorded - it is never used for delivery and never becomes a channel identity through
- * any path this client (or `ago-chat`) offers. See `ContactDetailsPanel`'s own doc comment.
+ * **Never confuse this with `ChannelIdentityDto`.** A contact detail is a hand-typed or
+ * visitor-submitted, always-unverified fact - it is never used for delivery and never becomes a
+ * channel identity through any path this client (or `ago-chat`) offers. See `ContactDetailsPanel`'s
+ * own doc comment.
+ *
+ * `23-09`: `recordedByOperatorId` is nullable and `verified` is new - a visitor-supplied row
+ * (`source: "Visitor"`) has no operator behind it and is never verified
+ * (`Domain.VisitorContactDetail`'s own remarks on why nothing in this codebase yet sets `verified`
+ * `true`). `ContactDetailsPanel` renders `source`/`verified`, never the raw operator id, so a null
+ * `recordedByOperatorId` never needs to be special-cased into an empty cell or a fabricated name.
  */
 export interface ContactDetailDto {
   id: string;
   kind: string;
   value: string;
-  recordedByOperatorId: string;
+  recordedByOperatorId: string | null;
+  source: string;
+  verified: boolean;
   recordedAt: string;
 }
 

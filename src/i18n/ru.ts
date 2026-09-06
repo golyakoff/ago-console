@@ -482,7 +482,7 @@ export const ru: ConsoleStrings = {
   channelIdentitiesCodeGeneratedPrefix: "Код сгенерирован для",
 
   contactDetailsSectionTitle: "Непроверенные контактные данные",
-  contactDetailsCaption: "Записано оператором - никогда не используется для автоматической связи с посетителем.",
+  contactDetailsCaption: "Записано оператором или отправлено самим посетителем - не проверено, если не указано иное.",
   contactDetailsLoadingLabel: "Загрузка контактных данных…",
   contactDetailsLoadError: "Не удалось загрузить контактные данные.",
   contactDetailsEmpty: "Контактные данные ещё не записаны.",
@@ -493,6 +493,10 @@ export const ru: ConsoleStrings = {
   contactDetailsRecordError: "Не удалось записать контактные данные.",
   contactDetailsDeleteButton: "Удалить",
   contactDetailsDeleteError: "Не удалось удалить.",
+  contactDetailsSourceOperator: "Оператор",
+  contactDetailsSourceVisitor: "Посетитель",
+  contactDetailsVerified: "Проверено",
+  contactDetailsUnverified: "Не проверено",
 
   notesTitle: "Заметки",
   notesVisitorCannotSeeNote: "Посетитель их никогда не видит.",

@@ -49,13 +49,23 @@ export interface ContactDetailsPanelProps {
  * **Deliberately not merged into `ChannelIdentitiesPanel`, and deliberately styled to look like a
  * different kind of fact, not just live in a different file.** A linked channel identity is
  * evidence-based - proven by a real inbound message or a verification code
- * (`ChannelIdentitiesPanel`'s own doc comment). A contact detail is only ever an operator's own
- * unverified claim, so this panel gets its own heading and its own caption stating that plainly, and
+ * (`ChannelIdentitiesPanel`'s own doc comment). A contact detail is only ever unverified today
+ * (`Domain.VisitorContactDetail`'s own remarks - nothing in this codebase yet sets `Verified` `true`
+ * on either source), so this panel gets its own heading and its own caption stating that plainly, and
  * renders each row with a distinct badge tone from `ChannelIdentitiesPanel`'s - an operator scanning
  * the aside should be able to tell "verified" from "someone typed this" without reading either
  * panel's copy closely. This value is **never** sent anywhere: recording and deleting are the only
  * two actions this panel (or its backing endpoints) offer, both gated on `conversation:send` - there
  * is no "promote to channel identity" action anywhere in this codebase.
+ *
+ * **`23-09`: the caption's claim changed, and had to.** It used to read "Recorded by an operator -
+ * never used to contact the visitor automatically" - true only while every row here was an operator's
+ * own note. A visitor-supplied row (the widget's out-of-hours control) is the opposite of that second
+ * half by design: it exists so a tenant *can* call the visitor back (`docs/design/decisions.md` §4).
+ * The new caption states what stays true of every row regardless of who supplied it - unverified,
+ * unless a future caller marks one otherwise - rather than a claim this item would make false the day
+ * it shipped. Each row's own `Source`/`Verified` badges above carry the per-row distinction the
+ * caption no longer can.
  *
  * Reading is gated on `conversation:read`, the same permission `ConversationNotesPanel` reuses for
  * its own read half (`ListVisitorContactDetailsHandler`'s own remarks); recording and deleting both
@@ -190,6 +200,19 @@ export function ContactDetailsPanel({ conversationId, accessToken, contactDraft 
           {details?.map((detail) => (
             <li key={detail.id} className="ago-aside__row">
               <Badge tone="accent">{detail.kind}</Badge>
+              {/* `23-09`: distinguishes an operator-recorded row from a visitor-submitted one - the
+                  console never renders the raw `recordedByOperatorId` (nullable since this item), so
+                  this badge is what a null id renders as instead: a readable word, never an empty
+                  cell or a fabricated name. */}
+              <Badge tone={detail.source === "Visitor" ? "brand" : "neutral"}>
+                {detail.source === "Visitor" ? strings.contactDetailsSourceVisitor : strings.contactDetailsSourceOperator}
+              </Badge>
+              {/* `23-09`: says which are unverified - every row today, but the flag (not an inferred
+                  constant) is what lets a future verified-mode caller change that without this panel
+                  needing to change with it. */}
+              <Badge tone={detail.verified ? "success" : "neutral"}>
+                {detail.verified ? strings.contactDetailsVerified : strings.contactDetailsUnverified}
+              </Badge>
               <span>{detail.value}</span>
               {canRecord && (
                 <Button

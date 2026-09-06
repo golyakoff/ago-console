@@ -670,10 +670,10 @@ export interface ConsoleStrings {
    * link request is generated. */
   channelIdentitiesCodeGeneratedPrefix: string;
 
-  // `14-14`/`adr/0079` section 6: ContactDetailsPanel - a phone/email/other fact an operator recorded
-  // because a visitor said it, never verified and never used for delivery. Deliberately its own
-  // heading and caption, distinct from ChannelIdentitiesPanel's own strings right above - see that
-  // component's own doc comment for why.
+  // `14-14`/`23-09`/`adr/0079` section 6: ContactDetailsPanel - a phone/email/other fact an operator
+  // recorded, or a visitor submitted through the widget's own control, never verified today and never
+  // used for delivery. Deliberately its own heading and caption, distinct from ChannelIdentitiesPanel's
+  // own strings right above - see that component's own doc comment for why.
   contactDetailsSectionTitle: string;
   contactDetailsCaption: string;
   contactDetailsLoadingLabel: string;
@@ -686,6 +686,12 @@ export interface ConsoleStrings {
   contactDetailsRecordError: string;
   contactDetailsDeleteButton: string;
   contactDetailsDeleteError: string;
+  /** `23-09`: per-row badges - see `ContactDetailsPanel`'s own doc comment for why the caption alone
+   * can no longer carry this distinction. */
+  contactDetailsSourceOperator: string;
+  contactDetailsSourceVisitor: string;
+  contactDetailsVerified: string;
+  contactDetailsUnverified: string;
 
   // `18-04`: ConversationNotesPanel - internal, operator-only notes on a conversation. Never
   // reachable by a visitor, by construction (`ago-chat`'s `INoteRepository`'s own remarks) - this
