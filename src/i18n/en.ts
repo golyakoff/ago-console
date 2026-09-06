@@ -494,6 +494,9 @@ export const en: ConsoleStrings = {
   contactDetailsSourceVisitor: "Visitor",
   contactDetailsVerified: "Verified",
   contactDetailsUnverified: "Unverified",
+  contactDetailsRevealButton: "Reveal",
+  contactDetailsRevealingButton: "Revealing…",
+  contactDetailsRevealError: "Failed to reveal the contact detail.",
 
   notesTitle: "Notes",
   notesVisitorCannotSeeNote: "The visitor never sees these.",

@@ -497,6 +497,9 @@ export const ru: ConsoleStrings = {
   contactDetailsSourceVisitor: "Посетитель",
   contactDetailsVerified: "Проверено",
   contactDetailsUnverified: "Не проверено",
+  contactDetailsRevealButton: "Показать",
+  contactDetailsRevealingButton: "Показ…",
+  contactDetailsRevealError: "Не удалось показать контактные данные.",
 
   notesTitle: "Заметки",
   notesVisitorCannotSeeNote: "Посетитель их никогда не видит.",
