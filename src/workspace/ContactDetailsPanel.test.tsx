@@ -71,7 +71,7 @@ describe("who is offered the panel", () => {
 
   it("lists details but offers no record/delete controls to a read-only operator", async () => {
     contactDetailsApi.fetchContactDetails.mockResolvedValue([
-      { id: "id-1", kind: "Phone", value: "+1 555 0100", recordedByOperatorId: "op-1", recordedAt: "x" },
+      { id: "id-1", kind: "Phone", value: "+1 555 0100", recordedByOperatorId: "op-1", source: "Operator", verified: false, recordedAt: "x" },
     ]);
 
     const container = await mount(["conversation:read"]);
@@ -84,7 +84,7 @@ describe("who is offered the panel", () => {
 
   it("offers the record form and a delete button per row to an operator holding conversation:send", async () => {
     contactDetailsApi.fetchContactDetails.mockResolvedValue([
-      { id: "id-1", kind: "Phone", value: "+1 555 0100", recordedByOperatorId: "op-1", recordedAt: "x" },
+      { id: "id-1", kind: "Phone", value: "+1 555 0100", recordedByOperatorId: "op-1", source: "Operator", verified: false, recordedAt: "x" },
     ]);
 
     const container = await mount(["conversation:read", "conversation:send"]);
@@ -117,6 +117,8 @@ describe("recording a contact detail", () => {
       kind: "Phone",
       value: "+1 555 0199",
       recordedByOperatorId: "op-1",
+      source: "Operator",
+      verified: false,
       recordedAt: "2026-08-30T12:00:00Z",
     });
 
@@ -150,7 +152,7 @@ describe("recording a contact detail", () => {
 describe("deleting a contact detail", () => {
   it("removes the detail from the list on a successful delete", async () => {
     contactDetailsApi.fetchContactDetails.mockResolvedValue([
-      { id: "id-1", kind: "Phone", value: "+1 555 0100", recordedByOperatorId: "op-1", recordedAt: "x" },
+      { id: "id-1", kind: "Phone", value: "+1 555 0100", recordedByOperatorId: "op-1", source: "Operator", verified: false, recordedAt: "x" },
     ]);
     contactDetailsApi.deleteContactDetail.mockResolvedValue(undefined);
 
@@ -165,7 +167,7 @@ describe("deleting a contact detail", () => {
 
   it("shows an error, and keeps the detail listed, when the delete fails", async () => {
     contactDetailsApi.fetchContactDetails.mockResolvedValue([
-      { id: "id-1", kind: "Phone", value: "+1 555 0100", recordedByOperatorId: "op-1", recordedAt: "x" },
+      { id: "id-1", kind: "Phone", value: "+1 555 0100", recordedByOperatorId: "op-1", source: "Operator", verified: false, recordedAt: "x" },
     ]);
     contactDetailsApi.deleteContactDetail.mockRejectedValue(
       new ApiProblemError("VisitorContactDetail.NotFound", "server wording", 404),
@@ -177,6 +179,87 @@ describe("deleting a contact detail", () => {
 
     expect(one(container, '[role="alert"]').textContent).toContain("server wording");
     expect(container.textContent).toContain("+1 555 0100");
+  });
+});
+
+/**
+ * `23-09`: the panel's whole reason for reading `source`/`verified` at all - see this component's
+ * own doc comment for why the caption alone can no longer carry the distinction. A null
+ * `recordedByOperatorId` on the visitor-sourced row is deliberate (`ContactDetailDto`'s own remarks)
+ * and is never rendered as an empty cell or a fabricated name - these tests prove that by never
+ * asserting anything about the id at all, only about the human-readable badges.
+ */
+describe("distinguishing who supplied a contact detail (23-09)", () => {
+  it("badges an operator-recorded row as Operator and Unverified", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([
+      {
+        id: "id-1",
+        kind: "Phone",
+        value: "+1 555 0100",
+        recordedByOperatorId: "op-1",
+        source: "Operator",
+        verified: false,
+        recordedAt: "x",
+      },
+    ]);
+
+    const container = await mount(["conversation:read"]);
+
+    expect(container.textContent).toContain("Operator");
+    expect(container.textContent).toContain("Unverified");
+  });
+
+  it("badges a visitor-submitted row as Visitor, with no operator id anywhere in the rendered text", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([
+      {
+        id: "id-2",
+        kind: "Phone",
+        value: "+1 555 0177",
+        recordedByOperatorId: null,
+        source: "Visitor",
+        verified: false,
+        recordedAt: "x",
+      },
+    ]);
+
+    const container = await mount(["conversation:read"]);
+
+    expect(container.textContent).toContain("Visitor");
+    expect(container.textContent).toContain("Unverified");
+    // The strongest form of "never rendered as an empty cell or a fabricated name": nothing here
+    // even attempts to render the id, so there is nothing for a null value to break.
+    expect(container.textContent).not.toContain("null");
+    expect(container.textContent).not.toContain("undefined");
+  });
+
+  it("distinguishes both rows at once when a visitor and an operator each recorded one", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([
+      {
+        id: "id-1",
+        kind: "Phone",
+        value: "+1 555 0100",
+        recordedByOperatorId: "op-1",
+        source: "Operator",
+        verified: false,
+        recordedAt: "x",
+      },
+      {
+        id: "id-2",
+        kind: "Phone",
+        value: "+1 555 0177",
+        recordedByOperatorId: null,
+        source: "Visitor",
+        verified: false,
+        recordedAt: "y",
+      },
+    ]);
+
+    const container = await mount(["conversation:read"]);
+
+    expect(container.textContent).toContain("+1 555 0100");
+    expect(container.textContent).toContain("+1 555 0177");
+    expect(container.textContent).toContain("Operator");
+    expect(container.textContent).toContain("Visitor");
   });
 });
 
@@ -237,6 +320,8 @@ describe("a promoted selection (23-10)", () => {
       kind: "Phone",
       value: "+7 000 000-00-01",
       recordedByOperatorId: "op-1",
+      source: "Operator",
+      verified: false,
       recordedAt: "2026-09-04T12:00:00Z",
     });
 
