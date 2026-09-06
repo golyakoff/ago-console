@@ -17,6 +17,14 @@ import { render, unmount } from "../testing/dom.js";
  * the conversations belong to strangers, and nothing real should be typed here. That is what the strip
  * exists for; the login clause is context around it.
  *
+ * `23-42` then removed the band entirely for the platform owner, on the author's own request. The
+ * paragraph above is still why the *wording* is what it is for everybody else; what it did not
+ * account for is that this particular audience has one member, who reads it every day and cannot
+ * dismiss it. `PublicDemoNotice`'s own doc comment carries the full argument. The three tests below
+ * the first one are the guard that matters now: this is a removal for one identity, not a softening
+ * for everybody, and a change that weakened the shared-login or the unidentified case would redden
+ * them.
+ *
  * `config.isPublicDemo` is mocked `true` here, unlike every other test file in this repository, which
  * mocks it `false` - this is the only file about the notice itself, so it is the only one that needs
  * the build flag that makes it exist at all.
@@ -38,29 +46,22 @@ afterEach(async () => {
 });
 
 describe("the public demo notice", () => {
-  it("says nothing about the reader's own login being published, to the platform owner", async () => {
+  it("shows the platform owner nothing at all", async () => {
+    // `23-42`. `12-04` corrected the false clause and kept the true one; the author, who is the only
+    // member of this audience, asked for the band to stop appearing for them. The disclosure stays
+    // exactly as it was for every reader who is not identified as the owner - see the three tests
+    // below, which are what stop this from becoming a softening for everybody.
     const container = await render(
       <AppShell demoNoticeAudience="platform-owner">
         <p>a page</p>
       </AppShell>,
     );
 
+    expect(container.querySelector(".ago-demo-notice")).toBeNull();
     expect(container.textContent).not.toContain(SHARED_LOGIN_CLAIM);
-    expect(container.textContent).toContain("signed in as the platform owner");
-    expect(container.textContent).toContain("your own login is published nowhere");
-  });
-
-  it("still warns the platform owner about the part that is true for every reader", async () => {
-    // The failure this variant could most easily cause: dropping the disclosure instead of correcting
-    // it. The owner reads the same strangers' conversations everybody else does.
-    const container = await render(
-      <AppShell demoNoticeAudience="platform-owner">
-        <p>a page</p>
-      </AppShell>,
-    );
-
-    expect(container.textContent).toContain(ALWAYS_TRUE_CLAIM);
-    expect(container.textContent).toContain("Do not type anything real");
+    expect(container.textContent).not.toContain(ALWAYS_TRUE_CLAIM);
+    // The page itself still renders - the band is removed, not the shell around it.
+    expect(container.textContent).toContain("a page");
   });
 
   it("keeps the published-login wording for the shared demo login", async () => {

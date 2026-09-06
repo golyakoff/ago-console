@@ -45,11 +45,6 @@ export const en: ConsoleStrings = {
     "This is a public demo console. Its login is published on the demo pages, so anyone can sign " +
     "in here - every conversation in it was typed by a stranger, who was told you can read it. Do " +
     "not type anything real.",
-  publicDemoNoticePlatformOwner:
-    "This is a public demo console. You are signed in as the platform owner - your own login is " +
-    "published nowhere, but the demo operator login is, so anyone can sign in here as one. Every " +
-    "conversation in it was typed by a stranger, who was told an operator can read it. Do not " +
-    "type anything real.",
 
   themeToggleLabel: "Theme",
   themeToggleAriaLabel: "Colour theme",

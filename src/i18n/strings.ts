@@ -119,7 +119,6 @@ export interface ConsoleStrings {
    * `TenancySwitcher`'s own remarks describe, one language at a time. */
   unnamedSite: string;
   publicDemoNoticeSharedLogin: string;
-  publicDemoNoticePlatformOwner: string;
 
   // Dark-theme reversal of `adr/0030` point 4 - `ThemeToggle` (`src/design/ThemeToggle.tsx`),
   // rendered in `ShellIdentity` beside sign-out, the same three-state (system/light/dark) shape
