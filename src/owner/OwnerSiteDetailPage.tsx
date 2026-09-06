@@ -108,7 +108,13 @@ export function OwnerSiteDetailPage() {
       // too (`end: false`): this screen is still part of the platform-sites section, one tenant deep
       // into it.
       sections={ownSiteId ? buildTenantNavSections(hasPermission, en, enabledModules ?? []) : []}
-      pinnedItem={{ to: "/owner", label: en.navPlatformSites, end: false }}
+      // `23-43`: only once the server has actually accepted this caller, exactly as
+      // `demoNoticeAudience` below already is. The demo console's operator login is published,
+      // so anyone can sign in and type `/owner`; drawing a rail link to a view they were just
+      // refused tells a stranger that a platform-operations view exists and where it lives.
+      // "unknown" draws nothing either - a link that appears for a moment and then vanishes on
+      // the refusal has already said it.
+      pinnedItem={access === "granted" ? { to: "/owner", label: en.navPlatformSites, end: false } : undefined}
       demoNoticeAudience={access === "granted" ? "platform-owner" : "shared-login"}
       wide
       identity={
@@ -120,9 +126,14 @@ export function OwnerSiteDetailPage() {
       {access === "refused" && (
         <>
           <PageHead title="Platform operations" />
+          {/* `23-43`: says that the caller was refused, and no longer says by what. "Restricted to
+              the platform owner" told a reader who is not one that such a role exists on this
+              deployment - which on a console whose operator login is published means telling
+              anybody. Refusing without naming the thing refused is the smaller disclosure and is
+              equally true; the reader who *is* the owner never sees this branch. */}
           <Alert tone="danger" title="Not authorized">
-            This view is restricted to the platform owner. The server refused the request, so no site
-            data was loaded.
+            This view is not available to you. The server refused the request, so no site data was
+            loaded.
           </Alert>
         </>
       )}
