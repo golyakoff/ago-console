@@ -290,9 +290,9 @@ export const en: ConsoleStrings = {
   widgetSubmitError: "Failed to save the widget configuration.",
   widgetForbidden: "You do not have permission to configure this site's widget.",
   widgetDescription:
-    "Changes here take effect the next time a visitor's page loads the widget. A visitor who already " +
-    "has the widget open on their page will not see the new color, position, or language until they " +
-    "reload it.",
+    "Changes here reach a visitor's browser within a day, sooner for a first-time visitor or one " +
+    "whose session is already due for its own renewal. A visitor who already has the widget open on " +
+    "their page will not see the new color, position, or language until they reload it.",
   widgetLoadingLabel: "Loading the widget configuration…",
   widgetPanelTitle: "Launcher",
   widgetColorFieldLabel: "Primary color (hex, optional)",
@@ -1262,8 +1262,9 @@ export const en: ConsoleStrings = {
   deviceStorageWidgetColorHolds: "The accent colour you configured for the widget, if you set one.",
   deviceStorageWidgetColorWhy: "Lets the widget render in your chosen colour immediately on the next page load, before it asks our server again.",
   deviceStorageWidgetColorLifetime:
-    "Refreshed each time the session above renews; removed the moment you unset the colour in your " +
-    "console. A cache of your own setting, not a record about the visitor.",
+    "Refreshed at least once a day for a returning visitor, and sooner if the session above is " +
+    "itself due for renewal; removed the moment you unset the colour in your console. A cache of " +
+    "your own setting, not a record about the visitor.",
   deviceStorageWidgetPositionHolds: "The on-screen corner you configured for the widget.",
   deviceStorageWidgetPositionWhy: "Same purpose as the accent colour above - a cached rendering preference, refreshed with the session.",
   deviceStorageWidgetPositionLifetime: "Same as the accent colour above.",
