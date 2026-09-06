@@ -1134,7 +1134,6 @@ export const en: ConsoleStrings = {
   redeemInviteErrorGeneric: "We couldn't redeem that invite. Please try again.",
   redeemInviteSetupOwnSiteLink: "Setting up your own site instead?",
 
-<<<<<<< Updated upstream
   callbackCompletingSignIn: "Completing sign-in…",
   callbackSignInFailedTitle: "Sign-in failed",
   callbackOperatorLookupFailedTitle: "Signed in, but couldn't load your account",
@@ -1175,7 +1174,6 @@ export const en: ConsoleStrings = {
     "your own deployment, but nothing in this product can take it back afterwards.",
   onboardingRedeemInvitePrompt: "Have an invite code instead?",
   onboardingRedeemInviteLinkLabel: "Redeem it here",
-=======
   navDeviceStorage: "Data on a visitor's device",
   deviceStorageTitle: "What the widget puts on a visitor's device",
   deviceStorageDescription:
@@ -1245,5 +1243,4 @@ export const en: ConsoleStrings = {
     "One entry per conversation this browser has ever resumed. The entry for whichever conversation " +
     "was current is removed when the visitor identifier above is replaced; an entry for an earlier, " +
     "already-superseded conversation is not otherwise cleared.",
->>>>>>> Stashed changes
 };

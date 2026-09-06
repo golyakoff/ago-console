@@ -1139,7 +1139,6 @@ export const ru: ConsoleStrings = {
   redeemInviteErrorGeneric: "Не удалось активировать приглашение. Попробуйте ещё раз.",
   redeemInviteSetupOwnSiteLink: "Хотите вместо этого создать свой сайт?",
 
-<<<<<<< Updated upstream
   callbackCompletingSignIn: "Завершаем вход…",
   callbackSignInFailedTitle: "Не удалось войти",
   callbackOperatorLookupFailedTitle: "Вы вошли, но не удалось загрузить данные аккаунта",
@@ -1181,7 +1180,6 @@ export const ru: ConsoleStrings = {
     "тенант на этом развёртывании, но отменить это потом уже нельзя.",
   onboardingRedeemInvitePrompt: "Вместо этого есть код приглашения?",
   onboardingRedeemInviteLinkLabel: "Активировать его здесь",
-=======
   navDeviceStorage: "Данные на устройстве посетителя",
   deviceStorageTitle: "Что виджет сохраняет на устройстве посетителя",
   deviceStorageDescription:
@@ -1253,5 +1251,4 @@ export const ru: ConsoleStrings = {
     "По одной записи на каждый диалог, который этот браузер когда-либо продолжал. Запись для того " +
     "диалога, который был текущим, удаляется при замене идентификатора посетителя выше; запись для " +
     "более раннего, уже вытесненного диалога иначе не удаляется.",
->>>>>>> Stashed changes
 };

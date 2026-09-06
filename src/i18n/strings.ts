@@ -1619,7 +1619,6 @@ export interface ConsoleStrings {
    * "Have an invite code instead?" link (`onboardingRedeemInviteLinkLabel`, below) here by mistake. */
   redeemInviteSetupOwnSiteLink: string;
 
-<<<<<<< Updated upstream
   // --- `23-28`: `/callback`, `/signup`, `/onboarding` - the three pre-session pages that hardcoded
   // English literals directly, because `StringsContext.tsx`'s own default was believed to be the
   // correct behaviour for a page with no tenant to follow. The author's answer to that item settles
@@ -1697,7 +1696,6 @@ export interface ConsoleStrings {
    * screen" reasoning. */
   onboardingRedeemInvitePrompt: string;
   onboardingRedeemInviteLinkLabel: string;
-=======
   // --- `24-15`: `DeviceStorageDisclosurePage` (`/settings/device-storage`) - what a tenant can
   // read, from their own console, to write their own cookie or privacy notice. `site:configure`-
   // gated the same way every settings screen above it is; the content itself is the same for every
@@ -1753,5 +1751,4 @@ export interface ConsoleStrings {
   deviceStorageLastSequenceHolds: string;
   deviceStorageLastSequenceWhy: string;
   deviceStorageLastSequenceLifetime: string;
->>>>>>> Stashed changes
 }
