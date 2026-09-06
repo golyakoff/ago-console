@@ -6,7 +6,7 @@ import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { OwnerSiteDetailPage } from "./OwnerSiteDetailPage.js";
 import type { OwnerSiteDetail, OwnerSiteModule } from "../api/ownerApi.js";
-import { all, one, render, unmount } from "../testing/dom.js";
+import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
  * `23-14`: the per-tenant detail read's own behaviour tests - mirrors `ownerSitesPage.test.tsx`'s
@@ -22,7 +22,13 @@ vi.mock("../config.js", () => ({
 }));
 
 const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
-const ownerApi = vi.hoisted(() => ({ fetchOwnerSiteDetail: vi.fn() }));
+const ownerApi = vi.hoisted(() => ({
+  fetchOwnerSiteDetail: vi.fn(),
+  // `23-48`: the allowed-origins editor's own write - mocked from the start (rather than added only
+  // once a test needs it) so an unrelated test that never touches the editor cannot crash on an
+  // unmocked import the way a bare `{}` factory would.
+  updateOwnerSiteAllowedOrigins: vi.fn(),
+}));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
@@ -84,6 +90,7 @@ function detail(overrides: Partial<OwnerSiteDetail> = {}): OwnerSiteDetail {
     attachmentBytes: 1024,
     recentWindowDays: 30,
     modules: [],
+    allowedOrigins: ["https://shop.example"],
     ...overrides,
   };
 }
@@ -223,3 +230,97 @@ describe("the site detail page's own entitlements table", () => {
     expect(container.querySelector("table")).toBeNull();
   });
 });
+
+// `23-48`: the platform owner's own editor - the only place a tenant's allowed origins can be
+// changed. This suite is about the editor's own behaviour (what it shows, what it sends, how it
+// reports success and refusal); it deliberately never asserts anything about the cache the write
+// actually invalidates - that guarantee is proven end to end against real infrastructure in
+// `Ago.Chat.Integration.Tests`' `SiteAllowedOriginsCacheInvalidationEndToEndTests`, not here.
+describe("the site detail page's own allowed-origins editor", () => {
+  it("shows the tenant's current allowed origins, one per line, in the editor", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ allowedOrigins: ["https://shop.example", "https://www.shop.example"] }),
+    });
+
+    const container = await render(shellAt());
+
+    const textarea = one<HTMLTextAreaElement>(container, "textarea");
+    expect(textarea.value).toBe("https://shop.example\nhttps://www.shop.example");
+  });
+
+  it("saves the edited list, and shows the server's own saved value back", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ allowedOrigins: ["https://old.example"] }),
+    });
+    ownerApi.updateOwnerSiteAllowedOrigins.mockResolvedValue({
+      status: "ok",
+      allowedOrigins: ["https://new.example"],
+    });
+
+    const container = await render(shellAt());
+    await setTextarea(container, "https://new.example");
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Save allowed origins").click());
+
+    expect(ownerApi.updateOwnerSiteAllowedOrigins).toHaveBeenCalledWith("token", SITE_ID, ["https://new.example"]);
+    expect(container.textContent).toMatch(/saved/i);
+    const textarea = one<HTMLTextAreaElement>(container, "textarea");
+    expect(textarea.value).toBe("https://new.example");
+  });
+
+  /** Blank lines are a typing artifact, not a value the caller meant to send - dropped client-side
+   * rather than bounced off the server's own "cannot be empty" guard for a line nobody meant as a
+   * real entry. */
+  it("drops blank lines before sending", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ allowedOrigins: ["https://old.example"] }),
+    });
+    ownerApi.updateOwnerSiteAllowedOrigins.mockResolvedValue({
+      status: "ok",
+      allowedOrigins: ["https://new.example"],
+    });
+
+    const container = await render(shellAt());
+    await setTextarea(container, "https://new.example\n\n  \n");
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Save allowed origins").click());
+
+    expect(ownerApi.updateOwnerSiteAllowedOrigins).toHaveBeenCalledWith("token", SITE_ID, ["https://new.example"]);
+  });
+
+  /** Fails-before: before the editor read the server's own refusal text, a malformed origin would
+   * have either thrown an unhandled error or shown nothing - `23-48`'s own Done-when is that the
+   * refusal names what is wrong, not just that something went wrong. */
+  it("shows the server's own refusal text inline, next to the field, for a malformed origin", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ allowedOrigins: ["https://old.example"] }),
+    });
+    ownerApi.updateOwnerSiteAllowedOrigins.mockResolvedValue({
+      status: "invalid",
+      message: "Allowed origin must not include a path, query string, or fragment.",
+    });
+
+    const container = await render(shellAt());
+    await setTextarea(container, "https://shop.example/booking");
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Save allowed origins").click());
+
+    const alert = one<HTMLElement>(container, '[role="alert"]');
+    expect(alert.textContent).toContain("path, query string, or fragment");
+    // Nothing changed underneath the caller's own edit - a refusal must not quietly revert the
+    // field to whatever the server last held.
+    const textarea = one<HTMLTextAreaElement>(container, "textarea");
+    expect(textarea.value).toBe("https://shop.example/booking");
+  });
+});
+
+const TEXTAREA_VALUE_DESCRIPTOR = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
+
+async function setTextarea(container: HTMLElement, value: string) {
+  const textarea = one<HTMLTextAreaElement>(container, "textarea");
+  await interact(() => {
+    TEXTAREA_VALUE_DESCRIPTOR?.set?.call(textarea, value);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
