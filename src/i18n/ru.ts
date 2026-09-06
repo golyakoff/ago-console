@@ -698,6 +698,19 @@ export const ru: ConsoleStrings = {
   operatorsTeamInviteExpiresLabel: "Действует до",
   operatorsTeamInviteCloseButton: "Закрыть",
 
+  teamChatTitle: "Общение",
+  teamChatDescription: "Общайтесь с коллегами, не покидая консоль. Никто за пределами вашей команды этого не видит.",
+  teamChatLoadingLabel: "Загружаем общение…",
+  teamChatLoadError: "Не удалось загрузить чат команды. Попробуйте перезагрузить страницу.",
+  teamChatRetryButton: "Повторить",
+  teamChatEmptyState: "Здесь пока никто ничего не написал.",
+  teamChatComposerPlaceholder: "Сообщение команде…",
+  teamChatSendButton: "Отправить",
+  teamChatSendingButton: "Отправляем…",
+  teamChatSendError: "Не удалось отправить сообщение. Попробуйте ещё раз.",
+  teamChatAdminBadge: "Владелец",
+  teamChatUnnamedAuthor: "Коллега",
+
   navAnalytics: "Аналитика",
   analyticsPageDescription:
     "Как работает ваш сайт: количество диалогов, среднее время до первого ответа и диалоги, " +

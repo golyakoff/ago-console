@@ -169,3 +169,37 @@
   font-size: var(--ago-text-xs);
   color: var(--ago-danger);
 }
+
+/* `23-32`: `TeamChatPage`'s own room - deliberately not `.ago-message`/`.ago-message--visitor`
+   (`workspace.css`), which draw a visitor/operator side and imply a conversation this screen does
+   not have. A flat, bordered row per message, every one identical regardless of author - the same
+   "no left/right" call `TeamChatPage`'s own doc comment makes. */
+.ago-team-chat__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-3);
+  max-height: 28rem;
+  overflow-y: auto;
+}
+
+.ago-team-message {
+  border: 1px solid var(--ago-line);
+  border-radius: var(--ago-radius-sm);
+  padding: var(--ago-space-3);
+  background: var(--ago-surface-sunken);
+}
+
+.ago-team-message__author {
+  font-weight: 600;
+}
+
+.ago-team-message__time {
+  color: var(--ago-ink-soft);
+  font-size: var(--ago-text-xs);
+}
+
+.ago-team-message__body {
+  margin: var(--ago-space-2) 0 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

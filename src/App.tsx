@@ -31,6 +31,7 @@ import { DeviceStorageDisclosurePage } from "./pages/DeviceStorageDisclosurePage
 import { ProductsPage } from "./pages/ProductsPage.js";
 import { AccountDeletionPage } from "./pages/AccountDeletionPage.js";
 import { OperatorsTeamPage } from "./pages/OperatorsTeamPage.js";
+import { TeamChatPage } from "./pages/TeamChatPage.js";
 import { OwnerSitesPage } from "./owner/OwnerSitesPage.js";
 import { OwnerSiteDetailPage } from "./owner/OwnerSiteDetailPage.js";
 import { CalendarQueuePage } from "./pages/CalendarQueuePage.js";
@@ -310,6 +311,12 @@ export function App() {
             `/settings/operators` into its own "Команда" section, alongside the reserved "Общение"
             place. */}
         <Route path="/team/people" element={<OperatorsTeamPage />} />
+        {/* `23-32`: the reserved "Общение" place `23-31` left for it - a real route now, no
+            permission gate (every operator of the site is a member, `TeamChatPage`'s own doc
+            comment). Inside this same shared layout route (`RequireAuth`/`PermissionsProvider`/
+            `OperatorConnectionProvider`), not `WorkspaceLayout` - a team room is not a conversation
+            and needs none of that grid's three regions. */}
+        <Route path="/team/chat" element={<TeamChatPage />} />
         {/* `22-06`/`adr/0093`: AGO Calendar's screens, moved from `ago-calendar-console`. Under
             `/calendar`, not `/settings/*` - `consoleNav.ts`'s own remarks have the "why this prefix"
             reasoning. Same "route stays outside the workspace layout, page gates itself internally"

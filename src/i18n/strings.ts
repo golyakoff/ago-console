@@ -1008,6 +1008,26 @@ export interface ConsoleStrings {
   operatorsTeamInviteExpiresLabel: string;
   operatorsTeamInviteCloseButton: string;
 
+  // `23-32`: TeamChatPage (`/team/chat`) - one chat per tenant, every operator in it, the owner
+  // labelled. Unconditional like `navMyConversations` - see `consoleNav.ts`'s own `buildTeamItems`
+  // remarks for why this entry carries no permission gate.
+  teamChatTitle: string;
+  teamChatDescription: string;
+  teamChatLoadingLabel: string;
+  teamChatLoadError: string;
+  teamChatRetryButton: string;
+  teamChatEmptyState: string;
+  teamChatComposerPlaceholder: string;
+  teamChatSendButton: string;
+  teamChatSendingButton: string;
+  teamChatSendError: string;
+  /** The label on an admin's own messages - `site:manage_operators` at send time
+    * (`SendTeamMessageHandler`'s own remarks, `ago-chat`), not the sender's role today. */
+  teamChatAdminBadge: string;
+  /** Falls back to this when a message's author has no display name recorded (`adr/0104`'s minted
+    * demo operator). */
+  teamChatUnnamedAuthor: string;
+
   // `18-08`: OperatorAnalyticsPage (`/analytics`) - the site owner's own basic self-service report,
   // gated on `site:configure` the same way `SearchConversationsPage`/`AdminConversationsPage` already
   // are, so it reuses their "checking permissions"/"back to queue" shape rather than duplicating it.
