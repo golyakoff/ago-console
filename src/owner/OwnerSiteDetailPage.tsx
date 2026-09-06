@@ -6,7 +6,7 @@ import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchOwnerSiteDetail, type OwnerSiteDetail, type OwnerSiteModule } from "../api/ownerApi.js";
 import { en } from "../i18n/en.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
-import { buildTenantNavItems } from "../shell/consoleNav.js";
+import { buildTenantNavSections } from "../shell/consoleNav.js";
 import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
 import { Spinner } from "../components/Spinner.js";
@@ -103,16 +103,14 @@ export function OwnerSiteDetailPage() {
 
   return (
     <AppShell
-      // The identical nav `OwnerSitesPage` builds - "Platform sites" stays present and, unlike that
-      // page's own `end: true`, is highlighted while on this sub-route too (`end: false`): this
-      // screen is still part of the platform-sites section, one tenant deep into it.
-      nav={[
-        ...(ownSiteId ? buildTenantNavItems(hasPermission, en, enabledModules ?? []) : []),
-        { to: "/owner", label: en.navPlatformSites, end: false },
-      ]}
+      // The identical sections `OwnerSitesPage` builds - "Platform sites" stays present as
+      // `pinnedItem` and, unlike that page's own `end: true`, is highlighted while on this sub-route
+      // too (`end: false`): this screen is still part of the platform-sites section, one tenant deep
+      // into it.
+      sections={ownSiteId ? buildTenantNavSections(hasPermission, en, enabledModules ?? []) : []}
+      pinnedItem={{ to: "/owner", label: en.navPlatformSites, end: false }}
       demoNoticeAudience={access === "granted" ? "platform-owner" : "shared-login"}
       wide
-      tagline={en.consoleTaglineOwner}
       identity={
         <ShellIdentity operator={operatorDisplayName(user)} siteId={ownSiteId} onSignOut={() => void logout()} />
       }

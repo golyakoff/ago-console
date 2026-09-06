@@ -31,7 +31,6 @@ const calendarApi = vi.hoisted(() => ({
   getBookingReadiness: vi.fn(),
   setAllowedOrigins: vi.fn(),
   createCalendar: vi.fn(),
-  createService: vi.fn(),
   addWorkingHoursRule: vi.fn(),
 }));
 
@@ -107,7 +106,6 @@ beforeEach(() => {
   calendarApi.getBookingReadiness.mockResolvedValue([]);
   calendarApi.setAllowedOrigins.mockResolvedValue(undefined);
   calendarApi.createCalendar.mockResolvedValue({ calendarId: "cal-2" });
-  calendarApi.createService.mockResolvedValue({ serviceId: "s2" });
   calendarApi.addWorkingHoursRule.mockResolvedValue({ ruleId: "r1" });
 });
 
@@ -149,7 +147,7 @@ describe("the tenant setup screen", () => {
     // The chat site's key needs `site:configure`; this screen is reached with `calendar:configure`.
     // So the placeholder stays and the copy has to lead somewhere.
     const link = byText<HTMLAnchorElement>(container, "a", "Install widget");
-    expect(link?.getAttribute("href")).toBe("/settings/install");
+    expect(link?.getAttribute("href")).toBe("/channels/install");
   });
 
   it("creates a calendar with an IANA zone", async () => {
@@ -223,7 +221,7 @@ describe("the tenant setup screen", () => {
     expect(container.textContent).toContain("Slots have been generated inside the horizon");
 
     const link = byText<HTMLAnchorElement>(container, "a", "View slots");
-    expect(link?.getAttribute("href")).toBe("/calendar/workers");
+    expect(link?.getAttribute("href")).toBe("/calendar/masters");
   });
 
   it("shows a bookable calendar as bookable, with nothing to fix", async () => {

@@ -112,7 +112,7 @@ describe("held versus not held", () => {
     const container = await render(page());
 
     const bookingLink = Array.from(container.querySelectorAll("a")).find((a) => a.textContent === "Open your booking queue");
-    expect(bookingLink?.getAttribute("href")).toBe("/calendar");
+    expect(bookingLink?.getAttribute("href")).toBe("/calendar/waiting");
     expect(container.textContent).toContain("You have this");
   });
 

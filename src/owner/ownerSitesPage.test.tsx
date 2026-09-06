@@ -62,13 +62,18 @@ function shellAt() {
   );
 }
 
-/** `23-24`: reads only `.ago-shell__nav-link-label`, not the whole link's `textContent` - a muted
- * entry also carries `NavLockGlyph`'s own visually-hidden label right beside it
- * (`AppShell.tsx`'s own doc comment, `permissionGating.test.tsx`'s own identical helper). */
-function navLabels(container: HTMLElement): string[] {
-  return all(container, ".ago-shell__nav a").map(
-    (link) => (link.querySelector(".ago-shell__nav-link-label")?.textContent ?? "").trim(),
+/** `23-31`: the accordion's own section headers - see `permissionGating.test.tsx`'s identical helper
+ * for the full reasoning (a section with no visible items is never drawn at all). */
+function sectionLabels(container: HTMLElement): string[] {
+  return all(container, ".ago-shell__rail-section").map(
+    (button) => button.querySelector(".ago-shell__nav-link-label")?.textContent?.trim() ?? "",
   );
+}
+
+/** `23-31`: "Platform sites" renders as `AppShell`'s own `pinnedItem` - one flat link below every
+ * accordion section, never inside one (`AppShell.tsx`'s `PinnedNavLink`). */
+function pinnedLink(container: HTMLElement): HTMLAnchorElement | undefined {
+  return all(container, ".ago-shell__rail-link--pinned")[0] as HTMLAnchorElement | undefined;
 }
 
 beforeEach(() => {
@@ -90,36 +95,29 @@ describe("the platform-sites page's own navigation", () => {
 
     const container = await render(shellAt());
 
-    expect(navLabels(container)).toEqual([
+    // `23-31`: the identical seven-section structure `OperatorShell` builds for the same permission
+    // set (`permissionGating.test.tsx`'s own "offers every section ordinary..." case) - Calendar
+    // present-and-muted since this identity holds `site:configure` but not `calendar:configure`.
+    expect(sectionLabels(container)).toEqual([
       "Conversations",
-      "My numbers",
-      "All conversations",
-      "Search",
       "Analytics",
-      "Conversion",
-      "Tag report",
-      "Booking flow",
-      "Install widget",
-      "Widget appearance",
-      "AI FAQ assistant",
-      "Offline auto-reply",
-      "Canned responses",
-      "Tags",
-      "Billing",
-      "Data on a visitor's device",
-      "Delete account",
+      "Calendar",
       "Team",
-      "Platform sites",
+      "Channels",
+      "Automation",
+      "Administration",
     ]);
+    expect(pinnedLink(container)?.textContent?.trim()).toBe("Platform sites");
   });
 
-  it("offers only Platform sites for an owner with no operator seat at all", async () => {
+  it("offers no tenant-scoped section at all for an owner with no operator seat at all", async () => {
     tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [] });
     operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: [], siteId: null });
 
     const container = await render(shellAt());
 
-    expect(navLabels(container)).toEqual(["Platform sites"]);
+    expect(sectionLabels(container)).toEqual([]);
+    expect(pinnedLink(container)?.textContent?.trim()).toBe("Platform sites");
   });
 
   it("marks Platform sites as the active link, since this page is what it points at", async () => {
@@ -128,8 +126,7 @@ describe("the platform-sites page's own navigation", () => {
 
     const container = await render(shellAt());
 
-    const link = all(container, ".ago-shell__nav a").find((a) => (a.textContent ?? "").trim() === "Platform sites");
-    expect(link?.classList.contains("ago-shell__nav-link--active")).toBe(true);
+    expect(pinnedLink(container)?.classList.contains("ago-shell__rail-link--active")).toBe(true);
   });
 
   /** Found live, 2026-08-27: this page's own site table had the identical reading-width gap

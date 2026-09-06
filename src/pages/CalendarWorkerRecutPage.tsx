@@ -33,7 +33,7 @@ function today(): string {
 type Decision = "Cancel" | "Keep";
 
 /**
- * `22-06`/`adr/0093`: `/calendar/workers/:workerId/recut` - the one deliberate, human-triggered
+ * `22-06`/`adr/0093`: `/calendar/masters/:workerId/recut` - the one deliberate, human-triggered
  * exception to the forward-only materialisation cursor, moved from `ago-calendar-console`'s own
  * `WorkerRecutPage.tsx` and rewritten against this console's closed eleven-component set.
  *
@@ -156,7 +156,7 @@ export function CalendarWorkerRecutPage() {
       <PageHead title={strings.calendarRecutTitle} description={strings.calendarRecutDescription} />
 
       <p>
-        <Link to="/calendar/workers">← {strings.navCalendarWorkers}</Link>
+        <Link to="/calendar/masters">← {strings.navCalendarWorkers}</Link>
       </p>
 
       <Panel>

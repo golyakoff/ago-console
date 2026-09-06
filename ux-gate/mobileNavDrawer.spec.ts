@@ -58,9 +58,11 @@ test.describe("mobile navigation drawer (11-14)", () => {
     await page.locator(".ago-shell__menu-button").click();
     await expect(page.locator(".ago-dialog--drawer")).toBeVisible();
 
-    // More presses than this drawer has focusable items (fourteen nav links for the seeded
-    // `site:configure` operator, `fixtures/data.ts`'s own `seededPermissions`) - if focus were not
-    // trapped, this would walk it back out onto the page behind the drawer.
+    // `23-31`: more presses than this drawer has focusable items - seven section headers plus
+    // whichever section is open by default on this route (`AppShell.tsx`'s `activeSectionId`), a
+    // smaller number now that a collapsed section's items are not rendered at all rather than merely
+    // hidden (`NavSections`'s own `{isOpen && ...}`) - if focus were not trapped, this would walk it
+    // back out onto the page behind the drawer regardless of the exact count.
     for (let i = 0; i < 20; i++) {
       await page.keyboard.press("Tab");
     }
@@ -89,9 +91,13 @@ test.describe("mobile navigation drawer (11-14)", () => {
     const dialog = page.locator(".ago-dialog--drawer");
     await expect(dialog).toBeVisible();
 
+    // `23-31`: "Виджет на сайте" now sits inside the "Каналы" section, collapsed by default on this
+    // screen (`/conversations/all`'s own active section is "Диалоги") - the accordion's own section
+    // header has to be opened before the item underneath it exists in the DOM at all.
+    await dialog.getByRole("button", { name: ru.navSectionChannels }).click();
     await dialog.getByRole("link", { name: ru.navWidgetAppearance }).click();
 
-    await expect(page).toHaveURL(/\/settings\/widget$/);
+    await expect(page).toHaveURL(/\/channels\/widget$/);
     await expect(dialog).toBeHidden();
     await expect(menuButton).toBeFocused();
   });

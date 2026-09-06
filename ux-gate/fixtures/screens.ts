@@ -13,12 +13,13 @@ import {
  * - **The workspace with a conversation open** (`/conversations/:id`). Closest to both historical
  *   defects this item exists for: the composer (the "one character wide input" shape) and the
  *   message thread (the "dark grey on dark blue" shape) both live here, and nowhere else in the app.
- * - **`/admin`**, the site-wide conversations table. The densest data table in the product outside
- *   the reports, and a screen every operator with `site:configure` opens routinely.
+ * - **`/conversations/all`** (moved from `/admin` by `23-31`), the site-wide conversations table. The
+ *   densest data table in the product outside the reports, and a screen every operator with
+ *   `site:configure` opens routinely.
  * - **`/owner`**, the cross-tenant platform-operations view. Named explicitly in `15-11`'s backlog
  *   text as a real, immediate win ("puts eyes on ... currently invisible" screens) - it is the one
  *   screen in this list that genuinely cannot be looked at any other way before `20-20`.
- * - **`/settings/widget`**, one settings form - chosen over the other five settings screens because
+ * - **`/channels/widget`**, one settings form - chosen over the other five settings screens because
  *   it is the one with the most varied control types on one page (colour swatch picker, select,
  *   textarea, text input), which is where `adr/0030`'s eleven components actually earn their keep as
  *   a set rather than one at a time.
@@ -66,7 +67,7 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
   },
   {
     name: "admin-conversations",
-    path: "/admin",
+    path: "/conversations/all",
     readySelector: ".ago-table-scroll",
   },
   {
@@ -76,7 +77,7 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
   },
   {
     name: "settings-widget",
-    path: "/settings/widget",
+    path: "/channels/widget",
     readySelector: "form.ago-stack",
   },
   // `23-06`: `/settings/install` joins the curated set - this file's own header already names "screens
@@ -90,12 +91,12 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
   // gets on day one, and the reason this item exists. `installation-never-seen` below overrides it.
   {
     name: "settings-install",
-    path: "/settings/install",
+    path: "/channels/install",
     readySelector: ".ago-alert",
   },
   {
     name: "installation-never-seen",
-    path: "/settings/install",
+    path: "/channels/install",
     readySelector: ".ago-alert",
     installationOverride: {
       firstSeenAt: null,
@@ -114,12 +115,12 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
   // untranslated fallback string, a badge/link mismatch) behind a screen that looks fine at a glance.
   {
     name: "products",
-    path: "/settings/products",
+    path: "/account/products",
     readySelector: ".ago-table-scroll",
   },
   {
     name: "analytics",
-    path: "/analytics",
+    path: "/analytics/site",
     readySelector: ".ago-table-scroll",
   },
   // `23-18`: `/analytics/me` joins the curated set - this file's own header already names "a screen
@@ -140,7 +141,7 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
   // `analytics` above.
   {
     name: "operators-team",
-    path: "/settings/operators",
+    path: "/team/people",
     readySelector: ".ago-table-scroll",
   },
   // `23-22`: the same route, this screen's own refused state - `23-24`'s own pattern
@@ -150,7 +151,7 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
   // is what puts this behind `AccessRefusal` instead of the table.
   {
     name: "operators-team-forbidden",
-    path: "/settings/operators",
+    path: "/team/people",
     readySelector: ".ago-alert",
     permissionsOverride: { permissions: ["conversation:close"], enabledModules: ["calendar"] },
   },
@@ -175,6 +176,12 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
   // becoming this gate's first exception to it. Adding it later means either accepting that gap or
   // teaching the assertion a new exemption; it does not mean it was overlooked.
   //
+  // `23-31`: **`/calendar/services` joins this gate as a sixth calendar screen**, carved out of
+  // `/calendar/setup`'s own combined screen - it renders none of the excluded `<pre>` snippet, so it
+  // earns coverage `/calendar/setup` itself still cannot. `/calendar/setup`'s own exclusion is
+  // otherwise unchanged by the split: the screen that stays there (embed/calendars/working hours)
+  // still renders the identical `<pre>` block.
+  //
   // ago-calendar-console's own gate covered all eight of its own routes (`ux-gate/fixtures/screens.ts`
   // in that repository, before this item), because it had few enough screens that all of them mattered
   // and three had no other way to be looked at at all. This move dropped two of those eight routes -
@@ -186,22 +193,30 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
   // the only screen this gate deliberately does not cover, and remains a stated reason, not a rounding.
   {
     name: "calendar-queue",
-    path: "/calendar",
+    path: "/calendar/waiting",
     readySelector: ".ago-table-scroll",
   },
   {
     name: "calendar-workers",
-    path: "/calendar/workers",
+    path: "/calendar/masters",
     readySelector: ".ago-table-scroll",
+  },
+  // `23-31`: `/calendar/services` joins the curated set - a brand-new screen (carved out of
+  // `/calendar/setup`, `CalendarServicesPage`'s own doc comment on the split), and this file's own
+  // header already names "screens that later earn it" as exactly how this array grows.
+  {
+    name: "calendar-services",
+    path: "/calendar/services",
+    readySelector: "form.ago-stack",
   },
   {
     name: "calendar-availability",
-    path: "/calendar/availability",
+    path: "/calendar/schedule",
     readySelector: "form.ago-stack",
   },
   {
     name: "calendar-contacts",
-    path: "/calendar/contacts",
+    path: "/calendar/clients",
     readySelector: ".ago-table-scroll",
   },
   // `15-16` (`ago-root#397`): the two drill-downs off `calendar-workers` - `ago-calendar-console`'s
@@ -217,7 +232,7 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
   // exclusion.
   {
     name: "calendar-worker-slots",
-    path: `/calendar/workers/${CALENDAR_WORKER_ID}/slots`,
+    path: `/calendar/masters/${CALENDAR_WORKER_ID}/slots`,
     // Waits for the materialised-schedule table, not the date-range form above it (which renders on
     // mount, before `getWorkerSlots` resolves) - the same "wait for the later of the two events"
     // reasoning `queue-conversation`'s own `readySelector` comment gives.
@@ -225,7 +240,7 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
   },
   {
     name: "calendar-worker-recut",
-    path: `/calendar/workers/${CALENDAR_WORKER_ID}/recut`,
+    path: `/calendar/masters/${CALENDAR_WORKER_ID}/recut`,
     // Unlike every other screen in this file, nothing here is fetched on mount - `loadPreview` only
     // runs once the operator submits the date field, exactly like the source screen this was moved
     // from. The from-date form is therefore the screen's own first real render, not a loading
@@ -234,34 +249,44 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
     // never navigate-and-interact).
     readySelector: "form.ago-row",
   },
-  // `23-24`: every screen above renders the seeded operator's nav ordinary - `seededPermissions()`
-  // grants every gated permission this console has, so the muted treatment this item adds (and the
-  // `AccessRefusal` page it leads to) never once rendered in this gate before now. Note the
-  // instruction this item shipped under: "the seeded operator currently holds `calendar:configure`,
-  // so the gate never exercises a refused state - you will need to make it do so". One more screen,
-  // not a variant of `admin-conversations` above - a *different* `permissionsOverride`, real assets
-  // this gate cannot fake around (`ux-gate/lib/contrast.ts` reads real computed styles; a Vitest DOM
-  // test, `permissionGating.test.tsx`, cannot).
+  // `23-24`: every screen above renders the seeded operator's nav fully permissioned -
+  // `seededPermissions()` grants every gated permission this console has, so a hidden section (the
+  // ordinary operator's own view) and the calendar's own muted entry (the tenant-without-the-module
+  // view) never once rendered in this gate before now. Two screens, not a variant of
+  // `admin-conversations` above - two different `permissionsOverride`s exercising the two real,
+  // distinct states `adr/0129` describes, over real assets this gate cannot fake around
+  // (`ux-gate/lib/contrast.ts` reads real computed styles; a Vitest DOM test,
+  // `permissionGating.test.tsx`, cannot).
   //
-  // `/admin` reached by an operator holding none of `site:configure`/`site:erase`/
-  // `calendar:configure`, on a tenant that *does* have the calendar module (`enabledModules:
-  // ["calendar"]`) - chosen to exercise every row of decision §10's table in one screen: thirteen
-  // `site:configure` entries muted, `Delete account` muted, the calendar's single `Queue` entry
-  // muted (the one row `23-21` left ordinary and this item now mutes too), and - because this
-  // operator lacks `site:configure` - `/admin` itself renders `AccessRefusal` rather than the table,
-  // so the refusal page's own `tone="info"` text is in the same screenshot and the same four
-  // assertions. `readySelector` waits for the refusal `Alert`, not `.ago-table-scroll` (which never
-  // appears here) and not a muted nav link - found live: `.ago-shell__nav-link--muted` sits in
-  // `.ago-shell__nav`, the desktop bar, which `shell.css` hides below the mobile breakpoint, so
-  // `page.waitForSelector`'s own `state: "visible"` never resolves on the 375px project even though
-  // the element exists in the DOM. The `Alert` is ordinary page content, rendered on both viewports,
-  // and (`AccessRefusal`'s own body) mounts from the same permissions state the nav does, in the same
-  // render - waiting for it is exactly as good a "has the real answer arrived" signal.
+  // `/conversations/all` reached by an operator holding none of `site:configure`/`site:erase`/
+  // `calendar:configure` - `adr/0129`'s "an operator sees nothing muted at all": the rail offers
+  // exactly three sections (Диалоги/Аналитика/Команда), nothing hidden-but-shown, and this route
+  // itself renders `AccessRefusal` rather than the table, so the refusal page's own `tone="info"`
+  // text is in the same screenshot and the same four assertions. `enabledModules: ["calendar"]` is
+  // set deliberately even though it now changes nothing for this operator (`adr/0129`'s own point -
+  // the old three-way `enabledModules` read only ever mattered for the tenant) - kept to prove that
+  // fact rather than assume it. `readySelector` waits for the refusal `Alert`, which is ordinary page
+  // content rendered on both viewports and mounts from the same permissions state the nav does.
   {
     name: "admin-limited-permissions",
-    path: "/admin",
+    path: "/conversations/all",
     readySelector: ".ago-alert",
     permissionsOverride: { permissions: ["conversation:close"], enabledModules: ["calendar"] },
+  },
+  // `23-31`/`adr/0129`: the *other* real state the muting rule can render - the tenant (holds
+  // `site:configure`) who has not bought the calendar. `/calendar/waiting` is the calendar's own
+  // muted representative entry's own `to`, so the rail's `activeSectionId` opens the Календарь
+  // section automatically on this exact route (`AppShell.tsx`'s own two-pass matching) - the muted
+  // link and its `strings.navBuyableLabel` badge are visible in the rail without this gate ever
+  // clicking a section header (`openScreen.ts`'s own "navigate-and-wait, never navigate-and-interact"
+  // shape). The route itself still renders `CalendarAccessRefusal`'s forbidden state underneath -
+  // real page content in the same screenshot, the identical shape `admin-limited-permissions` above
+  // already established.
+  {
+    name: "calendar-nav-muted",
+    path: "/calendar/waiting",
+    readySelector: ".ago-alert",
+    permissionsOverride: { permissions: ["site:configure"], enabledModules: ["calendar"] },
   },
   // `23-27`: `/redeem-invite` joins the curated set - this file's own header already names "a screen
   // that later earns it" as exactly how this array grows, and a brand-new page with an entirely new

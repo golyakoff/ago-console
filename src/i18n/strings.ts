@@ -12,25 +12,24 @@
  */
 export interface ConsoleStrings {
   skipToContent: string;
-  /** The default header subtitle, shown wherever a caller does not pass `AppShell`'s own `tagline`
-   * prop - `CenteredShell`'s pre-auth/loading screens, and the operator's own messaging tab
-   * (`OperatorShell` passes this one explicitly there too, so the two never drift). */
-  operatorConsoleTagline: string;
-  /** `OperatorShell`'s tenant-management tabs (`/admin`, `/settings/widget`,
-   * `/settings/auto-reply`) - found live: even the platform owner, on their own operator seat,
-   * should read "client console" there and "operator console" on the messaging tab, the same
-   * distinction an ordinary operator sees. Route-driven, not identity-driven. */
-  consoleTaglineClient: string;
-  /** `OwnerSitesPage`'s own header, always read from the fixed `en` table - `/owner` renders in
-   * English regardless of any signed-in identity's tenant locale (11-11's settled design call). */
-  consoleTaglineOwner: string;
   navSectionsAriaLabel: string;
   /** `11-14`: the accessible name of `AppShell`'s hamburger control - visible only below the
    * mobile breakpoint, and icon-only even there (`.ago-shell__menu-icon` carries no text), so this
    * is the one thing a screen-reader user is told about it beyond its role. */
   navOpenMenu: string;
+  /** `23-31`: the "Диалоги" section's own header text - also reused, unchanged, as this section's
+   * accordion label in `consoleNav.ts`. */
   navConversations: string;
+  /** `23-31`: the item within "Диалоги" for the operator's own queue (`/`) - distinct from
+   * `navConversations` above, which now names the *section*, not this one entry. Before this item
+   * the two were the same string ("Conversations"/"Диалоги"), because the route sat at the nav's top
+   * level with no section wrapping it. */
+  navMyConversations: string;
   navAllConversations: string;
+  /** `23-31`: renamed from "Widget appearance"/"Внешний вид виджета" - the "Каналы" section's own
+   * naming rule (`docs/backlog/23-31-*.md`'s "One naming rule" addendum) names every entry for the
+   * channel it is, and "Внешний вид" stopped reading as "whose appearance" once it sat beside "Бот
+   * MAX"/"Бот Telegram" rather than under its own "Виджет на сайте" subheading. */
   navWidgetAppearance: string;
   /** `10-06`: sits beside `navWidgetAppearance` in `consoleNav.ts`, one position earlier - installing
    * the widget is the step a tenant needs *before* appearance is worth touching (the backlog item's
@@ -42,7 +41,7 @@ export interface ConsoleStrings {
    * `consoleNav.ts` - the same permission group, one more tenant self-service screen. */
   navCannedResponses: string;
   /** `18-04`: same permission group, sits beside `navCannedResponses` in `consoleNav.ts` - the tag
-   * vocabulary's own management surface (`/settings/tags`, `TagsPage`). */
+   * vocabulary's own management surface (`/automation/tags`, `TagsPage`). */
   navTags: string;
   navPlatformSites: string;
   /** `16-02`: gated on `site:erase`, deliberately separate from the `site:configure` block above -
@@ -56,8 +55,57 @@ export interface ConsoleStrings {
    * `consoleNav.ts`, deliberately not folded into the `site:configure` block above (an operator who
    * may reconfigure the widget must not, by that alone, manage who else works here - the same
    * separation `navDeleteAccount`'s own `site:erase` gate already draws for a different dedicated
-   * permission). */
+   * permission). `23-31`: renamed from "Team"/"Команда" to "Employees"/"Сотрудники" - "Team" is now
+   * the *section* name (`navSectionTeam`), which also holds the reserved "Team chat" place, and this
+   * entry is one item inside it, not the section itself. */
   navOperatorsTeam: string;
+  // --- `23-31`: the seven accordion section headers. Three reuse an existing label unchanged
+  // (`navConversations`, `navAnalytics`, both already the exact section name) - only the four with no
+  // existing flat-nav equivalent get a new key here. ---
+  /** The "Календарь" section header - distinct from any one calendar screen's own title. */
+  navSectionCalendar: string;
+  /** The "Команда" section header - distinct from `navOperatorsTeam` (one item inside it). */
+  navSectionTeam: string;
+  /** The "Каналы" section header. */
+  navSectionChannels: string;
+  /** The "Автоматизация" section header. */
+  navSectionAutomation: string;
+  /** The "Администрирование" section header. */
+  navSectionAdmin: string;
+  /** `23-31`: the services dictionary, carved out of `/calendar/setup` onto its own screen
+   * (`/calendar/services`) - `CalendarSetupPage`'s own doc comment on the split. */
+  navCalendarServices: string;
+  /** `23-31`: a reserved place - confirmed bookings have no screen yet (`CalendarQueuePage` only
+   * lists the *unconfirmed* ones). Drawn unavailable, never a link (`AppShellNavItem.reserved`). */
+  navCalendarBookings: string;
+  /** `23-31`: a reserved place - one chat for the whole tenant's team, no screen yet. */
+  navTeamChat: string;
+  /** `23-31`: a reserved place - the MAX channel has an adapter since `14-02` but no console screen. */
+  navChannelsMax: string;
+  /** `23-31`: a reserved place - the Telegram channel has an adapter since `14-07` but no console
+   * screen. */
+  navChannelsTelegram: string;
+  /** `23-31`: a reserved place for VK/Avito/WhatsApp/email - four adapters, no screen for any of
+   * them. */
+  navChannelsOther: string;
+  /** `23-31`: a reserved place - the AI-suggestion module has no screen yet. */
+  navAutomationAiSuggestions: string;
+  /** `23-31`: a reserved place - the AI-auto-reply module has not been built at all. */
+  navAutomationAiAutoReply: string;
+  /** `23-31`: `/settings/products` finally gets a nav entry, moved to `/account/products` - `23-25`
+   * built the route and screen but left the label unset, deliberately, pending this item's own
+   * placement decision (`consoleNav.ts`'s old comment on the line this key replaces). */
+  navAccountProducts: string;
+  /** `23-31`: a reserved place - `24-02` built the publish mechanism, no screen reads it back yet. */
+  navAccountDocuments: string;
+  /** `23-31`: the small badge on a `reserved` nav entry (`AppShellNavItem.reserved`) - a place held
+   * for a screen that does not exist yet, never a working link. */
+  navComingSoonLabel: string;
+  /** `23-31`/`adr/0129`: the small badge on a `muted` nav entry under the *replaced* muting rule -
+   * muted now means "this identity could buy the module itself", so the badge names that rather than
+   * naming a colleague who could grant it (the old `navLockedLabel`, deleted with this item - nothing
+   * in the new rule is ever muted for a reason a badge reading "locked" would describe honestly). */
+  navBuyableLabel: string;
   signOut: string;
   /** The `title` attribute on the operator's own site-id badge - "Site id", not the badge's visible
    * text (`siteIdPrefix` below). */
@@ -1341,7 +1389,16 @@ export interface ConsoleStrings {
   // deleted AGO Calendar’s own `operators`/`roles` tables and console endpoints, so there is nothing
   // left for one to manage; it was never wired here. Key names are this table’s own, mechanically
   // prefixed `calendar` from the source console’s `strings.ts` - `cancelButton`/`signOut` above are
-  // reused verbatim (identical wording already existed here) rather than duplicated. ---
+  // reused verbatim (identical wording already existed here) rather than duplicated.
+  //
+  // `23-31`: three of these five keep their key but change their *value*, matching the item's own
+  // nav table - the key names the route/screen (unchanged, so no call site churn), the value is what
+  // a reader sees, and that is what moved: `navCalendarQueue` ("Queue"/"Очередь" -> "Waiting"/
+  // "В ожидании" - it lists what nobody has confirmed *yet*, and "queue" read as the chat queue
+  // ambiguity `docs/backlog/23-31-*.md` names first), `navCalendarWorkers` ("Workers"/"Сотрудники"
+  // -> "Masters"/"Мастера" - the item's own decided naming rule: "Сотрудники" names who uses the
+  // *console*, and a person providing a service is a different person), `navCalendarAvailability`
+  // ("Availability"/"Доступность" -> "Schedule"/"Расписание", the item's own table wording). ---
   navCalendarQueue: string;
   navCalendarSetup: string;
   navCalendarWorkers: string;
@@ -1575,11 +1632,6 @@ export interface ConsoleStrings {
    * `calendarAbsentForTenant` below - that is the one gate with a third, ungrantable state, and
    * `src/calendar/calendarAccess.tsx` is what tells the two apart. */
   accessRefusalGrantHint: string;
-  /** `23-24`: the lock glyph's own visually-hidden label (`src/shell/AppShell.tsx`'s
-   * `NavLockGlyph`) - without a translated label here the glyph does not exist for a screen reader,
-   * only for a sighted reader who can see it is fainter than its neighbours. Read once per muted nav
-   * entry, immediately after that entry's own visible label. */
-  navLockedLabel: string;
   /** `23-21`: the *other* half of the same distinction - shown instead of a `calendar*Forbidden`
    * sentence when this tenant has never had the calendar module switched on at all, so refusing with
    * "you do not have permission" would be true of every operator anywhere, not a fact about this
@@ -1734,7 +1786,11 @@ export interface ConsoleStrings {
   // tenant (it describes the widget's code, not this site's own configuration), so unlike its
   // neighbours this screen fetches nothing - `deviceStorageDisclosure.ts`'s own rows are the whole
   // page. See that file's doc comment for why the key names there are a hand-maintained copy of
-  // `ago-widget/src/storage.ts`'s `WIDGET_STORAGE_DISCLOSURE`, not a live import. ---
+  // `ago-widget/src/storage.ts`'s `WIDGET_STORAGE_DISCLOSURE`, not a live import.
+  //
+  // `23-31`: shortened from "Data on a visitor's device"/"Данные на устройстве посетителя" to
+  // "Device data"/"Данные на устройстве" - the item's own table wording for this entry, moved to
+  // `/account/device-storage`. ---
   navDeviceStorage: string;
   deviceStorageTitle: string;
   deviceStorageDescription: string;

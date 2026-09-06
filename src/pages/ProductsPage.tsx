@@ -49,13 +49,13 @@ function buildRows(strings: ConsoleStrings, enabledModules: readonly string[]): 
       id: "calendar",
       description: strings.productsCalendarDescription,
       held: hasCalendar,
-      action: hasCalendar ? { label: strings.productsCalendarActionLabel, to: "/calendar" } : null,
+      action: hasCalendar ? { label: strings.productsCalendarActionLabel, to: "/calendar/waiting" } : null,
     },
     {
       id: "faq",
       description: strings.productsFaqDescription,
       held: hasFaq,
-      action: hasFaq ? { label: strings.productsFaqActionLabel, to: "/settings/faq" } : null,
+      action: hasFaq ? { label: strings.productsFaqActionLabel, to: "/automation/faq" } : null,
     },
   ];
 }

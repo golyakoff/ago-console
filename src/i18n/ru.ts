@@ -2,17 +2,12 @@ import type { ConsoleStrings } from "./strings.js";
 
 export const ru: ConsoleStrings = {
   skipToContent: "Перейти к содержимому",
-  operatorConsoleTagline: "Консоль оператора",
-  consoleTaglineClient: "Консоль клиента",
-  // Never actually rendered - `OwnerSitesPage` always reads the fixed `en` table for its own
-  // header (11-11's settled design call) - kept here only because `ConsoleStrings` requires every
-  // field on both tables.
-  consoleTaglineOwner: "Консоль владельца платформы",
   navSectionsAriaLabel: "Разделы консоли",
   navOpenMenu: "Открыть меню навигации",
   navConversations: "Диалоги",
+  navMyConversations: "Мои",
   navAllConversations: "Все диалоги",
-  navWidgetAppearance: "Внешний вид виджета",
+  navWidgetAppearance: "Виджет на сайте",
   navInstallWidget: "Установка виджета",
   navOfflineAutoReply: "Автоответ офлайн",
   navCannedResponses: "Готовые ответы",
@@ -20,7 +15,24 @@ export const ru: ConsoleStrings = {
   navPlatformSites: "Сайты платформы",
   navDeleteAccount: "Удалить аккаунт",
   navBilling: "Оплата",
-  navOperatorsTeam: "Команда",
+  navOperatorsTeam: "Сотрудники",
+  navSectionCalendar: "Календарь",
+  navSectionTeam: "Команда",
+  navSectionChannels: "Каналы",
+  navSectionAutomation: "Автоматизация",
+  navSectionAdmin: "Администрирование",
+  navCalendarServices: "Услуги",
+  navCalendarBookings: "Записи",
+  navTeamChat: "Общение",
+  navChannelsMax: "Бот MAX",
+  navChannelsTelegram: "Бот Telegram",
+  navChannelsOther: "Другие каналы",
+  navAutomationAiSuggestions: "ИИ-подсказки",
+  navAutomationAiAutoReply: "ИИ-автоответ",
+  navAccountProducts: "Продукты",
+  navAccountDocuments: "Документы",
+  navComingSoonLabel: "Скоро",
+  navBuyableLabel: "Докупить",
   signOut: "Выйти",
   siteIdTooltip: "ID сайта",
   siteIdPrefix: "сайт",
@@ -891,10 +903,10 @@ export const ru: ConsoleStrings = {
     "здесь нельзя.",
 
   // --- `22-06`: AGO Calendar’s console screens - see `strings.ts` for the full note. ---
-  navCalendarQueue: "Очередь",
+  navCalendarQueue: "В ожидании",
   navCalendarSetup: "Настройка",
-  navCalendarWorkers: "Сотрудники",
-  navCalendarAvailability: "Доступность",
+  navCalendarWorkers: "Мастера",
+  navCalendarAvailability: "Расписание",
   navCalendarContacts: "Клиенты",
   calendarLoading: "Загрузка…",
   calendarDeleteButton: "Удалить",
@@ -1118,7 +1130,6 @@ export const ru: ConsoleStrings = {
   calendarAvailabilityForbidden: "У вас нет прав на изменение доступности календаря.",
   calendarContactsForbidden: "У вас нет прав на просмотр контактов календаря.",
   accessRefusalGrantHint: "Попросите владельца или администратора этого магазина выдать вам этот доступ.",
-  navLockedLabel: "Заблокировано - у вас пока нет этого разрешения",
   calendarAbsentForTenant:
     "У этого магазина нет календаря. Он включается для магазина целиком, а не отдельным " +
     "оператором - уточните у AGO, как его подключить.",
@@ -1192,7 +1203,7 @@ export const ru: ConsoleStrings = {
   policyPageErrorGeneric: "Не удалось загрузить документ. Попробуйте ещё раз.",
   policyPagePublishedPrefix: "Опубликовано ",
   policyPageVersionSeparator: " - версия ",
-  navDeviceStorage: "Данные на устройстве посетителя",
+  navDeviceStorage: "Данные на устройстве",
   deviceStorageTitle: "Что виджет сохраняет на устройстве посетителя",
   deviceStorageDescription:
     "Все факты, нужные вам для собственного уведомления о cookie или политики конфиденциальности - не готовое уведомление за вас.",
