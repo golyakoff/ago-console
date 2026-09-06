@@ -6,7 +6,7 @@ import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchOwnerSites, type OwnerSiteSummary } from "../api/ownerApi.js";
 import { en } from "../i18n/en.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
-import { buildTenantNavItems } from "../shell/consoleNav.js";
+import { buildTenantNavSections } from "../shell/consoleNav.js";
 import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
@@ -191,21 +191,19 @@ export function OwnerSitesPage() {
 
   return (
     <AppShell
-      // `4-06`(console): the same flat nav `OperatorShell` builds - Conversations and, once
-      // `site:configure` says so, the site-scoped screens - only when this caller demonstrably holds
-      // an operator seat as well (a `siteId` came back from `GET /api/v1/operators/me`). A platform
-      // owner without one has nowhere else in the console to go, and a "Conversations" link that
-      // landed on the operator workspace's hub connection would fail there rather than here - so
-      // that whole block is absent, not merely unreachable, for that identity. "Platform sites" is
-      // always last and always present: this page is itself what that link points at, so it renders
-      // with the active state the console uses everywhere else for "you are here".
+      // `4-06`(console): the same tenant-scoped sections `OperatorShell` builds - only when this
+      // caller demonstrably holds an operator seat as well (a `siteId` came back from
+      // `GET /api/v1/operators/me`). A platform owner without one has nowhere else in the console to
+      // go, and a link that landed on the operator workspace's hub connection would fail there rather
+      // than here - so that whole structure is absent, not merely unreachable, for that identity.
+      // "Platform sites" is always present, as `AppShell`'s own `pinnedItem` - this page is itself
+      // what that link points at, so it renders with the active state the console uses everywhere
+      // else for "you are here".
       // `11-11`: `en` explicitly, never `useStrings()` - this page is deliberately English-only
       // regardless of any tenant this identity also administers (confirmed with the author, `11-11`'s
       // own backlog item: `/owner` is not scoped to one tenant, so it never follows one's language).
-      nav={[
-        ...(siteId ? buildTenantNavItems(hasPermission, en, enabledModules ?? []) : []),
-        { to: "/owner", label: en.navPlatformSites, end: true },
-      ]}
+      sections={siteId ? buildTenantNavSections(hasPermission, en, enabledModules ?? []) : []}
+      pinnedItem={{ to: "/owner", label: en.navPlatformSites, end: true }}
       // `12-04`: narrowed only once `12-02`'s endpoint has actually accepted this caller. While the
       // answer is still `"unknown"`, and on a refusal, the reader is not demonstrably the owner, and
       // the stricter shared-login wording is the true thing to say to them.
@@ -214,9 +212,6 @@ export function OwnerSitesPage() {
       // `OperatorShell`'s tenant-management tabs already settled - the reading-width cap left the
       // identical unexplained gap here that it did on those.
       wide
-      // Found live: even an identity that also holds an operator seat should read "platform owner
-      // console" while it is on this page specifically - the header names the tab, not the person.
-      tagline={en.consoleTaglineOwner}
       identity={
         <ShellIdentity
           operator={operatorDisplayName(user)}

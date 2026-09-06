@@ -1,7 +1,8 @@
 /* The application shell - the persistent header every route renders inside, and the page frame
-   underneath it. `11-05`. Values come from `../design/tokens.css`; the layout idioms (a sticky
-   translucent header, an underline that grows under the active navigation item) are carried over
-   from `ago-landing`'s own `header.nav`. */
+   underneath it. `11-05`. Values come from `../design/tokens.css`; the sticky translucent header
+   idiom is carried over from `ago-landing`'s own `header.nav`. `23-31` replaced that component's
+   other idiom - an underline that grew under the active horizontal nav item - with a left-column
+   accordion; see this file's own "Navigation" section below for the shape that replaced it. */
 
 .ago-shell {
   min-height: 100vh;
@@ -47,24 +48,16 @@
   flex-wrap: wrap;
 }
 
-/* The nav's own row, directly under the identity row above - not a variant of it, a second row
-   entirely, so a wide nav (up to five items today) never competes with the identity cluster for the
-   same line. `border-top` reads as one continuous header rather than two stacked ones; the identity
-   row keeps its own bottom padding above this rule's top padding so the two rows do not touch. */
-.ago-shell__header-row--nav {
-  padding-top: var(--ago-space-1);
-  padding-bottom: var(--ago-space-2);
-  border-top: 1px solid var(--ago-line);
-  justify-content: flex-start;
-}
+/* `23-31`: the header's own second row (`.ago-shell__header-row--nav`) is gone along with it - the
+   nav moved into the left rail/drawer below, so the header is one row again, brand plus identity. */
 
 /* --- Mobile navigation drawer (`11-14`) ------------------------------------------------------
 
-   The hamburger button is always in the DOM (paired with the same `nav` array the bar below
+   The hamburger button is always in the DOM (paired with the same `sections` array the rail below
    renders from - `AppShell.tsx`'s own remarks on why there is no second data source) and hidden by
    CSS above the mobile breakpoint, the same "render once, hide by media query" idiom this file
-   already uses for `.ago-shell__header-row--nav` below. `.ago-shell__brand-row` exists only to keep
-   the header's two-group `justify-content: space-between` layout intact with a third element added -
+   already uses for `.ago-shell__rail` below. `.ago-shell__brand-row` exists only to keep the
+   header's two-group `justify-content: space-between` layout intact with a third element added -
    without it, three flex children split evenly instead of "hamburger+brand" grouping against
    "identity". */
 .ago-shell__brand-row {
@@ -123,47 +116,13 @@
   top: 6px;
 }
 
-/* The drawer's own list - a vertical twin of `.ago-shell__nav-link` below, styled as a column of
-   rows rather than an inline strip with an underline, since a slide-in panel is read top to bottom,
-   not left to right. */
+/* `23-31`: the drawer's own list - now a two-level accordion, the identical shape (and identical
+   `.ago-shell__drawer-*`/`.ago-shell__rail-*` class pairing) `.ago-shell__rail` below uses for the
+   desktop column, since both render `NavSections` over the same `sections` array. */
 .ago-shell__drawer-nav {
   display: flex;
   flex-direction: column;
   gap: var(--ago-space-1);
-}
-
-.ago-shell__drawer-link {
-  padding: var(--ago-space-3) var(--ago-space-3);
-  border-radius: var(--ago-radius-sm);
-  border-left: 3px solid transparent;
-  color: var(--ago-ink-soft);
-  font-size: var(--ago-text-base);
-  font-weight: 600;
-  text-decoration: none;
-  transition: background var(--ago-transition), color var(--ago-transition), border-color var(--ago-transition);
-}
-
-.ago-shell__drawer-link:hover {
-  background: var(--ago-brand-tint);
-  color: var(--ago-ink);
-}
-
-/* Same "never colour alone" rule `.ago-shell__nav-link--active` follows above - weight, colour and
-   the left border all change together, and `NavLink`'s own `aria-current="page"` carries the state
-   for anyone not looking at pixels at all. */
-.ago-shell__drawer-link--active,
-.ago-shell__drawer-link--active:hover {
-  color: var(--ago-brand-deep);
-  font-weight: 800;
-  border-left-color: var(--ago-brand);
-  background: var(--ago-brand-tint);
-}
-
-/* `23-24`: the drawer's own twin of `.ago-shell__nav-link--muted` below - same token, same
-   reasoning, styled as a row rather than an inline strip. */
-.ago-shell__drawer-link--muted,
-.ago-shell__drawer-link--muted:hover {
-  color: var(--ago-ink-faint);
 }
 
 /* --- Identity ------------------------------------------------------------------------------- */
@@ -193,7 +152,9 @@
 }
 
 /* The only Unbounded on any console screen - the item confines display type to the shell's
-   identity, because a tool that shouts its own name in every heading is tiring to sit in. */
+   identity, because a tool that shouts its own name in every heading is tiring to sit in.
+   `23-31`: this is now the *whole* brand text ("Офис") - the tagline span underneath it
+   (`.ago-shell__product`) is gone along with the route-driven tagline it rendered. */
 .ago-shell__wordmark {
   font-family: var(--ago-font-display);
   font-weight: 700;
@@ -202,102 +163,147 @@
   line-height: 1;
 }
 
-.ago-shell__product {
-  font-family: var(--ago-font-sans);
-  font-size: var(--ago-text-xs);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ago-ink-soft);
-  display: block;
-  margin-top: 2px;
+/* --- Navigation (`23-31`) --------------------------------------------------------------------
+
+   The old horizontal strip (`.ago-shell__nav`, up to 24 `NavLink`s in one `overflow-x: auto` row)
+   and its own mobile drawer twin are both gone, replaced by one two-level accordion rendered twice -
+   `.ago-shell__rail` for the desktop left column, `.ago-shell__drawer-nav` for the mobile dialog
+   (`shell.css`'s own comment on that class). Every rule below is written once and applies to both
+   variants (`.ago-shell__rail-*`, `.ago-shell__drawer-*` selectors paired throughout), because
+   `AppShell.tsx`'s `NavSections` renders the identical markup for either. */
+
+.ago-shell__rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-1);
+  padding: var(--ago-space-4) var(--ago-space-2) var(--ago-space-8);
 }
 
-/* --- Navigation ----------------------------------------------------------------------------- */
+.ago-shell__rail-group,
+.ago-shell__drawer-group {
+  display: flex;
+  flex-direction: column;
+}
 
-.ago-shell__nav {
+.ago-shell__rail-section,
+.ago-shell__drawer-section {
   display: flex;
   align-items: center;
-  gap: var(--ago-space-5);
-  /* Its own full-width row now (see .ago-shell__header-row--nav), so five items fit comfortably at
-     any desktop width. `nowrap` + horizontal scroll, not wrap, is the fallback below that: a nav
-     link broken across two lines mid-viewport is harder to scan than one that scrolls. */
-  flex-wrap: nowrap;
-  overflow-x: auto;
-}
-
-.ago-shell__nav-link {
-  position: relative;
-  padding: var(--ago-space-1) 0;
+  gap: var(--ago-space-2);
+  width: 100%;
+  padding: var(--ago-space-3) var(--ago-space-3);
+  border: 0;
+  border-radius: var(--ago-radius-sm);
+  background: transparent;
   color: var(--ago-ink-soft);
+  font: inherit;
   font-size: var(--ago-text-base);
-  font-weight: 600;
-  text-decoration: none;
-  transition: color var(--ago-transition);
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--ago-transition), color var(--ago-transition);
 }
 
-.ago-shell__nav-link:hover {
+.ago-shell__rail-section:hover,
+.ago-shell__drawer-section:hover {
+  background: var(--ago-brand-tint);
   color: var(--ago-ink);
 }
 
-/* The landing's own growing-underline idiom. On the active item it is fully drawn and permanent -
-   which matters beyond decoration: the active state must not be carried by colour alone (WCAG
-   1.4.1), so weight, colour and this bar all change together, and `aria-current="page"` carries it
-   for anyone not looking at pixels at all. */
-.ago-shell__nav-link::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 100%;
-  bottom: 0;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--ago-brand);
-  transition: right var(--ago-transition);
+/* The open section's own header - never colour alone (the chevron rotates too, and
+   `aria-expanded="true"` carries the state for anyone not looking at pixels). */
+.ago-shell__rail-section[aria-expanded="true"],
+.ago-shell__drawer-section[aria-expanded="true"] {
+  color: var(--ago-brand-deep);
+  background: var(--ago-brand-tint);
 }
 
-.ago-shell__nav-link:hover::after {
-  right: 40%;
+.ago-shell__rail-chevron {
+  margin-left: auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: none;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--ago-transition);
 }
 
-.ago-shell__nav-link--active,
-.ago-shell__nav-link--active:hover {
+.ago-shell__rail-section[aria-expanded="true"] .ago-shell__rail-chevron,
+.ago-shell__drawer-section[aria-expanded="true"] .ago-shell__rail-chevron {
+  transform: rotate(45deg);
+}
+
+.ago-shell__rail-items,
+.ago-shell__drawer-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-1);
+  padding: var(--ago-space-1) 0 var(--ago-space-2) var(--ago-space-4);
+  margin-left: var(--ago-space-3);
+  border-left: 1px solid var(--ago-line);
+}
+
+.ago-shell__rail-link,
+.ago-shell__drawer-link {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-2);
+  padding: var(--ago-space-2) var(--ago-space-3);
+  border-radius: var(--ago-radius-sm);
+  color: var(--ago-ink-soft);
+  font-size: var(--ago-text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition: background var(--ago-transition), color var(--ago-transition);
+}
+
+.ago-shell__rail-link:hover,
+.ago-shell__drawer-link:hover {
+  background: var(--ago-brand-tint);
+  color: var(--ago-ink);
+}
+
+/* Never colour alone (WCAG 1.4.1) - weight and background change together, and `aria-current="page"`
+   carries the state for anyone not looking at pixels at all. */
+.ago-shell__rail-link--active,
+.ago-shell__rail-link--active:hover,
+.ago-shell__drawer-link--active,
+.ago-shell__drawer-link--active:hover {
   color: var(--ago-brand-deep);
   font-weight: 800;
+  background: var(--ago-brand-tint);
 }
 
-.ago-shell__nav-link--active::after,
-.ago-shell__nav-link--active:hover::after {
-  right: 0;
-}
-
-/* `23-24`, decision §10: a nav item for a capability a colleague at this tenant could grant, that
-   the signed-in operator does not hold. `--ago-ink-faint` rather than `--ago-ink-soft` (the ordinary
-   nav colour above) - deliberately fainter than an unvisited link so "not yours" reads at a glance,
-   and `tokens.css` already measures this token at 5.42:1 on `--ago-surface`, clear of `ux-gate`'s
-   WCAG AA floor for normal text (4.5:1) with room to spare. Never `disabled`, never `pointer-events:
-   none` - `AppShellNavItem.muted`'s own doc comment has the reasoning; this is a style, the link
-   underneath is entirely ordinary. */
-.ago-shell__nav-link--muted,
-.ago-shell__nav-link--muted:hover {
+/* `23-31`/`adr/0129`: **the muting rule this replaces** - `--ago-ink-faint` rather than
+   `--ago-ink-soft` (the ordinary colour above), the same already-measured 5.42:1 pair the old rule
+   used, but now naming a different fact: this identity could buy the module behind this entry, not
+   "a colleague could grant it". Never `disabled`, never `pointer-events: none` - the destination is
+   still a real page (`ProductsPage`/the calendar's own upsell state), only reached without first
+   holding the permission. */
+.ago-shell__rail-link--muted,
+.ago-shell__rail-link--muted:hover,
+.ago-shell__drawer-link--muted,
+.ago-shell__drawer-link--muted:hover {
   color: var(--ago-ink-faint);
 }
 
-/* The growing-underline hover cue stays brand-coloured even here - a muted item is still a real,
-   hoverable link, and losing every hover affordance on top of the fainter text would read as
-   "broken" rather than "not yours" (decision §10's own reasoning for muted-plus-glyph over either
-   alone). */
-
-.ago-shell__nav-lock {
-  display: inline-flex;
-  align-items: center;
-  margin-left: var(--ago-space-1);
-  vertical-align: -0.15em;
+/* `23-31`: a reserved place for a screen that does not exist yet - inert (no `href`, not part of the
+   tab order, `AppShell.tsx`'s own remarks), so it must never invite a click the way a real link's
+   hover state does. No hover rule, deliberately - the one thing this row must not look like is
+   clickable. */
+.ago-shell__rail-link--reserved,
+.ago-shell__drawer-link--reserved {
+  color: var(--ago-ink-faint);
+  font-style: italic;
+  cursor: default;
 }
 
-.ago-shell__nav-lock-icon {
-  width: 0.75em;
-  height: 0.75em;
+.ago-shell__rail-link--pinned,
+.ago-shell__drawer-link--pinned {
+  margin-top: var(--ago-space-2);
+  border-top: 1px solid var(--ago-line);
+  padding-top: var(--ago-space-3);
 }
 
 /* --- Signed-in operator --------------------------------------------------------------------- */
@@ -406,6 +412,25 @@
 
 /* --- Page frame ----------------------------------------------------------------------------- */
 
+/* `23-31`: the two-column frame - the rail on the left, `<main>` on the right - only ever wraps
+   `<main>` when there is a nav to show at all (`AppShell.tsx` renders `<main>` as a direct child,
+   with no wrapper, when `sections` is empty - every pre-session route, unchanged from before this
+   item). `minmax(0, 1fr)` rather than a bare `1fr`: a grid column's automatic minimum is `auto`
+   (its content's own intrinsic width), which would let a wide table inside `<main>` push the column
+   wider than the space actually available instead of triggering `.ago-table-scroll`'s own horizontal
+   scroll - the identical `min-width: 0` trap flex children already have, expressed in `minmax()`
+   because this is a grid track, not a flex basis. */
+.ago-shell__body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr);
+  width: 100%;
+  max-width: var(--ago-shell-max);
+  margin: 0 auto;
+  align-items: start;
+}
+
 .ago-shell__main {
   flex: 1;
   width: 100%;
@@ -502,10 +527,23 @@
     padding-top: var(--ago-space-6);
   }
 
-  /* `11-14`: the horizontal bar's own row does not fit fifteen items at this width (measured, not
-     felt - the backlog item's own numbers) and is replaced by the hamburger + drawer instead of
-     being asked to shrink further. */
-  .ago-shell__header-row--nav {
+  /* `11-14`, still true after `23-31` at a narrower width: the left rail does not fit beside a page's
+     own content at this width, so it is replaced by the hamburger + drawer instead of being asked to
+     shrink into a second, unreadably narrow column.
+
+     Found live (`ux-gate`, mobile project): a bare `1fr` here reintroduced the identical trap the
+     desktop track already guards against with `minmax(0, 1fr)` above - a grid track's implicit
+     minimum is `auto` (its content's own min-content size), not zero, so a wide table inside `<main>`
+     forced this single track wider than the 375px viewport instead of triggering
+     `.ago-table-scroll`'s own horizontal scroll, on every table screen this gate covers
+     (`admin-conversations`, `operators-team`, `products`, `analytics`, `my-numbers`, three calendar
+     screens). `minmax(0, 1fr)` here is the fix, not a second one - the same one-column layout, with
+     its actual minimum width finally zero. */
+  .ago-shell__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ago-shell__rail {
     display: none;
   }
 

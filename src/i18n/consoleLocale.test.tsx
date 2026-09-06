@@ -62,6 +62,15 @@ function shellAt(path: string) {
   );
 }
 
+/** `23-31`: the accordion's own section headers, in the rail's own order - see
+ * `permissionGating.test.tsx`'s identical helper for the full reasoning (a section with no visible
+ * items is never drawn, so this list *is* "which sections exist" for the signed-in identity). */
+function sectionLabels(container: HTMLElement): string[] {
+  return all(container, ".ago-shell__rail-section").map(
+    (button) => button.querySelector(".ago-shell__nav-link-label")?.textContent?.trim() ?? "",
+  );
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [{ siteId: SITE_ID, siteName: "Демо-магазин" }] });
@@ -79,41 +88,23 @@ describe("the console shell for an active site with Locale = Ru", () => {
     });
   });
 
-  it("renders the skip link, brand tagline, nav labels and sign-out in Russian", async () => {
+  it("renders the skip link, section labels and sign-out in Russian - and the brand, which never varies by locale", async () => {
     const container = await render(shellAt("/"));
 
     expect(container.querySelector(".ago-skip-link")?.textContent).toBe("Перейти к содержимому");
-    expect(container.querySelector(".ago-shell__product")?.textContent).toBe("Консоль оператора");
-    // `23-24`: `.ago-shell__nav-link-label`, not the whole link - a muted entry (here, "Удалить
-    // аккаунт": this operator holds `site:configure` but not `site:erase`) also carries the lock
-    // glyph's own hidden label right beside it.
-    const navLabels = all(container, ".ago-shell__nav a").map(
-      (a) => a.querySelector(".ago-shell__nav-link-label")?.textContent?.trim(),
-    );
-    expect(navLabels).toEqual([
+    // `23-31`: "Офис" is the header's whole brand text now, a literal like "AGO" was before it - it
+    // does not come from `strings` and so does not vary between this test and the English one below,
+    // which is exactly what this assertion is checking.
+    expect(container.querySelector(".ago-shell__wordmark")?.textContent).toBe("Офис");
+    expect(sectionLabels(container)).toEqual([
       "Диалоги",
-      "Мои показатели",
-      "Все диалоги",
-      "Поиск",
       "Аналитика",
-      "Конверсия",
-      "Отчёт по меткам",
-      "Запись через чат",
-      "Установка виджета",
-      "Внешний вид виджета",
-      "ИИ-помощник по вопросам",
-      "Автоответ офлайн",
-      "Готовые ответы",
-      "Метки",
-      "Оплата",
-      "Данные на устройстве посетителя",
-      "Удалить аккаунт",
+      "Календарь",
       "Команда",
+      "Каналы",
+      "Автоматизация",
+      "Администрирование",
     ]);
-    // `23-24`'s own Done-when: the lock glyph's hidden label, present and translated here too.
-    expect(container.querySelector(".ago-shell__nav-lock .ago-visually-hidden")?.textContent).toBe(
-      "Заблокировано - у вас пока нет этого разрешения",
-    );
     expect(container.querySelector(".ago-shell__identity button")?.textContent).toBe("Выйти");
   });
 
@@ -143,29 +134,15 @@ describe("the console shell for an active site with no Locale set", () => {
     const container = await render(shellAt("/"));
 
     expect(container.querySelector(".ago-skip-link")?.textContent).toBe("Skip to content");
-    expect(container.querySelector(".ago-shell__product")?.textContent).toBe("Operator console");
-    const navLabels = all(container, ".ago-shell__nav a").map(
-      (a) => a.querySelector(".ago-shell__nav-link-label")?.textContent?.trim(),
-    );
-    expect(navLabels).toEqual([
+    expect(container.querySelector(".ago-shell__wordmark")?.textContent).toBe("Офис");
+    expect(sectionLabels(container)).toEqual([
       "Conversations",
-      "My numbers",
-      "All conversations",
-      "Search",
       "Analytics",
-      "Conversion",
-      "Tag report",
-      "Booking flow",
-      "Install widget",
-      "Widget appearance",
-      "AI FAQ assistant",
-      "Offline auto-reply",
-      "Canned responses",
-      "Tags",
-      "Billing",
-      "Data on a visitor's device",
-      "Delete account",
+      "Calendar",
       "Team",
+      "Channels",
+      "Automation",
+      "Administration",
     ]);
     expect(container.querySelector(".ago-shell__identity button")?.textContent).toBe("Sign out");
     expect(container.querySelector(".ago-demo-notice__text")?.textContent).toContain("This is a public demo console");
@@ -196,43 +173,7 @@ describe("pages with no active site", () => {
       </MemoryRouter>,
     );
 
-    expect(container.querySelector(".ago-shell__product")?.textContent).toBe("Platform owner console");
-    const navLabels = all(container, ".ago-shell__nav a").map((a) => a.textContent?.trim());
-    expect(navLabels).toContain("Conversations");
-    expect(navLabels).not.toContain("Диалоги");
-  });
-});
-
-/** Found live, 2026-08-27: the header subtitle should name which tab is open, not who is signed in -
- * even the platform owner, on their own operator seat, reads "operator console" on the messaging tab
- * and "client console" on any tenant-management one, the same text an ordinary operator sees there.
- * `/owner` itself is covered by the "renders English" test above (`consoleTaglineOwner`). */
-describe("the console header's role tagline", () => {
-  beforeEach(() => {
-    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID });
-  });
-
-  it("reads 'Operator console' on the messaging tab", async () => {
-    const container = await render(shellAt("/"));
-
-    expect(container.querySelector(".ago-shell__product")?.textContent).toBe("Operator console");
-  });
-
-  it("reads 'Client console' on the site-wide conversations tab", async () => {
-    const container = await render(shellAt("/admin"));
-
-    expect(container.querySelector(".ago-shell__product")?.textContent).toBe("Client console");
-  });
-
-  it("reads 'Client console' on the widget-appearance settings tab", async () => {
-    const container = await render(shellAt("/settings/widget"));
-
-    expect(container.querySelector(".ago-shell__product")?.textContent).toBe("Client console");
-  });
-
-  it("reads 'Client console' on the offline-auto-reply settings tab", async () => {
-    const container = await render(shellAt("/settings/auto-reply"));
-
-    expect(container.querySelector(".ago-shell__product")?.textContent).toBe("Client console");
+    expect(sectionLabels(container)).toContain("Conversations");
+    expect(sectionLabels(container)).not.toContain("Диалоги");
   });
 });

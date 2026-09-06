@@ -1,5 +1,6 @@
-import { useId, useState, type ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { useCallback, useId, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
+import { NavLink, useLocation } from "react-router-dom";
+import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
 import { Dialog } from "../components/Dialog.js";
 import { config } from "../config.js";
@@ -71,65 +72,237 @@ function PublicDemoNotice({ audience }: { audience: DemoNoticeAudience }) {
 }
 
 export interface AppShellNavItem {
-  to: string;
+  /**
+   * Absent only when {@link AppShellNavItem.reserved} is true - a reserved entry has no route to
+   * link to yet.
+   */
+  to?: string;
   label: string;
   /** `NavLink`'s own `end` - `/` would otherwise match every route below it. */
   end?: boolean;
   /**
-   * `23-24`, decision §10: this entry names a capability a colleague at this tenant could plausibly
-   * grant, and the signed-in operator does not (yet) hold it. The entry stays a real, keyboard-
-   * reachable link to exactly the same route - `disabled` is deliberately never used here (this
-   * component's own doc comment on `NavLockGlyph` has the reasoning) - it is only drawn fainter
-   * (`.ago-shell__nav-link--muted`/`.ago-shell__drawer-link--muted`, `shell.css`) and carries
-   * {@link NavLockGlyph} beside its label. The destination page is where the explanation lives
-   * (`src/shell/accessRefusal.tsx`), because this console has no tooltip. `consoleNav.ts` is the only
-   * place that sets this - `AppShell` makes no authorization decision of its own, matching every
-   * other field on this type.
+   * `23-31`/`adr/0129`: **replaces** the muting rule `23-24` recorded (decision §10,
+   * `docs/design/decisions.md`) - see `adr/0129` for the full argument and what it gives up. Muted
+   * now means *"this identity could obtain the thing behind this entry itself"*, which in this
+   * console today is exactly one case: the calendar module, for an identity that holds
+   * `site:configure` (can buy an add-on, the same gate `ProductsPage.PRODUCTS_PERMISSION` already
+   * uses) but not `calendar:configure` itself. Still a real, keyboard-reachable link to the same
+   * route - never `disabled` - drawn fainter (`.ago-shell__rail-link--muted`/
+   * `.ago-shell__drawer-link--muted`) and carrying a small {@link Badge} naming the reason
+   * (`strings.navBuyableLabel`). `consoleNav.ts` is the only place that sets this.
    */
   muted?: boolean;
+  /**
+   * `23-31`: a place held in the navigation's own structure for a screen that does not exist yet
+   * (`Записи`, `Общение`, the three unbuilt channel screens, `ИИ-подсказки`, `ИИ-автоответ`,
+   * `Документы`) - the backlog item's own words are "drawn as unavailable rather than omitted, so
+   * the structure does not have to be rebuilt when each arrives". Rendered as inert text, never an
+   * `<a>` - no `href`, not part of the tab order, so it can never read as a working link that merely
+   * 404s. `consoleNav.ts` is the only place that sets this.
+   */
+  reserved?: boolean;
 }
 
 /**
- * `23-24`/`adr/0030` amendment: the one glyph this closed, icon-free component set now admits - a
- * small inline-SVG padlock, for exactly one meaning ("this entry is muted because you lack a
- * grantable permission"), never a general icon. `aria-hidden="true"` on the mark itself: the shape
- * carries no information a screen reader can use, the translated {@link ConsoleStrings.navLockedLabel}
- * text right beside it (`.ago-visually-hidden`, `base.css`) is what actually says so, read as part of
- * the same link's accessible name (`11-13` makes an untranslated label a gate failure, not a nit).
- *
- * `currentColor`, not a token: it is meant to read as the same colour as the muted label text next to
- * it, and inherits whatever `.ago-shell__nav-link--muted`/`.ago-shell__drawer-link--muted` set that
- * to - one contrast pair to keep AA-compliant (`tokens.css`'s `--ago-ink-faint`, already measured),
- * not two.
+ * `23-31`: one of the seven left-column accordion sections `consoleNav.ts` builds. Two levels only -
+ * a section and its items - because the item's own Goal is that nothing sits more than two clicks
+ * from the rail; no section carries a third level (`docs/backlog/23-31-*.md`'s "One naming rule"
+ * addendum settles the one place a third level was considered, for the "Каналы" section, and decides
+ * against it - see `consoleNav.ts`'s own remarks).
  */
-function NavLockGlyph({ label }: { label: string }) {
+export interface AppShellNavSection {
+  id: string;
+  label: string;
+  items: AppShellNavItem[];
+}
+
+/** `to` is `undefined` only for a `reserved` item, which never reaches `NavLink` at all - see
+ * {@link NavSections}. */
+function isItemActive(item: AppShellNavItem, pathname: string): boolean {
+  if (!item.to) {
+    return false;
+  }
+  if (item.end) {
+    return pathname === item.to;
+  }
+  return pathname === item.to || pathname.startsWith(`${item.to}/`);
+}
+
+/**
+ * Which section the accordion should open for the current URL - so a direct link or a browser
+ * back/forward lands on the right section already expanded, not on whichever one happened to be
+ * open before. Two passes: an exact `NavLink`-style match first (respects `end`, the same rule the
+ * active-link styling itself uses), then a looser path-prefix match for a drill-down route that has
+ * no nav entry of its own (`/calendar/masters/:workerId/slots`, reached only from a table row, not
+ * from this rail) but still belongs, visibly, under one section.
+ */
+function activeSectionId(sections: AppShellNavSection[], pathname: string): string | null {
+  for (const section of sections) {
+    if (section.items.some((item) => isItemActive(item, pathname))) {
+      return section.id;
+    }
+  }
+  for (const section of sections) {
+    if (section.items.some((item) => item.to && item.to !== "/" && pathname.startsWith(item.to))) {
+      return section.id;
+    }
+  }
+  return null;
+}
+
+/**
+ * `23-31`: the *only* caller of `useLocation()` in this file, and deliberately its own component
+ * rather than a hook called straight from `AppShell` - see `AppShell`'s own remarks on `routeOpenId`
+ * for why: it is mounted only inside `{hasNav && ...}`, the identical precondition `NavLink` already
+ * has, so it never renders (and never calls `useLocation()`) in the one shape that has no `Router`
+ * ancestor to give it (`SignupPage`'s own test, `<AppShell>` with no `sections` and no
+ * `MemoryRouter`). Renders nothing - it exists purely to push the route's own section id back up to
+ * `AppShell` on every navigation, via the callback prop rather than a return value, because a
+ * component that renders `null` has no other way to communicate outward.
+ *
+ * `useLayoutEffect`, not `useEffect` - so the newly-active section is already open in the very frame
+ * a navigation paints, rather than flashing whatever was open a moment before for one frame first.
+ */
+function RouteSectionSync({
+  sections,
+  onRouteSectionChange,
+}: {
+  sections: AppShellNavSection[];
+  onRouteSectionChange: (id: string | null) => void;
+}) {
+  const location = useLocation();
+  const routeOpenId = useMemo(() => activeSectionId(sections, location.pathname), [sections, location.pathname]);
+  useLayoutEffect(() => {
+    onRouteSectionChange(routeOpenId);
+  }, [routeOpenId, onRouteSectionChange]);
+  return null;
+}
+
+/**
+ * The two-level accordion itself - one renderer, mounted twice (the desktop rail, the mobile
+ * drawer), over the identical `sections` array, the same "same data, two renderers, never a second
+ * list" discipline `consoleNav.ts`'s own remarks already state for the muted/ordinary split before
+ * this item. `openId`/`onOpenSection` are lifted to `AppShell` so the two renderings can never
+ * disagree about which section is open, even though only one of them is ever visually reachable at a
+ * given viewport.
+ */
+function NavSections({
+  sections,
+  openId,
+  onOpenSection,
+  variant,
+  onNavigate,
+}: {
+  sections: AppShellNavSection[];
+  openId: string | null;
+  onOpenSection: (id: string) => void;
+  variant: "rail" | "drawer";
+  /** Closes the mobile drawer on a real navigation - `Dialog`'s own `onClose` never fires for a
+   * `NavLink` click (`AppShell`'s previous drawer already needed this, unchanged). */
+  onNavigate?: () => void;
+}) {
+  const strings = useStrings();
+  const sectionClass = variant === "rail" ? "ago-shell__rail-section" : "ago-shell__drawer-section";
+  const groupClass = variant === "rail" ? "ago-shell__rail-group" : "ago-shell__drawer-group";
+  const itemsClass = variant === "rail" ? "ago-shell__rail-items" : "ago-shell__drawer-items";
+  const linkClass = variant === "rail" ? "ago-shell__rail-link" : "ago-shell__drawer-link";
+
   return (
-    <span className="ago-shell__nav-lock">
-      <svg
-        className="ago-shell__nav-lock-icon"
-        viewBox="0 0 16 16"
-        aria-hidden="true"
-        focusable="false"
-      >
-        <path
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2"
-        />
-        <rect x="3.25" y="7" width="9.5" height="6.5" rx="1.4" fill="currentColor" />
-      </svg>
-      <span className="ago-visually-hidden">{label}</span>
-    </span>
+    <>
+      {sections.map((section) => {
+        const isOpen = section.id === openId;
+        const panelId = `${variant}-${section.id}-items`;
+
+        return (
+          <div key={section.id} className={groupClass}>
+            <button
+              type="button"
+              className={sectionClass}
+              aria-expanded={isOpen}
+              aria-controls={panelId}
+              onClick={() => onOpenSection(section.id)}
+            >
+              <span className="ago-shell__nav-link-label">{section.label}</span>
+              <span className="ago-shell__rail-chevron" aria-hidden="true" />
+            </button>
+            {isOpen && (
+              <div className={itemsClass} id={panelId}>
+                {section.items.map((item) =>
+                  item.reserved || !item.to ? (
+                    <span
+                      key={`${section.id}:${item.label}`}
+                      className={`${linkClass} ${linkClass}--reserved`}
+                      aria-disabled="true"
+                    >
+                      <span className="ago-shell__nav-link-label">{item.label}</span>
+                      <Badge tone="neutral">{strings.navComingSoonLabel}</Badge>
+                    </span>
+                  ) : (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.end}
+                      onClick={onNavigate}
+                      className={({ isActive }) =>
+                        [linkClass, isActive && `${linkClass}--active`, item.muted && `${linkClass}--muted`]
+                          .filter(Boolean)
+                          .join(" ")
+                      }
+                    >
+                      <span className="ago-shell__nav-link-label">{item.label}</span>
+                      {item.muted && <Badge tone="accent">{strings.navBuyableLabel}</Badge>}
+                    </NavLink>
+                  ),
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+/** `23-31`: "Platform sites" - the one nav destination that is not part of the tenant-scoped
+ * structure `consoleNav.ts` builds, rendered once, outside every accordion section, the same
+ * always-last, own-active-state place it held as the final flat-list entry before this item
+ * (`OperatorShell`/`OwnerSitesPage`/`OwnerSiteDetailPage` each still append it themselves). */
+function PinnedNavLink({
+  item,
+  variant,
+  onNavigate,
+}: {
+  item: AppShellNavItem;
+  variant: "rail" | "drawer";
+  onNavigate?: () => void;
+}) {
+  const linkClass = variant === "rail" ? "ago-shell__rail-link" : "ago-shell__drawer-link";
+  if (!item.to) {
+    return null;
+  }
+  return (
+    <NavLink
+      to={item.to}
+      end={item.end}
+      onClick={onNavigate}
+      className={({ isActive }) =>
+        [linkClass, `${linkClass}--pinned`, isActive && `${linkClass}--active`].filter(Boolean).join(" ")
+      }
+    >
+      <span className="ago-shell__nav-link-label">{item.label}</span>
+    </NavLink>
   );
 }
 
 export interface AppShellProps {
-  /** Already filtered by the caller. `OperatorShell` is where the permission gate lives; this
-   * component renders whatever list it is handed and makes no authorization decision of its own. */
-  nav?: AppShellNavItem[];
+  /** `23-31`: replaces the flat `nav` array - already filtered and shaped into sections by the
+   * caller (`consoleNav.ts`'s `buildTenantNavSections`). `OperatorShell` is where the permission
+   * gate lives; this component renders whatever it is handed and makes no authorization decision of
+   * its own, exactly as the flat array before it did. */
+  sections?: AppShellNavSection[];
+  /** `23-31`: "Platform sites" - see {@link PinnedNavLink}'s own doc comment for why this is a
+   * separate prop rather than one more section. */
+  pinnedItem?: AppShellNavItem;
   /** The signed-in operator block, sign-out included. Absent on the pre-session routes
    * (`/signup`, `/callback`), where there is nobody to name. */
   identity?: ReactNode;
@@ -175,16 +348,6 @@ export interface AppShellProps {
    * correct thing to say to a reader nobody has established anything about.
    */
   demoNoticeAudience?: DemoNoticeAudience;
-  /**
-   * Found live: the header subtitle read "Operator console" even for a platform owner sitting on
-   * `/settings/widget`, which is tenant-management work, not the personal messaging queue the
-   * default text describes - and the confusion did not go away just because the same identity also
-   * holds `/owner` elsewhere. The distinction is which *tab* is open, not who is signed in, so this
-   * is a prop like `wide` - the caller that already matches routes for `wide` is the one that knows
-   * this too. Defaults to `strings.operatorConsoleTagline` (the messaging-tab wording) when a caller
-   * has nothing more specific to say, which keeps every pre-`this item` caller unchanged.
-   */
-  tagline?: string;
   children: ReactNode;
 }
 
@@ -193,49 +356,95 @@ export interface AppShellProps {
  * active state, the signed-in operator, and the page underneath.
  *
  * Deliberately presentational and prop-driven for everything that varies by *route* - it reads no
- * context for `nav`/`identity`/`wide`. That is what lets the same header sit on `/signup` and
+ * context for `sections`/`identity`/`wide`. That is what lets the same header sit on `/signup` and
  * `/callback`, which mount outside `PermissionsProvider` and `OperatorConnectionProvider` entirely
  * (`App.tsx` has the reasoning for why those routes are outside the operator layout), where a shell
  * that called `usePermissions()` would throw. The context-reading half of *that* lives in
  * `OperatorShell`, which is mounted only inside those providers.
  *
- * `11-11`: this component's own chrome text (the skip link, the default tagline, nav's aria-label,
- * the demo notice) *does* read `useStrings()` now - safe specifically because that context is
- * defaulted, not nullable (`StringsContext.tsx`'s own remarks): a caller with no `<StringsProvider>`
- * above it (every pre-session route) gets the console's built-in English rather than a thrown error,
- * so the "renders outside every provider" property this doc comment describes still holds.
- * `nav`/`identity`/`wide`/`tagline` remain props, not context, because those genuinely vary by
- * *route* (which identity, which nav items, full-width or not, which subtitle), and this component
- * still knows nothing about routes - `useStrings()` varies only by *tenant*, which a safe default
- * can stand in for.
+ * `23-31`: **the left column replaces the old horizontal strip**, and it is a two-level accordion,
+ * not a flat list - the backlog item's own Goal: an operator should see four things they can act on,
+ * a tenant should find a setting without reading twenty-four labels. Both the desktop rail
+ * (`.ago-shell__rail`, always visible, `.frame`'s left column in the agreed mock) and the mobile
+ * drawer render the identical `NavSections` over the identical `sections` array - never two
+ * independently-built lists, the same discipline the old drawer/bar split already had.
+ *
+ * `useLocation()` (via `RouteSectionSync`) decides which section opens for the current route - a
+ * deliberate, narrow exception to "reads no context of its own": `NavLink` below already depends on
+ * a `Router` ancestor to render at all, so this adds no new dependency, only a new read of one
+ * `Router` already requires. A manual override (clicking a *different* section) takes priority until
+ * the next navigation changes which section the route itself belongs to, at which point the override
+ * is dropped and the route's own section takes back over - see `handleRouteSectionChange` below.
+ *
+ * `11-11`: this component's own chrome text (the skip link, nav's aria-label, the demo notice) *does*
+ * read `useStrings()` now - safe specifically because that context is defaulted, not nullable
+ * (`StringsContext.tsx`'s own remarks): a caller with no `<StringsProvider>` above it (every
+ * pre-session route) gets the console's built-in English rather than a thrown error, so the "renders
+ * outside every provider" property this doc comment describes still holds.
  *
  * The `<header>`/`<nav>`/`<main>` landmarks and the skip link are the point of having a shell at
  * all from an accessibility standpoint: before this, every screen was a bare `<div>` and a
  * keyboard user had no way past the navigation.
  */
 export function AppShell({
-  nav,
+  sections,
+  pinnedItem,
   identity,
   wide = false,
   fixed = false,
   demoNoticeAudience = "shared-login",
-  tagline,
   children,
 }: AppShellProps) {
   const strings = useStrings();
   // `11-14`: local to this component, not context - the same call `PublicDemoNotice`'s own doc
-  // comment argues against for `nav`/`identity`/`wide` above: whether the drawer is open is a
+  // comment argues against for `sections`/`identity`/`wide` above: whether the drawer is open is a
   // property of one render of the shell, not something any other component needs to read, and
   // `AppShell` already reads no context of its own by design (this component's own doc comment).
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerId = useId();
-  // Narrows `nav` to a real array once, here, rather than at each of the three call sites below
-  // (the button, the bar, the drawer) - `nav && nav.length > 0 && nav.map(...)` repeated three times
-  // would re-ask the same optional-array question three times for no benefit TypeScript's own
-  // control-flow narrowing gives back (it does not narrow through an intermediate `const`, so this
-  // is the version that actually compiles without a non-null assertion).
-  const items = nav ?? [];
-  const hasNav = items.length > 0;
+  // Narrows `sections` to a real array once, here, rather than at each renderer below -
+  // `sections && sections.length > 0 && sections.map(...)` repeated would re-ask the same
+  // optional-array question for no benefit TypeScript's own control-flow narrowing gives back (it
+  // does not narrow through an intermediate `const`, so this is the version that actually compiles
+  // without a non-null assertion).
+  // Wrapped in its own `useMemo` (rather than a bare `sections ?? []`) so the `useMemo` below that
+  // depends on it has a stable dependency to compare against, not a fresh `[]` literal on every
+  // render a caller happens to pass no `sections` at all.
+  const navSections = useMemo(() => sections ?? [], [sections]);
+  // `23-31`: `pinnedItem` counts too - found while testing `OwnerSitesPage` for an owner with no
+  // operator seat at all (`sections` empty, `pinnedItem` "Platform sites" still passed): the rail,
+  // drawer and hamburger button are all gated on `hasNav`, and `pinnedItem` renders *inside* each of
+  // them (`PinnedNavLink`'s own doc comment), so a `hasNav` that ignored it would hide "Platform
+  // sites" itself the moment there was nothing else to show beside it - exactly the identity this
+  // page exists for.
+  const hasNav = navSections.length > 0 || pinnedItem !== undefined;
+
+  // `23-31`: which section the route itself belongs to - computed by `RouteSectionSync` below, never
+  // by calling `useLocation()` directly in this component. `AppShell` renders on `/signup` and
+  // `/callback` with `sections` empty (this component's own doc comment on why it reads no context),
+  // and those two routes are the reason this is not a plain `useLocation()` call here: `SignupPage`'s
+  // own test mounts a bare `<AppShell>` with no `<MemoryRouter>` ancestor at all (nothing in that
+  // render needs one - no `sections`, so no `NavLink` either, `NavLink` being the one thing that
+  // already required a `Router` before this item). `useLocation()` would throw in exactly that render.
+  // `RouteSectionSync` is a real, separate component instance, mounted only inside `{hasNav && ...}`
+  // below - so it calls `useLocation()` only in the render that also mounts `NavLink`, which already
+  // requires the identical `Router` ancestor, never in the render that has neither.
+  const [routeOpenId, setRouteOpenId] = useState<string | null>(null);
+  const [openOverride, setOpenOverride] = useState<string | null>(null);
+  // A manual click (`setOpenOverride`) wins until the *route's own* section changes - navigating
+  // (by any means: a rail click, a drawer click, the browser back button, a redirect) drops the
+  // override so the newly-active route's section reclaims the accordion, rather than leaving a stale
+  // manually-opened section expanded over content that no longer belongs to it. `useCallback` so
+  // `RouteSectionSync`'s own `useLayoutEffect` sees a stable function identity and does not re-fire
+  // on every `AppShell` render for no reason.
+  const handleRouteSectionChange = useCallback((id: string | null) => {
+    setRouteOpenId(id);
+    setOpenOverride(null);
+  }, []);
+  // Always exactly one section open, never zero - the item's own Done-when ("the accordion keeps
+  // one section open"). `sections[0]` is the fallback only when the current route matches nothing
+  // in any section (the pre-permissions-answer instant, or a route with no nav entry at all).
+  const openId = openOverride ?? routeOpenId ?? navSections[0]?.id ?? null;
 
   return (
     <div className={fixed ? "ago-shell ago-shell--fixed" : "ago-shell"}>
@@ -247,18 +456,11 @@ export function AppShell({
           rather than a second independently-sticky sibling. */}
       <div className="ago-shell__sticky">
         <header className="ago-shell__header">
-          {/* `13-07`-era header found live to wrap onto a surprise second line once a fifth nav item
-              (`Platform sites`) joined the other four: one row asked `justify-content: space-between`
-              to fit brand + nav + identity at once, and nothing in that row could shrink, so the whole
-              row broke rather than any one piece of it. Split deliberately into two rows instead - "who
-              you are" (brand, tenancy switcher, operator, sign out) on top, "where you can go" (nav)
-              underneath, each free of the other's width - so wrapping stops being a function of how many
-              nav items happen to be gated on for this identity today. */}
           <div className="ago-shell__header-row">
             <span className="ago-shell__brand-row">
               {/* `11-14`: always in the DOM, hidden by `shell.css`'s own media query above the mobile
-                  breakpoint - the same "render once, hide by CSS" idiom `.ago-shell__header-row--nav`
-                  below already uses, rather than a second, JS-computed "is this mobile" branch. */}
+                  breakpoint - the same "render once, hide by CSS" idiom the rail below already uses,
+                  rather than a second, JS-computed "is this mobile" branch. */}
               {hasNav && (
                 <button
                   type="button"
@@ -271,57 +473,39 @@ export function AppShell({
                   <span className="ago-shell__menu-icon" aria-hidden="true" />
                 </button>
               )}
+              {/* `23-31`: the header says "Офис" and nothing else - the old two-line "AGO" wordmark
+                  plus a route-driven tagline ("Operator console"/"Client console"/"Platform owner
+                  console") is gone, and with it the five-route `useMatch` list `OperatorShell` used
+                  to compute which one to show. A brand name, like the glyph beside it - not looked up
+                  in `strings`, the same reasoning `ux-gate/lib/i18nCompleteness.ts` already gives for
+                  never translating "AGO". */}
               <span className="ago-shell__brand">
                 <span className="ago-shell__glyph" aria-hidden="true">
                   A
                 </span>
-                <span>
-                  <span className="ago-shell__wordmark">AGO</span>
-                  <span className="ago-shell__product">{tagline ?? strings.operatorConsoleTagline}</span>
-                </span>
+                <span className="ago-shell__wordmark">Офис</span>
               </span>
             </span>
 
             {identity && <div className="ago-shell__identity">{identity}</div>}
           </div>
-
-          {hasNav && (
-            <div className="ago-shell__header-row ago-shell__header-row--nav">
-              <nav className="ago-shell__nav" aria-label={strings.navSectionsAriaLabel}>
-                {items.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.end}
-                    className={({ isActive }) =>
-                      [
-                        "ago-shell__nav-link",
-                        isActive && "ago-shell__nav-link--active",
-                        item.muted && "ago-shell__nav-link--muted",
-                      ]
-                        .filter(Boolean)
-                        .join(" ")
-                    }
-                  >
-                    <span className="ago-shell__nav-link-label">{item.label}</span>
-                    {item.muted && <NavLockGlyph label={strings.navLockedLabel} />}
-                  </NavLink>
-                ))}
-              </nav>
-            </div>
-          )}
         </header>
 
         <PublicDemoNotice audience={demoNoticeAudience} />
       </div>
 
-      {/* `11-14`: the drawer - a second renderer over the exact same `nav` array the bar above maps,
-          never a second list (`consoleNav.ts`'s own remarks on why a duplicated, independently-gated
-          list is the failure mode this item exists to avoid). `Dialog`'s `variant="drawer"` is the
-          native `<dialog>`/`showModal()` element (`adr/0030` point 3), which is what gives this
-          keyboard reachability, focus trapping and focus restoration to the hamburger for free - the
-          identical guarantee every other `Dialog` consumer in this codebase already relies on, not
-          something this component re-implements. */}
+      {/* `23-31`: renders nothing - see its own doc comment for why this, and not a bare
+          `useLocation()` call above, is what keeps `AppShell` safe to mount with no `Router`
+          ancestor whenever there is no nav to show at all. */}
+      {hasNav && <RouteSectionSync sections={navSections} onRouteSectionChange={handleRouteSectionChange} />}
+
+      {/* `11-14`/`23-31`: the drawer - a second renderer over the exact same `sections` array the
+          rail below maps, never a second list (`consoleNav.ts`'s own remarks on why a duplicated,
+          independently-gated list is the failure mode this item exists to avoid). `Dialog`'s
+          `variant="drawer"` is the native `<dialog>`/`showModal()` element (`adr/0030` point 3),
+          which is what gives this keyboard reachability, focus trapping and focus restoration to the
+          hamburger for free - the identical guarantee every other `Dialog` consumer in this codebase
+          already relies on, not something this component re-implements. */}
       {hasNav && (
         <Dialog
           id={drawerId}
@@ -331,45 +515,48 @@ export function AppShell({
           onClose={() => setDrawerOpen(false)}
         >
           <nav className="ago-shell__drawer-nav" aria-label={strings.navSectionsAriaLabel}>
-            {items.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) =>
-                  [
-                    "ago-shell__drawer-link",
-                    isActive && "ago-shell__drawer-link--active",
-                    item.muted && "ago-shell__drawer-link--muted",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")
-                }
-                // Choosing an item is the third dismissal route the item's own Done-when names
-                // (backdrop, Escape, choosing an item) - `Dialog`'s native `onClose` covers the first
-                // two, but a `NavLink` click never fires it, so this is wired directly.
-                onClick={() => setDrawerOpen(false)}
-              >
-                <span className="ago-shell__nav-link-label">{item.label}</span>
-                {item.muted && <NavLockGlyph label={strings.navLockedLabel} />}
-              </NavLink>
-            ))}
+            <NavSections
+              sections={navSections}
+              openId={openId}
+              onOpenSection={setOpenOverride}
+              variant="drawer"
+              // Choosing an item is the third dismissal route the `11-14` Done-when names (backdrop,
+              // Escape, choosing an item) - `Dialog`'s native `onClose` covers the first two, but a
+              // `NavLink` click never fires it, so this is wired directly.
+              onNavigate={() => setDrawerOpen(false)}
+            />
+            {pinnedItem && (
+              <PinnedNavLink item={pinnedItem} variant="drawer" onNavigate={() => setDrawerOpen(false)} />
+            )}
           </nav>
         </Dialog>
       )}
 
-      <main
-        className={[
-          "ago-shell__main",
-          wide ? "ago-shell__main--wide" : null,
-          fixed ? "ago-shell__main--fixed" : null,
-        ]
-          .filter(Boolean)
-          .join(" ")}
-        id="ago-main"
-      >
-        {children}
-      </main>
+      {hasNav ? (
+        <div className="ago-shell__body">
+          <nav className="ago-shell__rail" aria-label={strings.navSectionsAriaLabel}>
+            <NavSections sections={navSections} openId={openId} onOpenSection={setOpenOverride} variant="rail" />
+            {pinnedItem && <PinnedNavLink item={pinnedItem} variant="rail" />}
+          </nav>
+          <main
+            className={["ago-shell__main", wide ? "ago-shell__main--wide" : null, fixed ? "ago-shell__main--fixed" : null]
+              .filter(Boolean)
+              .join(" ")}
+            id="ago-main"
+          >
+            {children}
+          </main>
+        </div>
+      ) : (
+        <main
+          className={["ago-shell__main", wide ? "ago-shell__main--wide" : null, fixed ? "ago-shell__main--fixed" : null]
+            .filter(Boolean)
+            .join(" ")}
+          id="ago-main"
+        >
+          {children}
+        </main>
+      )}
     </div>
   );
 }
@@ -466,14 +653,12 @@ export function CenteredShell({ children }: { children: ReactNode }) {
       <div className="ago-shell__sticky">
         <header className="ago-shell__header">
           <div className="ago-shell__header-row">
+            {/* `23-31`: matches `AppShell`'s own brand block - "Офис" and nothing else. */}
             <span className="ago-shell__brand">
               <span className="ago-shell__glyph" aria-hidden="true">
                 A
               </span>
-              <span>
-                <span className="ago-shell__wordmark">AGO</span>
-                <span className="ago-shell__product">Operator console</span>
-              </span>
+              <span className="ago-shell__wordmark">Офис</span>
             </span>
           </div>
         </header>

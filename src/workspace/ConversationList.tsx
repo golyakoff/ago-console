@@ -82,7 +82,7 @@ export function ConversationList({ queue, attention, now, timeZone, waitingRefre
             <p className="ago-empty">{strings.queueAssignedEmpty}</p>
             <p className="ago-empty">
               {strings.queueEmptyInstallPrompt}{" "}
-              <NavLink to="/settings/install">{strings.queueEmptyInstallLink}</NavLink>
+              <NavLink to="/channels/install">{strings.queueEmptyInstallLink}</NavLink>
             </p>
           </>
         ) : (

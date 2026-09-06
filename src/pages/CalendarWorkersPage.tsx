@@ -29,7 +29,7 @@ import { Skeleton, Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
 
 /**
- * `22-06`/`adr/0093`: `/calendar/workers` - the tenant's staff list, moved from
+ * `22-06`/`adr/0093`: `/calendar/masters` - the tenant's staff list, moved from
  * `ago-calendar-console`'s own `WorkersPage.tsx` and rewritten against this console's closed
  * eleven-component set - see `calendar/WorkersTable.tsx`'s own doc comment for why every calendar
  * screen is a rewrite, not a port.
@@ -203,10 +203,10 @@ export function CalendarWorkersPage() {
                   `<a>` (no middle-click-to-open-in-a-new-tab) - judged a fair price for landing in
                   the same visual/interaction family as the row's other three actions, none of which
                   support that either. */}
-              <Button size="sm" onClick={() => void navigate(`/calendar/workers/${worker.workerId}/slots`)}>
+              <Button size="sm" onClick={() => void navigate(`/calendar/masters/${worker.workerId}/slots`)}>
                 {strings.calendarSlotsLinkLabel}
               </Button>
-              <Button size="sm" onClick={() => void navigate(`/calendar/workers/${worker.workerId}/recut`)}>
+              <Button size="sm" onClick={() => void navigate(`/calendar/masters/${worker.workerId}/recut`)}>
                 {strings.calendarRecutLinkLabel}
               </Button>
             </div>
@@ -257,7 +257,7 @@ export function CalendarWorkersPage() {
               <>
                 <WorkerScheduleSection workerId={editing.workerId} />
                 <p>
-                  <Link to={`/calendar/workers/${editing.workerId}/slots`}>{strings.calendarViewSlotsLinkLabel}</Link>
+                  <Link to={`/calendar/masters/${editing.workerId}/slots`}>{strings.calendarViewSlotsLinkLabel}</Link>
                 </p>
               </>
             )}

@@ -42,7 +42,7 @@ function formatLocalTime(iso: string, timeZone: string | undefined): string {
 }
 
 /**
- * `22-06`/`adr/0093`: `/calendar/workers/:workerId/slots` - the materialised slot view, moved from
+ * `22-06`/`adr/0093`: `/calendar/masters/:workerId/slots` - the materialised slot view, moved from
  * `ago-calendar-console`'s own `WorkerSlotsPage.tsx` and rewritten against this console's closed
  * eleven-component set. Reached only from `CalendarWorkersPage`'s own row actions and from
  * `WorkerScheduleSection`'s "view slots" link - no nav entry of its own, unchanged from the source.
@@ -156,7 +156,7 @@ export function CalendarWorkerSlotsPage() {
       <PageHead title={heading} description={`${strings.calendarSlotsDescription}${calendar !== undefined ? `${strings.calendarSlotsTimezoneNotePrefix}${calendar.timeZone}${strings.calendarSlotsTimezoneNoteSuffix}` : ""}`} />
 
       <p>
-        <Link to="/calendar/workers">← {strings.navCalendarWorkers}</Link>
+        <Link to="/calendar/masters">← {strings.navCalendarWorkers}</Link>
       </p>
 
       <Panel>

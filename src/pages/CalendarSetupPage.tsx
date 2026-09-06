@@ -6,7 +6,6 @@ import { config } from "../config.js";
 import {
   addWorkingHoursRule,
   createCalendar,
-  createService,
   getBookingReadiness,
   getConfiguration,
   setAllowedOrigins,
@@ -38,8 +37,13 @@ import type { ConsoleStrings } from "../i18n/strings.js";
  * <b>One screen, three short forms, and a re-read after every write.</b> Unchanged from the source:
  * no optimistic update, no client-side cache - the authoritative answer is always the next `GET`.
  *
- * <b>`20-13`: workers stay on their own screen</b> (`/calendar/workers`) - this page's own working-
+ * <b>`20-13`: workers stay on their own screen</b> (`/calendar/masters`) - this page's own working-
  * hours form still reads `configuration.workers` to name whose hours are whose, unchanged.
+ *
+ * <b>`23-31`: the services dictionary moved out, to `/calendar/services`.</b> This screen now owns
+ * exactly the embed/calendars/working-hours forms - see `CalendarServicesPage`'s own doc comment for
+ * the split's reasoning. `configuration.services` is still read by nothing here; the `<Panel>` that
+ * once rendered it is gone, not merely hidden.
  */
 export function CalendarSetupPage() {
   const { user } = useAuth();
@@ -160,7 +164,7 @@ export function CalendarSetupPage() {
         <pre aria-label={strings.calendarSetupEmbedSnippetAriaLabel}>{embedSnippet()}</pre>
 
         <p className="ago-field__description">
-          {strings.calendarSetupEmbedSiteKeyHint} <Link to="/settings/install">{strings.navInstallWidget}</Link>
+          {strings.calendarSetupEmbedSiteKeyHint} <Link to="/channels/install">{strings.navInstallWidget}</Link>
         </p>
 
         <p className="ago-field__description">{strings.calendarSetupOriginsDescription}</p>
@@ -190,18 +194,6 @@ export function CalendarSetupPage() {
           ))}
         </ul>
         <CalendarForm disabled={busy} strings={strings} onSubmit={(body) => void run(() => createCalendar(accessToken, body))} />
-      </Panel>
-
-      <Panel title={strings.calendarSetupServicesTitle}>
-        <ul>
-          {configuration.services.map((service) => (
-            <li key={service.serviceId}>
-              {service.name} · {service.durationMinutes}
-              {strings.calendarSetupServiceMinutesSuffix}
-            </li>
-          ))}
-        </ul>
-        <ServiceForm disabled={busy} strings={strings} onSubmit={(body) => void run(() => createService(accessToken, body))} />
       </Panel>
 
       <Panel title={strings.calendarSetupWorkingHoursTitle} description={strings.calendarSetupWorkingHoursDescription}>
@@ -328,46 +320,6 @@ function CalendarForm({
       <div className="ago-row">
         <Button type="submit" variant="primary" disabled={disabled}>
           {strings.calendarSetupAddCalendarButton}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-function ServiceForm({
-  disabled,
-  strings,
-  onSubmit,
-}: {
-  disabled: boolean;
-  strings: ConsoleStrings;
-  onSubmit: (body: { name: string; durationMinutes: number }) => void;
-}) {
-  const [name, setName] = useState("");
-  const [durationMinutes, setDurationMinutes] = useState(45);
-
-  return (
-    <form
-      className="ago-stack"
-      onSubmit={(event: FormEvent) => {
-        event.preventDefault();
-        onSubmit({ name, durationMinutes });
-        setName("");
-      }}
-    >
-      <Field label={strings.calendarSetupServiceNameLabel}>
-        {(controlProps) => <Input {...controlProps} value={name} onChange={(e) => setName(e.target.value)} required disabled={disabled} />}
-      </Field>
-
-      <Field label={strings.calendarSetupServiceDurationLabel}>
-        {(controlProps) => (
-          <Input {...controlProps} type="number" min={1} value={durationMinutes} onChange={(e) => setDurationMinutes(Number(e.target.value))} disabled={disabled} />
-        )}
-      </Field>
-
-      <div className="ago-row">
-        <Button type="submit" variant="primary" disabled={disabled}>
-          {strings.calendarSetupAddServiceButton}
         </Button>
       </div>
     </form>

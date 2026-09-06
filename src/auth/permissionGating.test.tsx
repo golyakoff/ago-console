@@ -173,36 +173,61 @@ function grants(permissions: string[], enabledModules: string[] = []): void {
   operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions, siteId: SITE_ID, enabledModules });
 }
 
-/** `23-24`: reads only `.ago-shell__nav-link-label`, not the whole link's `textContent` - a muted
- * entry also carries `NavLockGlyph`'s own visually-hidden label right beside it
- * (`AppShell.tsx`'s own doc comment), and this helper's job is "what does this nav item say", not
- * "everything a screen reader would read out for it". `mutedNavLabels`/`lockedLabelFor` below are
- * where the muted state itself is asserted. */
-function navLabels(container: HTMLElement): string[] {
-  return all(container, ".ago-shell__nav a").map(
-    (link) => (link.querySelector(".ago-shell__nav-link-label")?.textContent ?? "").trim(),
-  );
+/**
+ * `23-31`: the accordion's own section headers, in order - `.ago-shell__rail-section` for the
+ * desktop rail, `.ago-shell__drawer-section` for the mobile drawer (`sectionLabels`'s own `variant`
+ * parameter picks which). This is the count that has to be exactly four for a bare operator and
+ * seven for a full tenant/admin (`23-31`'s own Done-when) - a section that has no visible items is
+ * never rendered at all (`consoleNav.ts`'s `buildSection`), so this list *is* "which sections exist"
+ * for the signed-in identity, not merely "which sections have a header drawn".
+ */
+function sectionLabels(container: HTMLElement, variant: "rail" | "drawer" = "rail"): string[] {
+  const selector = variant === "rail" ? ".ago-shell__rail-section" : ".ago-shell__drawer-section";
+  return all(container, selector).map((button) => button.querySelector(".ago-shell__nav-link-label")?.textContent?.trim() ?? "");
 }
 
-/** `11-14`'s own drawer, scoped to its distinct `.ago-shell__drawer-nav` class so this never
- * accidentally counts the bar's `.ago-shell__nav` links (or vice versa) - the two are always
- * rendered from the same `nav` array (`AppShell.tsx`'s own remarks), never merged into one list,
- * because only one of the two is ever visually reachable at a given viewport. */
-function drawerNavLabels(container: HTMLElement): string[] {
-  return all(container, ".ago-shell__drawer-nav a").map(
-    (link) => (link.querySelector(".ago-shell__nav-link-label")?.textContent ?? "").trim(),
-  );
+/** Opens one section by its own header text, closing whichever section was open before it - the
+ * accordion's own "one section open at a time" rule (`AppShell.tsx`'s own `openId` state). Awaited
+ * through `interact` because the click sets React state. */
+function openSection(container: HTMLElement, label: string, variant: "rail" | "drawer" = "rail"): Promise<void> {
+  const selector = variant === "rail" ? ".ago-shell__rail-section" : ".ago-shell__drawer-section";
+  return interact(() => {
+    const button = byText<HTMLButtonElement>(container, selector, label);
+    if (!button) {
+      throw new Error(`permissionGating.test.tsx: no section header reads "${label}" (variant: ${variant}).`);
+    }
+    button.click();
+  });
 }
 
-/** `23-24`, decision §10: the labels of every nav-bar entry currently drawn `--muted` - a real,
- * clickable link the signed-in operator lacks the permission for, but a colleague at this tenant
- * could grant. Kept separate from `navLabels` above rather than folded into one richer return shape,
- * so a test that only cares about *which entries exist* (most of them) does not also have to spell
- * out which ones are muted. */
-function mutedNavLabels(container: HTMLElement): string[] {
-  return all(container, ".ago-shell__nav a.ago-shell__nav-link--muted").map(
-    (link) => (link.querySelector(".ago-shell__nav-link-label")?.textContent ?? "").trim(),
-  );
+/**
+ * `23-31`: the labels of every item inside whichever section is currently *open* - real links
+ * (`.ago-shell__rail-link`) and reserved placeholders (`.ago-shell__rail-link--reserved`) alike,
+ * since both carry a real `.ago-shell__nav-link-label` span (`AppShell.tsx`'s `NavSections`). Reads
+ * only that label span, not the whole element's `textContent` - a muted or reserved entry also
+ * carries a `Badge` right beside it (`strings.navBuyableLabel`/`navComingSoonLabel`), and this
+ * helper's job is "what does this item say", not "everything visible next to it". `mutedItemLabels`/
+ * `reservedItemLabels` below are where those two badge states are asserted.
+ */
+function itemLabels(container: HTMLElement, variant: "rail" | "drawer" = "rail"): string[] {
+  const selector = variant === "rail" ? ".ago-shell__rail-items" : ".ago-shell__drawer-items";
+  return all(container, `${selector} .ago-shell__nav-link-label`).map((label) => label.textContent?.trim() ?? "");
+}
+
+/** `23-31`/`adr/0129`: the labels of every item inside the open section drawn `--muted` - the
+ * *replaced* meaning of that state (this identity could buy the thing itself), never "a colleague
+ * could grant it" any more. In this console today that is only ever the calendar's own single
+ * representative entry (`consoleNav.ts`'s `buildCalendarItems`). */
+function mutedItemLabels(container: HTMLElement, variant: "rail" | "drawer" = "rail"): string[] {
+  const selector = variant === "rail" ? ".ago-shell__rail-link--muted" : ".ago-shell__drawer-link--muted";
+  return all(container, selector).map((link) => link.querySelector(".ago-shell__nav-link-label")?.textContent?.trim() ?? "");
+}
+
+/** `23-31`: the labels of every *reserved* place inside the open section - drawn inert, never a
+ * working link (`AppShellNavItem.reserved`'s own doc comment). */
+function reservedItemLabels(container: HTMLElement, variant: "rail" | "drawer" = "rail"): string[] {
+  const selector = variant === "rail" ? ".ago-shell__rail-link--reserved" : ".ago-shell__drawer-link--reserved";
+  return all(container, selector).map((span) => span.querySelector(".ago-shell__nav-link-label")?.textContent?.trim() ?? "");
 }
 
 function openDrawer(container: HTMLElement): Promise<void> {
@@ -241,219 +266,199 @@ afterEach(async () => {
 });
 
 describe("the operator navigation", () => {
-  it("offers the site-wide sections muted, not absent, to an operator the server gave neither site:configure nor site:erase", async () => {
-    // `23-24`, decision §10: "absent looks like forbidden" was `23-21`'s finding for the calendar
-    // alone - this is the identical fix generalised to every gate a colleague at this tenant could
-    // grant. Before this item this operator saw only "Conversations"; now every entry is drawn, and
-    // the muted styling plus the lock glyph (`AppShell.tsx`) is what tells them apart from a granted
-    // one, not their presence or absence.
+  // `23-31`/`adr/0129`: the replaced muting rule, exercised end to end. Every gate that used to be
+  // "muted when lacking" (site:configure/site:erase/site:manage_operators) is now hide-when-lacking,
+  // ordinary-when-holding - only the calendar keeps a muted state, and only for an identity that
+  // holds `site:configure` (this file's own `consoleNav.ts` doc comment: that permission is the proxy
+  // for "this identity is the tenant, and could buy the module itself").
+
+  it("offers exactly four sections, and nothing muted, to an operator with no tenant-level permission at all", async () => {
+    // The item's own Done-when, word for word. `conversation:read` is an ordinary operator
+    // permission that gates nothing in this file - it stands in for "a real operator seat with no
+    // administrative grant at all".
     grants(["conversation:read"]);
 
     const container = await render(shellAt("/"));
 
-    expect(navLabels(container)).toEqual([
-      "Conversations",
-      "My numbers",
-      "All conversations",
-      "Search",
-      "Analytics",
-      "Conversion",
-      "Tag report",
-      "Booking flow",
-      "Install widget",
-      "Widget appearance",
-      "AI FAQ assistant",
-      "Offline auto-reply",
-      "Canned responses",
-      "Tags",
-      "Billing",
-      "Data on a visitor's device",
-      "Delete account",
-      "Team",
-    ]);
-    // Every gated entry, muted - "Conversations" itself never is, holding it needs no permission.
-    expect(mutedNavLabels(container)).toEqual([
-      "All conversations",
-      "Search",
-      "Analytics",
-      "Conversion",
-      "Tag report",
-      "Booking flow",
-      "Install widget",
-      "Widget appearance",
-      "AI FAQ assistant",
-      "Offline auto-reply",
-      "Canned responses",
-      "Tags",
-      "Billing",
-      "Data on a visitor's device",
-      "Delete account",
-      "Team",
-    ]);
+    expect(sectionLabels(container)).toEqual(["Conversations", "Analytics", "Team"]);
+    await openSection(container, "Conversations");
+    expect(itemLabels(container)).toEqual(["Mine"]);
+    await openSection(container, "Analytics");
+    expect(itemLabels(container)).toEqual(["My numbers"]);
+    await openSection(container, "Team");
+    expect(itemLabels(container)).toEqual(["Team chat"]);
+    expect(reservedItemLabels(container)).toEqual(["Team chat"]);
+    expect(mutedItemLabels(container)).toEqual([]);
   });
 
-  it(
-    "offers the site-wide sections ordinary, and only Delete account and Team muted, to an operator who holds " +
-      "site:configure but neither site:erase nor site:manage_operators",
-    async () => {
-      grants(["site:configure"]);
-
-      const container = await render(shellAt("/"));
-
-      expect(navLabels(container)).toEqual([
-        "Conversations",
-        "My numbers",
-        "All conversations",
-        "Search",
-        "Analytics",
-        "Conversion",
-        "Tag report",
-        "Booking flow",
-        "Install widget",
-        "Widget appearance",
-        "AI FAQ assistant",
-        "Offline auto-reply",
-        "Canned responses",
-        "Tags",
-        "Billing",
-        "Data on a visitor's device",
-        "Delete account",
-        "Team",
-      ]);
-      // `16-02`/`23-22`'s own independent gates: `site:configure` says nothing about `site:erase` or
-      // `site:manage_operators`, so these are the two entries still muted for this operator.
-      expect(mutedNavLabels(container)).toEqual(["Delete account", "Team"]);
-    },
-  );
-
-  it("mutes nothing at all for an operator who holds site:configure, site:erase and site:manage_operators", async () => {
-    grants(["site:configure", "site:erase", "site:manage_operators"]);
-
-    const container = await render(shellAt("/"));
-
-    expect(mutedNavLabels(container)).toEqual([]);
-  });
-
-  it("offers the five calendar screens ordinary, and every other gated entry muted, to an operator who holds only calendar:configure", async () => {
-    // `22-06`/`adr/0093`: a distinct permission from `site:configure` above - a tenant grants it
-    // independently (`22-05`'s own `Ago.Chat.Domain.Permission` addition), and this operator holds
-    // only this one. Five, not six: `22-05` (`adr/0093`, merged into `ago-calendar` while this item
-    // was in flight) deleted that product's own `operators`/`roles` tables and the console endpoints
-    // that managed them, so there is no Access screen - it was never wired here.
-    //
-    // `23-24`: before this item, holding only `calendar:configure` meant "nothing else gated" -
-    // every `site:configure`/`site:erase` entry was simply absent. Now they are drawn too, muted,
-    // for the identical decision §10 reason every other test in this describe block exercises.
+  it("adds the Calendar section, ordinary and unmuted, for an operator who also holds calendar:configure - four sections, the one named in the Done-when", async () => {
+    // `22-06`/`adr/0093`: `calendar:configure` is granted independently of every tenant-level
+    // permission - a masseuse/hairdresser operator holds exactly this and nothing else. This is the
+    // scenario the item's own "an operator sees exactly four sections" line describes: Calendar
+    // is the fourth, not Team a second time.
     grants(["calendar:configure"]);
 
     const container = await render(shellAt("/"));
 
-    expect(navLabels(container)).toEqual([
+    expect(sectionLabels(container)).toEqual(["Conversations", "Analytics", "Calendar", "Team"]);
+    await openSection(container, "Calendar");
+    expect(itemLabels(container)).toEqual(["Masters", "Services", "Schedule", "Waiting", "Bookings", "Contacts", "Setup"]);
+    expect(reservedItemLabels(container)).toEqual(["Bookings"]);
+    expect(mutedItemLabels(container)).toEqual([]);
+  });
+
+  it("offers every section ordinary, and only Delete account and Employees hidden, to an operator who holds site:configure but neither site:erase nor site:manage_operators", async () => {
+    grants(["site:configure"]);
+
+    const container = await render(shellAt("/"));
+
+    // All seven - Channels/Automation/Administration are drawn now because this identity is
+    // the tenant (`isAdmin`), even without `calendar:configure` itself.
+    expect(sectionLabels(container)).toEqual([
       "Conversations",
-      "My numbers",
-      "All conversations",
-      "Search",
       "Analytics",
-      "Conversion",
-      "Tag report",
-      "Booking flow",
-      "Install widget",
-      "Widget appearance",
-      "AI FAQ assistant",
-      "Offline auto-reply",
-      "Canned responses",
-      "Tags",
-      "Billing",
-      "Data on a visitor's device",
-      "Delete account",
+      "Calendar",
       "Team",
-      "Queue",
-      "Setup",
-      "Workers",
-      "Availability",
-      "Contacts",
+      "Channels",
+      "Automation",
+      "Administration",
     ]);
-    expect(mutedNavLabels(container)).toEqual([
-      "All conversations",
-      "Search",
-      "Analytics",
-      "Conversion",
-      "Tag report",
-      "Booking flow",
-      "Install widget",
-      "Widget appearance",
-      "AI FAQ assistant",
-      "Offline auto-reply",
+
+    await openSection(container, "Conversations");
+    expect(itemLabels(container)).toEqual(["Mine", "All conversations", "Search"]);
+
+    await openSection(container, "Analytics");
+    expect(itemLabels(container)).toEqual(["My numbers", "Analytics", "Conversion", "Tag report", "Booking flow"]);
+
+    // `adr/0129`: this identity lacks `calendar:configure` itself but holds `site:configure`, so the
+    // calendar is muted - "buy it yourself" - rather than hidden, regardless of `enabledModules`
+    // (`grants` above passed none).
+    await openSection(container, "Calendar");
+    expect(itemLabels(container)).toEqual(["Waiting"]);
+    expect(mutedItemLabels(container)).toEqual(["Waiting"]);
+
+    // `23-22`: `site:manage_operators` is independent - "Employees" is hidden, not muted, and
+    // "Team chat" stays (it needs no permission at all).
+    await openSection(container, "Team");
+    expect(itemLabels(container)).toEqual(["Team chat"]);
+
+    await openSection(container, "Channels");
+    expect(itemLabels(container)).toEqual(["Install widget", "Website widget", "MAX bot", "Telegram bot", "Other channels"]);
+    expect(reservedItemLabels(container)).toEqual(["MAX bot", "Telegram bot", "Other channels"]);
+
+    await openSection(container, "Automation");
+    expect(itemLabels(container)).toEqual([
       "Canned responses",
+      "AI suggestions",
+      "Offline auto-reply",
+      "AI auto-reply",
+      "AI FAQ assistant",
       "Tags",
-      "Billing",
-      "Data on a visitor's device",
-      "Delete account",
-      "Team",
     ]);
+    expect(reservedItemLabels(container)).toEqual(["AI suggestions", "AI auto-reply"]);
+
+    // `16-02`: `site:erase` is independent too - "Delete account" is hidden here, not muted; the
+    // other four Administration entries need only `site:configure`, which this identity holds.
+    await openSection(container, "Administration");
+    expect(itemLabels(container)).toEqual(["Products", "Billing", "Device data", "Documents"]);
+    expect(reservedItemLabels(container)).toEqual(["Documents"]);
   });
 
-  it("offers one calendar entry, not five, to an operator without calendar:configure on a tenant that has the module", async () => {
-    // `23-21`: the fix for `flows.md` 4.3's own must-never-happen, generalised from `22-14`. Before
-    // this item the nav offered nothing at all here, indistinguishable from a tenant that has never
-    // enabled the calendar - see the test right below for that other case. One entry, not the full
-    // five: the other four are unreachable without the permission regardless, so offering them would
-    // be five dead links rather than one honest one.
+  it("offers every section and every item ordinary, nothing hidden and nothing muted, to an operator who holds every permission", async () => {
+    grants(["site:configure", "site:erase", "site:manage_operators", "calendar:configure"], ["calendar"]);
+
+    const container = await render(shellAt("/"));
+
+    expect(sectionLabels(container)).toEqual([
+      "Conversations",
+      "Analytics",
+      "Calendar",
+      "Team",
+      "Channels",
+      "Automation",
+      "Administration",
+    ]);
+    expect(mutedItemLabels(container)).toEqual([]);
+
+    await openSection(container, "Calendar");
+    expect(itemLabels(container)).toEqual(["Masters", "Services", "Schedule", "Waiting", "Bookings", "Contacts", "Setup"]);
+    expect(mutedItemLabels(container)).toEqual([]);
+
+    await openSection(container, "Team");
+    expect(itemLabels(container)).toEqual(["Employees", "Team chat"]);
+
+    await openSection(container, "Administration");
+    expect(itemLabels(container)).toEqual(["Products", "Billing", "Device data", "Documents", "Delete account"]);
+  });
+
+  it("mutes the calendar for the tenant regardless of enabledModules - buying it is this identity's own decision either way", async () => {
+    // `adr/0129`'s own simplification versus the rule it replaces: `23-21`'s three-way
+    // `enabledModules` check decided what an *operator* saw; for the tenant (`isAdmin`) it never
+    // changed anything, because whether to enable the module or grant themselves the permission are
+    // both things they can do without anyone else's help. Same result with the module enabled...
     grants(["site:configure"], ["calendar"]);
+    const enabled = await render(shellAt("/"));
+    await openSection(enabled, "Calendar");
+    expect(mutedItemLabels(enabled)).toEqual(["Waiting"]);
+    await unmount();
 
-    const container = await render(shellAt("/"));
-
-    expect(navLabels(container)).toContain("Queue");
-    expect(navLabels(container)).not.toContain("Setup");
-    expect(navLabels(container)).not.toContain("Workers");
-    // `23-24`: the one inconsistency between this gate and the other two, before this item - this
-    // entry used to be drawn ordinary. Now it carries the identical muted treatment
-    // `site:configure`/`site:erase` entries get above, so the three gates are one treatment, not two
-    // (`docs/backlog/23-24-*.md`'s own Done-when). `Delete account` and `Team` are muted too - this
-    // grant holds `site:configure` but neither `site:erase` nor `site:manage_operators`, both
-    // independent gates.
-    expect(mutedNavLabels(container)).toEqual(["Delete account", "Team", "Queue"]);
-  });
-
-  it("offers no calendar entry at all to an operator on a tenant that has never enabled the module", async () => {
-    // `23-21`: the deliberate under-disclosure half of the same fix - a nav item for a capability no
-    // colleague at this tenant could ever grant would be exactly the over-disclosure `flows.md` 4.3
-    // warns against, so this tenant's nav stays silent about the calendar, same as before this item.
+    // ...and with it never switched on at all.
     grants(["site:configure"], []);
+    const neverEnabled = await render(shellAt("/"));
+    await openSection(neverEnabled, "Calendar");
+    expect(mutedItemLabels(neverEnabled)).toEqual(["Waiting"]);
+  });
+
+  it("offers no Calendar section at all to an operator who lacks calendar:configure and is not the tenant - the accepted cost adr/0129 records", async () => {
+    // `23-21`'s own fix left one muted entry here so an operator without the module could still
+    // learn it exists. `adr/0129` withdraws that concession for a plain operator: "an operator sees
+    // nothing muted at all", so this section is not drawn, whether or not the tenant has bought it.
+    grants(["conversation:read"], ["calendar"]);
 
     const container = await render(shellAt("/"));
 
-    expect(navLabels(container)).not.toContain("Queue");
+    expect(sectionLabels(container)).not.toContain("Calendar");
   });
 
-  it("offers nothing gated while the answer is still in flight", async () => {
-    // "Not yet known" is not "allowed" - `PermissionsContext`'s own rule. Rendering the links
-    // optimistically and removing them would flash an admin section at every operator on every load.
+  it("offers only three sections, and nothing gated, while the permissions answer is still in flight", async () => {
+    // "Not yet known" is not "allowed" - `PermissionsContext`'s own rule. This is the identical
+    // fail-closed shape a permission-less operator gets, which is the safe direction to guess wrong
+    // in for the second or so this answer takes.
     operatorsApi.fetchMyPermissions.mockReturnValue(new Promise(() => undefined));
 
     const container = await render(shellAt("/"));
 
-    expect(navLabels(container)).toEqual(["Conversations", "My numbers"]);
+    expect(sectionLabels(container)).toEqual(["Conversations", "Analytics", "Team"]);
+    await openSection(container, "Conversations");
+    expect(itemLabels(container)).toEqual(["Mine"]);
   });
 
-  it("offers nothing gated when the permissions call fails", async () => {
+  it("offers only three sections, and nothing gated, when the permissions call fails", async () => {
     // Fail-closed: a console that cannot find out what an operator may do must not guess "everything".
     const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
     operatorsApi.fetchMyPermissions.mockRejectedValue(new Error("network down"));
 
     const container = await render(shellAt("/"));
 
-    expect(navLabels(container)).toEqual(["Conversations", "My numbers"]);
+    expect(sectionLabels(container)).toEqual(["Conversations", "Analytics", "Team"]);
     expect(logged).toHaveBeenCalled();
   });
 
-  it("does not offer the platform-owner section to an operator the server refuses", async () => {
+  /** `23-31`: "Platform sites" renders as `AppShell`'s own `pinnedItem` now - one flat link below
+   * every accordion section, never inside one. `.ago-shell__rail-link--pinned` is the modifier class
+   * `PinnedNavLink` adds on top of the ordinary link class, so it is found the same way any other
+   * rail link is, then narrowed to the one carrying that modifier. */
+  function pinnedLabel(container: HTMLElement): string | undefined {
+    return all(container, ".ago-shell__rail-link--pinned .ago-shell__nav-link-label")[0]?.textContent?.trim();
+  }
+
+  it("does not offer the platform-owner link to an operator the server refuses", async () => {
     grants(["site:configure"]);
     ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
 
     const container = await render(shellAt("/"));
 
-    expect(navLabels(container)).not.toContain("Platform sites");
+    expect(pinnedLabel(container)).toBeUndefined();
   });
 
   it("offers it to the one identity the server says is eligible", async () => {
@@ -462,110 +467,93 @@ describe("the operator navigation", () => {
 
     const container = await render(shellAt("/"));
 
-    expect(navLabels(container)).toContain("Platform sites");
+    expect(pinnedLabel(container)).toBe("Platform sites");
   });
 
-  it("offers the tenant's own sections and the platform-owner one together, to an identity holding both", async () => {
+  it("offers the tenant's own sections and the platform-owner link together, to an identity holding both", async () => {
     // `12-05`. Until this item nobody could hold both on a fresh deployment - the owner had no
-    // `operators` row and `12-04` refused to let them get one - so "both entries appear" was never
-    // once observed, which is exactly how `12-04`'s bug survived a week. The two answers come from
-    // two independent servers-side sources (`GET /api/v1/operators/me` for the site-scoped
-    // permissions, `GET /api/v1/owner/sites` for the realm role) and this asserts the *whole* list
-    // rather than `toContain`, because the failure worth catching is one suppressing the other -
-    // which a containment check on either one alone would miss.
+    // `operators` row and `12-04` refused to let them get one - so "both appear" was never once
+    // observed, which is exactly how `12-04`'s bug survived a week. The two answers come from two
+    // independent server-side sources (`GET /api/v1/operators/me` for the site-scoped permissions,
+    // `GET /api/v1/owner/sites` for the realm role).
     grants(["site:configure"]);
     ownerApi.probeOwnerEligibility.mockResolvedValue("eligible");
 
     const container = await render(shellAt("/"));
 
-    expect(navLabels(container)).toEqual([
+    expect(sectionLabels(container)).toEqual([
       "Conversations",
-      "My numbers",
-      "All conversations",
-      "Search",
       "Analytics",
-      "Conversion",
-      "Tag report",
-      "Booking flow",
-      "Install widget",
-      "Widget appearance",
-      "AI FAQ assistant",
-      "Offline auto-reply",
-      "Canned responses",
-      "Tags",
-      "Billing",
-      "Data on a visitor's device",
-      "Delete account",
+      "Calendar",
       "Team",
-      "Platform sites",
+      "Channels",
+      "Automation",
+      "Administration",
     ]);
+    expect(pinnedLabel(container)).toBe("Platform sites");
   });
 
-  it("does not offer the platform-owner section while the probe is unanswered", async () => {
+  it("does not offer the platform-owner link while the probe is unanswered", async () => {
     ownerApi.probeOwnerEligibility.mockReturnValue(new Promise(() => undefined));
 
     const container = await render(shellAt("/"));
 
-    expect(navLabels(container)).not.toContain("Platform sites");
+    expect(pinnedLabel(container)).toBeUndefined();
   });
 });
 
 /**
- * `23-24`, decision §10's own two bounds: the glyph must carry a translated hidden label (`11-13`
- * makes an untranslated one a gate failure), and it must never be the *only* signal a muted entry
- * carries - the muted colour alone would be ambiguous (this item's own reasoning, restated in
- * `AppShellNavItem.muted`'s doc comment), so both have to be checked, not just one.
+ * `23-31`/`adr/0129`: the replaced muting rule's own two bounds, carried over from decision §10 -
+ * the reason must be named, not left to a colour alone, and the entry must stay a real link. The
+ * *reason* changed (buyable, not "a colleague could grant it"), so the mark did too: a visible
+ * `Badge` naming `strings.navBuyableLabel`, not an icon with a hidden label - "muted" today has
+ * exactly one occurrence (the calendar's own single entry for a tenant who lacks
+ * `calendar:configure`), and there is room for a visible word right beside it.
  */
-describe("the lock glyph on a muted nav entry", () => {
-  it("carries a visually-hidden, translated label - present for a muted entry, absent for an ordinary one", async () => {
-    // `23-22`: `site:manage_operators` granted alongside `site:configure` so `Team` is not also
-    // muted here - this test is about `site:erase`'s own gate specifically, and `one(...)` below
-    // needs exactly one muted link to find.
-    grants(["site:configure", "site:manage_operators"]); // holds site:configure, lacks site:erase
+describe("the buyable badge on the calendar's muted entry", () => {
+  it("carries a visible, translated badge naming why - present on the muted calendar entry, absent from an ordinary link", async () => {
+    grants(["site:configure"]); // holds site:configure, lacks calendar:configure
 
     const container = await render(shellAt("/"));
 
-    const ordinaryLink = byText<HTMLAnchorElement>(container, ".ago-shell__nav a", "Billing");
-    expect(ordinaryLink?.querySelector(".ago-shell__nav-lock")).toBeNull();
+    await openSection(container, "Analytics");
+    const ordinaryLink = byText<HTMLAnchorElement>(container, ".ago-shell__rail-link", "Analytics");
+    expect(ordinaryLink?.querySelector(".ago-badge")).toBeNull();
 
-    const mutedLink = one<HTMLAnchorElement>(container, ".ago-shell__nav a.ago-shell__nav-link--muted");
-    expect(mutedLink.textContent).toContain("Delete account");
-    const hiddenLabel = mutedLink.querySelector(".ago-shell__nav-lock .ago-visually-hidden");
-    expect(hiddenLabel?.textContent).toBe("Locked - you do not currently have this permission");
-    // The mark itself carries no information a screen reader can use - the hidden text right beside
-    // it is what actually says so (`NavLockGlyph`'s own doc comment).
-    expect(mutedLink.querySelector(".ago-shell__nav-lock-icon")?.getAttribute("aria-hidden")).toBe("true");
+    await openSection(container, "Calendar");
+    const mutedLink = one<HTMLAnchorElement>(container, ".ago-shell__rail-link.ago-shell__rail-link--muted");
+    expect(mutedLink.querySelector(".ago-shell__nav-link-label")?.textContent).toBe("Waiting");
+    expect(mutedLink.querySelector(".ago-badge")?.textContent).toBe("Add-on");
   });
 
   it("stays a real, keyboard-reachable link - never `disabled`, never `aria-disabled`", async () => {
-    // Decision §10's own reasoning: the destination page is where the explanation lives, because
-    // this console has no tooltip - a `disabled` control could not be reached to get there at all.
-    grants([]);
+    // The destination page is where the "buy this" explanation lives (`ProductsPage`), because this
+    // console has no tooltip - a `disabled` control could not be reached to get there at all.
+    grants(["site:configure"]);
 
     const container = await render(shellAt("/"));
+    await openSection(container, "Calendar");
 
-    // Not `byText` here - a muted link's full `textContent` also carries the lock glyph's hidden
-    // label, so an exact-text match against just "Billing" would find nothing (`navLabels`'s own doc
-    // comment has the identical reasoning for why it reads `.ago-shell__nav-link-label` alone).
-    const mutedLink = all(container, ".ago-shell__nav a").find(
-      (a) => a.querySelector(".ago-shell__nav-link-label")?.textContent?.trim() === "Billing",
+    const mutedLink = all(container, ".ago-shell__rail-link").find(
+      (a) => a.querySelector(".ago-shell__nav-link-label")?.textContent?.trim() === "Waiting",
     ) as HTMLAnchorElement | undefined;
     expect(mutedLink).not.toBeUndefined();
     expect(mutedLink?.hasAttribute("disabled")).toBe(false);
     expect(mutedLink?.getAttribute("aria-disabled")).toBeNull();
     expect(mutedLink?.tagName).toBe("A");
-    expect(mutedLink?.getAttribute("href")).toBe("/settings/billing");
+    expect(mutedLink?.getAttribute("href")).toBe("/calendar/waiting");
   });
 });
 
 /**
- * `11-14`. The claim `ago-root#317` names explicitly: the drawer and the bar must never be able to
- * disagree about what an operator may see, because they render from the same `buildTenantNavItems`
- * array (`AppShell.tsx`'s own remarks) rather than each holding an independent list. An assertion
- * that only checks the *granted* case would pass even if the drawer ignored permissions entirely (a
- * hardcoded, always-everything list happens to match a fully-permitted operator too) - the
- * under-permissioned case below is the one that actually distinguishes "reads the filtered array"
- * from "reads something else that merely looks right for this one operator".
+ * `11-14`. The claim `ago-root#317` names explicitly: the drawer and the rail must never be able to
+ * disagree about what an operator may see, because they render from the same `sections` array
+ * (`AppShell.tsx`'s own remarks) and the same lifted `openId` state, rather than each holding an
+ * independent list or an independent idea of which section is open. An assertion that only checks
+ * the *granted* case would pass even if the drawer ignored permissions entirely (a hardcoded,
+ * always-everything list happens to match a fully-permitted operator too) - the under-permissioned
+ * case below is the one that actually distinguishes "reads the filtered structure" from "reads
+ * something else that merely looks right for this one operator".
  */
 describe("the mobile navigation drawer", () => {
   it("starts closed, with the hamburger announcing that", async () => {
@@ -588,59 +576,45 @@ describe("the mobile navigation drawer", () => {
     expect(one<HTMLButtonElement>(container, ".ago-shell__menu-button").getAttribute("aria-expanded")).toBe("true");
   });
 
-  it("offers the site-wide sections muted, not absent, to an operator the server gave no site:configure", async () => {
-    // `23-24`: the drawer is a second renderer over the identical `nav` array the bar uses
-    // (`AppShell.tsx`'s own remarks) - this is that same fix, asserted through the drawer's own
-    // markup rather than assumed from the bar's test above.
+  it("offers exactly three sections to an operator the server gave no tenant-level permission", async () => {
+    // The drawer is a second renderer over the identical `sections` structure the rail uses
+    // (`AppShell.tsx`'s own remarks) - this is the same fail-closed shape asserted through the
+    // drawer's own markup rather than assumed from the rail's own tests above.
     grants(["conversation:read"]);
 
     const container = await render(shellAt("/"));
     await openDrawer(container);
 
-    expect(drawerNavLabels(container)).toEqual([
-      "Conversations",
-      "My numbers",
-      "All conversations",
-      "Search",
-      "Analytics",
-      "Conversion",
-      "Tag report",
-      "Booking flow",
-      "Install widget",
-      "Widget appearance",
-      "AI FAQ assistant",
-      "Offline auto-reply",
-      "Canned responses",
-      "Tags",
-      "Billing",
-      "Data on a visitor's device",
-      "Delete account",
-      "Team",
-    ]);
+    expect(sectionLabels(container, "drawer")).toEqual(["Conversations", "Analytics", "Team"]);
   });
 
-  it("offers exactly what the bar offers, to an operator the server says holds site:configure", async () => {
+  it("offers exactly what the rail offers, to an operator the server says holds site:configure", async () => {
     grants(["site:configure"]);
 
     const container = await render(shellAt("/"));
-    await openDrawer(container);
 
-    expect(drawerNavLabels(container)).toEqual(navLabels(container));
+    expect(sectionLabels(container, "rail")).toEqual(sectionLabels(container, "drawer"));
+
+    await openDrawer(container);
+    await openSection(container, "Calendar", "drawer");
+    expect(itemLabels(container, "drawer")).toEqual(["Waiting"]);
+    expect(mutedItemLabels(container, "drawer")).toEqual(["Waiting"]);
   });
 
   it("closes when an item is chosen", async () => {
     grants(["site:configure"]);
 
     // `shellAt` registers only one route (`path`, here `"/"`), matching every other test in this
-    // file - clicking "Conversations" (the one item that stays on `"/"`) is what this harness can
-    // observe; a real cross-route click is `mobileNavDrawer.spec.ts`'s job, against the real router
-    // in a real browser (`AppShell`'s own doc comment on where the browser-only half of this claim
-    // lives).
+    // file - clicking "Mine" (the one item that stays on `"/"`, already visible without opening a
+    // section, since `/` is the active route and its own section opens by default) is what this
+    // harness can observe; a real cross-route click is `mobileNavDrawer.spec.ts`'s job, against the
+    // real router in a real browser (`AppShell`'s own doc comment on where the browser-only half of
+    // this claim lives).
     const container = await render(shellAt("/"));
     await openDrawer(container);
     expect(drawerDialog(container).open).toBe(true);
 
-    await interact(() => byText<HTMLAnchorElement>(container, ".ago-shell__drawer-nav a", "Conversations")?.click());
+    await interact(() => byText<HTMLAnchorElement>(container, ".ago-shell__drawer-nav a", "Mine")?.click());
 
     expect(drawerDialog(container).open).toBe(false);
   });
@@ -683,7 +657,7 @@ describe("a gated page reached directly by URL", () => {
   it("refuses the site-wide conversation list, and does not even ask the server for it", async () => {
     grants(["conversation:read"]);
 
-    const container = await render(pageOnly("/admin", <AdminConversationsPage />));
+    const container = await render(pageOnly("/conversations/all", <AdminConversationsPage />));
 
     expect(container.textContent).toContain("You do not have permission to view every conversation for this site.");
     // `23-24`: the shared `AccessRefusal` appends the "who can grant it" sentence every one of these
@@ -697,7 +671,7 @@ describe("a gated page reached directly by URL", () => {
   it("renders the site-wide conversation list for an operator who holds the permission", async () => {
     grants(["site:configure"]);
 
-    const container = await render(pageOnly("/admin", <AdminConversationsPage />));
+    const container = await render(pageOnly("/conversations/all", <AdminConversationsPage />));
 
     expect(container.textContent).not.toContain("You do not have permission");
     expect(conversationsApi.fetchAllConversationsForSite).toHaveBeenCalled();
@@ -712,13 +686,13 @@ describe("a gated page reached directly by URL", () => {
    * unexplained gap `/admin` did - a form is not meaningfully narrower than a table, and every route
    * `OperatorShell` renders is wide now, unconditionally. */
   it.each([
-    ["/admin", <AdminConversationsPage key="admin" />],
-    ["/settings/install", <InstallSnippetPage key="install" />],
-    ["/settings/widget", <WidgetConfigPage key="widget" />],
-    ["/settings/auto-reply", <OfflineAutoReplyPage key="auto-reply" />],
-    ["/settings/canned-responses", <CannedResponsesPage key="canned-responses" />],
-    ["/settings/faq", <FaqModulePage key="faq" />],
-    ["/settings/device-storage", <DeviceStorageDisclosurePage key="device-storage" />],
+    ["/conversations/all", <AdminConversationsPage key="admin" />],
+    ["/channels/install", <InstallSnippetPage key="install" />],
+    ["/channels/widget", <WidgetConfigPage key="widget" />],
+    ["/automation/auto-reply", <OfflineAutoReplyPage key="auto-reply" />],
+    ["/automation/canned", <CannedResponsesPage key="canned-responses" />],
+    ["/automation/faq", <FaqModulePage key="faq" />],
+    ["/account/device-storage", <DeviceStorageDisclosurePage key="device-storage" />],
   ])("renders %s in the shell's full width, the same as the workspace routes", async (path, page) => {
     grants(["site:configure"]);
 
@@ -735,13 +709,13 @@ describe("a gated page reached directly by URL", () => {
    * `/settings/tags` and `/analytics`. `wide` and `fixed` are independent props now
    * (`AppShell.tsx`'s own doc comments); this is the regression test for that split staying split. */
   it.each([
-    ["/admin", <AdminConversationsPage key="admin" />],
-    ["/settings/install", <InstallSnippetPage key="install" />],
-    ["/settings/widget", <WidgetConfigPage key="widget" />],
-    ["/settings/auto-reply", <OfflineAutoReplyPage key="auto-reply" />],
-    ["/settings/canned-responses", <CannedResponsesPage key="canned-responses" />],
-    ["/settings/faq", <FaqModulePage key="faq" />],
-    ["/settings/device-storage", <DeviceStorageDisclosurePage key="device-storage" />],
+    ["/conversations/all", <AdminConversationsPage key="admin" />],
+    ["/channels/install", <InstallSnippetPage key="install" />],
+    ["/channels/widget", <WidgetConfigPage key="widget" />],
+    ["/automation/auto-reply", <OfflineAutoReplyPage key="auto-reply" />],
+    ["/automation/canned", <CannedResponsesPage key="canned-responses" />],
+    ["/automation/faq", <FaqModulePage key="faq" />],
+    ["/account/device-storage", <DeviceStorageDisclosurePage key="device-storage" />],
   ])("keeps %s page-scrollable - it has no internal scroll region of its own", async (path, page) => {
     grants(["site:configure"]);
 
@@ -773,7 +747,7 @@ describe("a gated page reached directly by URL", () => {
       ],
     });
 
-    const container = await render(pageOnly("/admin", <AdminConversationsPage />));
+    const container = await render(pageOnly("/conversations/all", <AdminConversationsPage />));
 
     expect(container.textContent).toContain("Every conversation for this site");
     expect(container.textContent).not.toContain("Site conversations");
@@ -787,7 +761,7 @@ describe("a gated page reached directly by URL", () => {
   it("does not nest the table inside a second Panel card", async () => {
     grants(["site:configure"]);
 
-    const container = await render(pageOnly("/admin", <AdminConversationsPage />));
+    const container = await render(pageOnly("/conversations/all", <AdminConversationsPage />));
 
     expect(container.querySelector(".ago-panel")).toBeNull();
   });
@@ -797,7 +771,7 @@ describe("a gated page reached directly by URL", () => {
     // may well hold, for as long as one HTTP round trip takes.
     operatorsApi.fetchMyPermissions.mockReturnValue(new Promise(() => undefined));
 
-    const container = await render(pageOnly("/admin", <AdminConversationsPage />));
+    const container = await render(pageOnly("/conversations/all", <AdminConversationsPage />));
 
     expect(container.textContent).not.toContain("You do not have permission");
     expect(container.textContent).toContain("Checking your permissions");
@@ -806,7 +780,7 @@ describe("a gated page reached directly by URL", () => {
   it("refuses the widget configuration form, and does not load the site's config", async () => {
     grants(["conversation:read"]);
 
-    const container = await render(pageOnly("/settings/widget", <WidgetConfigPage />));
+    const container = await render(pageOnly("/channels/widget", <WidgetConfigPage />));
 
     expect(container.textContent).toContain("You do not have permission to configure this site");
     expect(container.querySelector("form")).toBeNull();
@@ -816,7 +790,7 @@ describe("a gated page reached directly by URL", () => {
   it("renders the widget configuration form for an operator who holds the permission", async () => {
     grants(["site:configure"]);
 
-    const container = await render(pageOnly("/settings/widget", <WidgetConfigPage />));
+    const container = await render(pageOnly("/channels/widget", <WidgetConfigPage />));
 
     expect(container.textContent).not.toContain("You do not have permission");
     expect(widgetConfigApi.fetchWidgetConfig).toHaveBeenCalledWith("token", SITE_ID);
@@ -827,7 +801,7 @@ describe("a gated page reached directly by URL", () => {
   it("refuses the install screen, and does not load the site's installation details", async () => {
     grants(["conversation:read"]);
 
-    const container = await render(pageOnly("/settings/install", <InstallSnippetPage />));
+    const container = await render(pageOnly("/channels/install", <InstallSnippetPage />));
 
     expect(container.textContent).toContain("You do not have permission to view this site's installation details.");
     expect(installationApi.fetchSiteInstallation).not.toHaveBeenCalled();
@@ -836,7 +810,7 @@ describe("a gated page reached directly by URL", () => {
   it("renders the install screen for an operator who holds the permission", async () => {
     grants(["site:configure"]);
 
-    const container = await render(pageOnly("/settings/install", <InstallSnippetPage />));
+    const container = await render(pageOnly("/channels/install", <InstallSnippetPage />));
 
     expect(container.textContent).not.toContain("You do not have permission");
     expect(installationApi.fetchSiteInstallation).toHaveBeenCalledWith("token", SITE_ID);
@@ -849,7 +823,7 @@ describe("a gated page reached directly by URL", () => {
   it("refuses the device-storage disclosure page", async () => {
     grants(["conversation:read"]);
 
-    const container = await render(pageOnly("/settings/device-storage", <DeviceStorageDisclosurePage />));
+    const container = await render(pageOnly("/account/device-storage", <DeviceStorageDisclosurePage />));
 
     expect(container.textContent).toContain("You do not have permission to view this page.");
     expect(container.querySelector("table")).toBeNull();
@@ -858,7 +832,7 @@ describe("a gated page reached directly by URL", () => {
   it("renders the device-storage disclosure page for an operator who holds the permission", async () => {
     grants(["site:configure"]);
 
-    const container = await render(pageOnly("/settings/device-storage", <DeviceStorageDisclosurePage />));
+    const container = await render(pageOnly("/account/device-storage", <DeviceStorageDisclosurePage />));
 
     expect(container.textContent).not.toContain("You do not have permission");
     expect(container.textContent).toContain("These are not cookies.");
@@ -867,7 +841,7 @@ describe("a gated page reached directly by URL", () => {
   it("refuses the canned-responses form, and does not load the site's library", async () => {
     grants(["conversation:read"]);
 
-    const container = await render(pageOnly("/settings/canned-responses", <CannedResponsesPage />));
+    const container = await render(pageOnly("/automation/canned", <CannedResponsesPage />));
 
     expect(container.textContent).toContain("You do not have permission to configure this site's canned responses.");
     expect(container.querySelector("form")).toBeNull();
@@ -877,7 +851,7 @@ describe("a gated page reached directly by URL", () => {
   it("renders the canned-responses form for an operator who holds the permission", async () => {
     grants(["site:configure"]);
 
-    const container = await render(pageOnly("/settings/canned-responses", <CannedResponsesPage />));
+    const container = await render(pageOnly("/automation/canned", <CannedResponsesPage />));
 
     expect(container.textContent).not.toContain("You do not have permission");
     expect(cannedResponsesApi.fetchCannedResponses).toHaveBeenCalledWith("token", SITE_ID);
@@ -887,7 +861,7 @@ describe("a gated page reached directly by URL", () => {
   it("refuses the AI FAQ assistant screen, and does not load the site's modules", async () => {
     grants(["conversation:read"]);
 
-    const container = await render(pageOnly("/settings/faq", <FaqModulePage />));
+    const container = await render(pageOnly("/automation/faq", <FaqModulePage />));
 
     expect(container.textContent).toContain("You do not have permission to configure this site's AI FAQ assistant.");
     expect(container.querySelector("form")).toBeNull();
@@ -897,7 +871,7 @@ describe("a gated page reached directly by URL", () => {
   it("renders the AI FAQ assistant screen for an operator who holds the permission", async () => {
     grants(["site:configure"]);
 
-    const container = await render(pageOnly("/settings/faq", <FaqModulePage />));
+    const container = await render(pageOnly("/automation/faq", <FaqModulePage />));
 
     expect(container.textContent).not.toContain("You do not have permission");
     expect(modulesApi.fetchModules).toHaveBeenCalledWith("token", SITE_ID);
@@ -915,7 +889,7 @@ describe("a gated page reached directly by URL", () => {
     // "absent", half of the distinction the item exists to draw. See the next test for the other half.
     grants(["site:configure"], ["calendar"]);
 
-    const container = await render(pageOnly("/calendar", <CalendarQueuePage />));
+    const container = await render(pageOnly("/calendar/waiting", <CalendarQueuePage />));
 
     expect(container.textContent).toContain("You do not have permission to view the calendar's booking queue.");
     expect(container.textContent).toContain("Ask an owner or admin at this workspace to grant it to you.");
@@ -929,7 +903,7 @@ describe("a gated page reached directly by URL", () => {
     // permission used to see regardless of their tenant's own module state.
     grants(["site:configure"], []);
 
-    const container = await render(pageOnly("/calendar", <CalendarQueuePage />));
+    const container = await render(pageOnly("/calendar/waiting", <CalendarQueuePage />));
 
     expect(container.textContent).not.toContain("You do not have permission to view the calendar's booking queue.");
     expect(container.textContent).toContain("This workspace does not have the calendar.");
@@ -940,7 +914,7 @@ describe("a gated page reached directly by URL", () => {
   it("renders the calendar booking queue for an operator who holds calendar:configure", async () => {
     grants(["calendar:configure"]);
 
-    const container = await render(pageOnly("/calendar", <CalendarQueuePage />));
+    const container = await render(pageOnly("/calendar/waiting", <CalendarQueuePage />));
 
     expect(container.textContent).not.toContain("You do not have permission");
     expect(calendarApi.getPendingBookings).toHaveBeenCalledWith("token", expect.anything());
@@ -962,7 +936,7 @@ describe("a gated page reached directly by URL", () => {
     config.calendarApiBaseUrl = null;
 
     try {
-      const container = await render(pageOnly("/calendar", <CalendarQueuePage />));
+      const container = await render(pageOnly("/calendar/waiting", <CalendarQueuePage />));
 
       expect(container.textContent).toContain(
         "The calendar backend is not configured for this deployment yet, so this screen cannot be used here.",

@@ -19,7 +19,7 @@ import type { ConsoleStrings } from "../i18n/strings.js";
  * component's only judgment call is `ROUTE_FOR`, a label plus a screen to send the tenant to - a
  * presentation decision, not a readiness one.
  *
- * <b>Rendered on both `/calendar/setup` and `/calendar/workers`</b> (the item's own Done-when), each
+ * <b>Rendered on both `/calendar/setup` and `/calendar/masters`</b> (the item's own Done-when), each
  * page fetching `getBookingReadiness` itself alongside its own existing `getConfiguration`/
  * `listWorkers` call - no shared fetch, no context, because the two screens already re-read after
  * every write independently and a third syncing mechanism would be more machinery than two GETs.
@@ -85,7 +85,7 @@ function CalendarReadinessCard({
 
 /**
  * Where each unmet precondition sends the tenant - the item's own Done-when ("links each unmet
- * precondition to its form"). `ServiceOffered` and `ScheduleSaved` point at `/calendar/workers`
+ * precondition to its form"). `ServiceOffered` and `ScheduleSaved` point at `/calendar/masters`
  * rather than `/calendar/setup`, even though a service is *defined* on Setup: a service nobody
  * performs is not what this fact reports missing (`ServiceOffered` asks whether an active worker
  * *performs* one, which `CalendarWorkersPage`'s own worker card is where a tenant assigns) - and
@@ -95,13 +95,13 @@ function CalendarReadinessCard({
  */
 const ROUTE_FOR: Record<BookingPrecondition, string> = {
   CalendarPublished: "/calendar/setup",
-  WorkerOnCalendar: "/calendar/workers",
-  ServiceOffered: "/calendar/workers",
+  WorkerOnCalendar: "/calendar/masters",
+  ServiceOffered: "/calendar/masters",
   WorkingHoursConfigured: "/calendar/setup",
-  ScheduleSaved: "/calendar/workers",
+  ScheduleSaved: "/calendar/masters",
   // No form fixes this one - materialisation is a background job, not a tenant action - so this
   // points at the one screen that shows what has and has not materialised (`20-15`).
-  SlotsMaterialized: "/calendar/workers",
+  SlotsMaterialized: "/calendar/masters",
 };
 
 function preconditionLabel(precondition: BookingPrecondition, strings: ConsoleStrings): string {

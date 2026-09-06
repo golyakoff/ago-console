@@ -184,7 +184,7 @@ describe("the site-configuration screens for an active site with Locale = Ru", (
   it("renders WidgetConfigPage's form in Russian", async () => {
     const container = await render(siteConfigAt("/settings/widget", "Ru"));
 
-    expect(container.querySelector(".ago-page-head__title")?.textContent).toBe("Внешний вид виджета");
+    expect(container.querySelector(".ago-page-head__title")?.textContent).toBe("Виджет на сайте");
     expect(container.querySelector(".ago-panel__title")?.textContent).toBe("Кнопка запуска");
     const labels = all(container, ".ago-field__label").map((l) => l.textContent?.trim());
     expect(labels).toEqual([
@@ -278,7 +278,7 @@ describe("the site-configuration screens for an active site with no Locale set",
   it("renders WidgetConfigPage's form unchanged, in English", async () => {
     const widget = await render(siteConfigAt("/settings/widget", null));
 
-    expect(widget.querySelector(".ago-page-head__title")?.textContent).toBe("Widget appearance");
+    expect(widget.querySelector(".ago-page-head__title")?.textContent).toBe("Website widget");
     expect(widget.querySelector(".ago-panel__title")?.textContent).toBe("Launcher");
     const widgetSave = Array.from(widget.querySelectorAll("button")).find((b) => b.type === "submit");
     expect(widgetSave?.textContent).toBe("Save");
