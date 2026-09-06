@@ -11,6 +11,7 @@ const contactDetailsApi = vi.hoisted(() => ({
   fetchContactDetails: vi.fn(),
   recordContactDetail: vi.fn(),
   deleteContactDetail: vi.fn(),
+  revealContactDetail: vi.fn(),
 }));
 
 vi.mock("../api/contactDetailsApi.js", () => contactDetailsApi);
@@ -276,6 +277,75 @@ function setSelectValue(element: HTMLSelectElement, value: string): void {
  * `contactDraft` asserts `recordContactDetail` was never called, and the one test that does expect a
  * write is the one that also clicks **Record**.
  */
+describe("revealing a masked contact detail (23-11)", () => {
+  it("offers a Reveal button, not the real value, when the site's rung masks the list read", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([
+      { id: "id-1", kind: "Phone", value: "+1••••••00", recordedByOperatorId: "op-1", recordedAt: "x", masked: true },
+    ]);
+
+    const container = await mount(["conversation:read"]);
+
+    expect(container.textContent).toContain("+1••••••00");
+    expect(container.textContent).not.toContain("+1 555 0100");
+    expect(byText(container, "button", "Reveal")).not.toBeNull();
+  });
+
+  it("does not offer a Reveal button when the row already carries the real value", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([
+      { id: "id-1", kind: "Phone", value: "+1 555 0100", recordedByOperatorId: "op-1", recordedAt: "x", masked: false },
+    ]);
+
+    const container = await mount(["conversation:read"]);
+
+    expect(all(container, "button")).toHaveLength(0);
+  });
+
+  it("replaces the masked row with the server's own unmasked response on Reveal", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([
+      { id: "id-1", kind: "Phone", value: "+1••••••00", recordedByOperatorId: "op-1", recordedAt: "x", masked: true },
+    ]);
+    contactDetailsApi.revealContactDetail.mockResolvedValue({
+      id: "id-1",
+      kind: "Phone",
+      value: "+1 555 0100",
+      recordedByOperatorId: "op-1",
+      recordedAt: "x",
+      masked: false,
+    });
+
+    const container = await mount(["conversation:read"]);
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Reveal").click());
+
+    expect(contactDetailsApi.revealContactDetail).toHaveBeenCalledWith("token", CONVERSATION_ID, "id-1");
+    expect(container.textContent).toContain("+1 555 0100");
+    expect(container.textContent).not.toContain("+1••••••00");
+    expect(all(container, "button")).toHaveLength(0);
+  });
+
+  it("shows an error, and keeps the row masked, when the reveal fails", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([
+      { id: "id-1", kind: "Phone", value: "+1••••••00", recordedByOperatorId: "op-1", recordedAt: "x", masked: true },
+    ]);
+    contactDetailsApi.revealContactDetail.mockRejectedValue(
+      new ApiProblemError("VisitorContactDetail.NotFound", "server wording", 404),
+    );
+
+    const container = await mount(["conversation:read"]);
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Reveal").click());
+
+    expect(one(container, '[role="alert"]').textContent).toContain("server wording");
+    expect(container.textContent).toContain("+1••••••00");
+  });
+
+  it("an operator without conversation:read never sees a Reveal button, matching the whole panel's own absence", async () => {
+    const container = await mount([]);
+
+    expect(container.textContent).toBe("");
+    expect(contactDetailsApi.fetchContactDetails).not.toHaveBeenCalled();
+  });
+});
+
+
 describe("a promoted selection (23-10)", () => {
   it("pre-fills the kind as Phone and the value verbatim, and focuses the value field", async () => {
     const container = await mount(["conversation:read", "conversation:send"]);

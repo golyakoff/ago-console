@@ -692,6 +692,9 @@ export interface ConsoleStrings {
   contactDetailsSourceVisitor: string;
   contactDetailsVerified: string;
   contactDetailsUnverified: string;
+  contactDetailsRevealButton: string;
+  contactDetailsRevealingButton: string;
+  contactDetailsRevealError: string;
 
   // `18-04`: ConversationNotesPanel - internal, operator-only notes on a conversation. Never
   // reachable by a visitor, by construction (`ago-chat`'s `INoteRepository`'s own remarks) - this

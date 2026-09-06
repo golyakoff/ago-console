@@ -4,6 +4,7 @@ import {
   fetchContactDetails,
   recordContactDetail,
   deleteContactDetail,
+  revealContactDetail,
   type ContactDetailDto,
 } from "../api/contactDetailsApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
@@ -80,6 +81,15 @@ export interface ContactDetailsPanelProps {
  * this effect** - it only calls the same `setKindDraft`/`setValueDraft` the operator's own typing
  * already drives, so a promoted draft is indistinguishable, from this point on, from one the operator
  * typed by hand into an empty form. Recording still needs the existing **Record** click below.
+ *
+ * `23-11`/`decisions.md` §5: a row's own `masked` flag decides whether this panel shows a **Reveal**
+ * button beside it. The real value is never computed here - `detail.value` on a masked row already
+ * is the masked string the server sent, and revealing replaces the whole row with the server's own
+ * unmasked response rather than unmasking anything client-side (`handleReveal`'s own remarks). This is
+ * what keeps "masked" and "forbidden" visibly different: an operator without `conversation:read` sees
+ * no panel at all (the check just above renders nothing), while one who can read but whose tenant
+ * masks contact surfaces sees every row, each with a working Reveal button - never a blank space that
+ * could be read as "no contact recorded."
  */
 export function ContactDetailsPanel({ conversationId, accessToken, contactDraft }: ContactDetailsPanelProps) {
   const { hasPermission } = usePermissions();
@@ -90,6 +100,10 @@ export function ContactDetailsPanel({ conversationId, accessToken, contactDraft 
   const [valueDraft, setValueDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // `23-11`: which row's own Reveal is in flight, if any - tracked separately from `busy` (the
+  // record/delete form's own flag) so revealing one row does not disable every other row's Reveal
+  // button, and so the button that is actually working is the one that says so.
+  const [revealingId, setRevealingId] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
@@ -165,6 +179,27 @@ export function ContactDetailsPanel({ conversationId, accessToken, contactDraft 
     }
   };
 
+  // `23-11`/`decisions.md` §5: "revealed on demand, and the reveal is recorded" - this is the demand.
+  // The masked row is replaced in place by the server's own unmasked response, never by unmasking the
+  // string this component already holds: the real value never reaches this component until the server
+  // sends it, so there is no client-side flag this build could get wrong and accidentally render early.
+  const handleReveal = async (detail: ContactDetailDto) => {
+    if (!accessToken) {
+      return;
+    }
+
+    setRevealingId(detail.id);
+    setActionError(null);
+    try {
+      const revealed = await revealContactDetail(accessToken, conversationId, detail.id);
+      setDetails((prev) => (prev ?? []).map((d) => (d.id === detail.id ? revealed : d)));
+    } catch (err) {
+      setActionError(err instanceof ApiProblemError ? err.message : strings.contactDetailsRevealError);
+    } finally {
+      setRevealingId(null);
+    }
+  };
+
   const handleDelete = async (detail: ContactDetailDto) => {
     if (!accessToken) {
       return;
@@ -214,6 +249,17 @@ export function ContactDetailsPanel({ conversationId, accessToken, contactDraft 
                 {detail.verified ? strings.contactDetailsVerified : strings.contactDetailsUnverified}
               </Badge>
               <span>{detail.value}</span>
+              {detail.masked && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => void handleReveal(detail)}
+                  disabled={revealingId === detail.id}
+                >
+                  {revealingId === detail.id ? strings.contactDetailsRevealingButton : strings.contactDetailsRevealButton}
+                </Button>
+              )}
               {canRecord && (
                 <Button
                   type="button"

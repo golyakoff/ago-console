@@ -30,6 +30,12 @@ export interface ContactDetailDto {
   source: string;
   verified: boolean;
   recordedAt: string;
+  /** `23-11`/`decisions.md` §5: `true` on the list read when the site's own contact-visibility rung
+   * is `MaskedWithReveal` - `value` is then a masked string, never the real one
+   * (`ListVisitorContactDetailsHandler`'s own remarks: the masking happens in the read model, never in
+   * the console). `false` on the list read (`Visible` rung), on the record echo, and on the reveal
+   * response itself - a caller of any of those three already has the real value in hand. */
+  masked: boolean;
 }
 
 function url(conversationId: string): string {
@@ -92,4 +98,26 @@ export async function deleteContactDetail(accessToken: string, conversationId: s
   }
 
   throw await problemDetailsFrom(response);
+}
+
+/** `23-11`: `POST /api/v1/conversations/{id}/contact-details/{id}/reveal` - one contact detail, one
+ * reveal, one record on the server (`RevealVisitorContactDetailHandler`'s own remarks). Gated
+ * server-side on `conversation:read`, the same permission the list read already needs - a reveal is
+ * not a stronger capability than reading the conversation, it is that same capability applied to one
+ * field the tenant's own setting chose to mask by default. */
+export async function revealContactDetail(
+  accessToken: string,
+  conversationId: string,
+  contactDetailId: string,
+): Promise<ContactDetailDto> {
+  const response = await fetch(`${url(conversationId)}/${contactDetailId}/reveal`, {
+    method: "POST",
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (!response.ok) {
+    throw await problemDetailsFrom(response);
+  }
+
+  return (await response.json()) as ContactDetailDto;
 }
