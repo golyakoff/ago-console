@@ -149,6 +149,11 @@ export interface OwnerSiteDetail {
    * `modulesApi.ts`'s "currently active only" shape. A support agent repairing a tenant needs to see
    * a lapsed trial, not just its absence. */
   modules: OwnerSiteModule[];
+  /** `23-48`: this tenant's own `Site.AllowedOrigins`, added so the owner's detail screen - the only
+   * place any of it may now be edited - has something to show and edit without a second round trip.
+   * Every entry is already in normalized form (no path, no trailing slash) - the server refuses
+   * anything else at write time (`updateOwnerSiteAllowedOrigins` below). */
+  allowedOrigins: string[];
 }
 
 /**
@@ -187,6 +192,65 @@ export async function fetchOwnerSiteDetail(accessToken: string, siteId: string):
   }
 
   return { status: "ok", site: (await response.json()) as OwnerSiteDetail };
+}
+
+/**
+ * `23-48`: the outcome of asking the server to replace a tenant's allowed origins - the same
+ * three-state shape `OwnerSiteDetailOutcome` uses, plus `"invalid"` for a value the server refused
+ * (naming what is wrong with it, `Site.InvalidOrigin`'s own message) rather than a generic thrown
+ * error, since this is the one outcome the screen must show inline next to the field rather than as a
+ * page-level failure.
+ */
+export type UpdateOwnerSiteAllowedOriginsOutcome =
+  | { status: "ok"; allowedOrigins: string[] }
+  | { status: "not-authorized" }
+  | { status: "not-found" }
+  | { status: "invalid"; message: string };
+
+/**
+ * `23-48`: `PUT /api/v1/owner/sites/{siteId}/allowed-origins` - the platform owner's own write, the
+ * only place a chat tenant's allowed origins can be changed at all (`docs/backlog/23-46-*.md`'s own
+ * finding: no such editor has ever existed). `allowedOrigins` is the complete replacement list, not a
+ * single value to add or remove - matching `Ago.Chat.Domain.Site.UpdateAllowedOrigins`'s own shape.
+ */
+export async function updateOwnerSiteAllowedOrigins(
+  accessToken: string,
+  siteId: string,
+  allowedOrigins: string[],
+): Promise<UpdateOwnerSiteAllowedOriginsOutcome> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/owner/sites/${siteId}/allowed-origins`);
+
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: withActiveSiteHeader({
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify({ allowedOrigins }),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    return { status: "not-authorized" };
+  }
+
+  if (response.status === 404) {
+    return { status: "not-found" };
+  }
+
+  if (response.status === 400) {
+    // `Ago.Chat.Api.Http.ErrorExtensions`' own problem-details shape - `detail` is the server's own
+    // message naming what is wrong with the value (`Site.InvalidOrigin`), the same field every other
+    // 400 this console renders inline already reads.
+    const problem = (await response.json()) as { detail?: string };
+    return { status: "invalid", message: problem.detail ?? "This value was refused." };
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to update allowed origins: ${response.status}`);
+  }
+
+  const body = (await response.json()) as { allowedOrigins: string[] };
+  return { status: "ok", allowedOrigins: body.allowedOrigins };
 }
 
 /**

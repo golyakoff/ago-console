@@ -3,14 +3,23 @@ import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { operatorDisplayName } from "../auth/operatorDisplayName.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
-import { fetchOwnerSiteDetail, type OwnerSiteDetail, type OwnerSiteModule } from "../api/ownerApi.js";
+import {
+  fetchOwnerSiteDetail,
+  updateOwnerSiteAllowedOrigins,
+  type OwnerSiteDetail,
+  type OwnerSiteModule,
+} from "../api/ownerApi.js";
 import { en } from "../i18n/en.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
 import { buildTenantNavSections } from "../shell/consoleNav.js";
 import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
+import { Button } from "../components/Button.js";
+import { Field } from "../components/Field.js";
+import { Panel } from "../components/Panel.js";
 import { Spinner } from "../components/Spinner.js";
 import { Table, type TableColumn } from "../components/Table.js";
+import { Textarea } from "../components/Textarea.js";
 import { formatAbsolute, formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
 import {
   describeRecentWindow,
@@ -57,6 +66,14 @@ export function OwnerSiteDetailPage() {
   const [site, setSite] = useState<OwnerSiteDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // `23-48`: the allowed-origins editor's own state - a plain textarea draft (one origin per line)
+  // rather than a dynamic list of text inputs, matching `OfflineAutoReplyPage`'s own "simplest
+  // control that can hold the value" judgement for a small, rarely-edited list.
+  const [originsDraft, setOriginsDraft] = useState("");
+  const [originsError, setOriginsError] = useState<string | null>(null);
+  const [originsSaved, setOriginsSaved] = useState(false);
+  const [originsSaving, setOriginsSaving] = useState(false);
+
   const timeZone = useMemo(() => resolveTimeZone(), []);
 
   useEffect(() => {
@@ -86,6 +103,7 @@ export function OwnerSiteDetailPage() {
 
         setAccess("granted");
         setSite(outcome.site);
+        setOriginsDraft(outcome.site.allowedOrigins.join("\n"));
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -100,6 +118,52 @@ export function OwnerSiteDetailPage() {
   }, [accessToken, siteId]);
 
   const moduleColumns = useMemo(() => buildModuleColumns(timeZone), [timeZone]);
+
+  const handleSaveOrigins = () => {
+    if (!accessToken || !siteId) {
+      return;
+    }
+
+    // Blank lines are a typing artifact (an extra Enter at the end), not a value to send - dropped
+    // client-side so the common case (paste, hit save) does not first bounce off the server's own
+    // "an entry cannot be empty" guard for a line the person never meant as a real entry.
+    const origins = originsDraft
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    setOriginsSaving(true);
+    setOriginsError(null);
+    setOriginsSaved(false);
+
+    updateOwnerSiteAllowedOrigins(accessToken, siteId, origins)
+      .then((outcome) => {
+        if (outcome.status === "ok") {
+          setSite((current) => (current ? { ...current, allowedOrigins: outcome.allowedOrigins } : current));
+          setOriginsDraft(outcome.allowedOrigins.join("\n"));
+          setOriginsSaved(true);
+          return;
+        }
+
+        if (outcome.status === "invalid") {
+          setOriginsError(outcome.message);
+          return;
+        }
+
+        // `not-authorized`/`not-found` mid-session: the token expired, or the tenant was removed
+        // while this screen was open - both genuinely unexpected here (the page itself already
+        // proved `granted` and a real site to reach this form at all), so this is reported the same
+        // plain way the page's own load-time `error` state is, not folded into the field-level
+        // `originsError` a caller can fix by retyping.
+        setError("This site could no longer be reached. Reload the page and try again.");
+      })
+      .catch((err: unknown) => {
+        setOriginsError(err instanceof Error ? err.message : "Failed to save the allowed origins.");
+      })
+      .finally(() => {
+        setOriginsSaving(false);
+      });
+  };
 
   return (
     <AppShell
@@ -216,6 +280,40 @@ export function OwnerSiteDetailPage() {
               </dd>
             </div>
           </dl>
+
+          {/* `23-48`: the platform owner's own editor - the only place any of it may be changed at
+              all. Neither the tenant's own console nor this screen's read-only entitlements table
+              below gets a form; this is the one field on this page that writes anything. */}
+          <Panel
+            title="Allowed origins"
+            description="The pages this tenant's widget is allowed to run on. Only the platform owner may change this - a tenant who needs a different address still has to ask."
+          >
+            <Field
+              label="Origins, one per line"
+              description="Scheme and host only - e.g. https://shop.example. No path, no trailing slash: this is compared literally against the browser's own Origin header."
+              error={originsError}
+            >
+              {(controlProps) => (
+                <Textarea
+                  {...controlProps}
+                  rows={4}
+                  value={originsDraft}
+                  onChange={(event) => {
+                    setOriginsDraft(event.target.value);
+                    setOriginsSaved(false);
+                  }}
+                />
+              )}
+            </Field>
+            <p>
+              <Button onClick={handleSaveOrigins} disabled={originsSaving}>
+                {originsSaving ? "Saving…" : "Save allowed origins"}
+              </Button>
+            </p>
+            {originsSaved && !originsError && (
+              <Alert tone="success">Saved. The widget honours this on its very next request - no restart needed.</Alert>
+            )}
+          </Panel>
 
           <h2>Entitlements</h2>
 
