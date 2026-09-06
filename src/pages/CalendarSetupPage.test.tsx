@@ -174,6 +174,22 @@ describe("the tenant setup screen", () => {
     );
   });
 
+  /**
+   * `23-46`: what the field shows before anything is typed. The example carries the scheme because an
+   * origin without one never matches - the browser sends `Origin: https://shop.example`, and the
+   * comparison is literal (`5-01`, layer 2) - and a field that leaves a person guessing between
+   * `shop.ru` and `https://shop.ru` produces a widget that silently never connects.
+   *
+   * Asserted on the English locale here; `siteConfigLocale.test.tsx` covers that the Russian one is a
+   * `.ru` example rather than a translated `.com`, which is the reason this became a string at all.
+   */
+  it("shows an example address with its scheme, because an origin without one never matches", async () => {
+    const container = await render(page());
+
+    const origins = fieldByLabel<HTMLTextAreaElement>(container, "One origin per line");
+    expect(origins.placeholder).toBe("https://your.site.com");
+  });
+
   it("replaces the whole allowed-origin list rather than appending to it", async () => {
     const container = await render(page());
 

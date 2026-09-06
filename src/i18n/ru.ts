@@ -943,6 +943,8 @@ export const ru: ConsoleStrings = {
   calendarSetupOriginsTitle: "Разрешённые источники страницы",
   calendarSetupOriginsDescription: "Страница может встроить вашу форму записи, только если её источник указан здесь. Схема, хост и порт - без пути.",
   calendarSetupOriginsFieldLabel: "По одному источнику на строку",
+  siteAddressPlaceholder: "https://your.site.ru",
+  installOriginChangeHint: "Для изменения напишите в поддержку.",
   calendarSetupSaveOriginsButton: "Сохранить источники",
   calendarSetupCalendarsTitle: "Календари",
   calendarPublishedLabel: "опубликован",

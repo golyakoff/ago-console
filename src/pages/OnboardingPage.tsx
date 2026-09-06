@@ -65,10 +65,15 @@ import { Alert } from "../components/Alert.js";
  * wraps itself in `App.tsx`'s `PreSessionStringsProvider` (Russian, by the author's own answer to
  * that item: an identity with no `operators` row yet has no site to read a locale from, and the
  * absence of one means Russian, not English - `StringsContext.tsx`'s own doc comment has the full
- * reasoning). The placeholder example URL (`https://shop.example.com`) stays a plain literal - a
- * browser-rendered `placeholder` attribute is not a DOM text node `ux-gate`'s untranslated-text
- * assertion (or a screen reader) ever sees, and an example domain is not a phrase to translate
- * either way.
+ * reasoning).
+ *
+ * `23-46`: **the placeholder example URL is a translated string now**, reversing what this paragraph
+ * used to argue - that a `placeholder` attribute is not a DOM text node `ux-gate`'s untranslated-text
+ * assertion ever sees, so an example domain was not a phrase to translate. The first half is still
+ * true and is why no gate would have caught it. The second half was wrong: the example's own
+ * top-level domain is the part that tells a reader which kind of address is wanted, and a `.com` in a
+ * Russian form reads as somebody else's example rather than a shape to copy. Being invisible to the
+ * gate made it *more* worth changing by hand, not less.
  * `24-03`: **this form has no consent checkbox, and that is not an oversight.** `RegisterSiteHandler`
  * (`ago-chat`) records this submission as acceptance of whichever documents `IRequiredDocumentRepository`
  * currently names for a tenant - which document(s), if any, is server-side data this screen never
@@ -236,7 +241,7 @@ export function OnboardingPage() {
                 {...controlProps}
                 value={origin}
                 onChange={(e) => setOrigin(e.target.value)}
-                placeholder="https://shop.example.com"
+                placeholder={strings.siteAddressPlaceholder}
                 disabled={submitting}
               />
             )}

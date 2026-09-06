@@ -940,6 +940,8 @@ export const en: ConsoleStrings = {
   calendarSetupOriginsTitle: "Approved page origins",
   calendarSetupOriginsDescription: "A page may only embed your booking surface if its origin is listed here. Scheme, host and port - no path.",
   calendarSetupOriginsFieldLabel: "One origin per line",
+  siteAddressPlaceholder: "https://your.site.com",
+  installOriginChangeHint: "To change it, contact support.",
   calendarSetupSaveOriginsButton: "Save origins",
   calendarSetupCalendarsTitle: "Calendars",
   calendarPublishedLabel: "published",

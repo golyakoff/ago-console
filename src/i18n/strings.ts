@@ -1443,6 +1443,15 @@ export interface ConsoleStrings {
   calendarSetupOriginsTitle: string;
   calendarSetupOriginsDescription: string;
   calendarSetupOriginsFieldLabel: string;
+  /** `23-46`: the example address every field that asks for one shows. Localized rather than a
+   * literal, because the example's own top-level domain is the part that tells a reader which
+   * kind of address is wanted, and `.com` reads as foreign in a Russian form. */
+  siteAddressPlaceholder: string;
+  /** `23-46`: sits directly under the address the install screen shows, because that address is
+   * read-only and nothing said so. There is no editor for it anywhere in this console - `5-01`
+   * deferred one and nothing has built it since - so a tenant who reads the wrong address here has
+   * no next step unless one is written down. */
+  installOriginChangeHint: string;
   calendarSetupSaveOriginsButton: string;
   calendarSetupCalendarsTitle: string;
   calendarPublishedLabel: string;
