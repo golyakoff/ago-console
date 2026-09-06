@@ -118,6 +118,10 @@ export function buildTenantNavItems(
     // `13-04`: same permission, same place - the billing screen `13-02`'s checkout endpoint and
     // `13-03`'s cancel/seat-change endpoints already gate on `site:configure`.
     items.push({ to: "/settings/billing", label: strings.navBilling, muted: !canConfigureSite });
+    // `24-15`: same permission, same place - the document a tenant reads to write their own cookie
+    // or privacy notice about what the widget puts on a visitor's device
+    // (`DeviceStorageDisclosurePage`'s own doc comment).
+    items.push({ to: "/settings/device-storage", label: strings.navDeviceStorage, muted: !canConfigureSite });
     // `23-24`/`23-25`: "what else AGO does" belongs here too, immediately after Billing - same
     // `site:configure` gate as every entry in this block (an owner already holds it; that item's own
     // Scope says "gated on the permission an owner holds rather than shown to every operator"), and

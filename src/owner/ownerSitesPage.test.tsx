@@ -106,6 +106,7 @@ describe("the platform-sites page's own navigation", () => {
       "Canned responses",
       "Tags",
       "Billing",
+      "Data on a visitor's device",
       "Delete account",
       "Team",
       "Platform sites",
