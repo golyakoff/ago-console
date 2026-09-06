@@ -26,6 +26,7 @@ import { OfflineAutoReplyPage } from "./pages/OfflineAutoReplyPage.js";
 import { CannedResponsesPage } from "./pages/CannedResponsesPage.js";
 import { TagsPage } from "./pages/TagsPage.js";
 import { BillingPage } from "./pages/BillingPage.js";
+import { DeviceStorageDisclosurePage } from "./pages/DeviceStorageDisclosurePage.js";
 import { ProductsPage } from "./pages/ProductsPage.js";
 import { AccountDeletionPage } from "./pages/AccountDeletionPage.js";
 import { OperatorsTeamPage } from "./pages/OperatorsTeamPage.js";
@@ -273,6 +274,11 @@ export function App() {
         {/* `13-04`: a third settings screen, same pattern again - `BillingPage` gates itself on
             `site:configure` internally, exactly like the two routes above it. */}
         <Route path="/settings/billing" element={<BillingPage />} />
+        {/* `24-15`: a sixth settings screen, same "route stays outside the workspace layout, page
+            gates itself internally" shape as the ones around it - `DeviceStorageDisclosurePage`
+            gates itself on `site:configure` internally, exactly like `BillingPage` right above it.
+            Fetches nothing, unlike every route around it - see that page's own doc comment for why. */}
+        <Route path="/settings/device-storage" element={<DeviceStorageDisclosurePage />} />
         {/* `23-25`: a seventh settings screen, same "route stays outside the workspace layout, page
             gates itself internally" shape as the ones around it - `ProductsPage` gates itself on
             `site:configure` internally, exactly like `BillingPage` right above it. Not yet linked

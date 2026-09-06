@@ -106,6 +106,7 @@ describe("the console shell for an active site with Locale = Ru", () => {
       "Готовые ответы",
       "Метки",
       "Оплата",
+      "Данные на устройстве посетителя",
       "Удалить аккаунт",
       "Команда",
     ]);
@@ -162,6 +163,7 @@ describe("the console shell for an active site with no Locale set", () => {
       "Canned responses",
       "Tags",
       "Billing",
+      "Data on a visitor's device",
       "Delete account",
       "Team",
     ]);
