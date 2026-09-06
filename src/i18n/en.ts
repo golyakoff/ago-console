@@ -479,7 +479,7 @@ export const en: ConsoleStrings = {
   channelIdentitiesCodeGeneratedPrefix: "Code generated for",
 
   contactDetailsSectionTitle: "Unverified contact details",
-  contactDetailsCaption: "Recorded by an operator - never used to contact the visitor automatically.",
+  contactDetailsCaption: "Recorded by an operator, or submitted by the visitor themselves - unverified, unless marked otherwise.",
   contactDetailsLoadingLabel: "Loading contact details…",
   contactDetailsLoadError: "Failed to load contact details.",
   contactDetailsEmpty: "No contact details recorded yet.",
@@ -490,6 +490,10 @@ export const en: ConsoleStrings = {
   contactDetailsRecordError: "Failed to record the contact detail.",
   contactDetailsDeleteButton: "Delete",
   contactDetailsDeleteError: "Failed to delete.",
+  contactDetailsSourceOperator: "Operator",
+  contactDetailsSourceVisitor: "Visitor",
+  contactDetailsVerified: "Verified",
+  contactDetailsUnverified: "Unverified",
 
   notesTitle: "Notes",
   notesVisitorCannotSeeNote: "The visitor never sees these.",
