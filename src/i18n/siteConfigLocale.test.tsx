@@ -89,7 +89,8 @@ function signedIn(): User {
 
 function Signed({ locale, children }: { locale: string | null; children: ReactNode }) {
   const auth = useMemo<AuthState>(
-    () => ({ user: signedIn(), isLoading: false, login: () => Promise.resolve(), logout: () => Promise.resolve() }),
+    () => ({ user: signedIn(), isLoading: false,
+ isSigningOut: false, login: () => Promise.resolve(), logout: () => Promise.resolve() }),
     [],
   );
 

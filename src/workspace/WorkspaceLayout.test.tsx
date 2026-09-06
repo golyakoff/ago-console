@@ -102,7 +102,8 @@ let connectionMock: OperatorConnection;
 
 function Signed({ children }: { children: React.ReactNode }) {
   const auth = useMemo<AuthState>(
-    () => ({ user: signedIn(), isLoading: false, login: () => Promise.resolve(), logout: () => Promise.resolve() }),
+    () => ({ user: signedIn(), isLoading: false,
+ isSigningOut: false, login: () => Promise.resolve(), logout: () => Promise.resolve() }),
     [],
   );
 

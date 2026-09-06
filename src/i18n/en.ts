@@ -955,6 +955,8 @@ export const en: ConsoleStrings = {
   calendarSetupOriginsFieldLabel: "One origin per line",
   siteAddressPlaceholder: "https://your.site.com",
   installOriginChangeHint: "To change it, contact support.",
+  authSigningIn: "Signing in…",
+  authSigningOut: "Signing out…",
   calendarSetupSaveOriginsButton: "Save origins",
   calendarSetupCalendarsTitle: "Calendars",
   calendarPublishedLabel: "published",

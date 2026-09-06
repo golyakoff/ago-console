@@ -245,6 +245,7 @@ function Harness({ accessToken, onMessage }: { accessToken: string; onMessage: (
     () => ({
       user: signedInAs(accessToken),
       isLoading: false,
+      isSigningOut: false,
       login: () => Promise.resolve(),
       logout: () => Promise.resolve(),
     }),
@@ -435,6 +436,7 @@ describe("the hub waits for tenancy resolution before connecting", () => {
     const auth: AuthState = {
       user: signedInAs("token-1"),
       isLoading: false,
+      isSigningOut: false,
       login: () => Promise.resolve(),
       logout: () => Promise.resolve(),
     };

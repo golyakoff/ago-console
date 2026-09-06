@@ -193,6 +193,7 @@ function Harness({
     () => ({
       user: { access_token: "token", profile: { sub: "operator-sub" } } as unknown as User,
       isLoading: false,
+      isSigningOut: false,
       login: () => Promise.resolve(),
       logout: () => Promise.resolve(),
     }),
