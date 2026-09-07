@@ -83,7 +83,7 @@ jobs:
       # `publish-images` - a rendered-UI defect fails the pull request before an image is ever built
       # from this commit, not after.
       - name: Cache Playwright's Chromium
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
