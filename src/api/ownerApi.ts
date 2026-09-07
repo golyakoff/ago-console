@@ -129,6 +129,13 @@ export interface OwnerSiteModule {
    * Done-when: "matching what the live read-store query already decides rather than re-deriving it in
    * the console"). */
   isActive: boolean;
+  /** `23-66`: this module's own granted countable quantity - the calendar add-on's "N masters" is the
+   * first real instance, opaque here exactly like `moduleKey` itself. `null` when no quantity was
+   * ever granted for this module, distinct from `0` (a quantity explicitly granted as zero, a tenant
+   * with the module and no workers yet) - the two must never render the same
+   * (`Ago.Chat.Contracts.OwnerSiteModuleDto.Quantity`'s own remarks state the identical distinction on
+   * the server side this field is sourced from). */
+  quantity: number | null;
 }
 
 /** `23-14`: `GET /api/v1/owner/sites/{siteId}`'s response body - mirrors
@@ -342,6 +349,66 @@ export async function grantOwnerModule(
     expiresAt: string | null;
   };
   return { status: "ok", module: body };
+}
+
+/**
+ * `23-66`: the outcome of granting a module quantity as the platform owner - the same three-error-plus-ok
+ * shape `GrantOwnerModuleOutcome` uses, minus `"unavailable"`: this write never calls a module over
+ * HTTP (`GrantModuleQuantityAsOwnerHandler`'s own remarks - rule 8 forbids the calendar being asked
+ * anything at write time), so there is no dependency for a `503` to name. `"invalid"` covers a
+ * malformed module key or a negative quantity - the caller's own mistake to fix.
+ */
+export type GrantOwnerModuleQuantityOutcome =
+  | { status: "ok"; moduleKey: string; quantity: number }
+  | { status: "not-authorized" }
+  | { status: "not-found" }
+  | { status: "invalid"; message: string };
+
+/**
+ * `23-66`: `PUT /api/v1/owner/sites/{siteId}/modules/{moduleKey}/quantity` - the route this module's
+ * countable quantity never had before this item. Never asks the module anything and carries no
+ * provisioning secret (there is none to carry - `GrantOwnerModuleDraft`'s own remarks give the
+ * identical reason for the sibling grant/revoke pair); `RequirePlatformOwner` on the route is the
+ * whole access-control story, unchanged from every other `/owner/` write on this page.
+ */
+export async function grantOwnerModuleQuantity(
+  accessToken: string,
+  siteId: string,
+  moduleKey: string,
+  quantity: number,
+): Promise<GrantOwnerModuleQuantityOutcome> {
+  const url = new URL(
+    `${config.apiBaseUrl}/api/v1/owner/sites/${siteId}/modules/${encodeURIComponent(moduleKey)}/quantity`,
+  );
+
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: withActiveSiteHeader({
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify({ quantity }),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    return { status: "not-authorized" };
+  }
+
+  if (response.status === 404) {
+    return { status: "not-found" };
+  }
+
+  if (response.status === 400) {
+    const problem = (await response.json()) as { detail?: string };
+    return { status: "invalid", message: problem.detail ?? "This value was refused." };
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to grant the module quantity: ${response.status}`);
+  }
+
+  const body = (await response.json()) as { moduleKey: string; quantity: number };
+  return { status: "ok", moduleKey: body.moduleKey, quantity: body.quantity };
 }
 
 /**
