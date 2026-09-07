@@ -17,10 +17,15 @@ import { formatAbsolute, formatDateStamp, parseInstant, resolveTimeZone } from "
 /**
  * `22-06`/`adr/0093`: `/calendar/contacts` - every customer lead card the tenant holds, moved from
  * `ago-calendar-console`'s own `ContactsPage.tsx` and rewritten against this console's closed
- * eleven-component set. Gated on `customer:read` server-side (unchanged, `20-12`); the console-level
- * gate here is `calendar:configure`, the same coarse nav-visibility gate every other calendar screen
- * uses - a finer-grained client-side gate on `customer:read` specifically was not ported, matching
- * the source console's own shape (it had no client-side gating of any kind before this item).
+ * eleven-component set. Gated on `customer:read` server-side (unchanged, `20-12`).
+ *
+ * <b>`23-57`: gated on `customer:read` client-side too, not `calendar:configure` alone.</b> Before
+ * this item the console-level gate here was the coarse `calendar:configure` every other calendar
+ * screen used, which the seeded Operator role never holds - so an operator holding `customer:read`
+ * (the exact permission the server already checks) could be sent here by the nav and refused by the
+ * page underneath it. `CalendarBookingsPage`'s own `23-34` gate is the precedent this follows:
+ * `consoleNav.ts`'s `buildCalendarItems` draws this entry for the same `customer:read` check, so the
+ * page has to accept what the nav promises.
  */
 export function CalendarContactsPage() {
   const { user } = useAuth();
@@ -29,6 +34,7 @@ export function CalendarContactsPage() {
   const timeZone = useMemo(() => resolveTimeZone(), []);
   const [contacts, setContacts] = useState<Contact[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const canViewContacts = hasPermission("calendar:configure") || hasPermission("customer:read");
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
@@ -50,19 +56,19 @@ export function CalendarContactsPage() {
   );
 
   useEffect(() => {
-    if (!hasPermission("calendar:configure") || config.calendarApiBaseUrl === null) {
+    if (!canViewContacts || config.calendarApiBaseUrl === null) {
       return;
     }
     const controller = new AbortController();
     void reload(controller.signal);
     return () => controller.abort();
-  }, [reload, hasPermission]);
+  }, [reload, canViewContacts]);
 
   if (permissions === null) {
     return <Spinner label={strings.siteConfigCheckingPermissions} />;
   }
 
-  if (!hasPermission("calendar:configure")) {
+  if (!canViewContacts) {
     // `23-21`: the shared refusal - see `calendarAccess.tsx`'s own doc comment.
     return (
       <CalendarAccessRefusal
