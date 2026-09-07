@@ -28,6 +28,9 @@ const ownerApi = vi.hoisted(() => ({
   // once a test needs it) so an unrelated test that never touches the editor cannot crash on an
   // unmocked import the way a bare `{}` factory would.
   updateOwnerSiteAllowedOrigins: vi.fn(),
+  // `23-65`/`adr/0150`: the grant/revoke screen's own writes - mocked the same way, from the start.
+  grantOwnerModule: vi.fn(),
+  revokeOwnerModule: vi.fn(),
 }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
 
@@ -315,6 +318,151 @@ describe("the site detail page's own allowed-origins editor", () => {
   });
 });
 
+// `23-65`/`adr/0150`: the grant form's own behaviour tests. The provisioning secret never appears
+// anywhere in this suite - not in a mocked response, not in an assertion on what was sent - because
+// `GrantOwnerModuleDraft` carries no such field for a test to accidentally exercise; that omission is
+// itself the console-side half of this item's headline claim, proven the same way `tsc` proves it: a
+// field that does not exist cannot be sent.
+describe("the site detail page's own grant form", () => {
+  it("refuses to submit until an expiry has been chosen - \"never\" is not the default", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
+
+    const container = await render(shellAt());
+    await fillGrantForm(container, { chooseExpiry: false });
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Grant module").click());
+
+    expect(container.textContent).toMatch(/choose whether this grant expires/i);
+    expect(ownerApi.grantOwnerModule).not.toHaveBeenCalled();
+  });
+
+  it("grants with no expiry once \"Never expires\" is actively chosen, and reloads the tenant's own detail", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
+    ownerApi.grantOwnerModule.mockResolvedValue({
+      status: "ok",
+      module: { moduleKey: "calendar", triggerWords: ["/booking"], entryPoint: "https://calendar.example.com", expiresAt: null },
+    });
+
+    const container = await render(shellAt());
+    await fillGrantForm(container, { chooseExpiry: "never" });
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Grant module").click());
+
+    expect(ownerApi.grantOwnerModule).toHaveBeenCalledWith("token", SITE_ID, {
+      moduleKey: "calendar",
+      triggerWords: ["/booking"],
+      entryPoint: "https://calendar.example.com",
+      credential: "a-shared-secret-of-sixteen-plus-chars",
+      expiresAt: null,
+    });
+    // `GrantOwnerModuleOutcome`'s own remarks: the response is not spliced into the table locally -
+    // the page re-reads the tenant's own detail instead, so the read that was already proven to
+    // reflect the server's own `isActive`/`grantedByOwner` stays the only source for that table.
+    expect(ownerApi.fetchOwnerSiteDetail).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows the server's own refusal text inline for an invalid grant, without touching the entitlements table", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
+    ownerApi.grantOwnerModule.mockResolvedValue({
+      status: "invalid",
+      message: "Trigger word '/booking' is already registered to module 'faq' on this site.",
+    });
+
+    const container = await render(shellAt());
+    await fillGrantForm(container, { chooseExpiry: "never" });
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Grant module").click());
+
+    expect(container.textContent).toContain("already registered to module 'faq'");
+    expect(ownerApi.fetchOwnerSiteDetail).toHaveBeenCalledTimes(1);
+  });
+});
+
+// `23-65`/`adr/0118`: the revoke dialog's own behaviour tests - provenance decides what the dialog
+// asks for, and the asymmetry (`force`/`reason`) is derived from it rather than typed by the platform
+// owner.
+describe("the site detail page's own revoke dialog", () => {
+  it("revokes an owner-granted module with no reason field at all", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ modules: [oneModule({ moduleKey: "calendar", grantedByOwner: true })] }),
+    });
+    ownerApi.revokeOwnerModule.mockResolvedValue({ status: "ok" });
+
+    const container = await render(shellAt());
+    const dialog = await openRevokeDialog(container);
+
+    expect(dialog.querySelector("textarea")).toBeNull();
+    await interact(() => byText<HTMLButtonElement>(dialog, "button", "Revoke").click());
+
+    expect(ownerApi.revokeOwnerModule).toHaveBeenCalledWith("token", SITE_ID, "calendar", {
+      force: false,
+      reason: null,
+    });
+  });
+
+  it("shows provenance before the confirm, and refuses to revoke a tenant's own purchase with a blank reason", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ modules: [oneModule({ moduleKey: "faq", grantedByOwner: false })] }),
+    });
+
+    const container = await render(shellAt());
+    const dialog = await openRevokeDialog(container);
+
+    // Provenance is visible before the confirm, not after - `adr/0118`'s own "not recoverable once
+    // the row is gone".
+    expect(dialog.textContent).toMatch(/purchased this module themselves/i);
+
+    await interact(() => byText<HTMLButtonElement>(dialog, "button", "Revoke").click());
+
+    expect(dialog.textContent).toMatch(/write the reason/i);
+    expect(ownerApi.revokeOwnerModule).not.toHaveBeenCalled();
+  });
+
+  it("revokes a tenant's own purchase, with force and the typed reason, once one is given", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ modules: [oneModule({ moduleKey: "faq", grantedByOwner: false })] }),
+    });
+    ownerApi.revokeOwnerModule.mockResolvedValue({ status: "ok" });
+
+    const container = await render(shellAt());
+    const dialog = await openRevokeDialog(container);
+    await setTextarea(dialog, "Tenant reported double billing under ticket 412.");
+    await interact(() => byText<HTMLButtonElement>(dialog, "button", "Revoke").click());
+
+    expect(ownerApi.revokeOwnerModule).toHaveBeenCalledWith("token", SITE_ID, "faq", {
+      force: true,
+      reason: "Tenant reported double billing under ticket 412.",
+    });
+  });
+
+  it("shows the server's own conflict text when a purchase revoke is refused, without closing the dialog", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ modules: [oneModule({ moduleKey: "faq", grantedByOwner: false })] }),
+    });
+    ownerApi.revokeOwnerModule.mockResolvedValue({
+      status: "requires-force",
+      message: "Module 'faq' on this site was purchased by the tenant, not granted by an owner.",
+    });
+
+    const container = await render(shellAt());
+    const dialog = await openRevokeDialog(container);
+    await setTextarea(dialog, "Some reason.");
+    await interact(() => byText<HTMLButtonElement>(dialog, "button", "Revoke").click());
+
+    expect(dialog.textContent).toContain("purchased by the tenant, not granted by an owner");
+  });
+});
+
+/** Clicks the table row's own "Revoke" action and returns the dialog it opens, scoped so a test's
+ * later "Revoke" click reaches the dialog's own confirm button rather than the row's still-mounted
+ * trigger - both carry the identical label, and `byText` returns the first match in document
+ * order. */
+async function openRevokeDialog(container: HTMLElement): Promise<HTMLElement> {
+  await interact(() => byText<HTMLButtonElement>(container, "button", "Revoke").click());
+  return one<HTMLElement>(container, "dialog[open]");
+}
+
 const TEXTAREA_VALUE_DESCRIPTOR = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
 
 async function setTextarea(container: HTMLElement, value: string) {
@@ -323,4 +471,32 @@ async function setTextarea(container: HTMLElement, value: string) {
     TEXTAREA_VALUE_DESCRIPTOR?.set?.call(textarea, value);
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
   });
+}
+
+const INPUT_VALUE_DESCRIPTOR = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+
+async function setInput(input: HTMLInputElement, value: string) {
+  await interact(() => {
+    INPUT_VALUE_DESCRIPTOR?.set?.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+/** Fills every field of the grant form except (by default) the expiry, so each test opts into
+ * exactly the expiry state it means to exercise - `{ chooseExpiry: false }` leaves it unset,
+ * `"never"` picks the "Never expires" radio. Field values are fixed rather than parameterised: no
+ * test in this file needs them to vary, only the expiry choice and the mocked outcome do. */
+async function fillGrantForm(container: HTMLElement, options: { chooseExpiry: false | "never" }) {
+  await setInput(one<HTMLInputElement>(container, 'input[placeholder="calendar"]'), "calendar");
+  await setInput(one<HTMLInputElement>(container, 'input[placeholder="/booking"]'), "/booking");
+  await setInput(one<HTMLInputElement>(container, 'input[type="url"]'), "https://calendar.example.com");
+  await setInput(one<HTMLInputElement>(container, 'input[type="password"]'), "a-shared-secret-of-sixteen-plus-chars");
+
+  if (options.chooseExpiry === "never") {
+    const label = byText<HTMLLabelElement>(container, "label", "Never expires");
+    if (label === null) {
+      throw new Error("no 'Never expires' label found");
+    }
+    await interact(() => one<HTMLInputElement>(label, 'input[type="radio"]').click());
+  }
 }

@@ -254,6 +254,184 @@ export async function updateOwnerSiteAllowedOrigins(
 }
 
 /**
+ * `23-65`/`adr/0150`: the body `PUT /api/v1/owner/sites/{siteId}/modules` takes - mirrors
+ * `Ago.Chat.Api.Owner.OwnerModuleEndpoints.GrantModuleRequest` field for field, minus
+ * `provisioningSecret`. That field is gone from the server's own shape, not merely unset here:
+ * `adr/0150` moved it into `Ago.Chat.Api`'s own configuration, so there is nothing left for a caller -
+ * this console included - to hold or send.
+ *
+ * `expiresAt` is `string | null`, never optional - the same "decide, don't default" the server itself
+ * enforces (a body that omits the key is refused before this handler runs). The form that builds this
+ * draft must ask which one the platform owner meant, never assume either.
+ */
+export interface GrantOwnerModuleDraft {
+  moduleKey: string;
+  triggerWords: string[];
+  entryPoint: string;
+  credential: string;
+  expiresAt: string | null;
+}
+
+/**
+ * `23-65`: the outcome of granting a module as the platform owner. `"invalid"` covers every reason the
+ * server can refuse the body itself (a malformed key or URL, a reserved or already-registered trigger
+ * word, an expiry in the past or too far out) - one shape, because the field to render an error next
+ * to is the same regardless of which of those it was, the same "one inline failure state" reasoning
+ * `UpdateOwnerSiteAllowedOriginsOutcome`'s own `"invalid"` already uses. `"unavailable"` is the
+ * different case entirely: nothing about what the platform owner typed is wrong, this deployment
+ * itself is not ready to complete the call (`Module.RegistrationFailed` - the module deployment
+ * refused or could not be reached; `Module.ProvisioningNotConfigured` - this deployment has not
+ * configured its own copy of the provisioning secret yet, `IModuleProvisioningSecretProvider`'s own
+ * remarks) - both `503`, both a dependency of the request rather than a mistake in it.
+ */
+export type GrantOwnerModuleOutcome =
+  | { status: "ok"; module: { moduleKey: string; triggerWords: string[]; entryPoint: string; expiresAt: string | null } }
+  | { status: "not-authorized" }
+  | { status: "not-found" }
+  | { status: "invalid"; message: string }
+  | { status: "unavailable"; message: string };
+
+/**
+ * `23-65`/`adr/0150`: `PUT /api/v1/owner/sites/{siteId}/modules` - the platform owner's own grant,
+ * reached from `/owner`'s tenant detail screen rather than `module-grant-and-revoke.md`'s runbook. The
+ * browser sends this exact body and nothing else; the provisioning secret this route used to require
+ * never passes through here at all.
+ */
+export async function grantOwnerModule(
+  accessToken: string,
+  siteId: string,
+  draft: GrantOwnerModuleDraft,
+): Promise<GrantOwnerModuleOutcome> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/owner/sites/${siteId}/modules`);
+
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: withActiveSiteHeader({
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify(draft),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    return { status: "not-authorized" };
+  }
+
+  if (response.status === 404) {
+    return { status: "not-found" };
+  }
+
+  if (response.status === 400) {
+    const problem = (await response.json()) as { detail?: string };
+    return { status: "invalid", message: problem.detail ?? "This value was refused." };
+  }
+
+  if (response.status === 503) {
+    const problem = (await response.json()) as { detail?: string };
+    return { status: "unavailable", message: problem.detail ?? "This deployment cannot complete this request right now." };
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to grant the module: ${response.status}`);
+  }
+
+  const body = (await response.json()) as {
+    moduleKey: string;
+    triggerWords: string[];
+    entryPoint: string;
+    expiresAt: string | null;
+  };
+  return { status: "ok", module: body };
+}
+
+/**
+ * `23-65`/`adr/0150`: the body `DELETE /api/v1/owner/sites/{siteId}/modules/{moduleKey}` takes -
+ * mirrors `Ago.Chat.Api.Owner.OwnerModuleEndpoints.RevokeModuleAsOwnerRequest`, minus
+ * `provisioningSecret`, the identical omission `GrantOwnerModuleDraft`'s own remarks explain.
+ *
+ * Omitting `force` (or setting it `false`) is never ambiguous - it unambiguously means "not forcing",
+ * the always-safe reading (`adr/0118`'s own remarks on why this field, unlike `expiresAt`, carries no
+ * required-nullable ceremony). `reason` only matters when `force` is `true`, and the server is the one
+ * that decides whether it was needed - this console never tries to know in advance whether the row
+ * being revoked is a grant or a purchase, it reads that off `OwnerSiteModule.grantedByOwner` and asks
+ * for a reason before ever sending the request when it is not.
+ */
+export interface RevokeOwnerModuleDraft {
+  force: boolean;
+  reason: string | null;
+}
+
+/**
+ * `23-65`: the outcome of revoking a module as the platform owner. `"requires-force"` is
+ * `adr/0118`'s own asymmetry landing in the browser - a purchase, revoked without `force` - and it is
+ * a distinct state from `"invalid"` because the remedy is not "fix what you typed", it is "state
+ * plainly that you mean to override this and say why" (`Module.RevokePurchaseRequiresForce`, `409`).
+ * `"invalid"` here covers the one remaining caller mistake this route can make: `force` set with a
+ * blank or missing reason (`Module.RevokeReasonRequired`, `400`).
+ */
+export type RevokeOwnerModuleOutcome =
+  | { status: "ok" }
+  | { status: "not-authorized" }
+  | { status: "not-found" }
+  | { status: "requires-force"; message: string }
+  | { status: "invalid"; message: string }
+  | { status: "unavailable"; message: string };
+
+/**
+ * `23-65`/`adr/0150`: `DELETE /api/v1/owner/sites/{siteId}/modules/{moduleKey}` - the platform owner's
+ * own revoke. `moduleKey` is a path segment, exactly like the server's own route; `fetch` does not
+ * URL-encode it for you, so a module key containing a character that needs escaping would need one
+ * here - not a real concern today (`Domain.ModuleKey`'s own charset is narrower than that), named so a
+ * future module key format is not the thing that quietly breaks this call.
+ */
+export async function revokeOwnerModule(
+  accessToken: string,
+  siteId: string,
+  moduleKey: string,
+  draft: RevokeOwnerModuleDraft,
+): Promise<RevokeOwnerModuleOutcome> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/owner/sites/${siteId}/modules/${encodeURIComponent(moduleKey)}`);
+
+  const response = await fetch(url, {
+    method: "DELETE",
+    headers: withActiveSiteHeader({
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify(draft),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    return { status: "not-authorized" };
+  }
+
+  if (response.status === 404) {
+    return { status: "not-found" };
+  }
+
+  if (response.status === 409) {
+    const problem = (await response.json()) as { detail?: string };
+    return { status: "requires-force", message: problem.detail ?? "This module was purchased by the tenant, not granted." };
+  }
+
+  if (response.status === 400) {
+    const problem = (await response.json()) as { detail?: string };
+    return { status: "invalid", message: problem.detail ?? "A reason is required." };
+  }
+
+  if (response.status === 503) {
+    const problem = (await response.json()) as { detail?: string };
+    return { status: "unavailable", message: problem.detail ?? "This deployment cannot complete this request right now." };
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to revoke the module: ${response.status}`);
+  }
+
+  return { status: "ok" };
+}
+
+/**
  * What the console *believes* about whether the signed-in caller may reach the owner screen.
  * `"unknown"` covers both "not asked yet" and "asked, and the answer was neither a yes nor a
  * refusal" (a network error, a 500) - which is treated exactly like a no everywhere it is used,
