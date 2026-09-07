@@ -1501,6 +1501,11 @@ export interface ConsoleStrings {
   calendarSetupServiceNameLabel: string;
   calendarSetupServiceDurationLabel: string;
   calendarSetupAddServiceButton: string;
+  /** `23-35`. */
+  calendarSetupServicePriceLabel: string;
+  calendarSetupServicePricePlaceholder: string;
+  calendarSetupServicePriceFromLabel: string;
+  calendarSetupServiceDescriptionLabel: string;
   calendarSetupWorkingHoursTitle: string;
   calendarSetupWorkingHoursDescription: string;
   calendarSetupNoWorkersNote: string;

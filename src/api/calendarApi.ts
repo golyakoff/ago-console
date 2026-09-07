@@ -106,10 +106,26 @@ export interface WorkerSchedule {
   buffersCountTowardServiceDuration: boolean;
 }
 
+/**
+ * `23-35`: a service has a price and a description, or it deliberately does not - both are `null`
+ * exactly when the tenant has stated neither, never an empty string or a zero standing in for
+ * "unset". Field names match `Ago.Calendar.Contracts.ConfiguredServiceResponse` verbatim.
+ */
 export interface ConfiguredService {
   serviceId: string;
   name: string;
   durationMinutes: number;
+  /** Kopecks, or `null` when the tenant has stated no price. */
+  priceMinorUnits: number | null;
+  /** `null` exactly when `priceMinorUnits` is - stated rather than assumed, even though the server
+   * only ever writes `"RUB"` today. */
+  priceCurrencyCode: string | null;
+  /** True means the amount is a floor, not the guaranteed final price ("what does a price mean when
+   * the real cost depends on the master or takes longer than usual") - the console renders it with an
+   * "от" ("from") prefix exactly when this is true. Meaningless while `priceMinorUnits` is `null`. */
+  priceIsFrom: boolean;
+  /** Freeform marketing copy the tenant maintains, or `null` for none. */
+  description: string | null;
 }
 
 export interface TenantConfiguration {
@@ -343,9 +359,21 @@ export function updateCalendar(
   return requestVoid(token, "PUT", `/calendars/${encodeURIComponent(calendarId)}`, body);
 }
 
+/**
+ * `23-35`. `priceMinorUnits`/`priceIsFrom`/`description` are all optional - `undefined` (never sent)
+ * behaves exactly like the server's own `null` default, so a caller creating a service with neither a
+ * price nor a description needs no extra ceremony. No currency field: v1 accepts exactly one, chosen
+ * server-side (`Ago.Calendar.Domain.Money`'s own remarks say why).
+ */
 export function createService(
   token: string,
-  body: { name: string; durationMinutes: number },
+  body: {
+    name: string;
+    durationMinutes: number;
+    priceMinorUnits?: number | null;
+    priceIsFrom?: boolean;
+    description?: string | null;
+  },
 ): Promise<{ serviceId: string }> {
   return request<{ serviceId: string }>(token, "POST", "/services", body);
 }

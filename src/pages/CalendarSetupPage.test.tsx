@@ -95,7 +95,17 @@ const configuration: TenantConfiguration = {
   allowedOrigins: ["https://shop.example"],
   calendars: [{ calendarId: "cal-1", name: "Main", timeZone: "Europe/Moscow", isPublished: true, workerIds: ["w1"], workingHours: [] }],
   workers: [{ workerId: "w1", displayName: "Alex", isActive: true, serviceIds: ["s1"] }],
-  services: [{ serviceId: "s1", name: "Haircut", durationMinutes: 45 }],
+  services: [
+    {
+      serviceId: "s1",
+      name: "Haircut",
+      durationMinutes: 45,
+      priceMinorUnits: null,
+      priceCurrencyCode: null,
+      priceIsFrom: false,
+      description: null,
+    },
+  ],
 };
 
 beforeEach(() => {

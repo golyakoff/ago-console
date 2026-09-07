@@ -46,6 +46,17 @@
   align-items: center;
   gap: var(--ago-space-3);
   flex-wrap: wrap;
+  /* `23-35`: found by `ux-gate`'s own "no undersized interactive element" check against the new
+     "от" price checkbox (`CalendarServicesPage`) - a bare `<label className="ago-row"><input
+     type="checkbox"/><span>...</span></label>` measured 842x22.5, 1.5px under the 24px WCAG 2.5.8
+     floor `ux-gate/lib/minSize.ts` cites, because the row's own height was whatever its text line-
+     height happened to be. `CalendarSetupPage`'s own Publish checkbox uses the identical markup and
+     carries the identical defect - not fixed there in this change (`/calendar/setup` is this gate's
+     one stated exclusion, `ux-gate/fixtures/screens.ts`), but this is the shared class both use, so
+     fixing it here fixes both rather than leaving a second, differently-shaped patch for whenever
+     that screen is gated. Every other `.ago-row` already clears 24px from its own contents (buttons
+     at 32/40px, `components.css`'s own remarks) - this floor cannot make any of them shorter. */
+  min-height: 24px;
 }
 
 .ago-row--align-end {

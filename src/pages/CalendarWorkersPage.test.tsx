@@ -115,7 +115,17 @@ const configuration: TenantConfiguration = {
   allowedOrigins: [],
   calendars: [{ calendarId: "cal-1", name: "Main", timeZone: "Europe/Moscow", isPublished: true, workerIds: ["w1"], workingHours: [] }],
   workers: [{ workerId: "w1", displayName: "Alex Doe", isActive: true, serviceIds: [] }],
-  services: [{ serviceId: "s1", name: "Haircut", durationMinutes: 45 }],
+  services: [
+    {
+      serviceId: "s1",
+      name: "Haircut",
+      durationMinutes: 45,
+      priceMinorUnits: null,
+      priceCurrencyCode: null,
+      priceIsFrom: false,
+      description: null,
+    },
+  ],
 };
 
 beforeEach(async () => {

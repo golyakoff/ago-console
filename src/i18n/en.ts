@@ -977,6 +977,10 @@ export const en: ConsoleStrings = {
   calendarSetupServiceNameLabel: "Service name",
   calendarSetupServiceDurationLabel: "Duration (minutes)",
   calendarSetupAddServiceButton: "Add service",
+  calendarSetupServicePriceLabel: "Price (RUB)",
+  calendarSetupServicePricePlaceholder: "No stated price",
+  calendarSetupServicePriceFromLabel: "“From” price (varies by master or job)",
+  calendarSetupServiceDescriptionLabel: "Description",
   calendarSetupWorkingHoursTitle: "Working hours",
   calendarSetupWorkingHoursDescription: 
     "Wall clock in the calendar’s own time zone - “we open at nine”, not an instant. A shift " +
