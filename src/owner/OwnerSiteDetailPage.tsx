@@ -6,6 +6,7 @@ import { usePermissions } from "../auth/PermissionsContext.js";
 import {
   fetchOwnerSiteDetail,
   grantOwnerModule,
+  grantOwnerModuleQuantity,
   revokeOwnerModule,
   updateOwnerSiteAllowedOrigins,
   type OwnerSiteDetail,
@@ -31,6 +32,7 @@ import {
   formatByteSize,
   formatCount,
   formatModuleExpiry,
+  formatModuleQuantity,
   formatModuleStatus,
   formatNoRecentActivity,
   formatRecentMessagesHeader,
@@ -110,6 +112,18 @@ export function OwnerSiteDetailPage() {
   const [revokeError, setRevokeError] = useState<string | null>(null);
   const [revokeSubmitting, setRevokeSubmitting] = useState(false);
 
+  // `23-66`: the quantity dialog's own state - `quantityModule` doubles as the dialog's `open` flag,
+  // the same shape `revokingModule` already establishes above. `quantityStage` is what makes lowering
+  // a different act from raising one (this item's own Scope): "edit" is the ordinary form, and a
+  // submit that would lower an already-granted quantity moves to "confirm" instead of submitting -
+  // the impact is stated before the request is sent, never after.
+  const [quantityModule, setQuantityModule] = useState<OwnerSiteModule | null>(null);
+  const [quantityInput, setQuantityInput] = useState("");
+  const [quantityStage, setQuantityStage] = useState<"edit" | "confirm">("edit");
+  const [quantityError, setQuantityError] = useState<string | null>(null);
+  const [quantitySaved, setQuantitySaved] = useState<{ moduleKey: string; quantity: number } | null>(null);
+  const [quantitySubmitting, setQuantitySubmitting] = useState(false);
+
   const timeZone = useMemo(() => resolveTimeZone(), []);
 
   // `23-65`: extracted out of the load effect below so a successful grant or revoke can re-run the
@@ -161,11 +175,23 @@ export function OwnerSiteDetailPage() {
 
   const moduleColumns = useMemo(
     () =>
-      buildModuleColumns(timeZone, (module) => {
-        setRevokingModule(module);
-        setRevokeReason("");
-        setRevokeError(null);
-      }),
+      buildModuleColumns(
+        timeZone,
+        (module) => {
+          setRevokingModule(module);
+          setRevokeReason("");
+          setRevokeError(null);
+        },
+        (module) => {
+          setQuantityModule(module);
+          // Pre-filled with the current value (or blank when never granted) - the platform owner is
+          // changing a number, not starting from zero every time.
+          setQuantityInput(module.quantity === null ? "" : String(module.quantity));
+          setQuantityStage("edit");
+          setQuantityError(null);
+          setQuantitySaved(null);
+        },
+      ),
     [timeZone],
   );
 
@@ -370,6 +396,82 @@ export function OwnerSiteDetailPage() {
       });
   };
 
+  // `23-66`: the quantity dialog's own submit. Parses and validates the input, then - the one thing
+  // that makes lowering a different act from raising one - checks whether the new number is below
+  // what is currently granted; if it is, and the caller has not already confirmed, this stops short
+  // of the network call and moves the dialog to its "confirm" stage instead. The actual request is
+  // identical either way; only whether the impact was stated first differs.
+  const handleQuantitySubmit = () => {
+    if (!quantityModule) {
+      return;
+    }
+
+    setQuantityError(null);
+
+    const trimmed = quantityInput.trim();
+    if (trimmed.length === 0) {
+      setQuantityError("Enter a quantity.");
+      return;
+    }
+
+    const parsed = Number(trimmed);
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      setQuantityError("Enter a whole number, zero or more.");
+      return;
+    }
+
+    const current = quantityModule.quantity;
+    const isLowering = current !== null && parsed < current;
+    if (isLowering && quantityStage === "edit") {
+      setQuantityStage("confirm");
+      return;
+    }
+
+    submitQuantity(quantityModule.moduleKey, parsed);
+  };
+
+  const submitQuantity = (moduleKey: string, quantity: number) => {
+    const accessToken = user?.access_token;
+    if (!accessToken || !siteId) {
+      return;
+    }
+
+    setQuantitySubmitting(true);
+    setQuantityError(null);
+
+    grantOwnerModuleQuantity(accessToken, siteId, moduleKey, quantity)
+      .then((outcome) => {
+        if (outcome.status === "ok") {
+          setQuantityModule(null);
+          setQuantityStage("edit");
+          setQuantitySaved({ moduleKey: outcome.moduleKey, quantity: outcome.quantity });
+          // Re-read rather than splice a locally-built row in - the same "the server's own read is
+          // the only source for this table" reasoning `handleGrantSubmit`'s own remarks give. Chat's
+          // own row reflects the grant immediately; the calendar's own projection of it does not
+          // (the success message above states that bound), so this reload shows what chat now holds,
+          // not yet what the calendar has applied.
+          loadSiteDetail();
+          return;
+        }
+
+        if (outcome.status === "invalid") {
+          setQuantityError(outcome.message);
+          return;
+        }
+
+        // `not-authorized`/`not-found` mid-session - the same genuinely-unexpected-here handling
+        // every other write on this page gives its own equivalent outcomes.
+        setQuantityModule(null);
+        setError("This site could no longer be reached. Reload the page and try again.");
+      })
+      .catch((err: unknown) => {
+        setQuantityError(err instanceof Error ? err.message : "Failed to grant the quantity.");
+      })
+      .finally(() => {
+        setQuantitySubmitting(false);
+      });
+  };
+
   return (
     <AppShell
       // The identical sections `OwnerSitesPage` builds - "Platform sites" stays present as
@@ -533,6 +635,22 @@ export function OwnerSiteDetailPage() {
             verify. "Expired" below means chat has stopped offering it, not that the module has been
             informed.
           </Alert>
+
+          {/* `23-66`: a quantity's own read only ever comes from this row, never from the module -
+              this screen shows what was granted, not what the module has caught up to applying. */}
+          <Alert tone="info">
+            A module's own countable quantity (workers, for the calendar module) is granted here and
+            applied by the module itself asynchronously - typically within a few seconds, the outbox's
+            own poll interval. This table shows what chat has granted the moment you grant it; the
+            module may take a little longer to catch up.
+          </Alert>
+
+          {quantitySaved && (
+            <Alert tone="success">
+              Granted {formatModuleQuantity(quantitySaved.quantity)} for {quantitySaved.moduleKey}. Chat's
+              own record reflects it now - the module typically applies it within a few seconds.
+            </Alert>
+          )}
 
           {site.modules.length === 0 ? (
             <p className="ago-empty">This tenant has no modules enabled.</p>
@@ -711,6 +829,79 @@ export function OwnerSiteDetailPage() {
           </>
         )}
       </Dialog>
+
+      {/* `23-66`: lowering a quantity is not the same act as raising one (this item's own Scope) -
+          `quantityStage === "confirm"` is reached only when the new number is below what is currently
+          granted, and it states the impact before the request that would cause it is ever sent. */}
+      <Dialog
+        open={quantityModule !== null}
+        title={quantityModule ? `Set quantity for ${quantityModule.moduleKey}` : "Set quantity"}
+        onClose={() => {
+          if (!quantitySubmitting) {
+            setQuantityModule(null);
+          }
+        }}
+        footer={
+          quantityStage === "confirm" ? (
+            <>
+              <Button variant="ghost" onClick={() => setQuantityStage("edit")} disabled={quantitySubmitting}>
+                Back
+              </Button>
+              <Button variant="danger" onClick={handleQuantitySubmit} disabled={quantitySubmitting}>
+                {quantitySubmitting ? "Granting…" : "Confirm lower quantity"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" onClick={() => setQuantityModule(null)} disabled={quantitySubmitting}>
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={handleQuantitySubmit} disabled={quantitySubmitting}>
+                {quantitySubmitting ? "Granting…" : "Grant quantity"}
+              </Button>
+            </>
+          )
+        }
+      >
+        {quantityModule && quantityStage === "edit" && (
+          <>
+            <p>
+              Currently{" "}
+              {quantityModule.quantity === null
+                ? "not granted for this module."
+                : `granted: ${formatModuleQuantity(quantityModule.quantity)}.`}
+            </p>
+            <Field label="Quantity" description="A whole number, zero or more. Zero is a real grant - the module and nothing counted under it yet." error={quantityError}>
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={quantityInput}
+                  onChange={(event) => setQuantityInput(event.target.value)}
+                  disabled={quantitySubmitting}
+                />
+              )}
+            </Field>
+          </>
+        )}
+
+        {quantityModule && quantityStage === "confirm" && (
+          <>
+            <p>
+              Lowering {quantityModule.moduleKey}'s quantity from{" "}
+              {formatModuleQuantity(quantityModule.quantity)} to {quantityInput} may deactivate up to{" "}
+              {(quantityModule.quantity ?? 0) - Number(quantityInput)} of whatever this module already
+              created under the old quantity, once it applies the change - for the calendar module,
+              that means workers, the most recently added ones first, until the active count matches
+              the new number. Nothing is deleted; a deactivated worker can be turned back on by hand
+              once the tenant is back under quota.
+            </p>
+            {quantityError && <Alert tone="danger">{quantityError}</Alert>}
+          </>
+        )}
+      </Dialog>
     </AppShell>
   );
 }
@@ -739,6 +930,7 @@ function renderDateFact(
 function buildModuleColumns(
   timeZone: string | null,
   onRevoke: (module: OwnerSiteModule) => void,
+  onSetQuantity: (module: OwnerSiteModule) => void,
 ): TableColumn<OwnerSiteModule>[] {
   return [
     {
@@ -794,14 +986,30 @@ function buildModuleColumns(
       ),
     },
     {
+      key: "quantity",
+      header: "Quantity",
+      render: (module) => (
+        // `23-66`'s own warning: `formatModuleQuantity` renders `null` and `0` differently - "Not
+        // granted" is never shown for a module explicitly granted zero.
+        <span className="ago-meta">{formatModuleQuantity(module.quantity)}</span>
+      ),
+    },
+    {
       key: "actions",
       header: "",
       // `23-65`: revoke reads provenance off `module.grantedByOwner` before anything is sent - the
       // confirmation dialog this opens is where the reason/force asymmetry actually lives, not here.
+      // `23-66`: the quantity dialog opens the same way, alongside it - which stage it opens in
+      // (edit vs. the lowering confirm) is decided once a number is actually typed, not here.
       render: (module) => (
-        <Button size="sm" variant="ghost" onClick={() => onRevoke(module)}>
-          Revoke
-        </Button>
+        <div className="ago-row">
+          <Button size="sm" variant="ghost" onClick={() => onSetQuantity(module)}>
+            Set quantity
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => onRevoke(module)}>
+            Revoke
+          </Button>
+        </div>
       ),
     },
   ];

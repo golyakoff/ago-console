@@ -31,6 +31,8 @@ const ownerApi = vi.hoisted(() => ({
   // `23-65`/`adr/0150`: the grant/revoke screen's own writes - mocked the same way, from the start.
   grantOwnerModule: vi.fn(),
   revokeOwnerModule: vi.fn(),
+  // `23-66`: the quantity screen's own write, mocked the same way.
+  grantOwnerModuleQuantity: vi.fn(),
 }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
 
@@ -76,6 +78,7 @@ function oneModule(overrides: Partial<OwnerSiteModule> = {}): OwnerSiteModule {
     grantedByOwner: true,
     expiresAt: null,
     isActive: true,
+    quantity: null,
     ...overrides,
   };
 }
@@ -453,6 +456,132 @@ describe("the site detail page's own revoke dialog", () => {
     expect(dialog.textContent).toContain("purchased by the tenant, not granted by an owner");
   });
 });
+
+// `23-66`: the quantity dialog's own behaviour tests - both the "zero is not the same as not
+// granted" rendering claim and the "lowering states the impact before it acts" flow.
+describe("the site detail page's own entitlements table - quantity", () => {
+  it("shows 'Not granted' for a module with no quantity grant at all", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ modules: [oneModule({ moduleKey: "calendar", quantity: null })] }),
+    });
+
+    const container = await render(shellAt());
+
+    const row = one<HTMLTableRowElement>(container, "table tbody tr");
+    expect(row.textContent).toContain("Not granted");
+  });
+
+  it("shows a module granted zero as an explicit 0, not as 'Not granted'", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ modules: [oneModule({ moduleKey: "calendar", quantity: 0 })] }),
+    });
+
+    const container = await render(shellAt());
+
+    const row = one<HTMLTableRowElement>(container, "table tbody tr");
+    expect(row.textContent).not.toContain("Not granted");
+    // The Quantity column specifically, not Expires' own identical-looking "No end date" `.ago-meta` -
+    // cell 6 of module/triggerWords/grantedBy/expires/status/quantity/actions.
+    expect(row.cells[5]?.textContent).toBe("0");
+  });
+});
+
+describe("the site detail page's own quantity dialog", () => {
+  it("grants a raised quantity directly, with no confirmation step", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ modules: [oneModule({ moduleKey: "calendar", quantity: 2 })] }),
+    });
+    ownerApi.grantOwnerModuleQuantity.mockResolvedValue({ status: "ok", moduleKey: "calendar", quantity: 5 });
+
+    const container = await render(shellAt());
+    const dialog = await openQuantityDialog(container);
+    await setInput(one<HTMLInputElement>(dialog, 'input[type="number"]'), "5");
+    await interact(() => byText<HTMLButtonElement>(dialog, "button", "Grant quantity").click());
+
+    expect(ownerApi.grantOwnerModuleQuantity).toHaveBeenCalledWith("token", SITE_ID, "calendar", 5);
+    expect(container.textContent).toMatch(/granted 5/i);
+    expect(ownerApi.fetchOwnerSiteDetail).toHaveBeenCalledTimes(2);
+  });
+
+  it("grants a quantity for a module that never had one, from a blank field", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ modules: [oneModule({ moduleKey: "calendar", quantity: null })] }),
+    });
+    ownerApi.grantOwnerModuleQuantity.mockResolvedValue({ status: "ok", moduleKey: "calendar", quantity: 0 });
+
+    const container = await render(shellAt());
+    const dialog = await openQuantityDialog(container);
+    const input = one<HTMLInputElement>(dialog, 'input[type="number"]');
+    expect(input.value).toBe("");
+    await setInput(input, "0");
+    await interact(() => byText<HTMLButtonElement>(dialog, "button", "Grant quantity").click());
+
+    expect(ownerApi.grantOwnerModuleQuantity).toHaveBeenCalledWith("token", SITE_ID, "calendar", 0);
+  });
+
+  it("states the impact before confirming a lowered quantity, and does not submit until confirmed", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ modules: [oneModule({ moduleKey: "calendar", quantity: 5 })] }),
+    });
+
+    const container = await render(shellAt());
+    const dialog = await openQuantityDialog(container);
+    await setInput(one<HTMLInputElement>(dialog, 'input[type="number"]'), "2");
+    await interact(() => byText<HTMLButtonElement>(dialog, "button", "Grant quantity").click());
+
+    // The impact, in words - before anything was sent.
+    expect(dialog.textContent).toMatch(/may deactivate up to 3/i);
+    expect(ownerApi.grantOwnerModuleQuantity).not.toHaveBeenCalled();
+
+    ownerApi.grantOwnerModuleQuantity.mockResolvedValue({ status: "ok", moduleKey: "calendar", quantity: 2 });
+    await interact(() => byText<HTMLButtonElement>(dialog, "button", "Confirm lower quantity").click());
+
+    expect(ownerApi.grantOwnerModuleQuantity).toHaveBeenCalledWith("token", SITE_ID, "calendar", 2);
+  });
+
+  it("shows the server's own refusal text inline for an invalid quantity", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ modules: [oneModule({ moduleKey: "calendar", quantity: 2 })] }),
+    });
+    ownerApi.grantOwnerModuleQuantity.mockResolvedValue({
+      status: "invalid",
+      message: "A granted quantity cannot be negative.",
+    });
+
+    const container = await render(shellAt());
+    const dialog = await openQuantityDialog(container);
+    await setInput(one<HTMLInputElement>(dialog, 'input[type="number"]'), "9");
+    await interact(() => byText<HTMLButtonElement>(dialog, "button", "Grant quantity").click());
+
+    expect(dialog.textContent).toContain("cannot be negative");
+  });
+
+  it("refuses to submit a blank quantity, without calling the server", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ modules: [oneModule({ moduleKey: "calendar", quantity: null })] }),
+    });
+
+    const container = await render(shellAt());
+    const dialog = await openQuantityDialog(container);
+    await interact(() => byText<HTMLButtonElement>(dialog, "button", "Grant quantity").click());
+
+    expect(dialog.textContent).toMatch(/enter a quantity/i);
+    expect(ownerApi.grantOwnerModuleQuantity).not.toHaveBeenCalled();
+  });
+});
+
+/** Clicks the table row's own "Set quantity" action and returns the dialog it opens. */
+async function openQuantityDialog(container: HTMLElement): Promise<HTMLElement> {
+  await interact(() => byText<HTMLButtonElement>(container, "button", "Set quantity").click());
+  return one<HTMLElement>(container, "dialog[open]");
+}
 
 /** Clicks the table row's own "Revoke" action and returns the dialog it opens, scoped so a test's
  * later "Revoke" click reaches the dialog's own confirm button rather than the row's still-mounted

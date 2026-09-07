@@ -111,3 +111,15 @@ export function formatModuleExpiry(expiresAt: string | null): string | null {
 export function formatModuleStatus(isActive: boolean): string {
   return isActive ? "Active" : "Expired";
 }
+
+/**
+ * `23-66`: what `module.quantity` means, rendered as a value rather than left to speak for itself -
+ * the identical "an explicit statement for the special case, never a blank cell" shape
+ * `formatModuleExpiry` already gives its own null. `null` here means no quantity was ever granted;
+ * `0` is a real, legitimate grant (a tenant with the module and no workers yet) and must render as
+ * "0", never fall through to the same "Not granted" text - collapsing the two is exactly the mistake
+ * this item's own warning names.
+ */
+export function formatModuleQuantity(quantity: number | null): string {
+  return quantity === null ? "Not granted" : formatCount(quantity);
+}

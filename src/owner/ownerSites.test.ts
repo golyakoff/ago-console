@@ -5,6 +5,7 @@ import {
   formatCount,
   formatMatchSummary,
   formatModuleExpiry,
+  formatModuleQuantity,
   formatModuleStatus,
   formatNoRecentActivity,
   formatRecentMessagesHeader,
@@ -107,5 +108,21 @@ describe("formatModuleStatus", () => {
 
   it("labels an inactive module Expired", () => {
     expect(formatModuleStatus(false)).toBe("Expired");
+  });
+});
+
+describe("formatModuleQuantity", () => {
+  it("renders 'Not granted' for a module with no quantity grant at all", () => {
+    expect(formatModuleQuantity(null)).toBe("Not granted");
+  });
+
+  // `23-66`'s own warning: zero is a legitimate quota, not the same state as "never granted" -
+  // the one case this function exists to keep distinct.
+  it("renders zero as an explicit '0', not as 'Not granted'", () => {
+    expect(formatModuleQuantity(0)).toBe("0");
+  });
+
+  it("renders a positive quantity, thousands-grouped", () => {
+    expect(formatModuleQuantity(1200)).toBe("1,200");
   });
 });
