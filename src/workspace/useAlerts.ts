@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useStrings } from "../i18n/StringsContext.js";
 import {
   ALERTS_OFF,
@@ -104,8 +104,14 @@ export function useAlerts({ openConversationId, onOpenConversation }: UseAlertsO
   // `fire` is called from hub handlers that are installed once. Everything it reads therefore goes
   // through a ref, or it would close over the first render's values for the life of the connection -
   // the same trap `WorkspaceLayout` already documents for `openConversationIdRef`.
+  // `23-96`: written from a `useLayoutEffect` rather than during render - `react-hooks/refs` (v7)
+  // forbids writing `.current` while rendering (a render can be discarded or run twice before it
+  // commits). `useLayoutEffect` over `useEffect` so `latest` is never one commit stale for a hub
+  // handler that fires between this component's commit and its passive effects running.
   const latest = useRef({ settings, permission, openConversationId, onOpenConversation, strings });
-  latest.current = { settings, permission, openConversationId, onOpenConversation, strings };
+  useLayoutEffect(() => {
+    latest.current = { settings, permission, openConversationId, onOpenConversation, strings };
+  });
 
   const audioRef = useRef<AudioContext | null>(null);
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import type { ErasureCheckOutcome } from "./erasureCheck.js";
 
 /**
@@ -37,10 +37,18 @@ export function usePollUntilErased(
   check: () => Promise<ErasureCheckOutcome>,
   onErased: () => void,
 ): void {
+  // `23-96`: written from a `useLayoutEffect`, not during render - `react-hooks/refs` (v7) forbids
+  // writing `.current` while rendering, for the same reason `usePollUntilCheckoutSettled` states in
+  // its own copy of this note. `useLayoutEffect` rather than `useEffect` so the ref is current before
+  // the immediate `tick()` below (also a passive effect) fires.
   const checkRef = useRef(check);
-  checkRef.current = check;
+  useLayoutEffect(() => {
+    checkRef.current = check;
+  });
   const onErasedRef = useRef(onErased);
-  onErasedRef.current = onErased;
+  useLayoutEffect(() => {
+    onErasedRef.current = onErased;
+  });
 
   useEffect(() => {
     if (!active) {

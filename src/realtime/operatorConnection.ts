@@ -106,14 +106,23 @@ export class OperatorConnection {
   private teamMessageRemovedListener: ((message: TeamMessageDto) => void) | null = null;
 
   /**
-   * `accessTokenFactory` is a factory, not a token, and is called on every connect and every
-   * reconnect attempt - which is the whole reason `@microsoft/signalr` takes one. `5-16` found it
-   * closing over a captured string here: survivable only because a renewal rebuilt the entire
-   * object, which is the defect that item exists to remove. Reading the current token at call time
-   * is what makes a reconnect after a long idle re-negotiate with a token that is still valid.
+   * `accessTokenFactory` (the field, not this parameter) is a factory, not a token, and is called on
+   * every connect and every reconnect attempt - which is the whole reason `@microsoft/signalr` takes
+   * one. `5-16` found it closing over a captured string here: survivable only because a renewal
+   * rebuilt the entire object, which is the defect that item exists to remove. Reading the current
+   * token at call time is what makes a reconnect after a long idle re-negotiate with a token that is
+   * still valid.
+   *
+   * `23-96`: takes the ref object itself, not a caller-built `() => string` closure -
+   * `OperatorConnectionProvider` used to build that closure inline (`() => accessTokenRef.current ??
+   * ""`), which `react-hooks/refs` (v7) flags: its static analysis treats any `.current` read
+   * reachable from a component's render body as illegal, even one deferred inside a closure that is
+   * only ever invoked later. Dereferencing `.current` in here instead - a plain class with no React
+   * import - is outside that analysis entirely, and is also the more honest home for it: this class,
+   * not the component, is the thing that actually decides when the token is read.
    */
-  constructor(accessTokenFactory: () => string) {
-    this.accessTokenFactory = accessTokenFactory;
+  constructor(accessTokenRef: { readonly current: string | undefined }) {
+    this.accessTokenFactory = () => accessTokenRef.current ?? "";
   }
 
   /**

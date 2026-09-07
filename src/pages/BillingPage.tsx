@@ -110,11 +110,17 @@ export function BillingPage() {
   // site with none) every time a fresh `status` arrives - but only until the operator actually types
   // in the field, so a background refresh (the checkout poll, a post-write reload) never overwrites
   // input they are mid-edit on.
-  useEffect(() => {
+  // `23-96`: adjusted during render, not in an effect - `react-hooks/set-state-in-effect` (v7) flags a
+  // synchronous `setState` in an effect body; comparing against the previous inputs here
+  // (react.dev/learn/you-might-not-need-an-effect, "Adjusting some state when a prop changes")
+  // re-seeds on the same render `status`/`seatCountTouched` change, mirroring the old effect exactly.
+  const [prevSeedInputs, setPrevSeedInputs] = useState({ status, seatCountTouched });
+  if (status !== prevSeedInputs.status || seatCountTouched !== prevSeedInputs.seatCountTouched) {
+    setPrevSeedInputs({ status, seatCountTouched });
     if (status && !seatCountTouched) {
       setSeatCountInput(status.latestSubscription?.requestedSeats ?? MIN_SEATS);
     }
-  }, [status, seatCountTouched]);
+  }
 
   const sub = status?.latestSubscription ?? null;
   const isPending = sub?.status === "Pending";

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import type { CheckoutConfirmationOutcome } from "./checkoutConfirmation.js";
 
 /**
@@ -21,10 +21,19 @@ export function usePollUntilCheckoutSettled(
   check: () => Promise<CheckoutConfirmationOutcome>,
   onSettled: (outcome: "confirmed" | "failed") => void,
 ): void {
+  // `23-96`: written from a `useLayoutEffect`, not during render - `react-hooks/refs` (v7) forbids
+  // writing `.current` while rendering (react.dev/reference/eslint-plugin-react-hooks/lints/refs),
+  // because a render can be thrown away or run twice before it commits. `useLayoutEffect` (not
+  // `useEffect`) so the ref is never stale for the *first* `tick()` below, which fires synchronously
+  // from this same effect on mount - a passive effect does not guarantee it runs before that one does.
   const checkRef = useRef(check);
-  checkRef.current = check;
+  useLayoutEffect(() => {
+    checkRef.current = check;
+  });
   const onSettledRef = useRef(onSettled);
-  onSettledRef.current = onSettled;
+  useLayoutEffect(() => {
+    onSettledRef.current = onSettled;
+  });
 
   useEffect(() => {
     if (!active) {
