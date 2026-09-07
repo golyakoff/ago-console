@@ -32,7 +32,11 @@ export function calendarErrorMessage(reason: unknown, strings: ConsoleStrings): 
       reason.code === "booking.forbidden" ||
       reason.code === "contacts.forbidden" ||
       reason.code === "worker_slots.forbidden" ||
-      reason.code === "recut.forbidden"
+      reason.code === "recut.forbidden" ||
+      // `23-34`: `GetConfirmedBookingsForTenantHandler`'s own permission refusal - the identical
+      // shape `contacts.forbidden` already has, added here rather than left to fall through to the
+      // server's raw `detail` sentence the way every other, un-taught code does.
+      reason.code === "confirmed_bookings.forbidden"
     ) {
       return strings.calendarPermissionDeniedError;
     }

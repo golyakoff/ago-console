@@ -1751,6 +1751,24 @@ export interface ConsoleStrings {
   calendarContactsColumnLastSeen: string;
   calendarNotRecordedLabel: string;
 
+  // --- `23-34`: `/calendar/bookings` - what is actually booked, by day and by master. Grouped, not a
+  // flat table (`CalendarBookingsPage`'s own doc comment on why): one `Panel` per business-local day,
+  // one nested `Panel` per master inside it, each carrying a `Badge` with its own row count so an
+  // operator sees how full a given day and a given master are without reading every row. ---
+  calendarBookingsDescription: string;
+  calendarBookingsEmpty: string;
+  calendarBookingsColumnWhen: string;
+  calendarBookingsColumnService: string;
+  calendarBookingsColumnCustomer: string;
+  calendarBookingsColumnPhone: string;
+  /** Prefixes the raw count on both the day-level and the master-level `Badge` - one shared word
+   * rather than a pluralised sentence, deliberately: `calendarSlotWordOne`/`Few`/`Many` three doors up
+   * this file already carry the Russian noun-declension cost for the one screen that actually needs a
+   * counted noun in a sentence, and this screen does not - "Записей: 5" needs no agreement with the
+   * number the way "5 записей" would. */
+  calendarBookingsCountLabel: string;
+  calendarBookingsForbidden: string;
+
   // --- `22-06`: permission-gate messages, one per moved screen (`ago-console`'s own established
   // per-screen-forbidden-sentence convention - `faqForbidden`/`autoReplyForbidden` - rather than one
   // shared sentence, since each names the resource it refused). ---
