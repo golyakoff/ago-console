@@ -341,6 +341,45 @@ export function seededWidgetConfig() {
   };
 }
 
+// `23-37`: `DocumentsPage`'s own two seeded reads - the tenant's Contact document has one published
+// version (so the screen exercises "current version" + history), the Marketing document has none
+// (so the screen also exercises "nothing published yet" in the same run). Cyrillic and obviously
+// synthetic, the same rule every other seeded fixture in this file already follows - this is a
+// placeholder for what a lawyer would write, never real legal text.
+export function seededSiteConsentDocuments() {
+  return {
+    contact: {
+      purpose: "Contact" as const,
+      documentKey: `site-consent-contact-${SITE_ID}`,
+      versions: [
+        {
+          version: "v1",
+          sequence: 1,
+          title: "Согласие на обработку контактных данных (образец)",
+          publishedAt: "2026-01-15T09:00:00Z",
+        },
+      ],
+    },
+    contactConsentRequired: true,
+    marketing: {
+      purpose: "Marketing" as const,
+      documentKey: `site-consent-marketing-${SITE_ID}`,
+      versions: [],
+    },
+  };
+}
+
+export function seededSiteConsentAcceptances() {
+  return [
+    {
+      subjectKind: "Visitor",
+      subjectId: "00000000-0000-0000-0000-000000000001",
+      documentVersion: "v1",
+      acceptedAt: "2026-01-20T10:00:00Z",
+    },
+  ];
+}
+
 export function seededAnalytics() {
   const bucket = (overrides: Partial<{ conversationCount: number; averageFirstResponseSeconds: number | null; averageDurationSeconds: number | null; missedCount: number }> = {}) => ({
     conversationCount: 42,

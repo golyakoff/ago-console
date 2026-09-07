@@ -399,6 +399,43 @@ export const en: ConsoleStrings = {
   assignmentPenaltyValidationRequired: "Enter how many seconds to wait before assigning anyway.",
   assignmentPenaltyValidationMustBePositive: "The assignment penalty must be a positive whole number of seconds.",
 
+  // `23-37`: DocumentsPage.
+  documentsPageForbidden: "You do not have permission to view this site's consent documents.",
+  documentsPageLoadError: "Failed to load the site's consent documents.",
+  documentsPageLoadingLabel: "Loading documents...",
+  documentsPageIntro: "These are the documents your own visitors are asked to accept. AGO never writes the words - you do.",
+  documentsContactPanelTitle: "Consent to collect contact details",
+  documentsMarketingPanelTitle: "Consent to marketing",
+  documentsContactRequiredBadge: "Required before a visitor's phone number or email is collected",
+  documentsContactNotRequiredBadge:
+    "Not required yet - turn on \"Require consent before collecting contact details\" in Widget appearance, or this binds nobody",
+  documentsMarketingNeverRequiredNote: "This document is always optional - accepting it never gates anything.",
+  documentsCurrentVersionLabel: "Current version",
+  documentsNoVersionsYet: "Nothing published yet.",
+  documentsVersionsHeading: "Every published version",
+  documentsReadAsVisitorLink: "Read as a visitor would",
+  documentsPublishFormTitleLabel: "Title",
+  documentsPublishFormTitlePlaceholder: "e.g. Consent to process your contact details",
+  documentsPublishFormBodyLabel: "Text",
+  documentsPublishFormBodyPlaceholder: "The words your visitors will read and accept.",
+  documentsPublishButton: "Publish new version",
+  documentsPublishingButton: "Publishing...",
+  documentsPublishSuccessAlert: "Published.",
+  documentsPublishError: "Failed to publish.",
+  documentsPublishValidationTitleRequired: "A title is required.",
+  documentsPublishValidationBodyRequired: "The text cannot be empty.",
+  documentsAcceptancesToggleShow: "Show who accepted",
+  documentsAcceptancesToggleHide: "Hide",
+  documentsAcceptancesHeading: "Who accepted",
+  documentsAcceptancesLoadingLabel: "Loading acceptances...",
+  documentsAcceptancesLoadError: "Failed to load who accepted this document.",
+  documentsAcceptancesEmpty: "Nobody has accepted this document yet.",
+  documentsAcceptancesColumnSubject: "Visitor",
+  documentsAcceptancesColumnVersion: "Version",
+  documentsAcceptancesColumnAcceptedAt: "Accepted",
+  documentsAcceptancesPrivacyNote:
+    "Shown here: which visitor, which version, and when. Not shown: IP address or browser - kept on the record as evidence, not displayed on this screen.",
+
   cannedResponsesForbidden: "You do not have permission to configure this site's canned responses.",
   cannedResponsesDescription:
     "Prepared answers your team can insert into a reply instead of typing them again. Type \"/\" in " +

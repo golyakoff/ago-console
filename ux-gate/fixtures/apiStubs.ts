@@ -17,6 +17,8 @@ import {
   seededPermissions,
   seededQueue,
   seededSeatAssignmentSummary,
+  seededSiteConsentAcceptances,
+  seededSiteConsentDocuments,
   seededSiteInstallation,
   seededTenancies,
   seededVisitorHistory,
@@ -108,6 +110,34 @@ export async function installApiStubs(
 
     if (path === `/api/v1/sites/${SITE_ID}/widget-config` && method === "GET") {
       return json(seededWidgetConfig());
+    }
+
+    // `23-37`: `DocumentsPage`'s own three routes - list, publish (either purpose - the gate submits
+    // the Contact form), and "who accepted" for each purpose separately, so a screen that opens both
+    // toggles never hits an unmatched route.
+    if (path === `/api/v1/sites/${SITE_ID}/consent-documents` && method === "GET") {
+      return json(seededSiteConsentDocuments());
+    }
+
+    if (
+      (path === `/api/v1/sites/${SITE_ID}/consent-documents/Contact` ||
+        path === `/api/v1/sites/${SITE_ID}/consent-documents/Marketing`) &&
+      method === "POST"
+    ) {
+      return json({
+        version: "v2",
+        sequence: 2,
+        title: "Обновлённый образец текста",
+        publishedAt: "2026-02-01T00:00:00Z",
+      });
+    }
+
+    if (
+      (path === `/api/v1/sites/${SITE_ID}/consent-documents/Contact/acceptances` ||
+        path === `/api/v1/sites/${SITE_ID}/consent-documents/Marketing/acceptances`) &&
+      method === "GET"
+    ) {
+      return json(seededSiteConsentAcceptances());
     }
 
     // `23-06`: `undefined` for every screen but the one that overrides it (`screens.ts`'s own

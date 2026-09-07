@@ -364,9 +364,11 @@ describe("the operator navigation", () => {
 
     // `16-02`: `site:erase` is independent too - "Delete account" is hidden here, not muted; the
     // other four Administration entries need only `site:configure`, which this identity holds.
+    // `23-37`: "Documents" is a real item now - still listed by `itemLabels`, but no longer by
+    // `reservedItemLabels` (`consoleNav.ts`'s own remarks: it now points at `DocumentsPage`).
     await openSection(container, "Administration");
     expect(itemLabels(container)).toEqual(["Products", "Billing", "Device data", "Documents"]);
-    expect(reservedItemLabels(container)).toEqual(["Documents"]);
+    expect(reservedItemLabels(container)).toEqual([]);
   });
 
   it("offers every section and every item ordinary, nothing hidden and nothing muted, to an operator who holds every permission", async () => {

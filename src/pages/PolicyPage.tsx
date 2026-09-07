@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import { getCurrentDocument, type DocumentVersionResponse } from "../api/documentsApi.js";
+import { useParams, useSearchParams } from "react-router-dom";
+import { getCurrentDocument, getDocumentVersion, type DocumentVersionResponse } from "../api/documentsApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { formatAbsolute, resolveTimeZone } from "../time/format.js";
@@ -20,8 +20,13 @@ import { Alert } from "../components/Alert.js";
  * item builds, but the route also answers `24-02`'s own Done-when directly on its own terms: a
  * person who accepted v3 months ago can still be pointed at `/policies/{key}` and read what v3 said,
  * because a specific `?version=` query still resolves to that exact, immutable text
- * (`getDocumentVersion`, `documentsApi.ts`) - not built into this screen's own UI yet (nothing links
- * to a past version today), but the read path already exists for whatever does.
+ * (`getDocumentVersion`, `documentsApi.ts`).
+ *
+ * <p><b>`23-37`: the `?version=` query is now read, not only supported.</b> `DocumentsPage`'s own
+ * "read as a visitor would" link is the first real caller - both the current version (no query) and
+ * a specific past one (`?version=v3`) route through this identical screen, so "what a tenant sees
+ * when checking their own words" and "what a visitor actually sees" can never drift into two
+ * different renderers.</p>
  *
  * <b>Rendered as plain, pre-wrapped text - never HTML, and no markdown parser.</b> `24-02`'s own
  * remarks say plainly that deciding a markup language for a document's body is "a future item's job,
@@ -32,6 +37,8 @@ import { Alert } from "../components/Alert.js";
  */
 export function PolicyPage() {
   const { documentKey } = useParams<{ documentKey: string }>();
+  const [searchParams] = useSearchParams();
+  const version = searchParams.get("version");
   const strings = useStrings();
   const [state, setState] = useState<
     { status: "loading" } | { status: "ready"; document: DocumentVersionResponse } | { status: "error"; message: string }
@@ -46,7 +53,11 @@ export function PolicyPage() {
       return;
     }
 
-    getCurrentDocument(documentKey)
+    // `23-37`: a `?version=` query resolves that exact, immutable version instead of "current" -
+    // `getDocumentVersion`/`getCurrentDocument` share the identical response shape, so nothing else
+    // in this component needs to branch on which one answered.
+    const request = version ? getDocumentVersion(documentKey, version) : getCurrentDocument(documentKey);
+    request
       .then((document) => {
         if (!cancelled) {
           setState({ status: "ready", document });
@@ -67,7 +78,7 @@ export function PolicyPage() {
     return () => {
       cancelled = true;
     };
-  }, [documentKey, strings]);
+  }, [documentKey, version, strings]);
 
   return (
     <AppShell>
