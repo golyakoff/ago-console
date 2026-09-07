@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
@@ -184,8 +184,18 @@ export function ConversationPage() {
   // comment for why joining must wait for "connected" but must not re-join on every reconnect).
   // `11-06` makes this reachable far more often than `5-07` could: switching conversations is now a
   // click in the rail rather than a full page navigation, so the same component instance is reused.
-  useEffect(() => {
-    joinedConversationId.current = null;
+  //
+  // `23-96`: split in two. The state resets happen during render now, not in an effect -
+  // `react-hooks/set-state-in-effect` (v7) flags a synchronous `setState` in an effect body, and
+  // comparing against the previous `conversationId` here (react.dev/learn/you-might-not-need-an-effect,
+  // "Adjusting some state when a prop changes") clears this screen on the same render the conversation
+  // switches, rather than one tick later. `joinedConversationId.current` cannot move into that same
+  // block - `react-hooks/refs` (v7) forbids writing a ref during render - so it keeps its own
+  // `useLayoutEffect`, which still runs before the "join" effect below reads it: React always finishes
+  // every layout effect in a commit before any passive effect (that one) begins.
+  const [prevConversationId, setPrevConversationId] = useState(conversationId);
+  if (conversationId !== prevConversationId) {
+    setPrevConversationId(conversationId);
     setDraft("");
     setPendingAttachment(null);
     setUploadError(null);
@@ -200,6 +210,10 @@ export function ConversationPage() {
     setSuggestingReply(false);
     setSuggestReplyError(null);
     setContactDraft(null);
+  }
+
+  useLayoutEffect(() => {
+    joinedConversationId.current = null;
   }, [conversationId]);
 
   /**

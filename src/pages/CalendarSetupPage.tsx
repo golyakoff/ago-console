@@ -251,7 +251,16 @@ function OriginsForm({
 }) {
   const [text, setText] = useState(origins.join("\n"));
 
-  useEffect(() => setText(origins.join("\n")), [origins]);
+  // `23-96`: adjusted during render, not in an effect - `react-hooks/set-state-in-effect` (v7) flags a
+  // synchronous `setState` in an effect body; comparing against the previous `origins` here
+  // (react.dev/learn/you-might-not-need-an-effect, "Adjusting some state when a prop changes")
+  // re-seeds `text` on the same render `origins` changes, matching the old effect's behaviour exactly
+  // (including that it has no "touched" guard - a fresh `origins` still overwrites unsaved local edits).
+  const [prevOrigins, setPrevOrigins] = useState(origins);
+  if (origins !== prevOrigins) {
+    setPrevOrigins(origins);
+    setText(origins.join("\n"));
+  }
 
   return (
     <form

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { OperatorConnection, type ConnectionState } from "./operatorConnection.js";
@@ -75,11 +75,16 @@ export function OperatorConnectionProvider({ children }: { children: ReactNode }
   // this effect's own remarks on why every "connected" (not only the first) re-reads it.
   const [isAway, setIsAway] = useState(false);
 
-  // The live token. Assigned during render (the same pattern `WorkspaceLayout` uses for the open
-  // conversation id) so `accessTokenFactory` reads the newest renewal without the connection
-  // itself being a function of it.
+  // The live token, kept current from a `useLayoutEffect` so `accessTokenFactory` (below) always
+  // reads the newest renewal without the connection itself being a function of it. `23-96`: this used
+  // to be a direct `.current =` write during render - `react-hooks/refs` (v7) forbids that (a render
+  // can be discarded or run twice before it commits), and `useLayoutEffect` over `useEffect` keeps the
+  // same "current before anything downstream can read it" guarantee the render-time write had, since
+  // it runs synchronously after commit rather than being scheduled after paint.
   const accessTokenRef = useRef(accessToken);
-  accessTokenRef.current = accessToken;
+  useLayoutEffect(() => {
+    accessTokenRef.current = accessToken;
+  });
 
   if (!accessToken) {
     // `RequireAuth` (the route this is always mounted inside) guarantees a signed-in user by the
@@ -98,7 +103,10 @@ export function OperatorConnectionProvider({ children }: { children: ReactNode }
   // connection it replaces - a replaced-but-running connection sits in the server-side registry
   // until its TTL expires (`realtime.md`'s connection registry), which is exactly how one tab came
   // to hold twelve entries for one operator.
-  const connection = useMemo(() => new OperatorConnection(() => accessTokenRef.current ?? ""), []);
+  // `23-96`: passes the ref object itself, not a closure built here that reads its `.current` -
+  // `OperatorConnection`'s own constructor now does that dereference internally (see its doc comment
+  // for why `react-hooks/refs` (v7) required moving it there).
+  const connection = useMemo(() => new OperatorConnection(accessTokenRef), []);
 
   useEffect(() => {
     if (tenancies === null) {

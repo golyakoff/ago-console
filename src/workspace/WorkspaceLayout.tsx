@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Outlet, useMatch, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
@@ -128,8 +128,13 @@ export function WorkspaceLayout() {
   // The push handlers below are installed once and must see the *current* open conversation without
   // being re-installed every time it changes (re-installing would be harmless here but hides a real
   // trap: `onAnyMessage` is a single-listener setter, so a stale closure would be the one running).
+  // `23-96`: written from a `useLayoutEffect`, not during render - `react-hooks/refs` (v7) forbids
+  // writing `.current` while rendering. `useLayoutEffect` over `useEffect` so the push handlers this
+  // feeds (installed once, below) never read a stale value for the commit that just happened.
   const openConversationIdRef = useRef<string | null>(openConversationId);
-  openConversationIdRef.current = openConversationId;
+  useLayoutEffect(() => {
+    openConversationIdRef.current = openConversationId;
+  });
 
   // `18-05`. The composer lives in the outlet (`ConversationPage` -> `Composer`), and the `C`
   // shortcut lives here - so the layout owns the ref and hands it down through the context it
@@ -144,11 +149,18 @@ export function WorkspaceLayout() {
     () => (queue === null ? [] : oldestFirst(queue.assignedToMe).map((c) => c.conversationId)),
     [queue],
   );
+  // `23-96`: both written from a `useLayoutEffect`, not during render - `react-hooks/refs` (v7)
+  // forbids writing `.current` while rendering, for the same reason `openConversationIdRef` above
+  // states.
   const assignedOrderRef = useRef<readonly string[]>(assignedOrder);
-  assignedOrderRef.current = assignedOrder;
+  useLayoutEffect(() => {
+    assignedOrderRef.current = assignedOrder;
+  });
 
   const queueRef = useRef<OperatorQueueResponse | null>(queue);
-  queueRef.current = queue;
+  useLayoutEffect(() => {
+    queueRef.current = queue;
+  });
 
   const alerts = useAlerts({
     openConversationId,
@@ -354,14 +366,19 @@ export function WorkspaceLayout() {
 
   // Opening a conversation drops its "New" marker and any locally counted arrivals. The count itself
   // is cleared by `markRead` once the server confirms - `5-15`; see `attention.ts` for the split.
-  useEffect(() => {
-    if (openConversationId === null) {
-      return;
+  // `23-96`: adjusted during render, not in an effect - `react-hooks/set-state-in-effect` (v7) flags a
+  // synchronous `setState` in an effect body; comparing against the previous `openConversationId` here
+  // (react.dev/learn/you-might-not-need-an-effect, "Adjusting some state when a prop changes") clears
+  // the marker on the same render the conversation opens, matching the effect's own dependency array
+  // exactly - it only ever re-ran when `openConversationId` itself changed.
+  const [prevOpenConversationId, setPrevOpenConversationId] = useState(openConversationId);
+  if (openConversationId !== prevOpenConversationId) {
+    setPrevOpenConversationId(openConversationId);
+    if (openConversationId !== null) {
+      setAttention((prev) => applyAttentionEvent(prev, { kind: "opened", conversationId: openConversationId }));
+      setAnnouncement(null);
     }
-
-    setAttention((prev) => applyAttentionEvent(prev, { kind: "opened", conversationId: openConversationId }));
-    setAnnouncement(null);
-  }, [openConversationId]);
+  }
 
   const unread = queue === null ? 0 : totalUnread(queue.assignedToMe, attention);
 

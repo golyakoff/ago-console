@@ -338,7 +338,7 @@ describe("an access-token renewal", () => {
 
 describe("OperatorConnection's own presence control (`23-20`)", () => {
   it("invokes SetAwayAsync with the requested value", async () => {
-    const connection = new OperatorConnection(() => "token");
+    const connection = new OperatorConnection({ current: "token" });
     await connection.start();
 
     await connection.setAway(true);
@@ -349,7 +349,7 @@ describe("OperatorConnection's own presence control (`23-20`)", () => {
   });
 
   it("invokes GetMyPresenceAsync with no arguments and returns its result", async () => {
-    const connection = new OperatorConnection(() => "token");
+    const connection = new OperatorConnection({ current: "token" });
     await connection.start();
 
     const hub = signalr.hubs[0];
@@ -366,7 +366,7 @@ describe("OperatorConnection's own presence control (`23-20`)", () => {
 
 describe("OperatorConnection's subscription record", () => {
   it("is replayed with the last known sequence after SignalR reconnects", async () => {
-    const connection = new OperatorConnection(() => "token");
+    const connection = new OperatorConnection({ current: "token" });
     await connection.start();
 
     const hub = signalr.hubs[0];
@@ -383,7 +383,7 @@ describe("OperatorConnection's subscription record", () => {
   });
 
   it("is replayed when the connection is restarted, not only when SignalR reconnects it", async () => {
-    const connection = new OperatorConnection(() => "token");
+    const connection = new OperatorConnection({ current: "token" });
     await connection.start();
 
     const hub = signalr.hubs[0];
@@ -400,7 +400,7 @@ describe("OperatorConnection's subscription record", () => {
   });
 
   it("is not replayed once the conversation has been left", async () => {
-    const connection = new OperatorConnection(() => "token");
+    const connection = new OperatorConnection({ current: "token" });
     await connection.start();
 
     const hub = signalr.hubs[0];

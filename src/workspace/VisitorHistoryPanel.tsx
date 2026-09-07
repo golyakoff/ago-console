@@ -83,9 +83,15 @@ export function VisitorHistoryPanel({ conversationId, history, historyError, now
   // last one - conversationId is not part of GetVisitorHistoryConversationAsync's own authorization
   // check by accident (OperatorHub's own remarks), and a stale dialog left open across a navigation
   // would be asking the server a question about a conversation the operator is no longer on.
-  useEffect(() => {
+  // `23-96`: adjusted during render, not in an effect - `react-hooks/set-state-in-effect` (v7) flags
+  // a synchronous `setState` in an effect body; comparing against the previous `conversationId` here
+  // (react.dev/learn/you-might-not-need-an-effect, "Adjusting some state when a prop changes") closes
+  // the stale dialog on the same render the conversation switches, rather than one tick later.
+  const [prevConversationId, setPrevConversationId] = useState(conversationId);
+  if (conversationId !== prevConversationId) {
+    setPrevConversationId(conversationId);
     setOpenConversationId(null);
-  }, [conversationId]);
+  }
 
   const openHistorical = (historicalConversationId: string) => {
     setOpenConversationId(historicalConversationId);

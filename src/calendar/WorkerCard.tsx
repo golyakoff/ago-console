@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import type { ConfiguredCalendar, ConfiguredService, WorkerDetail } from "../api/calendarApi.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { Field } from "../components/Field.js";
@@ -66,11 +66,22 @@ export function WorkerCard({ mode, worker, calendars, services, busy, onSubmit, 
   const [calendarId, setCalendarId] = useState(calendars[0]?.calendarId ?? "");
   const [serviceIds, setServiceIds] = useState<string[]>([]);
 
-  useEffect(() => {
+  // `23-96`: adjusted during render, not in an effect - `react-hooks/set-state-in-effect` (v7) flags a
+  // synchronous `setState` in an effect body; comparing against the previous inputs here
+  // (react.dev/learn/you-might-not-need-an-effect, "Adjusting some state when a prop changes") re-derives
+  // on the same render `firstName`/`lastName`/`displayNameTouched` change, exactly mirroring the old
+  // effect's own dependency array.
+  const [prevDeriveInputs, setPrevDeriveInputs] = useState({ firstName, lastName, displayNameTouched });
+  if (
+    firstName !== prevDeriveInputs.firstName ||
+    lastName !== prevDeriveInputs.lastName ||
+    displayNameTouched !== prevDeriveInputs.displayNameTouched
+  ) {
+    setPrevDeriveInputs({ firstName, lastName, displayNameTouched });
     if (!displayNameTouched) {
       setDisplayName(derive(firstName, lastName));
     }
-  }, [firstName, lastName, displayNameTouched]);
+  }
 
   if (mode === "create" && calendars.length === 0) {
     return <p className="ago-meta">{strings.calendarWorkerCardNoCalendarNote}</p>;

@@ -161,11 +161,17 @@ export function Composer({
   // instead of one more effect with its own dependency array to get wrong.
   const activeIndex = Math.min(highlightIndex, Math.max(filteredResponses.length - 1, 0));
 
-  useEffect(() => {
+  // `23-96`: adjusted during render, not in an effect - `react-hooks/set-state-in-effect` (v7) flags
+  // a synchronous `setState` in an effect body (react.dev/learn/you-might-not-need-an-effect, "Adjusting
+  // some state when a prop changes"); comparing against the previous `pickerQuery` here does the same
+  // reset one render earlier, with no flash of the stale highlight before the effect used to fire.
+  const [prevPickerQuery, setPrevPickerQuery] = useState(pickerQuery);
+  if (pickerQuery !== prevPickerQuery) {
+    setPrevPickerQuery(pickerQuery);
     // A fresh filter starts highlighting the top match - the same "cold start always does something
     // sensible" reasoning `conversationAfter` (`shortcuts.ts`) states for `J`/`K` with nothing selected.
     setHighlightIndex(0);
-  }, [pickerQuery]);
+  }
 
   const insertCannedResponse = (response: CannedResponseDto) => {
     onDraftChange(response.body);

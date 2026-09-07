@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { isTypingTarget, matchShortcut, type ShortcutId } from "./shortcuts.js";
 
 export type ShortcutHandlers = Partial<Record<ShortcutId, () => void>>;
@@ -32,8 +32,13 @@ export type ShortcutHandlers = Partial<Record<ShortcutId, () => void>>;
  * keypress landing between the two would be lost.
  */
 export function useShortcuts(handlers: ShortcutHandlers): void {
+  // `23-96`: written from a `useLayoutEffect`, not during render - `react-hooks/refs` (v7) forbids
+  // writing `.current` while rendering. `useLayoutEffect` over `useEffect` keeps `latest` current
+  // before the listener below (also a passive effect, installed once) can ever run.
   const latest = useRef(handlers);
-  latest.current = handlers;
+  useLayoutEffect(() => {
+    latest.current = handlers;
+  });
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
