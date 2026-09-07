@@ -4,7 +4,7 @@ import { operatorDisplayName } from "../auth/operatorDisplayName.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { useOwnerEligibility } from "../auth/useOwnerEligibility.js";
 import { getStrings, parseConsoleLocale } from "../i18n/resolve.js";
-import { StringsProvider } from "../i18n/StringsContext.js";
+import { StringsProvider } from "../i18n/StringsProvider.js";
 import { AppShell, ShellIdentity, type AppShellNavSection } from "./AppShell.js";
 import { buildTenantNavSections } from "./consoleNav.js";
 import { RenderErrorAlert, RenderErrorBoundary } from "./RenderErrorBoundary.js";

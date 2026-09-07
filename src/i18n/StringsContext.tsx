@@ -40,10 +40,20 @@ import type { ConsoleStrings } from "./strings.js";
  * is precisely the "must not quietly widen itself" trap the backlog item warns against - `/owner`'s
  * English has to keep coming from a fact about `/owner`, not from every unwired route happening to
  * agree with it today.
+ *
+ * `23-97`: `StringsProvider` (the `.Provider` alias) moved out to `StringsProvider.tsx` - not
+ * `useStrings()`. `eslint-plugin-react-refresh` 0.5.6 started flagging this file for exporting a
+ * component (`StringsProvider`) beside a hook (`useStrings`); the fix that actually satisfies the
+ * rule is the one already used for `AuthContext`/`AuthProvider` and
+ * `OperatorConnectionContext`/`OperatorConnectionProvider` - the context object and its hook stay
+ * together (neither is a component, so a file with only those two exports is not flagged at all),
+ * and the component-shaped export moves out alone. The reverse split - hook out, context and
+ * `StringsProvider` left together - does not work: `StringsContext` then has to be exported from
+ * that same file for the hook file to reach it, and the rule flags *that* too, just with a different
+ * message ("Move your React context(s) to a separate file"), because a file that exports a component
+ * still cannot also export the raw context object next to it. Verified empirically, not assumed.
  */
-const StringsContext = createContext<ConsoleStrings>(en);
-
-export const StringsProvider = StringsContext.Provider;
+export const StringsContext = createContext<ConsoleStrings>(en);
 
 export function useStrings(): ConsoleStrings {
   return useContext(StringsContext);
