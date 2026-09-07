@@ -345,9 +345,11 @@ describe("the operator navigation", () => {
     await openSection(container, "Team");
     expect(itemLabels(container)).toEqual(["Team chat"]);
 
+    // `23-36`: "Telegram bot" is a real item now - still listed by `itemLabels` (which does not
+    // distinguish reserved from ordinary), but no longer by `reservedItemLabels`.
     await openSection(container, "Channels");
     expect(itemLabels(container)).toEqual(["Install widget", "Website widget", "MAX bot", "Telegram bot", "Other channels"]);
-    expect(reservedItemLabels(container)).toEqual(["MAX bot", "Telegram bot", "Other channels"]);
+    expect(reservedItemLabels(container)).toEqual(["MAX bot", "Other channels"]);
 
     await openSection(container, "Automation");
     expect(itemLabels(container)).toEqual([

@@ -196,8 +196,16 @@ function buildTeamItems(
  * five, which is the "Каналы целиком требует прав арендатора" half of the item's own reasoning.
  * `10-06`: "Установка виджета" stays first, above the list - a task, not a channel (this section's
  * own naming rule, decided 2026-09-06: every *other* entry here is named for the channel it is, not
- * for an action). "Бот MAX"/"Бот Telegram"/"Другие каналы" are `reserved` - each has a working
- * adapter (`14-02`, `14-07`, and four more for the "other" row) but no console screen yet. */
+ * for an action). "Бот MAX"/"Другие каналы" stay `reserved` - each has a working adapter (`14-02`,
+ * and four more for the "other" row) but no console screen yet.
+ *
+ * `23-36`: "Бот Telegram" is no longer `reserved` - `TelegramChannelPage` (`/channels/telegram`) is a
+ * real screen, the first of these three places to become one (rule 15: one channel end to end, not
+ * three half-built). The gate this section draws (`isAdmin`, i.e. `site:configure`) is a coarser
+ * proxy than the server's own `channel:manage` check on that screen's endpoints - the identical gap
+ * every other `isAdmin`-gated entry here already has against its own real permission
+ * (`WidgetConfigPage`/`InstallSnippetPage` both check `site:configure` itself, not something
+ * channel-specific), not one this item introduces. */
 function buildChannelsItems(isAdmin: boolean, strings: ConsoleStrings): AppShellNavItem[] {
   if (!isAdmin) {
     return [];
@@ -206,7 +214,7 @@ function buildChannelsItems(isAdmin: boolean, strings: ConsoleStrings): AppShell
     { to: "/channels/install", label: strings.navInstallWidget },
     { to: "/channels/widget", label: strings.navWidgetAppearance },
     { label: strings.navChannelsMax, reserved: true },
-    { label: strings.navChannelsTelegram, reserved: true },
+    { to: "/channels/telegram", label: strings.navChannelsTelegram },
     { label: strings.navChannelsOther, reserved: true },
   ];
 }

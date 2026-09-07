@@ -716,6 +716,33 @@ export const en: ConsoleStrings = {
   teamChatRemoveConfirmButton: "Remove message",
   teamChatRemoveError: "Could not remove that message. Try again.",
 
+  telegramChannelTitle: "Telegram bot",
+  telegramChannelDescription: "Connect your own Telegram bot so visitors can message it and your team replies from here.",
+  telegramChannelForbidden: "You do not have permission to manage this site's channels.",
+  telegramChannelLoadError: "Could not check your Telegram channel. Try reloading the page.",
+  telegramChannelLoadingLabel: "Checking your Telegram channel…",
+  telegramChannelPanelTitle: "Telegram bot",
+  telegramChannelNotConnectedBody:
+    "Paste the bot token BotFather gave you when you created your bot. AGO checks it with Telegram before saving it.",
+  telegramChannelTokenFieldLabel: "Bot token",
+  telegramChannelTokenFieldDescription: "Never shown again once saved.",
+  telegramChannelConnectButton: "Connect",
+  telegramChannelConnectingButton: "Connecting…",
+  telegramChannelConnectError: "Could not connect that bot. Try again.",
+  telegramChannelConnectedSinceLabel: "Connected since",
+  telegramChannelVerifiedBadge: "Connected",
+  telegramChannelUnverifiedBadge: "Not responding",
+  telegramChannelUnverifiedBody: "Telegram said:",
+  telegramChannelUnreachableBadge: "Could not check just now",
+  telegramChannelUnreachableBody: "AGO could not reach Telegram just now. This does not mean your token is invalid - try again in a moment.",
+  telegramChannelCheckedAtLabel: "Checked",
+  telegramChannelDisconnectButton: "Disconnect",
+  telegramChannelDisconnectDialogTitle: "Disconnect this bot?",
+  telegramChannelDisconnectDialogBody:
+    "Your bot will stop delivering messages immediately. You can reconnect it, or a different bot, at any time.",
+  telegramChannelDisconnectConfirmButton: "Disconnect",
+  telegramChannelDisconnectError: "Could not disconnect that bot. Try again.",
+
   navAnalytics: "Analytics",
   analyticsPageDescription:
     "How your site is doing: conversation volume, average time to first reply, and conversations " +
