@@ -267,6 +267,10 @@ export async function updateOwnerSiteAllowedOrigins(
  * `adr/0150` moved it into `Ago.Chat.Api`'s own configuration, so there is nothing left for a caller -
  * this console included - to hold or send.
  *
+ * `23-92`/`adr/0154` removes `entryPoint` the identical way: the module's own address is now resolved
+ * server-side from `ModuleEntryPoints:<key>`, so there is nothing left for this form to collect or
+ * this draft to carry - not merely left blank, gone from the shape entirely.
+ *
  * `expiresAt` is `string | null`, never optional - the same "decide, don't default" the server itself
  * enforces (a body that omits the key is refused before this handler runs). The form that builds this
  * draft must ask which one the platform owner meant, never assume either.
@@ -274,7 +278,6 @@ export async function updateOwnerSiteAllowedOrigins(
 export interface GrantOwnerModuleDraft {
   moduleKey: string;
   triggerWords: string[];
-  entryPoint: string;
   credential: string;
   expiresAt: string | null;
 }
@@ -289,10 +292,12 @@ export interface GrantOwnerModuleDraft {
  * itself is not ready to complete the call (`Module.RegistrationFailed` - the module deployment
  * refused or could not be reached; `Module.ProvisioningNotConfigured` - this deployment has not
  * configured its own copy of the provisioning secret yet, `IModuleProvisioningSecretProvider`'s own
- * remarks) - both `503`, both a dependency of the request rather than a mistake in it.
+ * remarks; `Module.EntryPointNotConfigured` - `23-92`/`adr/0154`, this deployment has not declared
+ * where the named module lives, `IModuleEntryPointProvider`'s own remarks) - all `503`, all a
+ * dependency of the request rather than a mistake in it.
  */
 export type GrantOwnerModuleOutcome =
-  | { status: "ok"; module: { moduleKey: string; triggerWords: string[]; entryPoint: string; expiresAt: string | null } }
+  | { status: "ok"; module: { moduleKey: string; triggerWords: string[]; expiresAt: string | null } }
   | { status: "not-authorized" }
   | { status: "not-found" }
   | { status: "invalid"; message: string }
@@ -345,7 +350,6 @@ export async function grantOwnerModule(
   const body = (await response.json()) as {
     moduleKey: string;
     triggerWords: string[];
-    entryPoint: string;
     expiresAt: string | null;
   };
   return { status: "ok", module: body };

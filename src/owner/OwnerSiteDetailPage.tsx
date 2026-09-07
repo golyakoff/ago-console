@@ -25,7 +25,7 @@ import { Panel } from "../components/Panel.js";
 import { Spinner } from "../components/Spinner.js";
 import { Table, type TableColumn } from "../components/Table.js";
 import { Textarea } from "../components/Textarea.js";
-import { isValidEntryPointUrl, parseTriggerWords } from "../pages/moduleConfigValidation.js";
+import { parseTriggerWords } from "../pages/moduleConfigValidation.js";
 import { formatAbsolute, formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
 import {
   describeRecentWindow,
@@ -93,7 +93,6 @@ export function OwnerSiteDetailPage() {
   // own `ExpiryChoice` remarks.
   const [moduleKeyInput, setModuleKeyInput] = useState("");
   const [triggerWordsInput, setTriggerWordsInput] = useState("");
-  const [entryPointInput, setEntryPointInput] = useState("");
   const [credentialInput, setCredentialInput] = useState("");
   const [expiryChoice, setExpiryChoice] = useState<ExpiryChoice>("unset");
   const [expiryDateInput, setExpiryDateInput] = useState("");
@@ -252,7 +251,6 @@ export function OwnerSiteDetailPage() {
 
     const trimmedKey = moduleKeyInput.trim();
     const triggerWords = parseTriggerWords(triggerWordsInput);
-    const trimmedEntryPoint = entryPointInput.trim();
     const trimmedCredential = credentialInput.trim();
 
     if (trimmedKey.length === 0) {
@@ -261,10 +259,6 @@ export function OwnerSiteDetailPage() {
     }
     if (triggerWords.length === 0) {
       setGrantError("Enter at least one trigger word.");
-      return;
-    }
-    if (trimmedEntryPoint.length === 0 || !isValidEntryPointUrl(trimmedEntryPoint)) {
-      setGrantError("Enter a valid https entry point.");
       return;
     }
     if (trimmedCredential.length === 0) {
@@ -303,7 +297,6 @@ export function OwnerSiteDetailPage() {
     grantOwnerModule(accessToken, siteId, {
       moduleKey: trimmedKey,
       triggerWords,
-      entryPoint: trimmedEntryPoint,
       credential: trimmedCredential,
       expiresAt,
     })
@@ -312,7 +305,6 @@ export function OwnerSiteDetailPage() {
           setGrantSaved(true);
           setModuleKeyInput("");
           setTriggerWordsInput("");
-          setEntryPointInput("");
           setCredentialInput("");
           setExpiryChoice("unset");
           setExpiryDateInput("");
@@ -666,7 +658,13 @@ export function OwnerSiteDetailPage() {
           {/* `23-65`/`adr/0150`: the grant form itself. No `provisioningSecret` field anywhere on
               this page - the browser never holds `adr/0095`'s deployment-wide secret, `Ago.Chat.Api`
               supplies it from its own configuration, and this form's own request body has no field
-              to carry one even if someone tried. */}
+              to carry one even if someone tried.
+
+              `23-92`/`adr/0154`: no "Entry point" field either, for the identical reason - the
+              platform owner can already read a declared module's address from the cluster, so asking
+              them to retype it here was a second inconvenience, not a second safeguard. A module this
+              deployment has not declared an entry point for is refused server-side, naming the missing
+              key, the same as an unconfigured provisioning secret is. */}
           <Panel
             title="Grant a module"
             description="Gives this tenant a module with no payment - a sales trial, or restoring what a failed payment should have provisioned. The tenant cannot tell a grant apart from their own purchase in ordinary use; only this screen and the audit trail can."
@@ -691,19 +689,6 @@ export function OwnerSiteDetailPage() {
                     value={triggerWordsInput}
                     onChange={(event) => setTriggerWordsInput(event.target.value)}
                     placeholder="/booking"
-                    disabled={grantSubmitting}
-                  />
-                )}
-              </Field>
-
-              <Field label="Entry point" description="Where the module is reached - an absolute https URL.">
-                {(controlProps) => (
-                  <Input
-                    {...controlProps}
-                    type="url"
-                    value={entryPointInput}
-                    onChange={(event) => setEntryPointInput(event.target.value)}
-                    placeholder="https://calendar.example.com"
                     disabled={grantSubmitting}
                   />
                 )}
