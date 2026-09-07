@@ -29,6 +29,7 @@ import { CannedResponsesPage } from "./pages/CannedResponsesPage.js";
 import { TagsPage } from "./pages/TagsPage.js";
 import { BillingPage } from "./pages/BillingPage.js";
 import { DeviceStorageDisclosurePage } from "./pages/DeviceStorageDisclosurePage.js";
+import { DocumentsPage } from "./pages/DocumentsPage.js";
 import { ProductsPage } from "./pages/ProductsPage.js";
 import { AccountDeletionPage } from "./pages/AccountDeletionPage.js";
 import { OperatorsTeamPage } from "./pages/OperatorsTeamPage.js";
@@ -301,6 +302,11 @@ export function App() {
             page's own doc comment for why. `23-31`: moved from `/settings/device-storage` into
             "Администрирование". */}
         <Route path="/account/device-storage" element={<DeviceStorageDisclosurePage />} />
+        {/* `23-37`: same "route stays outside the workspace layout, page gates itself internally"
+            shape as the ones around it - `DocumentsPage` gates itself on `site:configure`
+            internally. `23-31` reserved this nav entry ("Документы"); this item is what finally
+            reads `24-02`/`24-05`'s consent-document mechanism back instead of leaving it API-only. */}
+        <Route path="/account/documents" element={<DocumentsPage />} />
         {/* `23-25`: same "route stays outside the workspace layout, page gates itself internally"
             shape as the ones around it - `ProductsPage` gates itself on `site:configure` internally.
             `23-31`: moved from `/settings/products` into "Администрирование" and, at the same time,

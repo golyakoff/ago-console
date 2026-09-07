@@ -23,9 +23,9 @@ const documentsApi = vi.hoisted(() => ({ getCurrentDocument: vi.fn(), getDocumen
 
 vi.mock("../api/documentsApi.js", () => documentsApi);
 
-function app(documentKey: string) {
+function app(documentKey: string, query = "") {
   return (
-    <MemoryRouter initialEntries={[`/policies/${documentKey}`]}>
+    <MemoryRouter initialEntries={[`/policies/${documentKey}${query}`]}>
       <Routes>
         <Route path="/policies/:documentKey" element={<PolicyPage />} />
       </Routes>
@@ -76,5 +76,49 @@ describe("reading a published document with no account", () => {
     const container = await render(app("tenant-terms"));
 
     expect(container.textContent).toContain("We couldn't load that document. Please try again.");
+  });
+});
+
+/**
+ * `23-37`: `DocumentsPage`'s own "read as a visitor would" links are the first real callers of a
+ * `?version=` query on this route - proving it here, from a URL, rather than only from
+ * `getDocumentVersion`'s own already-covered unit shape in `documentsApi.ts`.
+ */
+describe("reading a specific past version via ?version=", () => {
+  it("calls getDocumentVersion, not getCurrentDocument, when a version is named in the URL", async () => {
+    documentsApi.getDocumentVersion.mockResolvedValue({
+      documentKey: "site-consent-contact-11111111111111111111111111111111",
+      version: "v1",
+      sequence: 1,
+      title: "First draft",
+      body: "The original words.",
+      publishedAt: "2026-01-01T00:00:00Z",
+    });
+
+    const container = await render(app("site-consent-contact-11111111111111111111111111111111", "?version=v1"));
+
+    expect(documentsApi.getDocumentVersion).toHaveBeenCalledWith(
+      "site-consent-contact-11111111111111111111111111111111",
+      "v1",
+    );
+    expect(documentsApi.getCurrentDocument).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("The original words.");
+    expect(container.textContent).toContain("v1");
+  });
+
+  it("falls back to getCurrentDocument when no version is named", async () => {
+    documentsApi.getCurrentDocument.mockResolvedValue({
+      documentKey: "tenant-terms",
+      version: "v2",
+      sequence: 2,
+      title: "Tenant Terms",
+      body: "These are the terms.",
+      publishedAt: "2026-03-12T10:00:00Z",
+    });
+
+    await render(app("tenant-terms"));
+
+    expect(documentsApi.getDocumentVersion).not.toHaveBeenCalled();
+    expect(documentsApi.getCurrentDocument).toHaveBeenCalledWith("tenant-terms");
   });
 });

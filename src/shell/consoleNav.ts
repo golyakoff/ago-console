@@ -240,11 +240,11 @@ function buildAutomationItems(isAdmin: boolean, strings: ConsoleStrings): AppShe
 }
 
 /** `23-31`: unlike Каналы/Автоматизация above, this section keeps two distinct gates, exactly as it
- * did before this item - `site:configure` for four entries, `site:erase` for the fifth
+ * did before this item - `site:configure` for five entries, `site:erase` for the sixth
  * (`navDeleteAccount`'s own doc comment: "a single boolean that destroys a business is a plausible
  * case for its own [permission]"). Both are hidden rather than muted when lacking now, matching every
- * other gate in this file except the calendar's. "Документы" is `reserved` - `24-02` built the
- * publish mechanism, no screen reads it back yet. */
+ * other gate in this file except the calendar's. "Документы" is no longer `reserved` as of `23-37` -
+ * it now points at `DocumentsPage`, which reads `24-02`/`24-05`'s publish mechanism back. */
 function buildAdminItems(
   isAdmin: boolean,
   permissionsKnown: boolean,
@@ -256,7 +256,7 @@ function buildAdminItems(
     items.push({ to: "/account/products", label: strings.navAccountProducts });
     items.push({ to: "/account/billing", label: strings.navBilling });
     items.push({ to: "/account/device-storage", label: strings.navDeviceStorage });
-    items.push({ label: strings.navAccountDocuments, reserved: true });
+    items.push({ to: "/account/documents", label: strings.navAccountDocuments });
   }
   if (permissionsKnown && hasPermission("site:erase")) {
     items.push({ to: "/account/delete", label: strings.navDeleteAccount });

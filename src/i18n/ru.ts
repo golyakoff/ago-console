@@ -399,6 +399,43 @@ export const ru: ConsoleStrings = {
   assignmentPenaltyValidationRequired: "Укажите, сколько секунд ждать до принудительного назначения.",
   assignmentPenaltyValidationMustBePositive: "Штраф ожидания должен быть положительным целым числом секунд.",
 
+  // `23-37`: DocumentsPage.
+  documentsPageForbidden: "У вас нет права просматривать документы этого сайта.",
+  documentsPageLoadError: "Не удалось загрузить документы сайта.",
+  documentsPageLoadingLabel: "Загрузка документов...",
+  documentsPageIntro: "Это документы, которые ваши посетители соглашаются принять. AGO не пишет текст - его пишете вы.",
+  documentsContactPanelTitle: "Согласие на сбор контактных данных",
+  documentsMarketingPanelTitle: "Согласие на рассылку",
+  documentsContactRequiredBadge: "Требуется перед сбором телефона или адреса электронной почты посетителя",
+  documentsContactNotRequiredBadge:
+    "Пока не требуется - включите «Требовать согласие перед сбором контактных данных» в настройках виджета, иначе это никого не связывает",
+  documentsMarketingNeverRequiredNote: "Этот документ всегда необязателен - его принятие ничего не блокирует.",
+  documentsCurrentVersionLabel: "Текущая версия",
+  documentsNoVersionsYet: "Пока ничего не опубликовано.",
+  documentsVersionsHeading: "Все опубликованные версии",
+  documentsReadAsVisitorLink: "Прочитать как посетитель",
+  documentsPublishFormTitleLabel: "Заголовок",
+  documentsPublishFormTitlePlaceholder: "например, Согласие на обработку контактных данных",
+  documentsPublishFormBodyLabel: "Текст",
+  documentsPublishFormBodyPlaceholder: "Текст, который увидят и примут ваши посетители.",
+  documentsPublishButton: "Опубликовать новую версию",
+  documentsPublishingButton: "Публикация...",
+  documentsPublishSuccessAlert: "Опубликовано.",
+  documentsPublishError: "Не удалось опубликовать.",
+  documentsPublishValidationTitleRequired: "Укажите заголовок.",
+  documentsPublishValidationBodyRequired: "Текст не может быть пустым.",
+  documentsAcceptancesToggleShow: "Показать, кто принял",
+  documentsAcceptancesToggleHide: "Скрыть",
+  documentsAcceptancesHeading: "Кто принял",
+  documentsAcceptancesLoadingLabel: "Загрузка списка...",
+  documentsAcceptancesLoadError: "Не удалось загрузить, кто принял документ.",
+  documentsAcceptancesEmpty: "Пока никто не принял этот документ.",
+  documentsAcceptancesColumnSubject: "Посетитель",
+  documentsAcceptancesColumnVersion: "Версия",
+  documentsAcceptancesColumnAcceptedAt: "Принято",
+  documentsAcceptancesPrivacyNote:
+    "Здесь показаны: какой посетитель, какая версия и когда. Не показаны: IP-адрес и браузер - они хранятся в записи как доказательство, но не выводятся на этот экран.",
+
   cannedResponsesForbidden: "У вас нет права настраивать готовые ответы для этого сайта.",
   cannedResponsesDescription:
     "Готовые ответы, которые ваша команда может вставить в сообщение вместо того, чтобы печатать их " +

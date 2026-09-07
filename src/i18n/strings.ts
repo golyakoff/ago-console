@@ -602,6 +602,47 @@ export interface ConsoleStrings {
   assignmentPenaltyValidationRequired: string;
   assignmentPenaltyValidationMustBePositive: string;
 
+  // `23-37`: DocumentsPage, `/account/documents` - the tenant's own read/publish screen for
+  // `24-02`/`24-05`'s consent-document mechanism, gated on `site:configure` like the routes behind
+  // it. `documentsContactNotRequiredBadge`/`documentsMarketingNeverRequiredNote` are this item's own
+  // design choice: the screen must not let a tenant believe a published document binds anyone unless
+  // something actually enforces it (`Site.WidgetConfig.RequireContactConsent` for Contact; nothing,
+  // ever, for Marketing). `documentsAcceptancesPrivacyNote` is the other one: the list shows which
+  // visitor, which version and when - never the client IP or user agent the record also holds.
+  documentsPageForbidden: string;
+  documentsPageLoadError: string;
+  documentsPageLoadingLabel: string;
+  documentsPageIntro: string;
+  documentsContactPanelTitle: string;
+  documentsMarketingPanelTitle: string;
+  documentsContactRequiredBadge: string;
+  documentsContactNotRequiredBadge: string;
+  documentsMarketingNeverRequiredNote: string;
+  documentsCurrentVersionLabel: string;
+  documentsNoVersionsYet: string;
+  documentsVersionsHeading: string;
+  documentsReadAsVisitorLink: string;
+  documentsPublishFormTitleLabel: string;
+  documentsPublishFormTitlePlaceholder: string;
+  documentsPublishFormBodyLabel: string;
+  documentsPublishFormBodyPlaceholder: string;
+  documentsPublishButton: string;
+  documentsPublishingButton: string;
+  documentsPublishSuccessAlert: string;
+  documentsPublishError: string;
+  documentsPublishValidationTitleRequired: string;
+  documentsPublishValidationBodyRequired: string;
+  documentsAcceptancesToggleShow: string;
+  documentsAcceptancesToggleHide: string;
+  documentsAcceptancesHeading: string;
+  documentsAcceptancesLoadingLabel: string;
+  documentsAcceptancesLoadError: string;
+  documentsAcceptancesEmpty: string;
+  documentsAcceptancesColumnSubject: string;
+  documentsAcceptancesColumnVersion: string;
+  documentsAcceptancesColumnAcceptedAt: string;
+  documentsAcceptancesPrivacyNote: string;
+
   // `18-03`: CannedResponsesPage - the same list-editor shape `OfflineAutoReplyPage` established just
   // above (one blank row to type into, dropped on save), reused for a genuinely different concept -
   // see `CannedResponse`'s own doc comment (`ago-chat`) for why this is not that page's rules reused.

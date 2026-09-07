@@ -118,6 +118,16 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
     path: "/account/products",
     readySelector: ".ago-table-scroll",
   },
+  // `23-37`: `DocumentsPage` joins the curated set - a brand-new screen, chosen for the same reason
+  // `products` above was: it renders two independent panels driven entirely by seeded data
+  // (`seededSiteConsentDocuments`'s Contact-has-a-version/Marketing-has-none split), so a screen that
+  // looks fine at a glance could still hide an untranslated literal in the badge text this item's own
+  // design choice added.
+  {
+    name: "documents",
+    path: "/account/documents",
+    readySelector: "form.ago-stack",
+  },
   {
     name: "analytics",
     path: "/analytics/site",
