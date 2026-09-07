@@ -14,6 +14,7 @@ import { CannedResponsesPage } from "../pages/CannedResponsesPage.js";
 import { FaqModulePage } from "../pages/FaqModulePage.js";
 import { CalendarQueuePage } from "../pages/CalendarQueuePage.js";
 import { CalendarBookingsPage } from "../pages/CalendarBookingsPage.js";
+import { CalendarContactsPage } from "../pages/CalendarContactsPage.js";
 import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
@@ -68,7 +69,11 @@ const assignmentPenaltyApi = vi.hoisted(() => ({
 }));
 const cannedResponsesApi = vi.hoisted(() => ({ fetchCannedResponses: vi.fn(), updateCannedResponses: vi.fn() }));
 const modulesApi = vi.hoisted(() => ({ fetchModules: vi.fn(), updateModule: vi.fn() }));
-const calendarApi = vi.hoisted(() => ({ getPendingBookings: vi.fn(), getConfirmedBookings: vi.fn() }));
+const calendarApi = vi.hoisted(() => ({
+  getPendingBookings: vi.fn(),
+  getConfirmedBookings: vi.fn(),
+  getContacts: vi.fn(),
+}));
 // `13-07`: `PermissionsProvider` now calls this before `fetchMyPermissions` - unmocked, it would hit
 // a real `fetch` and every scenario below (all of them single-tenant) would never reach
 // `fetchMyPermissions` at all. `grants`/`beforeEach` below seed the single-tenant default; the
@@ -262,6 +267,7 @@ beforeEach(() => {
   modulesApi.fetchModules.mockResolvedValue({ modules: [] });
   calendarApi.getPendingBookings.mockResolvedValue([]);
   calendarApi.getConfirmedBookings.mockResolvedValue([]);
+  calendarApi.getContacts.mockResolvedValue([]);
 });
 
 afterEach(async () => {
@@ -314,21 +320,63 @@ describe("the operator navigation", () => {
     expect(mutedItemLabels(container)).toEqual([]);
   });
 
-  it("`23-34`: offers the Calendar section with exactly one real entry, Bookings, to an operator who holds customer:read but neither calendar:configure nor site:configure", async () => {
+  it("`23-34`/`23-57`: offers the Calendar section with Bookings and Contacts, to an operator who holds customer:read but neither calendar:configure nor site:configure", async () => {
     // The seeded "Operator" role's own permission set (`ago-chat`'s own
     // `RegisterSiteHandler.OperatorRolePermissions`) - `customer:read` without `calendar:configure` -
-    // is exactly this scenario, not a hypothetical one. Before this item `buildCalendarItems` had no
+    // is exactly this scenario, not a hypothetical one. Before `23-34`, `buildCalendarItems` had no
     // branch for it at all, so this identity saw no Calendar section whatsoever, the same shape the
     // "offers no Calendar section" test above still proves for an operator holding neither.
+    // `23-57` adds Contacts (`/calendar/clients`) beside Bookings - both read the customer list
+    // `customer:read` guards server-side, so both are drawn from the identical permission check.
     grants(["customer:read"]);
 
     const container = await render(shellAt("/"));
 
     expect(sectionLabels(container)).toEqual(["Conversations", "Analytics", "Calendar", "Team"]);
     await openSection(container, "Calendar");
-    expect(itemLabels(container)).toEqual(["Bookings"]);
+    expect(itemLabels(container)).toEqual(["Bookings", "Contacts"]);
     expect(reservedItemLabels(container)).toEqual([]);
     expect(mutedItemLabels(container)).toEqual([]);
+  });
+
+  it("`23-57`: offers the Calendar section with the Waiting entry, ordinary and unmuted, to an operator who holds the booking permissions but neither calendar:configure nor site:configure", async () => {
+    // The seeded "Operator" role's own permission set (`ago-chat`'s own
+    // `RegisterSiteHandler.OperatorRolePermissions`) holds booking:confirm/booking:reject/
+    // booking:cancel without calendar:configure - exactly this scenario, not a hypothetical one.
+    // Before this item `buildCalendarItems` had no branch for it at all: an operator holding the
+    // right to confirm, reject and cancel a booking saw no Calendar section whatsoever, and so no
+    // screen from which to reach the queue their own permissions already let them act on
+    // (`docs/backlog/23-57-*.md`'s own finding).
+    grants(["booking:confirm", "booking:reject", "booking:cancel"]);
+
+    const container = await render(shellAt("/"));
+
+    expect(sectionLabels(container)).toEqual(["Conversations", "Analytics", "Calendar", "Team"]);
+    await openSection(container, "Calendar");
+    expect(itemLabels(container)).toEqual(["Waiting"]);
+    expect(reservedItemLabels(container)).toEqual([]);
+    expect(mutedItemLabels(container)).toEqual([]);
+  });
+
+  it("`23-57`: offers Waiting, Bookings and Contacts together to an operator holding the seeded Operator role's full booking-and-customer set", async () => {
+    grants(["booking:confirm", "booking:reject", "booking:cancel", "booking:mark_no_show", "customer:read", "customer:edit"]);
+
+    const container = await render(shellAt("/"));
+
+    expect(sectionLabels(container)).toEqual(["Conversations", "Analytics", "Calendar", "Team"]);
+    await openSection(container, "Calendar");
+    expect(itemLabels(container)).toEqual(["Waiting", "Bookings", "Contacts"]);
+    expect(mutedItemLabels(container)).toEqual([]);
+    expect(reservedItemLabels(container)).toEqual([]);
+  });
+
+  it("`23-57`: a single booking permission is enough to draw the Waiting entry - each calendar entry checks its own permission independently, not a bundle", async () => {
+    grants(["booking:reject"]);
+
+    const container = await render(shellAt("/"));
+
+    await openSection(container, "Calendar");
+    expect(itemLabels(container)).toEqual(["Waiting"]);
   });
 
   it("offers every section ordinary, and only Delete account and Employees hidden, to an operator who holds site:configure but neither site:erase nor site:manage_operators", async () => {
@@ -948,6 +996,33 @@ describe("a gated page reached directly by URL", () => {
     expect(calendarApi.getPendingBookings).toHaveBeenCalledWith("token", expect.anything());
   });
 
+  // `23-57`: `CalendarQueuePage`'s own gate now also accepts any one of the booking action
+  // permissions, matching the branch `consoleNav.ts`'s `buildCalendarItems` draws the Waiting entry
+  // from - a nav link the page underneath still refused would be the identical defect this item
+  // exists to fix, seen from the other side.
+
+  it("`23-57`: renders the calendar booking queue for an operator who holds booking:reject alone, without calendar:configure", async () => {
+    grants(["booking:reject"]);
+
+    const container = await render(pageOnly("/calendar/waiting", <CalendarQueuePage />));
+
+    expect(container.textContent).not.toContain("You do not have permission");
+    expect(calendarApi.getPendingBookings).toHaveBeenCalledWith("token", expect.anything());
+  });
+
+  it("`23-57`: still refuses the queue to an operator who holds customer:read but none of the booking action permissions", async () => {
+    // The two capabilities are checked independently, on both sides of this gate - holding one does
+    // not imply the other, the same "a real subset" reasoning `hasAnyBookingActionPermission`'s own
+    // doc comment gives. `["calendar"]` names the tenant as having the module, matching the "forbidden
+    // on a tenant that has it" test above - `customer:read` alone says nothing about that.
+    grants(["customer:read"], ["calendar"]);
+
+    const container = await render(pageOnly("/calendar/waiting", <CalendarQueuePage />));
+
+    expect(container.textContent).toContain("You do not have permission to view the calendar's booking queue.");
+    expect(calendarApi.getPendingBookings).not.toHaveBeenCalled();
+  });
+
   /**
    * `22-06`'s own second Done-when: absent, not broken, when `calendarApiBaseUrl` is unset - the
    * identical "a real, honest deployment state" shape `FaqModulePage`'s knowledge-base panel already
@@ -1025,6 +1100,60 @@ describe("a gated page reached directly by URL", () => {
       );
       expect(container.querySelector("table")).toBeNull();
       expect(calendarApi.getConfirmedBookings).not.toHaveBeenCalled();
+    } finally {
+      config.calendarApiBaseUrl = original;
+    }
+  });
+
+  // `23-57`: `CalendarContactsPage`'s own gate now also accepts `customer:read`, the same permission
+  // `consoleNav.ts`'s `buildCalendarItems` draws the Contacts entry from - the identical
+  // page-must-match-nav reasoning `23-34` already established for `CalendarBookingsPage` above,
+  // applied to the second entry this item adds to that same operator branch.
+
+  it("`23-57`: refuses contacts to an operator who lacks customer:read, and does not load its data", async () => {
+    grants(["site:configure"], ["calendar"]);
+
+    const container = await render(pageOnly("/calendar/clients", <CalendarContactsPage />));
+
+    expect(container.textContent).toContain("You do not have permission to view the calendar's contacts.");
+    expect(container.textContent).toContain("Ask an owner or admin at this workspace to grant it to you.");
+    expect(container.querySelector("table")).toBeNull();
+    expect(calendarApi.getContacts).not.toHaveBeenCalled();
+  });
+
+  it("`23-57`: says contacts are not part of this workspace, when the tenant never enabled the calendar", async () => {
+    grants(["site:configure"], []);
+
+    const container = await render(pageOnly("/calendar/clients", <CalendarContactsPage />));
+
+    expect(container.textContent).not.toContain("You do not have permission to view the calendar's contacts.");
+    expect(container.textContent).toContain("This workspace does not have the calendar.");
+    expect(calendarApi.getContacts).not.toHaveBeenCalled();
+  });
+
+  it("`23-57`: renders contacts for an operator who holds customer:read alone - the seeded Operator role's own shape, without calendar:configure", async () => {
+    grants(["customer:read"]);
+
+    const container = await render(pageOnly("/calendar/clients", <CalendarContactsPage />));
+
+    expect(container.textContent).not.toContain("You do not have permission");
+    expect(calendarApi.getContacts).toHaveBeenCalledWith("token", expect.anything());
+  });
+
+  it("`23-57`: is absent, not broken, when calendarApiBaseUrl is unset", async () => {
+    grants(["customer:read"]);
+    const { config } = await import("../config.js");
+    const original = config.calendarApiBaseUrl;
+    config.calendarApiBaseUrl = null;
+
+    try {
+      const container = await render(pageOnly("/calendar/clients", <CalendarContactsPage />));
+
+      expect(container.textContent).toContain(
+        "The calendar backend is not configured for this deployment yet, so this screen cannot be used here.",
+      );
+      expect(container.querySelector("table")).toBeNull();
+      expect(calendarApi.getContacts).not.toHaveBeenCalled();
     } finally {
       config.calendarApiBaseUrl = original;
     }

@@ -11,6 +11,7 @@ import {
 } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
+import { hasAnyBookingActionPermission } from "../calendar/calendarPermissions.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Button } from "../components/Button.js";
@@ -22,14 +23,21 @@ import { formatAbsolute, formatClockTime, parseInstant, resolveTimeZone } from "
 
 /**
  * `22-06`/`adr/0093`: `/calendar` - the shared pending-bookings queue, moved from
- * `ago-calendar-console`'s own `QueuePage.tsx`. Gated the same way every tenant self-service screen
- * in this console already is (`usePermissions()` decides whether to render at all; `calendar:configure`
- * on `Ago.Calendar.Api` is the real gate, unchanged by this move) - `FaqModulePage`'s own doc comment
- * is the pattern this whole item copies rather than invents.
+ * `ago-calendar-console`'s own `QueuePage.tsx`. Rewritten against this console's closed
+ * eleven-component set (`Panel`/`Table`/`Button`/`Alert`) - see `calendar/WorkersTable.tsx`'s own
+ * doc comment for why every calendar screen is a rewrite, not a port, of the source console's
+ * bare-HTML markup.
  *
- * Rewritten against this console's closed eleven-component set (`Panel`/`Table`/`Button`/`Alert`) -
- * see `calendar/WorkersTable.tsx`'s own doc comment for why every calendar screen is a rewrite, not a
- * port, of the source console's bare-HTML markup.
+ * <b>`23-57`: gated on `calendar:configure` **or** holding any of the booking action permissions</b>
+ * (`hasAnyBookingActionPermission` - `booking:confirm`/`booking:reject`/`booking:cancel`,
+ * `calendarAccess.tsx`'s own doc comment), not on `calendar:configure` alone. The seeded Operator
+ * role holds those three and never `calendar:configure` (`ago-chat`'s own
+ * `RegisterSiteHandler.OperatorRolePermissions`) - before this item the nav could be made to offer
+ * this screen without the screen itself ever admitting that operator, which is the identical defect
+ * from the other side (`docs/backlog/23-57-*.md`'s own "no screen from which to reach it"). This
+ * mirrors `23-34`'s `CalendarBookingsPage`, whose own gate is `customer:read` rather than
+ * `calendar:configure` for the same reason - a page's own gate has to match whatever the nav now
+ * promises, or the promise is empty.
  *
  * <b>One queue, spanning every calendar the tenant has.</b> Unchanged from the source: there is
  * deliberately no filter by calendar and no notion of "mine".
@@ -47,6 +55,7 @@ export function CalendarQueuePage() {
   const [rows, setRows] = useState<PendingBooking[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const canViewQueue = hasPermission("calendar:configure") || hasAnyBookingActionPermission(hasPermission);
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
@@ -68,19 +77,19 @@ export function CalendarQueuePage() {
   );
 
   useEffect(() => {
-    if (!hasPermission("calendar:configure") || config.calendarApiBaseUrl === null) {
+    if (!canViewQueue || config.calendarApiBaseUrl === null) {
       return;
     }
     const controller = new AbortController();
     void reload(controller.signal);
     return () => controller.abort();
-  }, [reload, hasPermission]);
+  }, [reload, canViewQueue]);
 
   if (permissions === null) {
     return <Spinner label={strings.siteConfigCheckingPermissions} />;
   }
 
-  if (!hasPermission("calendar:configure")) {
+  if (!canViewQueue) {
     // `23-21`: the shared refusal, not a hand-copied block - see `calendarAccess.tsx`'s own doc
     // comment. `showElsewhereNotice` stays true only here: `/calendar` is the section's landing
     // page, the one a bookmark or a stale link lands on (`CalendarElsewhereNotice`'s own remarks).

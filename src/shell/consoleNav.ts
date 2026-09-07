@@ -1,5 +1,6 @@
 import type { ConsoleStrings } from "../i18n/strings.js";
 import type { AppShellNavItem, AppShellNavSection } from "./AppShell.js";
+import { hasAnyBookingActionPermission } from "../calendar/calendarPermissions.js";
 
 /**
  * `13-07`/`adr/0063`/`4-06`(console): the tenant-scoped half of the console's navigation, shared
@@ -58,8 +59,9 @@ import type { AppShellNavItem, AppShellNavSection } from "./AppShell.js";
  * ordinary operator's rail *exactly* four sections rather than seven collapsed ones: Каналы,
  * Автоматизация and Администрирование are entirely `isAdmin`-gated (every item inside them,
  * `Удалить аккаунт` on its own `site:erase` aside), so for `!isAdmin` each one has zero items and
- * disappears, leaving Диалоги, Аналитика, Календарь (only when `calendar:configure` is held - see
- * below) and Команда (which always has at least the reserved "Общение" place, so it never empties).
+ * disappears, leaving Диалоги, Аналитика, Календарь (only when this identity holds at least one of
+ * `calendar:configure`, the booking permissions, or `customer:read` - `23-57`, see below) and Команда
+ * (which always has at least the reserved "Общение" place, so it never empties).
  */
 export function buildTenantNavSections(
   hasPermission: (permission: string) => boolean,
@@ -124,8 +126,10 @@ function buildAnalyticsItems(isAdmin: boolean, strings: ConsoleStrings): AppShel
 }
 
 /**
- * `22-06`/`adr/0093`: AGO Calendar's screens - the one section this rewrite still gives three real
- * outcomes, because buying the module is genuinely different from every other gate in this file:
+ * `22-06`/`adr/0093`/`23-57`: AGO Calendar's screens - built from what this identity can actually do,
+ * not from one administrator permission. Four outcomes now, because `23-57` replaced the third
+ * ("lacks `calendar:configure`, not the tenant" used to mean "nothing at all") with one branch per
+ * capability an operator can genuinely hold:
  *
  * - **Holds `calendar:configure`**: the full seven items, ordinary, never muted - `Услуги` is new
  *   (carved out of `/calendar/setup` onto its own screen, `CalendarSetupPage`'s own doc comment on
@@ -139,24 +143,36 @@ function buildAnalyticsItems(isAdmin: boolean, strings: ConsoleStrings): AppShel
  *   now means. Collapsed to one representative entry rather than all seven individually muted links -
  *   `adr/0129`'s own reasoning: a tenant does not need seven doors into a room they have not paid for,
  *   one clearly-marked one is the whole message.
- * - **`23-34`: lacks both of the above, but holds `customer:read`**: one real entry, `Записи` alone,
- *   leading to `/calendar/bookings`. This is the branch that actually delivers the item's own scoping
- *   decision ("покажем их как минимум роли оператора") rather than merely stating it: the seeded
- *   "Operator" role holds `customer:read` (`booking:*`/`customer:*`, never `calendar:configure` -
- *   `ago-chat`'s own `RegisterSiteHandler.OperatorRolePermissions`), so without this branch an
- *   ordinary operator would still see no calendar section at all, including the confirmed-bookings
- *   screen this item exists to add - the same gap the "lacks it, and not `isAdmin`" branch below
- *   still leaves for every *other* calendar screen, deliberately (see that branch's own remarks).
- *   `CalendarBookingsPage`'s own doc comment carries the rest of this reasoning; this is the one
- *   calendar nav entry not gated on `calendar:configure` or `isAdmin`.
- * - **Lacks all three**: nothing. The section itself disappears (`buildSection` returns `null` for an
- *   empty list) - the accepted cost `adr/0129` records: an operator with neither `calendar:configure`
- *   nor `customer:read` no longer learns the calendar exists at all, where `23-21`/`23-24` used to
- *   leave one muted entry precisely so they could. `enabledModules` is not read on any of these
+ * - **Lacks it, and not `isAdmin`**: **`23-57`** - the operator branch, one real entry per permission
+ *   this identity actually holds, each checked independently rather than as one bundle:
+ *   {@link hasAnyBookingActionPermission} (`booking:confirm`/`booking:reject`/`booking:cancel`) draws
+ *   `Waiting` (`/calendar/waiting`, `CalendarQueuePage`), the queue those permissions exist to act on;
+ *   `customer:read` draws `Bookings` (`23-34`'s own branch, kept exactly as that item shipped it - not
+ *   folded back into a single gate) and, new in `23-57`, `Contacts` (`/calendar/clients`,
+ *   `CalendarContactsPage`) alongside it, since both read the customer list `customer:read` actually
+ *   guards server-side. **Never muted, whichever of these an operator lacks** - see this function's
+ *   own hidden-vs-muted note below.
+ * - **Holds none of the above**: nothing. The section itself disappears (`buildSection` returns `null`
+ *   for an empty list) - the accepted cost `adr/0129` records: an operator with none of these grants
+ *   learns nothing about the calendar from the nav. `enabledModules` is not read on any of these
  *   branches - it decided nothing for an `isAdmin` viewer either way (see the section-level doc
- *   comment above), and for `!isAdmin` the rule is "hidden" (or, since `23-34`, "the one thing this
- *   operator holds") regardless of whether the tenant has bought it, so there is nothing left for
- *   that flag to change here.
+ *   comment above), and for `!isAdmin` the rule is "hidden unless genuinely held" regardless of
+ *   whether the tenant has bought the module, so there is nothing left for that flag to change here.
+ *
+ * <b>`23-57`'s own hidden-vs-muted decision, stated once and applied to every entry in this
+ * function.</b> `docs/backlog/23-22-*.md` found the queue drawn *muted* for an admin lacking
+ * `calendar:configure` and *absent* for an operator lacking it - two different answers to what
+ * `adr/0129` already settled as one question: **`muted` means this identity could obtain the thing
+ * itself.** Applying that question, rather than a new one, is what removes the asymmetry -
+ * `hasAnyBookingActionPermission`/`customer:read` are grants a *colleague* makes (an owner or admin
+ * assigns a role), never something an operator can self-obtain the way the tenant can buy the module
+ * or grant themselves the permission - so an operator lacking them gets `adr/0129`'s ordinary answer
+ * for a colleague-granted capability: hidden, the same as `site:manage_operators`/`site:erase`
+ * elsewhere in this file, never muted. The alternative this rejects is a *second* muted state, one
+ * meaning "a colleague could grant it" for the operator branch alongside the tenant's "I could buy
+ * it" - `adr/0129`'s own Alternatives-considered already tried and rejected exactly that shape (the
+ * pre-`23-31` `23-24` rule) for being two facts wearing one visual treatment. Nothing here reopens
+ * that question; it extends the settled answer to the entries `23-57` found it had not yet reached.
  */
 function buildCalendarItems(
   hasPermission: (permission: string) => boolean,
@@ -177,10 +193,19 @@ function buildCalendarItems(
   if (isAdmin) {
     return [{ to: "/calendar/waiting", label: strings.navCalendarQueue, end: true, muted: true }];
   }
-  if (hasPermission("customer:read")) {
-    return [{ to: "/calendar/bookings", label: strings.navCalendarBookings }];
+
+  // `23-57`: this identity is not the tenant and lacks `calendar:configure` - per `adr/0129` nothing
+  // below can ever be muted (see this function's own doc comment), only drawn when genuinely held.
+  const items: AppShellNavItem[] = [];
+  if (hasAnyBookingActionPermission(hasPermission)) {
+    items.push({ to: "/calendar/waiting", label: strings.navCalendarQueue, end: true });
   }
-  return [];
+  if (hasPermission("customer:read")) {
+    // `23-34`'s own branch, kept - `Bookings` first, matching the full-access ordering above.
+    items.push({ to: "/calendar/bookings", label: strings.navCalendarBookings });
+    items.push({ to: "/calendar/clients", label: strings.navCalendarContacts });
+  }
+  return items;
 }
 
 /** `23-31`: "Общение" is unconditional - a team-wide chat is not an admin capability, so it is drawn
