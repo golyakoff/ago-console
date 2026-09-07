@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { operatorDisplayName } from "../auth/operatorDisplayName.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import {
   fetchOwnerSiteDetail,
+  grantOwnerModule,
+  revokeOwnerModule,
   updateOwnerSiteAllowedOrigins,
   type OwnerSiteDetail,
   type OwnerSiteModule,
@@ -15,11 +17,14 @@ import { buildTenantNavSections } from "../shell/consoleNav.js";
 import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
+import { Dialog } from "../components/Dialog.js";
 import { Field } from "../components/Field.js";
+import { Input } from "../components/Input.js";
 import { Panel } from "../components/Panel.js";
 import { Spinner } from "../components/Spinner.js";
 import { Table, type TableColumn } from "../components/Table.js";
 import { Textarea } from "../components/Textarea.js";
+import { isValidEntryPointUrl, parseTriggerWords } from "../pages/moduleConfigValidation.js";
 import { formatAbsolute, formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
 import {
   describeRecentWindow,
@@ -30,6 +35,13 @@ import {
   formatNoRecentActivity,
   formatRecentMessagesHeader,
 } from "./ownerSites.js";
+
+/** `23-65`: whether the grant form's expiry has been chosen at all. `"unset"` is the form's own
+ * initial state and blocks submission - `adr/0150`'s own "a grant with no expiry is a discount
+ * nobody remembers giving" applies to the screen exactly as it did to the runbook's own required-
+ * and-nullable wire field, so this screen must not default to either "never" or a date; the platform
+ * owner has to pick one. */
+type ExpiryChoice = "unset" | "never" | "date";
 
 /** What the server has said so far about this caller's access to `23-14`'s endpoint, and whether the
  * named site exists at all - the same `OwnerAccess` shape `OwnerSitesPage` uses, plus `"not-found"`
@@ -74,23 +86,44 @@ export function OwnerSiteDetailPage() {
   const [originsSaved, setOriginsSaved] = useState(false);
   const [originsSaving, setOriginsSaving] = useState(false);
 
+  // `23-65`: the grant form's own state. `expiryChoice` starts `"unset"` - neither "never" nor a real
+  // date - so the platform owner has to pick one before this form can submit at all; see this file's
+  // own `ExpiryChoice` remarks.
+  const [moduleKeyInput, setModuleKeyInput] = useState("");
+  const [triggerWordsInput, setTriggerWordsInput] = useState("");
+  const [entryPointInput, setEntryPointInput] = useState("");
+  const [credentialInput, setCredentialInput] = useState("");
+  const [expiryChoice, setExpiryChoice] = useState<ExpiryChoice>("unset");
+  const [expiryDateInput, setExpiryDateInput] = useState("");
+  const [grantError, setGrantError] = useState<string | null>(null);
+  const [grantSaved, setGrantSaved] = useState(false);
+  const [grantSubmitting, setGrantSubmitting] = useState(false);
+
+  // `23-65`: the revoke confirmation's own state - which module (if any) the dialog is open for,
+  // and the reason draft it collects when that module is a tenant's own purchase
+  // (`module.grantedByOwner === false`). `revokingModule` doubles as the dialog's `open` flag, the
+  // same "the row being acted on is the state" shape `RemoveOperatorButton`'s own confirmation uses,
+  // adapted here because the trigger is one column of a shared table rather than a component with its
+  // own row.
+  const [revokingModule, setRevokingModule] = useState<OwnerSiteModule | null>(null);
+  const [revokeReason, setRevokeReason] = useState("");
+  const [revokeError, setRevokeError] = useState<string | null>(null);
+  const [revokeSubmitting, setRevokeSubmitting] = useState(false);
+
   const timeZone = useMemo(() => resolveTimeZone(), []);
 
-  useEffect(() => {
+  // `23-65`: extracted out of the load effect below so a successful grant or revoke can re-run the
+  // identical read rather than splice a locally-built row into `site.modules` - `GrantModuleResponse`
+  // does not even carry `isActive`/`grantedByOwner`, and this screen's own Done-when requires
+  // `isActive` to come from the server's own live comparison, never be recomputed here (`buildModuleColumns`'s
+  // own remarks below).
+  const loadSiteDetail = useCallback(() => {
     if (!accessToken || !siteId) {
-      // `RequireAuth` guarantees a signed-in user, and this route only ever mounts with a `:siteId`
-      // segment (`App.tsx`) - the same "reaching here without one is a wiring bug" reasoning the
-      // other pages state for their own preconditions.
       return;
     }
 
-    let cancelled = false;
     fetchOwnerSiteDetail(accessToken, siteId)
       .then((outcome) => {
-        if (cancelled) {
-          return;
-        }
-
         if (outcome.status === "not-authorized") {
           setAccess("refused");
           return;
@@ -106,18 +139,35 @@ export function OwnerSiteDetailPage() {
         setOriginsDraft(outcome.site.allowedOrigins.join("\n"));
       })
       .catch((err: unknown) => {
-        if (!cancelled) {
-          // Same "the API is broken" vs. "you may not see this" split every owner screen makes.
-          setError(err instanceof Error ? err.message : "Failed to load this site's detail.");
-        }
+        // Same "the API is broken" vs. "you may not see this" split every owner screen makes.
+        setError(err instanceof Error ? err.message : "Failed to load this site's detail.");
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, [accessToken, siteId]);
 
-  const moduleColumns = useMemo(() => buildModuleColumns(timeZone), [timeZone]);
+  useEffect(() => {
+    if (!accessToken || !siteId) {
+      // `RequireAuth` guarantees a signed-in user, and this route only ever mounts with a `:siteId`
+      // segment (`App.tsx`) - the same "reaching here without one is a wiring bug" reasoning the
+      // other pages state for their own preconditions.
+      return;
+    }
+
+    loadSiteDetail();
+    // `loadSiteDetail` is recreated only when `accessToken`/`siteId` change, so this still runs
+    // exactly once per those - the identical effect this file had before extracting the loader, minus
+    // the `cancelled` guard a single mount-time call never needed once `loadSiteDetail` itself is the
+    // thing re-invoked deliberately (by the grant/revoke handlers below), not raced by an unmount.
+  }, [accessToken, siteId, loadSiteDetail]);
+
+  const moduleColumns = useMemo(
+    () =>
+      buildModuleColumns(timeZone, (module) => {
+        setRevokingModule(module);
+        setRevokeReason("");
+        setRevokeError(null);
+      }),
+    [timeZone],
+  );
 
   const handleSaveOrigins = () => {
     if (!accessToken || !siteId) {
@@ -162,6 +212,161 @@ export function OwnerSiteDetailPage() {
       })
       .finally(() => {
         setOriginsSaving(false);
+      });
+  };
+
+  // `23-65`: the grant form's own submit. Client-side validation mirrors
+  // `moduleConfigValidation.ts`'s own floor (well-formed, non-empty) - the server is still the real
+  // gate on everything else (reserved/conflicting trigger words, entry-point reachability, expiry
+  // bounds), the identical split every other form on this console already keeps.
+  const handleGrantSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    setGrantSaved(false);
+    setGrantError(null);
+
+    const trimmedKey = moduleKeyInput.trim();
+    const triggerWords = parseTriggerWords(triggerWordsInput);
+    const trimmedEntryPoint = entryPointInput.trim();
+    const trimmedCredential = credentialInput.trim();
+
+    if (trimmedKey.length === 0) {
+      setGrantError("Enter a module key.");
+      return;
+    }
+    if (triggerWords.length === 0) {
+      setGrantError("Enter at least one trigger word.");
+      return;
+    }
+    if (trimmedEntryPoint.length === 0 || !isValidEntryPointUrl(trimmedEntryPoint)) {
+      setGrantError("Enter a valid https entry point.");
+      return;
+    }
+    if (trimmedCredential.length === 0) {
+      setGrantError("Enter the module's own per-site credential.");
+      return;
+    }
+
+    // `adr/0150`'s own "a grant with no expiry is a discount nobody remembers giving": this form
+    // will not submit at all until the platform owner has actively chosen one of the two options
+    // below - there is no default that reaches the request body.
+    let expiresAt: string | null;
+    if (expiryChoice === "unset") {
+      setGrantError("Choose whether this grant expires - \"Never\" is a choice too, not a default.");
+      return;
+    } else if (expiryChoice === "never") {
+      expiresAt = null;
+    } else {
+      if (expiryDateInput.trim().length === 0) {
+        setGrantError("Enter the date and time this grant expires.");
+        return;
+      }
+      const parsed = new Date(expiryDateInput);
+      if (Number.isNaN(parsed.getTime())) {
+        setGrantError("That expiry date and time could not be read.");
+        return;
+      }
+      expiresAt = parsed.toISOString();
+    }
+
+    const accessToken = user?.access_token;
+    if (!accessToken || !siteId) {
+      return;
+    }
+
+    setGrantSubmitting(true);
+    grantOwnerModule(accessToken, siteId, {
+      moduleKey: trimmedKey,
+      triggerWords,
+      entryPoint: trimmedEntryPoint,
+      credential: trimmedCredential,
+      expiresAt,
+    })
+      .then((outcome) => {
+        if (outcome.status === "ok") {
+          setGrantSaved(true);
+          setModuleKeyInput("");
+          setTriggerWordsInput("");
+          setEntryPointInput("");
+          setCredentialInput("");
+          setExpiryChoice("unset");
+          setExpiryDateInput("");
+          // Re-read rather than splice a locally-built row in - `outcome.module` carries no
+          // `isActive`/`grantedByOwner` (`GrantOwnerModuleOutcome`'s own remarks), and this table
+          // renders only what the server itself computed.
+          loadSiteDetail();
+          return;
+        }
+
+        if (outcome.status === "invalid" || outcome.status === "unavailable") {
+          setGrantError(outcome.message);
+          return;
+        }
+
+        // `not-authorized`/`not-found` mid-session - the same genuinely-unexpected-here handling
+        // `handleSaveOrigins` above gives its own equivalent outcomes.
+        setError("This site could no longer be reached. Reload the page and try again.");
+      })
+      .catch((err: unknown) => {
+        setGrantError(err instanceof Error ? err.message : "Failed to grant the module.");
+      })
+      .finally(() => {
+        setGrantSubmitting(false);
+      });
+  };
+
+  // `23-65`/`adr/0118`: the revoke dialog's own confirm. `force`/`reason` are derived from
+  // `revokingModule.grantedByOwner`, never typed by the platform owner directly - the dialog already
+  // shows which case this is (`renderRevokeDialogBody` below), so asking them to also tick a "force"
+  // box would be asking them to restate a fact the screen already told them, the same redundancy
+  // `RemoveOperatorButton`'s own confirm avoids by not exposing mechanics the caller cannot change.
+  const handleRevokeConfirm = () => {
+    const accessToken = user?.access_token;
+    if (!accessToken || !siteId || !revokingModule) {
+      return;
+    }
+
+    const isPurchase = !revokingModule.grantedByOwner;
+    const trimmedReason = revokeReason.trim();
+    if (isPurchase && trimmedReason.length === 0) {
+      setRevokeError("Write the reason you would be willing to show this tenant.");
+      return;
+    }
+
+    setRevokeSubmitting(true);
+    setRevokeError(null);
+
+    revokeOwnerModule(accessToken, siteId, revokingModule.moduleKey, {
+      force: isPurchase,
+      reason: isPurchase ? trimmedReason : null,
+    })
+      .then((outcome) => {
+        if (outcome.status === "ok") {
+          setRevokingModule(null);
+          setRevokeReason("");
+          loadSiteDetail();
+          return;
+        }
+
+        if (
+          outcome.status === "requires-force" ||
+          outcome.status === "invalid" ||
+          outcome.status === "unavailable"
+        ) {
+          setRevokeError(outcome.message);
+          return;
+        }
+
+        // `not-authorized`/`not-found` mid-session - the module (or the site) is gone by the time
+        // this was confirmed. Reported the same page-level way `handleSaveOrigins`'s own equivalent
+        // case is.
+        setRevokingModule(null);
+        setError("This site could no longer be reached. Reload the page and try again.");
+      })
+      .catch((err: unknown) => {
+        setRevokeError(err instanceof Error ? err.message : "Failed to revoke the module.");
+      })
+      .finally(() => {
+        setRevokeSubmitting(false);
       });
   };
 
@@ -339,8 +544,173 @@ export function OwnerSiteDetailPage() {
               rowKey={(module) => module.moduleKey}
             />
           )}
+
+          {/* `23-65`/`adr/0150`: the grant form itself. No `provisioningSecret` field anywhere on
+              this page - the browser never holds `adr/0095`'s deployment-wide secret, `Ago.Chat.Api`
+              supplies it from its own configuration, and this form's own request body has no field
+              to carry one even if someone tried. */}
+          <Panel
+            title="Grant a module"
+            description="Gives this tenant a module with no payment - a sales trial, or restoring what a failed payment should have provisioned. The tenant cannot tell a grant apart from their own purchase in ordinary use; only this screen and the audit trail can."
+          >
+            <form className="ago-stack" onSubmit={handleGrantSubmit}>
+              <Field label="Module key" description="calendar, faq">
+                {(controlProps) => (
+                  <Input
+                    {...controlProps}
+                    value={moduleKeyInput}
+                    onChange={(event) => setModuleKeyInput(event.target.value)}
+                    placeholder="calendar"
+                    disabled={grantSubmitting}
+                  />
+                )}
+              </Field>
+
+              <Field label="Trigger words" description="What a visitor types to reach the module. Comma- or newline-separated.">
+                {(controlProps) => (
+                  <Input
+                    {...controlProps}
+                    value={triggerWordsInput}
+                    onChange={(event) => setTriggerWordsInput(event.target.value)}
+                    placeholder="/booking"
+                    disabled={grantSubmitting}
+                  />
+                )}
+              </Field>
+
+              <Field label="Entry point" description="Where the module is reached - an absolute https URL.">
+                {(controlProps) => (
+                  <Input
+                    {...controlProps}
+                    type="url"
+                    value={entryPointInput}
+                    onChange={(event) => setEntryPointInput(event.target.value)}
+                    placeholder="https://calendar.example.com"
+                    disabled={grantSubmitting}
+                  />
+                )}
+              </Field>
+
+              <Field label="Credential" description="The module's own per-site credential. Never shown again once saved.">
+                {(controlProps) => (
+                  <Input
+                    {...controlProps}
+                    type="password"
+                    autoComplete="off"
+                    value={credentialInput}
+                    onChange={(event) => setCredentialInput(event.target.value)}
+                    disabled={grantSubmitting}
+                  />
+                )}
+              </Field>
+
+              {/* `adr/0150`'s own "a grant with no expiry is a discount nobody remembers giving":
+                  neither radio starts selected, so submitting with neither chosen is the one thing
+                  this form refuses before it ever reaches the server - see handleGrantSubmit's own
+                  check. */}
+              <fieldset>
+                <legend>Expiry</legend>
+                <label className="ago-row">
+                  <input
+                    type="radio"
+                    name="owner-module-expiry"
+                    checked={expiryChoice === "never"}
+                    onChange={() => setExpiryChoice("never")}
+                    disabled={grantSubmitting}
+                  />
+                  <span>Never expires</span>
+                </label>
+                <label className="ago-row">
+                  <input
+                    type="radio"
+                    name="owner-module-expiry"
+                    checked={expiryChoice === "date"}
+                    onChange={() => setExpiryChoice("date")}
+                    disabled={grantSubmitting}
+                  />
+                  <span>Expires on</span>
+                  <input
+                    type="datetime-local"
+                    value={expiryDateInput}
+                    onFocus={() => setExpiryChoice("date")}
+                    onChange={(event) => {
+                      setExpiryChoice("date");
+                      setExpiryDateInput(event.target.value);
+                    }}
+                    disabled={grantSubmitting}
+                  />
+                </label>
+              </fieldset>
+
+              {grantError && <Alert tone="danger">{grantError}</Alert>}
+              {grantSaved && !grantError && <Alert tone="success">Granted. The tenant has it now.</Alert>}
+
+              <div className="ago-row">
+                <Button type="submit" variant="primary" disabled={grantSubmitting}>
+                  {grantSubmitting ? "Granting…" : "Grant module"}
+                </Button>
+              </div>
+            </form>
+          </Panel>
         </>
       )}
+
+      {/* `23-65`/`adr/0118`: provenance is shown here, before the confirm - never left for after,
+          since it is not recoverable once the row is gone (this item's own Done-when). */}
+      <Dialog
+        open={revokingModule !== null}
+        title={revokingModule ? `Revoke ${revokingModule.moduleKey}` : "Revoke module"}
+        onClose={() => {
+          if (!revokeSubmitting) {
+            setRevokingModule(null);
+          }
+        }}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setRevokingModule(null)} disabled={revokeSubmitting}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleRevokeConfirm} disabled={revokeSubmitting}>
+              {revokeSubmitting ? "Revoking…" : "Revoke"}
+            </Button>
+          </>
+        }
+      >
+        {revokingModule && (
+          <>
+            {revokingModule.grantedByOwner ? (
+              <p>
+                <Badge tone="accent">Platform owner</Badge> granted this module. Revoking it takes back
+                something we gave away - nothing more is needed.
+              </p>
+            ) : (
+              <>
+                <p>
+                  <Badge tone="neutral">Tenant</Badge> purchased this module themselves. Revoking it
+                  overrides something they paid for - `adr/0118` requires a reason, stored verbatim, so
+                  the tenant can be told why later.
+                </p>
+                <Field
+                  label="Reason"
+                  description={'Write the reason you would be willing to show this tenant. "Cleanup" or "asked to" are not reasons.'}
+                  error={revokeError}
+                >
+                  {(controlProps) => (
+                    <Textarea
+                      {...controlProps}
+                      rows={3}
+                      value={revokeReason}
+                      onChange={(event) => setRevokeReason(event.target.value)}
+                      disabled={revokeSubmitting}
+                    />
+                  )}
+                </Field>
+              </>
+            )}
+            {revokingModule.grantedByOwner && revokeError && <Alert tone="danger">{revokeError}</Alert>}
+          </>
+        )}
+      </Dialog>
     </AppShell>
   );
 }
@@ -366,7 +736,10 @@ function renderDateFact(
   return <span title={formatAbsolute(parsed, timeZone)}>{formatDateStamp(parsed, timeZone)}</span>;
 }
 
-function buildModuleColumns(timeZone: string | null): TableColumn<OwnerSiteModule>[] {
+function buildModuleColumns(
+  timeZone: string | null,
+  onRevoke: (module: OwnerSiteModule) => void,
+): TableColumn<OwnerSiteModule>[] {
   return [
     {
       key: "module",
@@ -418,6 +791,17 @@ function buildModuleColumns(timeZone: string | null): TableColumn<OwnerSiteModul
         // query already decided, never recomputed here by comparing `expiresAt` against this
         // browser's own clock (this item's own Done-when).
         <Badge tone={module.isActive ? "success" : "danger"}>{formatModuleStatus(module.isActive)}</Badge>
+      ),
+    },
+    {
+      key: "actions",
+      header: "",
+      // `23-65`: revoke reads provenance off `module.grantedByOwner` before anything is sent - the
+      // confirmation dialog this opens is where the reason/force asymmetry actually lives, not here.
+      render: (module) => (
+        <Button size="sm" variant="ghost" onClick={() => onRevoke(module)}>
+          Revoke
+        </Button>
       ),
     },
   ];
