@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ru } from "./ru.js";
-import { StringsProvider } from "./StringsContext.js";
+import { StringsProvider } from "./StringsProvider.js";
 
 /**
  * `23-28`: the one place that says *which* Russian - every one of the four pre-session routes
@@ -12,6 +12,10 @@ import { StringsProvider } from "./StringsContext.js";
  * file only says it, and is a separate file from that one purely because
  * `react-refresh/only-export-components` refuses to co-locate a component export with the
  * `useStrings()` hook once there is a real component in the file to protect.
+ *
+ * `23-97`: `StringsProvider` now imports from `StringsProvider.tsx`, not `StringsContext.tsx` -
+ * `StringsContext.tsx` moved the `.Provider` alias out for the same Fast-Refresh reason this file's
+ * own split exists, so this import follows it.
  */
 export function PreSessionStringsProvider({ children }: { children: ReactNode }) {
   return <StringsProvider value={ru}>{children}</StringsProvider>;
