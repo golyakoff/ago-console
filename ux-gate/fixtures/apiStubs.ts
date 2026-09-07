@@ -8,6 +8,7 @@ import {
   seededOwnAnalytics,
   seededCalendarBookingReadiness,
   seededCalendarConfiguration,
+  seededCalendarConfirmedBookings,
   seededCalendarContacts,
   seededCalendarPendingBookings,
   seededCalendarWorkers,
@@ -176,6 +177,13 @@ export async function installApiStubs(
     // the screen that reads it.
     if (path === "/api/v1/console/pending-bookings" && method === "GET") {
       return json(seededCalendarPendingBookings());
+    }
+
+    // `23-34`: confirmed bookings, ignoring the `from`/`to` query string for the identical reason
+    // `CalendarWorkerSlotsPage`'s own handler below does - this page's own default range is computed
+    // from the real, unfaked `new Date()`.
+    if (path === "/api/v1/console/confirmed-bookings" && method === "GET") {
+      return json(seededCalendarConfirmedBookings());
     }
 
     if (path === "/api/v1/console/workers" && method === "GET") {

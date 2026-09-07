@@ -192,6 +192,37 @@ export interface PendingBooking {
   phone: string | null;
 }
 
+/**
+ * `23-34`: one confirmed booking - an appointment, not a slot. Field names match
+ * `Ago.Calendar.Contracts.ConfirmedBookingResponse` verbatim.
+ *
+ * Unlike `PendingBooking.phone` above and `WorkerSlot.phone`/`customerDisplayName` below, neither
+ * `phone` nor `customerDisplayName` here carries a "this operator lacks the permission" null state -
+ * `Ago.Calendar.Application.UseCases.ConfirmedBookings.GetConfirmedBookingsForTenantHandler` gates the
+ * whole list on `customer:read` rather than joining conditionally, because the item's own scope names
+ * the customer as a required column of this screen, not an optional bonus one (see that handler's own
+ * doc comment). `phone` is therefore always a string - masked or real - and `customerDisplayName` is
+ * `null` only when the customer has never had a name recorded, unrelated to any permission.
+ */
+export interface ConfirmedBooking {
+  bookingId: string;
+  calendarId: string;
+  workerId: string;
+  workerDisplayName: string;
+  serviceId: string;
+  serviceName: string | null;
+  customerId: string;
+  customerDisplayName: string | null;
+  startsAt: string;
+  endsAt: string;
+  localDate: string;
+  /** 0 = Sunday, matching `WorkerSlot.weekday`'s own convention - computed server-side from
+   * `localDate` for the identical reason that field's own comment gives. */
+  weekday: number;
+  phone: string;
+  masked: boolean;
+}
+
 // `22-06`: `Role`/`OperatorInfo` and the six `getRoles`/`createRole`/`getOperators`/
 // `inviteOperator`/`grantOperatorRole`/`revokeOperatorRole` functions that returned/consumed them
 // were removed here, not carried over - `22-05` (`adr/0093`, merged into `ago-calendar` mid-move)
@@ -458,6 +489,18 @@ export function addWorkingHoursRule(
 
 export function getPendingBookings(token: string, signal?: AbortSignal): Promise<PendingBooking[]> {
   return request<PendingBooking[]>(token, "GET", "/pending-bookings", undefined, signal);
+}
+
+/** `23-34`. `from`/`to` are `YYYY-MM-DD`, business-local, both inclusive - the identical shape
+ * `getWorkerSlots` already uses for its own date-range parameters. */
+export function getConfirmedBookings(
+  token: string,
+  from: string,
+  to: string,
+  signal?: AbortSignal,
+): Promise<ConfirmedBooking[]> {
+  const query = new URLSearchParams({ from, to });
+  return request<ConfirmedBooking[]>(token, "GET", `/confirmed-bookings?${query.toString()}`, undefined, signal);
 }
 
 /** The queue's own verb. Confirmation is what happens when nobody acts, so the operator-facing

@@ -44,6 +44,7 @@ import { CalendarWorkerSlotsPage } from "./pages/CalendarWorkerSlotsPage.js";
 import { CalendarWorkerRecutPage } from "./pages/CalendarWorkerRecutPage.js";
 import { CalendarAvailabilityPage } from "./pages/CalendarAvailabilityPage.js";
 import { CalendarContactsPage } from "./pages/CalendarContactsPage.js";
+import { CalendarBookingsPage } from "./pages/CalendarBookingsPage.js";
 
 /**
  * `23-31`: a moved drill-down route (`:workerId/slots`, `:workerId/recut` - neither has a nav entry
@@ -345,6 +346,10 @@ export function App() {
             route with no nav entry of its own" shape `/conversations/:conversationId` already has
             inside the workspace layout above. */}
         <Route path="/calendar/waiting" element={<CalendarQueuePage />} />
+        {/* `23-34`: confirmed bookings, by day and by master - reachable by an operator holding
+            `customer:read` even without `calendar:configure` (`CalendarBookingsPage`'s own doc
+            comment; `buildCalendarItems` in `consoleNav.ts` carries the matching nav branch). */}
+        <Route path="/calendar/bookings" element={<CalendarBookingsPage />} />
         <Route path="/calendar/setup" element={<CalendarSetupPage />} />
         <Route path="/calendar/services" element={<CalendarServicesPage />} />
         <Route path="/calendar/masters" element={<CalendarWorkersPage />} />

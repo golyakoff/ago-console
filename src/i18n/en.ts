@@ -1205,6 +1205,15 @@ export const en: ConsoleStrings = {
   calendarContactsColumnLastSeen: "Last seen",
   calendarNotRecordedLabel: "not recorded",
 
+  calendarBookingsDescription: "Confirmed bookings, by day and by master.",
+  calendarBookingsEmpty: "Nothing is booked in this range yet.",
+  calendarBookingsColumnWhen: "When",
+  calendarBookingsColumnService: "Service",
+  calendarBookingsColumnCustomer: "Customer",
+  calendarBookingsColumnPhone: "Phone",
+  calendarBookingsCountLabel: "Bookings",
+  calendarBookingsForbidden: "You do not have permission to view confirmed bookings.",
+
   calendarQueueForbidden: "You do not have permission to view the calendar's booking queue.",
   calendarElsewhereNotice: "You do have a calendar in another shop. Switch shops with the picker at the top of the page:",
   calendarSetupForbidden: "You do not have permission to configure the calendar.",

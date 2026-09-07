@@ -1208,6 +1208,15 @@ export const ru: ConsoleStrings = {
   calendarContactsColumnLastSeen: "Последний раз замечен",
   calendarNotRecordedLabel: "не указано",
 
+  calendarBookingsDescription: "Подтверждённые записи по дням и мастерам.",
+  calendarBookingsEmpty: "На этот период пока ничего не записано.",
+  calendarBookingsColumnWhen: "Время",
+  calendarBookingsColumnService: "Услуга",
+  calendarBookingsColumnCustomer: "Клиент",
+  calendarBookingsColumnPhone: "Телефон",
+  calendarBookingsCountLabel: "Записей",
+  calendarBookingsForbidden: "У вас нет прав на просмотр подтверждённых записей.",
+
   calendarQueueForbidden: "У вас нет прав на просмотр очереди бронирований календаря.",
   calendarElsewhereNotice: "Календарь у вас есть в другом магазине. Переключитесь с помощью селектора вверху страницы:",
   calendarSetupForbidden: "У вас нет прав на настройку календаря.",

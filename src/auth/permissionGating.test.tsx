@@ -13,6 +13,7 @@ import { OfflineAutoReplyPage } from "../pages/OfflineAutoReplyPage.js";
 import { CannedResponsesPage } from "../pages/CannedResponsesPage.js";
 import { FaqModulePage } from "../pages/FaqModulePage.js";
 import { CalendarQueuePage } from "../pages/CalendarQueuePage.js";
+import { CalendarBookingsPage } from "../pages/CalendarBookingsPage.js";
 import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
@@ -67,7 +68,7 @@ const assignmentPenaltyApi = vi.hoisted(() => ({
 }));
 const cannedResponsesApi = vi.hoisted(() => ({ fetchCannedResponses: vi.fn(), updateCannedResponses: vi.fn() }));
 const modulesApi = vi.hoisted(() => ({ fetchModules: vi.fn(), updateModule: vi.fn() }));
-const calendarApi = vi.hoisted(() => ({ getPendingBookings: vi.fn() }));
+const calendarApi = vi.hoisted(() => ({ getPendingBookings: vi.fn(), getConfirmedBookings: vi.fn() }));
 // `13-07`: `PermissionsProvider` now calls this before `fetchMyPermissions` - unmocked, it would hit
 // a real `fetch` and every scenario below (all of them single-tenant) would never reach
 // `fetchMyPermissions` at all. `grants`/`beforeEach` below seed the single-tenant default; the
@@ -260,6 +261,7 @@ beforeEach(() => {
   cannedResponsesApi.fetchCannedResponses.mockResolvedValue([]);
   modulesApi.fetchModules.mockResolvedValue({ modules: [] });
   calendarApi.getPendingBookings.mockResolvedValue([]);
+  calendarApi.getConfirmedBookings.mockResolvedValue([]);
 });
 
 afterEach(async () => {
@@ -306,7 +308,26 @@ describe("the operator navigation", () => {
     expect(sectionLabels(container)).toEqual(["Conversations", "Analytics", "Calendar", "Team"]);
     await openSection(container, "Calendar");
     expect(itemLabels(container)).toEqual(["Masters", "Services", "Schedule", "Waiting", "Bookings", "Contacts", "Setup"]);
-    expect(reservedItemLabels(container)).toEqual(["Bookings"]);
+    // `23-34`: "Bookings" is a real link now (`/calendar/bookings`, `CalendarBookingsPage`) - it was
+    // `reserved` only until this item gave the confirmed-bookings screen an actual route.
+    expect(reservedItemLabels(container)).toEqual([]);
+    expect(mutedItemLabels(container)).toEqual([]);
+  });
+
+  it("`23-34`: offers the Calendar section with exactly one real entry, Bookings, to an operator who holds customer:read but neither calendar:configure nor site:configure", async () => {
+    // The seeded "Operator" role's own permission set (`ago-chat`'s own
+    // `RegisterSiteHandler.OperatorRolePermissions`) - `customer:read` without `calendar:configure` -
+    // is exactly this scenario, not a hypothetical one. Before this item `buildCalendarItems` had no
+    // branch for it at all, so this identity saw no Calendar section whatsoever, the same shape the
+    // "offers no Calendar section" test above still proves for an operator holding neither.
+    grants(["customer:read"]);
+
+    const container = await render(shellAt("/"));
+
+    expect(sectionLabels(container)).toEqual(["Conversations", "Analytics", "Calendar", "Team"]);
+    await openSection(container, "Calendar");
+    expect(itemLabels(container)).toEqual(["Bookings"]);
+    expect(reservedItemLabels(container)).toEqual([]);
     expect(mutedItemLabels(container)).toEqual([]);
   });
 
@@ -950,6 +971,60 @@ describe("a gated page reached directly by URL", () => {
       );
       expect(container.querySelector("table")).toBeNull();
       expect(calendarApi.getPendingBookings).not.toHaveBeenCalled();
+    } finally {
+      config.calendarApiBaseUrl = original;
+    }
+  });
+
+  // `23-34`: `CalendarBookingsPage`'s own gate is `customer:read`, deliberately narrower than the
+  // console-wide `calendar:configure` every other calendar screen above checks - see that page's own
+  // doc comment. These four mirror the queue's own four immediately above, with the one permission
+  // that actually gates this screen substituted in.
+
+  it("refuses confirmed bookings to an operator who lacks customer:read, and does not load its data", async () => {
+    grants(["site:configure"], ["calendar"]);
+
+    const container = await render(pageOnly("/calendar/bookings", <CalendarBookingsPage />));
+
+    expect(container.textContent).toContain("You do not have permission to view confirmed bookings.");
+    expect(container.textContent).toContain("Ask an owner or admin at this workspace to grant it to you.");
+    expect(container.querySelector("table")).toBeNull();
+    expect(calendarApi.getConfirmedBookings).not.toHaveBeenCalled();
+  });
+
+  it("says confirmed bookings are not part of this workspace, when the tenant never enabled the calendar", async () => {
+    grants(["site:configure"], []);
+
+    const container = await render(pageOnly("/calendar/bookings", <CalendarBookingsPage />));
+
+    expect(container.textContent).not.toContain("You do not have permission to view confirmed bookings.");
+    expect(container.textContent).toContain("This workspace does not have the calendar.");
+    expect(calendarApi.getConfirmedBookings).not.toHaveBeenCalled();
+  });
+
+  it("renders confirmed bookings for an operator who holds customer:read alone - the seeded Operator role's own shape, without calendar:configure", async () => {
+    grants(["customer:read"]);
+
+    const container = await render(pageOnly("/calendar/bookings", <CalendarBookingsPage />));
+
+    expect(container.textContent).not.toContain("You do not have permission");
+    expect(calendarApi.getConfirmedBookings).toHaveBeenCalledWith("token", expect.any(String), expect.any(String), expect.anything());
+  });
+
+  it("is absent, not broken, when calendarApiBaseUrl is unset", async () => {
+    grants(["customer:read"]);
+    const { config } = await import("../config.js");
+    const original = config.calendarApiBaseUrl;
+    config.calendarApiBaseUrl = null;
+
+    try {
+      const container = await render(pageOnly("/calendar/bookings", <CalendarBookingsPage />));
+
+      expect(container.textContent).toContain(
+        "The calendar backend is not configured for this deployment yet, so this screen cannot be used here.",
+      );
+      expect(container.querySelector("table")).toBeNull();
+      expect(calendarApi.getConfirmedBookings).not.toHaveBeenCalled();
     } finally {
       config.calendarApiBaseUrl = original;
     }

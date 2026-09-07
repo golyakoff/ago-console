@@ -240,6 +240,14 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
     path: "/calendar/clients",
     readySelector: ".ago-table-scroll",
   },
+  // `23-34`: confirmed bookings joins the curated set - a brand-new screen with a personal-data
+  // table (customer name, phone) on it, exactly the kind of screen this file's own header says
+  // belongs under these checks from its first day.
+  {
+    name: "calendar-bookings",
+    path: "/calendar/bookings",
+    readySelector: ".ago-table-scroll",
+  },
   // `15-16` (`ago-root#397`): the two drill-downs off `calendar-workers` - `ago-calendar-console`'s
   // own gate covered both (`worker-slots`, `worker-recut` in that repository's `screens.ts`, before
   // `22-06`), and the move dropped them. That is a regression, not a re-curation: this file's own

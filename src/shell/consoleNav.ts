@@ -129,22 +129,33 @@ function buildAnalyticsItems(isAdmin: boolean, strings: ConsoleStrings): AppShel
  *
  * - **Holds `calendar:configure`**: the full seven items, ordinary, never muted - `Услуги` is new
  *   (carved out of `/calendar/setup` onto its own screen, `CalendarSetupPage`'s own doc comment on
- *   the split) and `Записи` is `reserved` (confirmed bookings have no screen - `CalendarQueuePage`
- *   only lists the unconfirmed ones). Ordered dictionaries-first, then what came of them, then
- *   configuration last, matching the item's own "the calendar runs from its dictionaries to its
- *   results" instruction.
+ *   the split). `Записи` was `reserved` until `23-34`; it is now a real link
+ *   (`/calendar/bookings` - `CalendarBookingsPage`), the confirmed-bookings screen the pending queue
+ *   above it never was. Ordered dictionaries-first, then what came of them, then configuration last,
+ *   matching the item's own "the calendar runs from its dictionaries to its results" instruction.
  * - **Lacks it, but `isAdmin`**: one muted entry - this identity is the tenant, so whether or not the
  *   module happens to be enabled yet, buying (or granting themselves the permission on an already-
  *   enabled one) is something they can do without anyone else's help, which is exactly what `muted`
  *   now means. Collapsed to one representative entry rather than all seven individually muted links -
  *   `adr/0129`'s own reasoning: a tenant does not need seven doors into a room they have not paid for,
  *   one clearly-marked one is the whole message.
- * - **Lacks it, and not `isAdmin`**: nothing. The section itself disappears (`buildSection` returns
- *   `null` for an empty list) - the accepted cost `adr/0129` records: an operator no longer learns the
- *   calendar exists at all, where `23-21`/`23-24` used to leave one muted entry precisely so they
- *   could. `enabledModules` is not read on this branch at all any more - it decided nothing for an
- *   `isAdmin` viewer either way (see the section-level doc comment above), and for `!isAdmin` the
- *   rule is now "hidden" regardless of whether the tenant has bought it, so there is nothing left for
+ * - **`23-34`: lacks both of the above, but holds `customer:read`**: one real entry, `Записи` alone,
+ *   leading to `/calendar/bookings`. This is the branch that actually delivers the item's own scoping
+ *   decision ("покажем их как минимум роли оператора") rather than merely stating it: the seeded
+ *   "Operator" role holds `customer:read` (`booking:*`/`customer:*`, never `calendar:configure` -
+ *   `ago-chat`'s own `RegisterSiteHandler.OperatorRolePermissions`), so without this branch an
+ *   ordinary operator would still see no calendar section at all, including the confirmed-bookings
+ *   screen this item exists to add - the same gap the "lacks it, and not `isAdmin`" branch below
+ *   still leaves for every *other* calendar screen, deliberately (see that branch's own remarks).
+ *   `CalendarBookingsPage`'s own doc comment carries the rest of this reasoning; this is the one
+ *   calendar nav entry not gated on `calendar:configure` or `isAdmin`.
+ * - **Lacks all three**: nothing. The section itself disappears (`buildSection` returns `null` for an
+ *   empty list) - the accepted cost `adr/0129` records: an operator with neither `calendar:configure`
+ *   nor `customer:read` no longer learns the calendar exists at all, where `23-21`/`23-24` used to
+ *   leave one muted entry precisely so they could. `enabledModules` is not read on any of these
+ *   branches - it decided nothing for an `isAdmin` viewer either way (see the section-level doc
+ *   comment above), and for `!isAdmin` the rule is "hidden" (or, since `23-34`, "the one thing this
+ *   operator holds") regardless of whether the tenant has bought it, so there is nothing left for
  *   that flag to change here.
  */
 function buildCalendarItems(
@@ -158,13 +169,16 @@ function buildCalendarItems(
       { to: "/calendar/services", label: strings.navCalendarServices },
       { to: "/calendar/schedule", label: strings.navCalendarAvailability },
       { to: "/calendar/waiting", label: strings.navCalendarQueue, end: true },
-      { label: strings.navCalendarBookings, reserved: true },
+      { to: "/calendar/bookings", label: strings.navCalendarBookings },
       { to: "/calendar/clients", label: strings.navCalendarContacts },
       { to: "/calendar/setup", label: strings.navCalendarSetup },
     ];
   }
   if (isAdmin) {
     return [{ to: "/calendar/waiting", label: strings.navCalendarQueue, end: true, muted: true }];
+  }
+  if (hasPermission("customer:read")) {
+    return [{ to: "/calendar/bookings", label: strings.navCalendarBookings }];
   }
   return [];
 }

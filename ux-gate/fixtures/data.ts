@@ -163,6 +163,11 @@ export function seededPermissions(overrides: SeededPermissionsOverrides = {}) {
       // "render the data" assertions - the identical shape `site:configure` above already has for
       // the settings screens.
       "calendar:configure",
+      // `23-34`: `calendar-bookings`'s own gate, deliberately narrower than `calendar:configure`
+      // (`CalendarBookingsPage`'s own doc comment) - without this, that screen would refuse itself
+      // before ever reaching its own "render the data" assertions, the identical shape every
+      // permission above it in this list already follows for its own screen.
+      "customer:read",
     ],
     // `23-24`: the tenant side of the calendar's own three-way gate (`consoleNav.ts`'s own
     // `buildTenantNavItems`) - defaults to holding the module, matching the base operator above
@@ -472,6 +477,9 @@ export function seededVisitorHistory() {
 export const CALENDAR_CALENDAR_ID = "aaaaaaaa-cccc-4ccc-8ccc-cccccccccccc";
 export const CALENDAR_WORKER_ID = "bbbbbbbb-cccc-4ccc-8ccc-cccccccccccc";
 export const CALENDAR_BOOKING_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+// `23-34`: a second, distinct booking - a customer can hold more than one - for the confirmed-
+// bookings screen below, kept apart from `CALENDAR_BOOKING_ID`'s own still-pending row.
+export const CALENDAR_CONFIRMED_BOOKING_ID = "cccccccc-dddd-4ccc-8ccc-cccccccccccc";
 
 export function seededCalendarPendingBookings() {
   return [
@@ -549,6 +557,58 @@ export function seededCalendarContacts() {
       noShowCount: 0,
       firstSeenAt: "2026-06-01T09:00:00.000Z",
       lastSeenAt: "2026-08-01T09:00:00.000Z",
+    },
+  ];
+}
+
+/**
+ * `23-34`: `GET /confirmed-bookings` for `CalendarBookingsPage` - two rows, the same seeded worker
+ * (`CALENDAR_WORKER_ID`, "Иванова А. П.") and customer (`seededCalendarContacts`'s own "Дана",
+ * `+79990000010`) every other calendar screen already renders, on two different business-local days
+ * so the page's own day-then-master grouping actually has two day panels to draw rather than one -
+ * the deep, multi-worker shape of that grouping is `CalendarBookingsPage.test.tsx`'s own job with a
+ * fixture built for it; this one only has to give the gate's contrast/viewport/untranslated-text
+ * checks a real, two-panel page to look at.
+ *
+ * `apiStubs.ts` matches this route by pathname only, ignoring the `from`/`to` query string the same
+ * way `seededCalendarWorkerSlots`'s own handler does - the page always requests its own default,
+ * real-clock-relative week, which a fixture keyed on that query could never predict.
+ */
+export function seededCalendarConfirmedBookings() {
+  const customerId = "eeeeeeee-cccc-4ccc-8ccc-cccccccccccc";
+
+  return [
+    {
+      bookingId: CALENDAR_CONFIRMED_BOOKING_ID,
+      calendarId: CALENDAR_CALENDAR_ID,
+      workerId: CALENDAR_WORKER_ID,
+      workerDisplayName: "Иванова А. П.",
+      serviceId: "dddddddd-cccc-4ccc-8ccc-cccccccccccc",
+      serviceName: "Стрижка",
+      customerId,
+      customerDisplayName: "Дана",
+      startsAt: "2026-09-07T09:00:00.000Z",
+      endsAt: "2026-09-07T09:45:00.000Z",
+      localDate: "2026-09-07",
+      weekday: 1,
+      phone: "+79990000010",
+      masked: false,
+    },
+    {
+      bookingId: "cccccccc-eeee-4ccc-8ccc-cccccccccccc",
+      calendarId: CALENDAR_CALENDAR_ID,
+      workerId: CALENDAR_WORKER_ID,
+      workerDisplayName: "Иванова А. П.",
+      serviceId: "dddddddd-cccc-4ccc-8ccc-cccccccccccc",
+      serviceName: "Стрижка",
+      customerId,
+      customerDisplayName: "Дана",
+      startsAt: "2026-09-08T10:00:00.000Z",
+      endsAt: "2026-09-08T10:45:00.000Z",
+      localDate: "2026-09-08",
+      weekday: 2,
+      phone: "+79990000010",
+      masked: false,
     },
   ];
 }
