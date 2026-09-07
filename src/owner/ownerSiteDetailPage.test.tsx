@@ -326,6 +326,10 @@ describe("the site detail page's own allowed-origins editor", () => {
 // `GrantOwnerModuleDraft` carries no such field for a test to accidentally exercise; that omission is
 // itself the console-side half of this item's headline claim, proven the same way `tsc` proves it: a
 // field that does not exist cannot be sent.
+//
+// `23-92`/`adr/0154`: neither does an entry point, for the identical reason - `fillGrantForm` below
+// has no "Entry point" input left to fill, and the assertion against what `grantOwnerModule` was
+// called with has no such property either.
 describe("the site detail page's own grant form", () => {
   it("refuses to submit until an expiry has been chosen - \"never\" is not the default", async () => {
     ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
@@ -342,17 +346,19 @@ describe("the site detail page's own grant form", () => {
     ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
     ownerApi.grantOwnerModule.mockResolvedValue({
       status: "ok",
-      module: { moduleKey: "calendar", triggerWords: ["/booking"], entryPoint: "https://calendar.example.com", expiresAt: null },
+      module: { moduleKey: "calendar", triggerWords: ["/booking"], expiresAt: null },
     });
 
     const container = await render(shellAt());
     await fillGrantForm(container, { chooseExpiry: "never" });
     await interact(() => byText<HTMLButtonElement>(container, "button", "Grant module").click());
 
+    // `23-92`/`adr/0154`: no `entryPoint` in this call - `fillGrantForm` never types one (there is no
+    // such field left to fill), and `GrantOwnerModuleDraft` has no such property to send it under even
+    // if it did.
     expect(ownerApi.grantOwnerModule).toHaveBeenCalledWith("token", SITE_ID, {
       moduleKey: "calendar",
       triggerWords: ["/booking"],
-      entryPoint: "https://calendar.example.com",
       credential: "a-shared-secret-of-sixteen-plus-chars",
       expiresAt: null,
     });
@@ -618,7 +624,6 @@ async function setInput(input: HTMLInputElement, value: string) {
 async function fillGrantForm(container: HTMLElement, options: { chooseExpiry: false | "never" }) {
   await setInput(one<HTMLInputElement>(container, 'input[placeholder="calendar"]'), "calendar");
   await setInput(one<HTMLInputElement>(container, 'input[placeholder="/booking"]'), "/booking");
-  await setInput(one<HTMLInputElement>(container, 'input[type="url"]'), "https://calendar.example.com");
   await setInput(one<HTMLInputElement>(container, 'input[type="password"]'), "a-shared-secret-of-sixteen-plus-chars");
 
   if (options.chooseExpiry === "never") {
