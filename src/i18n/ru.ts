@@ -4,6 +4,11 @@ export const ru: ConsoleStrings = {
   skipToContent: "Перейти к содержимому",
   navSectionsAriaLabel: "Разделы консоли",
   navOpenMenu: "Открыть меню навигации",
+  renderErrorTitle: "Не удалось отобразить",
+  renderErrorMessage:
+    "Данные пришли не в том виде, которого ожидал этот экран, поэтому показать его не удалось. " +
+    "Попробуйте ещё раз — если это повторяется, обновите страницу.",
+  renderErrorRetryButton: "Повторить",
   navConversations: "Диалоги",
   navMyConversations: "Мои",
   navAllConversations: "Все диалоги",

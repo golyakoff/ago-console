@@ -1,4 +1,4 @@
-import { Outlet, useMatch } from "react-router-dom";
+import { Outlet, useLocation, useMatch } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { operatorDisplayName } from "../auth/operatorDisplayName.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
@@ -7,6 +7,7 @@ import { getStrings, parseConsoleLocale } from "../i18n/resolve.js";
 import { StringsProvider } from "../i18n/StringsContext.js";
 import { AppShell, ShellIdentity, type AppShellNavSection } from "./AppShell.js";
 import { buildTenantNavSections } from "./consoleNav.js";
+import { RenderErrorAlert, RenderErrorBoundary } from "./RenderErrorBoundary.js";
 import { TenancySwitcher } from "./TenancySwitcher.js";
 
 /**
@@ -56,6 +57,12 @@ export function OperatorShell() {
   // the fold with no scrollbar. `fixed` is its own question now, and the answer is still "only the
   // three-region workspace" - the one layout actually built with the internal `overflow-y: auto`
   // regions that mode assumes (`AppShell.tsx`'s `fixed` doc comment has the full account).
+  // `23-41`: keys the render-error boundary around `<Outlet />` below - see that boundary's own
+  // comment, and `RenderErrorBoundary.tsx`'s doc comment on why this third mount point exists at
+  // all. Safe to call unconditionally here (unlike inside `AppShell` itself): this component is
+  // reached only as a route element, always inside a `Router`, never mounted bare in a test the way
+  // `AppShell` deliberately still must be (that file's own doc comment on `SignupPage`'s test).
+  const location = useLocation();
   const queueMatch = useMatch("/");
   const conversationMatch = useMatch("/conversations/:conversationId");
   // `23-31`: found live while moving `/admin` to `/conversations/all` - `useMatch` matches a
@@ -126,7 +133,15 @@ export function OperatorShell() {
           />
         }
       >
-        <Outlet />
+        {/* `23-41`: `key={location.pathname}` is what makes this reset on navigation. `AppShell`
+            mounts once for the whole signed-in session - only what `<Outlet />` resolves to changes
+            underneath it - so without a key tied to the route, a boundary tripped by one screen
+            would keep rendering its fallback after the operator had already navigated to a screen
+            that works fine. Changing the `key` unmounts and remounts the boundary, which is what
+            clears `state.error` back to `null`. */}
+        <RenderErrorBoundary key={location.pathname} fallback={(_error, reset) => <RenderErrorAlert onRetry={reset} />}>
+          <Outlet />
+        </RenderErrorBoundary>
       </AppShell>
     </StringsProvider>
   );

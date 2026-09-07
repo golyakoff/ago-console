@@ -17,6 +17,15 @@ export interface ConsoleStrings {
    * mobile breakpoint, and icon-only even there (`.ago-shell__menu-icon` carries no text), so this
    * is the one thing a screen-reader user is told about it beyond its role. */
   navOpenMenu: string;
+  /** `23-41`: `RenderErrorBoundary.tsx`'s own `RenderErrorAlert` - the one fallback rendered at every
+   * one of its three mount points (`main.tsx`, `AppShell`/`CenteredShell`, `OperatorShell`'s
+   * `<Outlet />`) when a descendant throws during render instead of blanking the whole console. */
+  renderErrorTitle: string;
+  /** Says what is actually known (a shape mismatch, not "an unexpected error") and stays true
+   * whether this fired at the root or around one routed screen - see `RenderErrorBoundary.tsx`'s own
+   * doc comment for why the wording deliberately claims nothing about scope. */
+  renderErrorMessage: string;
+  renderErrorRetryButton: string;
   /** `23-31`: the "Диалоги" section's own header text - also reused, unchanged, as this section's
    * accordion label in `consoleNav.ts`. */
   navConversations: string;
