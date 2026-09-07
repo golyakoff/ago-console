@@ -78,7 +78,17 @@ const configuration: TenantConfiguration = {
     { calendarId: "cal-1", name: "Main", timeZone: "UTC", isPublished: true, workerIds: ["w1"], workingHours: [] },
   ],
   workers: [{ workerId: "w1", displayName: "Alex Doe", isActive: true, serviceIds: [] }],
-  services: [{ serviceId: "s1", name: "Haircut", durationMinutes: 45 }],
+  services: [
+    {
+      serviceId: "s1",
+      name: "Haircut",
+      durationMinutes: 45,
+      priceMinorUnits: null,
+      priceCurrencyCode: null,
+      priceIsFrom: false,
+      description: null,
+    },
+  ],
 };
 
 function slot(overrides: Partial<WorkerSlot> = {}): WorkerSlot {

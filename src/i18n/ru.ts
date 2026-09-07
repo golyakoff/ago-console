@@ -980,6 +980,10 @@ export const ru: ConsoleStrings = {
   calendarSetupServiceNameLabel: "Название услуги",
   calendarSetupServiceDurationLabel: "Длительность (минуты)",
   calendarSetupAddServiceButton: "Добавить услугу",
+  calendarSetupServicePriceLabel: "Цена (₽)",
+  calendarSetupServicePricePlaceholder: "Цена не указана",
+  calendarSetupServicePriceFromLabel: "Цена «от» (зависит от мастера или объёма работы)",
+  calendarSetupServiceDescriptionLabel: "Описание",
   calendarSetupWorkingHoursTitle: "Рабочие часы",
   calendarSetupWorkingHoursDescription: 
     "Настенные часы в собственном часовом поясе календаря - «мы открываемся в девять», а не момент " +

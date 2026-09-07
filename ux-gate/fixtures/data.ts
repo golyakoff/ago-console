@@ -484,7 +484,19 @@ export function seededCalendarConfiguration() {
       },
     ],
     workers: [{ workerId: CALENDAR_WORKER_ID, displayName: "Иванова А. П.", isActive: true, serviceIds: [] }],
-    services: [{ serviceId: "dddddddd-cccc-4ccc-8ccc-cccccccccccc", name: "Стрижка", durationMinutes: 45 }],
+    // `23-35`: priced and described, not left null - the gate's own "screens that later earn
+    // coverage" growth now exercises the real render path for both fields, not only their absence.
+    services: [
+      {
+        serviceId: "dddddddd-cccc-4ccc-8ccc-cccccccccccc",
+        name: "Стрижка",
+        durationMinutes: 45,
+        priceMinorUnits: 150000,
+        priceCurrencyCode: "RUB",
+        priceIsFrom: true,
+        description: "Классическая мужская стрижка машинкой и ножницами.",
+      },
+    ],
   };
 }
 
