@@ -718,6 +718,33 @@ export const ru: ConsoleStrings = {
   teamChatRemoveConfirmButton: "Удалить сообщение",
   teamChatRemoveError: "Не удалось удалить сообщение. Попробуйте ещё раз.",
 
+  telegramChannelTitle: "Бот Telegram",
+  telegramChannelDescription: "Подключите свой бот в Telegram, чтобы посетители могли писать ему, а ваша команда отвечала отсюда.",
+  telegramChannelForbidden: "У вас нет прав на управление каналами этого сайта.",
+  telegramChannelLoadError: "Не удалось проверить канал Telegram. Попробуйте перезагрузить страницу.",
+  telegramChannelLoadingLabel: "Проверяем канал Telegram…",
+  telegramChannelPanelTitle: "Бот Telegram",
+  telegramChannelNotConnectedBody:
+    "Вставьте токен бота, который выдал BotFather при создании бота. AGO проверит его в Telegram, прежде чем сохранить.",
+  telegramChannelTokenFieldLabel: "Токен бота",
+  telegramChannelTokenFieldDescription: "После сохранения больше нигде не показывается.",
+  telegramChannelConnectButton: "Подключить",
+  telegramChannelConnectingButton: "Подключаем…",
+  telegramChannelConnectError: "Не удалось подключить бота. Попробуйте ещё раз.",
+  telegramChannelConnectedSinceLabel: "Подключено с",
+  telegramChannelVerifiedBadge: "Подключено",
+  telegramChannelUnverifiedBadge: "Не отвечает",
+  telegramChannelUnverifiedBody: "Telegram ответил:",
+  telegramChannelUnreachableBadge: "Не удалось проверить",
+  telegramChannelUnreachableBody: "AGO не удалось связаться с Telegram прямо сейчас. Это не значит, что токен неверный — попробуйте ещё раз через минуту.",
+  telegramChannelCheckedAtLabel: "Проверено",
+  telegramChannelDisconnectButton: "Отключить",
+  telegramChannelDisconnectDialogTitle: "Отключить этого бота?",
+  telegramChannelDisconnectDialogBody:
+    "Бот сразу перестанет доставлять сообщения. Вы можете подключить его — или другого бота — снова в любой момент.",
+  telegramChannelDisconnectConfirmButton: "Отключить",
+  telegramChannelDisconnectError: "Не удалось отключить бота. Попробуйте ещё раз.",
+
   navAnalytics: "Аналитика",
   analyticsPageDescription:
     "Как работает ваш сайт: количество диалогов, среднее время до первого ответа и диалоги, " +

@@ -82,8 +82,8 @@ export interface ConsoleStrings {
   navTeamChat: string;
   /** `23-31`: a reserved place - the MAX channel has an adapter since `14-02` but no console screen. */
   navChannelsMax: string;
-  /** `23-31`: a reserved place - the Telegram channel has an adapter since `14-07` but no console
-   * screen. */
+  /** `23-31` drew this as a reserved place; `23-36` gives it a real screen (`TelegramChannelPage`,
+   * `/channels/telegram`) - the section header label for that route in `consoleNav.ts`. */
   navChannelsTelegram: string;
   /** `23-31`: a reserved place for VK/Avito/WhatsApp/email - four adapters, no screen for any of
    * them. */
@@ -1038,6 +1038,59 @@ export interface ConsoleStrings {
   teamChatRemoveDialogBody: string;
   teamChatRemoveConfirmButton: string;
   teamChatRemoveError: string;
+
+  // `23-36`: TelegramChannelPage (`/channels/telegram`) - the first of `23-31`'s three reserved
+  // channel places to become a real screen. Gated on `channel:manage`
+  // (`TELEGRAM_CHANNEL_PERMISSION`), the same dedicated-permission-screen shape
+  // `operatorsTeam*`/`OPERATORS_TEAM_PERMISSION` above already established, reusing
+  // `siteConfigCheckingPermissions`/`accessRefusalGrantHint` from the shared block the way every
+  // other `AccessRefusal` caller does.
+  telegramChannelTitle: string;
+  telegramChannelDescription: string;
+  telegramChannelForbidden: string;
+  telegramChannelLoadError: string;
+  telegramChannelLoadingLabel: string;
+  telegramChannelPanelTitle: string;
+  /** Shown only while `connected` is `false` - explains what to paste and where it comes from. */
+  telegramChannelNotConnectedBody: string;
+  telegramChannelTokenFieldLabel: string;
+  telegramChannelTokenFieldDescription: string;
+  telegramChannelConnectButton: string;
+  telegramChannelConnectingButton: string;
+  /** Fallback only - a real refusal (a bad token, Telegram unreachable) arrives as
+   * `ApiProblemError.message` from `ConversationErrors.ChannelInvalidToken`'s own `detail`, per
+   * `TelegramChannelEndpoints.HandleConnectAsync`'s own remarks on why the `getMe` round trip exists
+   * at all. */
+  telegramChannelConnectError: string;
+  /** `${telegramChannelConnectedSinceLabel} ${date}` - `status.createdAt`, when the credential was
+   * first registered (not when it was last verified - see `telegramChannelCheckedAtLabel` for that). */
+  telegramChannelConnectedSinceLabel: string;
+  /** `adr/0143`: this status is asked of Telegram live, on every load - `verified: true` is what
+   * this badge actually reflects, never `connected` alone. */
+  telegramChannelVerifiedBadge: string;
+  /** Shown when the live check just failed - `status.verified === false` while `status.connected`
+   * is still `true` (the credential row exists; Telegram just refused it). */
+  telegramChannelUnverifiedBadge: string;
+  /** `${telegramChannelUnverifiedBody} ${status.refusalReason}` - Telegram's own refusal text,
+   * appended verbatim, never paraphrased (`23-36`'s own brief: "show what the provider said"). */
+  telegramChannelUnverifiedBody: string;
+  /** `adr/0143`: shown instead of `telegramChannelVerifiedBadge`/`telegramChannelUnverifiedBadge` when
+   * `status.unreachable` - the live check itself could not complete (a 5-second server-side bound, or
+   * a transient failure reaching Telegram), never confused with a refusal. */
+  telegramChannelUnreachableBadge: string;
+  /** The body text under `telegramChannelUnreachableBadge` - explicitly "try again", never "get a new
+   * token", because nothing about the token itself is known in this state. */
+  telegramChannelUnreachableBody: string;
+  /** `${telegramChannelCheckedAtLabel} ${time}` - `status.checkedAt`, this load's own live check,
+   * distinct from `telegramChannelConnectedSinceLabel` above. */
+  telegramChannelCheckedAtLabel: string;
+  telegramChannelDisconnectButton: string;
+  telegramChannelDisconnectDialogTitle: string;
+  /** States the consequence directly, the same `operatorsTeamRemoveDialogBody`/`teamChatRemoveDialogBody`
+   * precedent - disconnecting stops delivery immediately, it does not just hide the row. */
+  telegramChannelDisconnectDialogBody: string;
+  telegramChannelDisconnectConfirmButton: string;
+  telegramChannelDisconnectError: string;
 
   // `18-08`: OperatorAnalyticsPage (`/analytics`) - the site owner's own basic self-service report,
   // gated on `site:configure` the same way `SearchConversationsPage`/`AdminConversationsPage` already
