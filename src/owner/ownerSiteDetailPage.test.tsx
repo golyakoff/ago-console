@@ -101,10 +101,19 @@ function detail(overrides: Partial<OwnerSiteDetail> = {}): OwnerSiteDetail {
   };
 }
 
+let writeTextMock: ReturnType<typeof vi.fn>;
+
 beforeEach(() => {
   vi.clearAllMocks();
   tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [] });
   operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: [], siteId: null });
+  // `23-94`: the same "jsdom has no Clipboard API, every real browser this console ships to does"
+  // stand-in `InstallSnippetPage.test.tsx`'s own setup already establishes for its own copy button.
+  writeTextMock = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", {
+    value: { writeText: writeTextMock },
+    configurable: true,
+  });
 });
 
 afterEach(async () => {
@@ -381,6 +390,102 @@ describe("the site detail page's own grant form", () => {
 
     expect(container.textContent).toContain("already registered to module 'faq'");
     expect(ownerApi.fetchOwnerSiteDetail).toHaveBeenCalledTimes(1);
+  });
+
+  // `23-94`: the credential field's own "Generate" control - a key-shaped field must not make the
+  // platform owner go find a terminal. `input[autocomplete="off"]` is this form's only field with that
+  // attribute, so it identifies the credential input whether it is currently masked (`type="password"`,
+  // before anything is generated) or in the clear (`type="text"`, after).
+  describe("the credential field's own Generate/Copy controls", () => {
+    it("starts masked, with no Copy control offered yet", async () => {
+      ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
+
+      const container = await render(shellAt());
+
+      const credentialInput = one<HTMLInputElement>(container, 'input[autocomplete="off"]');
+      expect(credentialInput.type).toBe("password");
+      expect(byText<HTMLButtonElement>(container, "button", "Copy")).toBeNull();
+    });
+
+    /** `23-94`'s own headline claim: generating is not the same as saving. This follows one generated
+     * value all the way from the click to the exact object `grantOwnerModule` is called with - not
+     * merely that *a* value was generated, but that it survived unchanged through render, through
+     * `.trim()` in `handleGrantSubmit`, into the request body. */
+    it("puts the generated value in the clear, and that exact value reaches the request body", async () => {
+      ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
+      ownerApi.grantOwnerModule.mockResolvedValue({
+        status: "ok",
+        module: { moduleKey: "calendar", triggerWords: ["/booking"], entryPoint: "https://calendar.example.com", expiresAt: null },
+      });
+
+      const container = await render(shellAt());
+      await setInput(one<HTMLInputElement>(container, 'input[placeholder="calendar"]'), "calendar");
+      await setInput(one<HTMLInputElement>(container, 'input[placeholder="/booking"]'), "/booking");
+
+      await interact(() => byText<HTMLButtonElement>(container, "button", "Generate").click());
+
+      const credentialInput = one<HTMLInputElement>(container, 'input[autocomplete="off"]');
+      expect(credentialInput.type).toBe("text");
+      const generatedValue = credentialInput.value;
+      expect(generatedValue.length).toBeGreaterThanOrEqual(16);
+
+      const label = byText<HTMLLabelElement>(container, "label", "Never expires");
+      await interact(() => one<HTMLInputElement>(label, 'input[type="radio"]').click());
+      await interact(() => byText<HTMLButtonElement>(container, "button", "Grant module").click());
+
+      expect(ownerApi.grantOwnerModule).toHaveBeenCalledWith(
+        "token",
+        SITE_ID,
+        expect.objectContaining({ credential: generatedValue }),
+      );
+    });
+
+    it("regenerating replaces the value shown - the field never holds two generations at once", async () => {
+      ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
+
+      const container = await render(shellAt());
+
+      await interact(() => byText<HTMLButtonElement>(container, "button", "Generate").click());
+      const first = one<HTMLInputElement>(container, 'input[autocomplete="off"]').value;
+
+      await interact(() => byText<HTMLButtonElement>(container, "button", "Generate").click());
+      const second = one<HTMLInputElement>(container, 'input[autocomplete="off"]').value;
+
+      expect(second).not.toBe(first);
+    });
+
+    it("copies exactly the value currently shown, and confirms it", async () => {
+      ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
+
+      const container = await render(shellAt());
+      await interact(() => byText<HTMLButtonElement>(container, "button", "Generate").click());
+      const generatedValue = one<HTMLInputElement>(container, 'input[autocomplete="off"]').value;
+
+      await interact(() => byText<HTMLButtonElement>(container, "button", "Copy").click());
+
+      expect(writeTextMock).toHaveBeenCalledWith(generatedValue);
+      expect(byText<HTMLButtonElement>(container, "button", "Copied")).not.toBeNull();
+    });
+
+    it("typing a credential by hand still works, and never reveals the field", async () => {
+      ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
+      ownerApi.grantOwnerModule.mockResolvedValue({
+        status: "ok",
+        module: { moduleKey: "calendar", triggerWords: ["/booking"], entryPoint: "https://calendar.example.com", expiresAt: null },
+      });
+
+      const container = await render(shellAt());
+      await fillGrantForm(container, { chooseExpiry: "never" });
+      await interact(() => byText<HTMLButtonElement>(container, "button", "Grant module").click());
+
+      expect(ownerApi.grantOwnerModule).toHaveBeenCalledWith(
+        "token",
+        SITE_ID,
+        expect.objectContaining({ credential: "a-shared-secret-of-sixteen-plus-chars" }),
+      );
+      // Never generated, so still masked and with nothing to copy - `fillGrantForm` only ever types.
+      expect(one<HTMLInputElement>(container, 'input[autocomplete="off"]').type).toBe("password");
+    });
   });
 });
 

@@ -26,6 +26,7 @@ import { Spinner } from "../components/Spinner.js";
 import { Table, type TableColumn } from "../components/Table.js";
 import { Textarea } from "../components/Textarea.js";
 import { parseTriggerWords } from "../pages/moduleConfigValidation.js";
+import { generateModuleCredential } from "./generateModuleCredential.js";
 import { formatAbsolute, formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
 import {
   describeRecentWindow,
@@ -94,6 +95,12 @@ export function OwnerSiteDetailPage() {
   const [moduleKeyInput, setModuleKeyInput] = useState("");
   const [triggerWordsInput, setTriggerWordsInput] = useState("");
   const [credentialInput, setCredentialInput] = useState("");
+  // `23-94`: whether the credential field currently shows its value in the clear. Starts hidden
+  // (`type="password"`, matching the field's own "never shown again once saved" description) and
+  // switches to visible only once a value has actually been generated - typing one's own credential by
+  // hand keeps the field masked, exactly as before this item.
+  const [credentialRevealed, setCredentialRevealed] = useState(false);
+  const [credentialCopied, setCredentialCopied] = useState(false);
   const [expiryChoice, setExpiryChoice] = useState<ExpiryChoice>("unset");
   const [expiryDateInput, setExpiryDateInput] = useState("");
   const [grantError, setGrantError] = useState<string | null>(null);
@@ -240,6 +247,25 @@ export function OwnerSiteDetailPage() {
       });
   };
 
+  // `23-94`: mints a fresh, high-entropy value and puts it straight into the field the form will
+  // actually submit - the same `credentialInput` state `handleGrantSubmit` below reads, never a
+  // separate "generated value" the form has to be told to adopt. That is what keeps generating and
+  // saving the same act: there is no second place for the two to drift apart.
+  const handleGenerateCredential = () => {
+    setCredentialInput(generateModuleCredential());
+    setCredentialRevealed(true);
+    setCredentialCopied(false);
+  };
+
+  // `23-94`: this is the one moment the value can be seen at all - the field is masked again the
+  // instant the page is left or the grant succeeds, and the server never echoes a credential back
+  // (`OwnerModuleEndpoints.GrantModuleRequest`'s own remarks). Copying it here is the platform owner's
+  // only chance to record it somewhere else, if they need to.
+  const handleCopyCredential = () => {
+    void navigator.clipboard.writeText(credentialInput);
+    setCredentialCopied(true);
+  };
+
   // `23-65`: the grant form's own submit. Client-side validation mirrors
   // `moduleConfigValidation.ts`'s own floor (well-formed, non-empty) - the server is still the real
   // gate on everything else (reserved/conflicting trigger words, entry-point reachability, expiry
@@ -306,6 +332,8 @@ export function OwnerSiteDetailPage() {
           setModuleKeyInput("");
           setTriggerWordsInput("");
           setCredentialInput("");
+          setCredentialRevealed(false);
+          setCredentialCopied(false);
           setExpiryChoice("unset");
           setExpiryDateInput("");
           // Re-read rather than splice a locally-built row in - `outcome.module` carries no
@@ -694,14 +722,32 @@ export function OwnerSiteDetailPage() {
                 )}
               </Field>
 
-              <Field label="Credential" description="The module's own per-site credential. Never shown again once saved.">
+              <Field
+                label="Credential"
+                description="The module's own per-site credential. Generate a random one, or paste your own - never shown again once saved, so copy it now if you need to record it elsewhere."
+                adornment={
+                  <>
+                    <Button onClick={handleGenerateCredential} disabled={grantSubmitting}>
+                      Generate
+                    </Button>
+                    {credentialRevealed && credentialInput.length > 0 && (
+                      <Button onClick={handleCopyCredential} disabled={grantSubmitting}>
+                        {credentialCopied ? "Copied" : "Copy"}
+                      </Button>
+                    )}
+                  </>
+                }
+              >
                 {(controlProps) => (
                   <Input
                     {...controlProps}
-                    type="password"
+                    type={credentialRevealed ? "text" : "password"}
                     autoComplete="off"
                     value={credentialInput}
-                    onChange={(event) => setCredentialInput(event.target.value)}
+                    onChange={(event) => {
+                      setCredentialInput(event.target.value);
+                      setCredentialCopied(false);
+                    }}
                     disabled={grantSubmitting}
                   />
                 )}
