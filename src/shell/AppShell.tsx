@@ -6,6 +6,7 @@ import { Dialog } from "../components/Dialog.js";
 import { config } from "../config.js";
 import { ThemeToggle } from "../design/ThemeToggle.js";
 import { useStrings } from "../i18n/StringsContext.js";
+import { RenderErrorAlert, RenderErrorBoundary } from "./RenderErrorBoundary.js";
 
 /**
  * `12-04`: who the notice below is talking to. Two values, because the demo console has exactly two
@@ -572,7 +573,13 @@ export function AppShell({
               .join(" ")}
             id="ago-main"
           >
-            {children}
+            {/* `23-41`: see `RenderErrorBoundary.tsx`'s own doc comment for why this is one of its
+                three mount points - every route in the console reaches this `<main>` through here or
+                the `!hasNav` branch below, so wrapping it once is what a future screen inherits for
+                free rather than something it has to opt into. */}
+            <RenderErrorBoundary fallback={(_error, reset) => <RenderErrorAlert onRetry={reset} />}>
+              {children}
+            </RenderErrorBoundary>
           </main>
         </div>
       ) : (
@@ -582,7 +589,9 @@ export function AppShell({
             .join(" ")}
           id="ago-main"
         >
-          {children}
+          <RenderErrorBoundary fallback={(_error, reset) => <RenderErrorAlert onRetry={reset} />}>
+            {children}
+          </RenderErrorBoundary>
         </main>
       )}
     </div>
@@ -693,7 +702,11 @@ export function CenteredShell({ children }: { children: ReactNode }) {
         <PublicDemoNotice credentialsArePublished={false} />
       </div>
       <main className="ago-shell__centered" id="ago-main">
-        {children}
+        {/* `23-41`: the same mount point as `AppShell`'s own `<main>` above, for the handful of
+            pre-session screens (`CallbackPage`) that use this shell instead. */}
+        <RenderErrorBoundary fallback={(_error, reset) => <RenderErrorAlert onRetry={reset} />}>
+          {children}
+        </RenderErrorBoundary>
       </main>
     </div>
   );

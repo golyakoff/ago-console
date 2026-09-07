@@ -6,6 +6,11 @@ export const en: ConsoleStrings = {
   skipToContent: "Skip to content",
   navSectionsAriaLabel: "Console sections",
   navOpenMenu: "Open navigation menu",
+  renderErrorTitle: "This didn't load",
+  renderErrorMessage:
+    "Something did not arrive in the shape this screen expected, so it could not be shown. Try " +
+    "again - if it keeps happening, reload the page.",
+  renderErrorRetryButton: "Try again",
   navConversations: "Conversations",
   navMyConversations: "Mine",
   navAllConversations: "All conversations",
