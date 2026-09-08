@@ -3,7 +3,13 @@ import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
-import { getConfiguration, getWorkerSlots, type TenantConfiguration, type WorkerSlot } from "../api/calendarApi.js";
+import {
+  getConfiguration,
+  getWorkerSlots,
+  revealCustomerPhone,
+  type TenantConfiguration,
+  type WorkerSlot,
+} from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { renderCustomer, renderPhone, slotStatusLabel, weekdayNames } from "../calendar/calendarFormat.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
@@ -51,6 +57,11 @@ function formatLocalTime(iso: string, timeZone: string | undefined): string {
  *
  * <b>Local times are the calendar's own zone, not this browser's.</b> Unchanged.
  *
+ * `23-30`/`23-12`: a masked phone gets a Reveal button (`renderPhone`'s own doc comment) rather than
+ * a rendered number - `handleReveal` replaces every row for the revealed customer in place, from the
+ * server's own response, the same "never unmasked client-side" discipline `ContactDetailsPanel`
+ * established for chat's own contact details.
+ *
  * One simplification from the source screen: the visual "these rows are one multi-slot booking"
  * border grouping (`bookingGroupClassName`) is dropped rather than ported - it depended on the source
  * console's own bespoke stylesheet, which this rewrite does not carry over (`WorkersTable.tsx`'s own
@@ -67,6 +78,9 @@ export function CalendarWorkerSlotsPage() {
   const [slots, setSlots] = useState<WorkerSlot[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState(defaultRange);
+  // `23-30`: which customer's own Reveal is in flight, if any - `ContactDetailsPanel`'s
+  // `revealingId`, keyed on `customerId` rather than a row id (`RevealControl`'s own doc comment).
+  const [revealingCustomerId, setRevealingCustomerId] = useState<string | null>(null);
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
@@ -147,6 +161,27 @@ export function CalendarWorkerSlotsPage() {
       ? `${strings.calendarSlotsHeadingPrefix}${worker.displayName}${strings.calendarSlotsHeadingSuffix}`
       : strings.calendarSlotsHeadingFallback;
 
+  // `23-30`: replaces every row for this customer with the server's own unmasked phone - never the
+  // string this component already holds. `WorkerSlot`'s own `masked`/`phone` are what render checks,
+  // so once these are updated the Reveal button simply stops being drawn (`renderPhone`'s own logic).
+  const handleReveal = async (customerId: string) => {
+    const accessToken = user?.access_token;
+    if (!accessToken) {
+      return;
+    }
+
+    setRevealingCustomerId(customerId);
+    setError(null);
+    try {
+      const { phone } = await revealCustomerPhone(accessToken, customerId, "ConsoleWorkerSlots");
+      setSlots((prev) => prev?.map((row) => (row.customerId === customerId ? { ...row, phone, masked: false } : row)) ?? prev);
+    } catch (reason) {
+      setError(calendarErrorMessage(reason, strings));
+    } finally {
+      setRevealingCustomerId(null);
+    }
+  };
+
   const columns: TableColumn<WorkerSlot>[] = [
     { key: "date", header: strings.calendarSlotsColumnDate, render: (slot) => slot.localDate },
     { key: "weekday", header: strings.calendarSlotsColumnWeekday, render: (slot) => weekdays[slot.weekday] },
@@ -162,7 +197,11 @@ export function CalendarWorkerSlotsPage() {
       render: (slot) => slot.serviceName ?? <span className="ago-meta">—</span>,
     },
     { key: "customer", header: strings.calendarSlotsColumnCustomer, render: (slot) => renderCustomer(slot, strings) },
-    { key: "phone", header: strings.calendarSlotsColumnPhone, render: (slot) => renderPhone(slot, strings) },
+    {
+      key: "phone",
+      header: strings.calendarSlotsColumnPhone,
+      render: (slot) => renderPhone(slot, strings, { revealingCustomerId, onReveal: (id) => void handleReveal(id) }),
+    },
   ];
 
   return (

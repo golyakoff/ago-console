@@ -46,6 +46,7 @@ import { CalendarWorkerRecutPage } from "./pages/CalendarWorkerRecutPage.js";
 import { CalendarAvailabilityPage } from "./pages/CalendarAvailabilityPage.js";
 import { CalendarContactsPage } from "./pages/CalendarContactsPage.js";
 import { CalendarBookingsPage } from "./pages/CalendarBookingsPage.js";
+import { CalendarPhoneRevealsPage } from "./pages/CalendarPhoneRevealsPage.js";
 
 /**
  * `23-31`: a moved drill-down route (`:workerId/slots`, `:workerId/recut` - neither has a nav entry
@@ -374,6 +375,11 @@ export function App() {
         <Route path="/calendar/masters/:workerId/recut" element={<CalendarWorkerRecutPage />} />
         <Route path="/calendar/schedule" element={<CalendarAvailabilityPage />} />
         <Route path="/calendar/clients" element={<CalendarContactsPage />} />
+        {/* `23-30`/`23-12`: the reveal audit trail - gated on `calendar:configure` like the setup
+            screens, deliberately wider than the reveal action itself (`CalendarPhoneRevealsPage`'s
+            own doc comment). `buildCalendarItems` in `consoleNav.ts` draws this entry only in the
+            full-access branch. */}
+        <Route path="/calendar/phone-reveals" element={<CalendarPhoneRevealsPage />} />
 
         {/* --- `23-31`: redirects for every moved address - eighteen genuine dead-address cases (the
             nineteenth, `/calendar/setup`, is not one - this file's own doc comment above has the

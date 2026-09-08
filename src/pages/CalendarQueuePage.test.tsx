@@ -36,6 +36,7 @@ const calendarApi = vi.hoisted(() => ({
   rejectBooking: vi.fn(),
   cancelBooking: vi.fn(),
   markNoShow: vi.fn(),
+  revealCustomerPhone: vi.fn(),
 }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
@@ -95,6 +96,7 @@ function booking(
     confirmationDeadline,
     isOverdue,
     phone,
+    masked: false,
   };
 }
 
@@ -228,5 +230,63 @@ describe("the pending-bookings queue", () => {
 
     expect(container.textContent).toContain("Nothing is waiting.");
     expect(container.querySelector("table")).toBeNull();
+  });
+});
+
+/** `23-30`/`23-12`: a masked phone gets a Reveal button, never the real number, until the server's
+ * own reveal response arrives - `ContactDetailsPanel.test.tsx`'s own approach to proving this,
+ * applied to the queue. */
+describe("revealing a masked phone (23-30)", () => {
+  const maskedBooking = {
+    bookingId: "b6",
+    calendarId: "cal-1aaa",
+    workerId: "w1",
+    serviceId: "s1",
+    customerId: "c1",
+    startsAt: "2026-05-05T09:00:00+00:00",
+    endsAt: "2026-05-05T09:00:00+00:00",
+    localDate: "2026-05-05",
+    confirmationDeadline: "2026-05-05T08:15:00+00:00",
+    isOverdue: false,
+    phone: "+7999•••0001",
+    masked: true,
+  };
+
+  it("shows the masked value and a Reveal button, never the real number, before reveal", async () => {
+    calendarApi.getPendingBookings.mockResolvedValue([maskedBooking]);
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("+7999•••0001");
+    expect(container.textContent).not.toContain("+79990000001");
+    expect(byText(container, "button", "Reveal")).not.toBeNull();
+  });
+
+  it("replaces the masked row with the server's own unmasked response on Reveal", async () => {
+    calendarApi.getPendingBookings.mockResolvedValue([maskedBooking]);
+    calendarApi.revealCustomerPhone.mockResolvedValue({ phone: "+79990000001" });
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Reveal")?.click());
+
+    expect(calendarApi.revealCustomerPhone).toHaveBeenCalledWith("token", "c1", "ConsoleQueue");
+    expect(container.textContent).toContain("+79990000001");
+    expect(container.textContent).not.toContain("+7999•••0001");
+    expect(byText(container, "button", "Reveal")).toBeNull();
+  });
+
+  it("shows an error and keeps the row masked when the reveal fails", async () => {
+    calendarApi.getPendingBookings.mockResolvedValue([maskedBooking]);
+    const { CalendarApiError } = await import("../api/calendarApi.js");
+    calendarApi.revealCustomerPhone.mockRejectedValue(
+      new CalendarApiError("contacts.customer_not_found", "Customer c1 does not exist in this tenant.", 404),
+    );
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Reveal")?.click());
+
+    expect(container.textContent).toContain("Customer c1 does not exist in this tenant.");
+    expect(container.textContent).toContain("+7999•••0001");
+    expect(container.textContent).not.toContain("+79990000001");
   });
 });

@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
-import { getContacts, type Contact } from "../api/calendarApi.js";
+import { getContacts, revealCustomerPhone, type Contact } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
+import { renderPhone, type RevealControl } from "../calendar/calendarFormat.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
+import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
 import { Alert } from "../components/Alert.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
@@ -26,6 +28,11 @@ import { formatAbsolute, formatDateStamp, parseInstant, resolveTimeZone } from "
  * page underneath it. `CalendarBookingsPage`'s own `23-34` gate is the precedent this follows:
  * `consoleNav.ts`'s `buildCalendarItems` draws this entry for the same `customer:read` check, so the
  * page has to accept what the nav promises.
+ *
+ * `23-30`/`23-12`: a masked phone gets a Reveal button (`renderPhone`'s own doc comment), and two
+ * more columns show `phoneVerifiedAt`/`phoneConfirmedByOperatorAt` as separate badges with different
+ * tones - `decisions.md` §5: "'I called and it is them' is a different fact from an SMS code", so
+ * this report never collapses the two into one generic "verified" state.
  */
 export function CalendarContactsPage() {
   const { user } = useAuth();
@@ -34,6 +41,9 @@ export function CalendarContactsPage() {
   const timeZone = useMemo(() => resolveTimeZone(), []);
   const [contacts, setContacts] = useState<Contact[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // `23-30`: which customer's own Reveal is in flight, if any - `CalendarWorkerSlotsPage`'s own
+  // identical state.
+  const [revealingCustomerId, setRevealingCustomerId] = useState<string | null>(null);
   const canViewContacts = hasPermission("calendar:configure") || hasPermission("customer:read");
 
   const reload = useCallback(
@@ -102,8 +112,31 @@ export function CalendarContactsPage() {
     );
   }
 
+  // `23-30`: replaces every row for this customer with the server's own unmasked phone - `Contact`
+  // rows are keyed one-per-customer already (`getContacts`' own shape), so this is a plain match on
+  // `customerId`, the identical replacement `CalendarWorkerSlotsPage.handleReveal` uses.
+  const handleReveal = async (customerId: string) => {
+    const accessToken = user?.access_token;
+    if (!accessToken) {
+      return;
+    }
+
+    setRevealingCustomerId(customerId);
+    setError(null);
+    try {
+      const { phone } = await revealCustomerPhone(accessToken, customerId, "ConsoleContacts");
+      setContacts((prev) => prev?.map((row) => (row.customerId === customerId ? { ...row, phone, masked: false } : row)) ?? prev);
+    } catch (reason) {
+      setError(calendarErrorMessage(reason, strings));
+    } finally {
+      setRevealingCustomerId(null);
+    }
+  };
+
+  const reveal: RevealControl = { revealingCustomerId, onReveal: (id) => void handleReveal(id) };
+
   const columns: TableColumn<Contact>[] = [
-    { key: "phone", header: strings.calendarContactsColumnPhone, render: (contact) => contact.phone },
+    { key: "phone", header: strings.calendarContactsColumnPhone, render: (contact) => renderPhone(contact, strings, reveal) },
     {
       key: "name",
       header: strings.calendarContactsColumnName,
@@ -111,6 +144,40 @@ export function CalendarContactsPage() {
     },
     { key: "notes", header: strings.calendarContactsColumnNotes, render: (contact) => contact.notes ?? <span className="ago-meta">—</span> },
     { key: "noShows", header: strings.calendarContactsColumnNoShows, render: (contact) => contact.noShowCount, align: "end" },
+    {
+      // `23-30`/`decisions.md` §5: the SMS-code fact - `tone="success"`, the same tone
+      // `ContactDetailsPanel`'s own `verified` badge uses, since this is the identical strength of
+      // evidence (a code the visitor actually received and typed back).
+      key: "phoneVerified",
+      header: strings.calendarContactsColumnPhoneVerified,
+      render: (contact) => {
+        const instant = parseInstant(contact.phoneVerifiedAt);
+        return instant === null ? (
+          <Badge tone="neutral">{strings.calendarContactsNotVerifiedLabel}</Badge>
+        ) : (
+          <Badge tone="success" dot>
+            <span title={formatAbsolute(instant, timeZone, strings)}>{strings.calendarContactsVerifiedLabel}</span>
+          </Badge>
+        );
+      },
+    },
+    {
+      // `23-30`/`decisions.md` §5: "I called and it is them" - a weaker, human-asserted fact, given
+      // `tone="accent"` rather than `"success"` so it never reads as the same strength as the code
+      // badge beside it.
+      key: "phoneConfirmed",
+      header: strings.calendarContactsColumnPhoneConfirmed,
+      render: (contact) => {
+        const instant = parseInstant(contact.phoneConfirmedByOperatorAt);
+        return instant === null ? (
+          <Badge tone="neutral">{strings.calendarContactsNotConfirmedLabel}</Badge>
+        ) : (
+          <Badge tone="accent">
+            <span title={formatAbsolute(instant, timeZone, strings)}>{strings.calendarContactsConfirmedLabel}</span>
+          </Badge>
+        );
+      },
+    },
     {
       key: "firstSeen",
       header: strings.calendarContactsColumnFirstSeen,

@@ -7,10 +7,12 @@ import {
   getPendingBookings,
   markNoShow,
   rejectBooking,
+  revealCustomerPhone,
   type PendingBooking,
 } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
+import { renderPhone, type RevealControl } from "../calendar/calendarFormat.js";
 import { hasAnyBookingActionPermission } from "../calendar/calendarPermissions.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
@@ -46,6 +48,11 @@ import { formatAbsolute, formatClockTime, parseInstant, resolveTimeZone } from "
  *
  * <b>Overdue rows are shown, loudly, rather than hidden.</b> Unchanged from the source - a broken
  * confirmation sweep must stay visible to the one person who can notice it.
+ *
+ * `23-30`/`23-12`: the phone column now shares `calendarFormat.tsx`'s own `renderPhone` with the
+ * worker-slots and re-cut screens, rather than a bespoke null check - a masked, non-null phone gets a
+ * Reveal button, and `handleReveal` replaces every row for that customer in place from the server's
+ * own response.
  */
 export function CalendarQueuePage() {
   const { user } = useAuth();
@@ -55,6 +62,9 @@ export function CalendarQueuePage() {
   const [rows, setRows] = useState<PendingBooking[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // `23-30`: which customer's own Reveal is in flight, if any - `CalendarWorkerSlotsPage`'s own
+  // identical state.
+  const [revealingCustomerId, setRevealingCustomerId] = useState<string | null>(null);
   const canViewQueue = hasPermission("calendar:configure") || hasAnyBookingActionPermission(hasPermission);
 
   const reload = useCallback(
@@ -148,6 +158,29 @@ export function CalendarQueuePage() {
     }
   };
 
+  // `23-30`: replaces every row for this customer with the server's own unmasked phone - `PendingBooking`
+  // rows are always keyed by a real, non-null `customerId` (a booking always has a customer), so this
+  // is the same "match by customerId" replacement `CalendarWorkerSlotsPage.handleReveal` uses.
+  const handleReveal = async (customerId: string) => {
+    const accessToken = user?.access_token;
+    if (!accessToken) {
+      return;
+    }
+
+    setRevealingCustomerId(customerId);
+    setError(null);
+    try {
+      const { phone } = await revealCustomerPhone(accessToken, customerId, "ConsoleQueue");
+      setRows((prev) => prev?.map((row) => (row.customerId === customerId ? { ...row, phone, masked: false } : row)) ?? prev);
+    } catch (reason) {
+      setError(calendarErrorMessage(reason, strings));
+    } finally {
+      setRevealingCustomerId(null);
+    }
+  };
+
+  const reveal: RevealControl = { revealingCustomerId, onReveal: (id) => void handleReveal(id) };
+
   const columns: TableColumn<PendingBooking>[] = [
     {
       key: "when",
@@ -175,14 +208,7 @@ export function CalendarQueuePage() {
     {
       key: "phone",
       header: strings.calendarQueueColumnPhone,
-      render: (row) =>
-        row.phone === null ? (
-          <span className="ago-meta" title={strings.calendarHiddenContactTooltip}>
-            {strings.calendarHiddenContactLabel}
-          </span>
-        ) : (
-          row.phone
-        ),
+      render: (row) => renderPhone(row, strings, reveal),
     },
     {
       key: "deadline",

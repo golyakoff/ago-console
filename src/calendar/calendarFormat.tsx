@@ -1,5 +1,6 @@
 import type { ConsoleStrings } from "../i18n/strings.js";
 import type { WorkerSlot } from "../api/calendarApi.js";
+import { Button } from "../components/Button.js";
 
 /**
  * `22-06`: locale-aware rendering helpers shared by the calendar screens - moved from
@@ -74,13 +75,34 @@ export function renderCustomer(
 }
 
 /**
+ * `23-30`: which row's own Reveal is currently in flight (`ContactDetailsPanel`'s `revealingId`, the
+ * identical shape) and the callback a click fires - built once per page, keyed on `customerId` rather
+ * than a row id, because a reveal is per customer (`revealCustomerPhone`'s own parameter), not per
+ * booking or slot: two rows for the same customer reveal, and stay revealed, together.
+ */
+export interface RevealControl {
+  revealingCustomerId: string | null;
+  onReveal: (customerId: string) => void;
+}
+
+/**
  * `20-12`'s own rule, restated for a screen that - unlike the pending queue - has rows with no
  * customer at all: `phone === null` is ambiguous by itself (no customer, or a customer this operator
  * may not see), and `customerId` is what tells the two apart. Rendering "hidden" for a genuinely free
  * slot would be a lie; rendering a blank dash for a withheld one would be indistinguishable from "no
  * phone recorded", which cannot happen (`Ago.Calendar.Domain.Customer.Phone` is never nullable).
+ *
+ * `23-30`/`23-12`: a third, orthogonal state layered on top of those two - `masked`, never inferred
+ * from the string's own shape. A row with a non-null, masked phone gets a Reveal button beside the
+ * masked value; nothing here computes or holds the real number before `onReveal`'s own server round
+ * trip resolves (`revealCustomerPhone`'s own doc comment) - the same "never unmasked client-side"
+ * discipline `ContactDetailsPanel.handleReveal` already established for chat's own contact details.
  */
-export function renderPhone(slot: { customerId: string | null; phone: string | null }, strings: ConsoleStrings) {
+export function renderPhone(
+  slot: { customerId: string | null; phone: string | null; masked: boolean },
+  strings: ConsoleStrings,
+  reveal: RevealControl,
+) {
   if (slot.customerId === null) {
     return <span className="ago-meta">—</span>;
   }
@@ -93,5 +115,19 @@ export function renderPhone(slot: { customerId: string | null; phone: string | n
     );
   }
 
-  return slot.phone;
+  if (!slot.masked) {
+    return slot.phone;
+  }
+
+  const customerId = slot.customerId;
+  const revealing = reveal.revealingCustomerId === customerId;
+
+  return (
+    <span className="ago-row">
+      <span>{slot.phone}</span>
+      <Button size="sm" variant="secondary" disabled={revealing} onClick={() => reveal.onReveal(customerId)}>
+        {revealing ? strings.calendarRevealingPhoneButton : strings.calendarRevealPhoneButton}
+      </Button>
+    </span>
+  );
 }
