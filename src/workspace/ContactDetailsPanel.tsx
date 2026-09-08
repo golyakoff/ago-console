@@ -21,6 +21,11 @@ import { useStrings } from "../i18n/StringsContext.js";
  * closed enum. */
 const CONTACT_DETAIL_KINDS = ["Phone", "Email", "Other"] as const;
 
+/** `23-100`: a sentinel distinct from every real `PromotedContactDraft.token` (a `number`) and from
+ * `undefined` (the "no draft" state) alike - see the render-phase promotion below for why the initial
+ * comparison cannot start at the real token. */
+const NOT_YET_APPLIED = Symbol("contact-draft-not-yet-applied");
+
 /** `23-10`: text an operator selected in the transcript and asked to promote - `Thread`'s own
  * `onPromoteSelection`, relayed unchanged through `ConversationPage`. `token` exists only so this
  * panel's effect can tell "the operator promoted the same text a second time" from "the operator
@@ -106,12 +111,21 @@ export function ContactDetailsPanel({ conversationId, accessToken, contactDraft 
   const [revealingId, setRevealingId] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
-  useEffect(() => {
+  // `23-100`: adjusted during render, not in an effect - `react-hooks/set-state-in-effect` (v7) flags
+  // a synchronous `setState` in an effect body (react.dev/learn/you-might-not-need-an-effect, "Adjusting
+  // some state when a prop changes"); comparing against the previous `conversationId` here does the
+  // same reset one render earlier, with no flash of the previous conversation's details before the
+  // effect used to fire - `VisitorHistoryPanel`'s identical `23-96` conversion is the precedent.
+  const [prevConversationId, setPrevConversationId] = useState(conversationId);
+  if (conversationId !== prevConversationId) {
+    setPrevConversationId(conversationId);
     setDetails(null);
     setLoadError(null);
     setActionError(null);
     setValueDraft("");
+  }
 
+  useEffect(() => {
     if (!accessToken || !hasPermission("conversation:read")) {
       return;
     }
@@ -136,19 +150,42 @@ export function ContactDetailsPanel({ conversationId, accessToken, contactDraft 
 
   // `23-10`: applies a freshly-promoted selection to the draft, keyed on `token` rather than `value`
   // so promoting the same text twice in a row (the operator changes their mind, then promotes the
-  // identical phrase again) still re-focuses the field instead of silently doing nothing the second
-  // time. Deliberately does not depend on `canRecord`: `ConversationPage` only ever passes
+  // identical phrase again) still re-applies instead of silently doing nothing the second time.
+  // Deliberately does not depend on `canRecord`: `ConversationPage` only ever passes
   // `onPromoteSelection` to `Thread` for an operator who already holds `conversation:send`, so a
-  // `contactDraft` reaching this component with the form absent is not a case this effect needs to
-  // guard against - `formRef.current` is simply `null` then, and the focus call below is a no-op.
+  // `contactDraft` reaching this component with the form absent is not a case this needs to guard
+  // against - `formRef.current` is simply `null` then, and the focus call below is a no-op.
+  //
+  // `23-100`: split in two. Setting `kindDraft`/`valueDraft`/`actionError` is adjusted during render,
+  // the same technique as the reset above, keyed on `contactDraft?.token` rather than `conversationId`.
+  // Focusing the field cannot move there - render must stay free of DOM reads/writes, and
+  // `formRef.current` is not populated until after commit - so it stays in a `useEffect`, which no
+  // longer sets any state and so no longer trips the rule.
+  //
+  // `prevContactDraftToken` starts at the `NOT_YET_APPLIED` sentinel, not at `contactDraft?.token` -
+  // unlike the reset above (where "nothing to reset from yet" is the correct starting point), the
+  // original effect applied the promotion on the very first render too, whenever this panel happened
+  // to mount already holding one (`ConversationPage` can pass a non-null `contactDraft` from the start
+  // if a promotion raced the panel's own mount). Starting the comparison at the real token would make
+  // that first application silently never happen; the sentinel guarantees the first render with any
+  // real (or `undefined`) token still counts as a change.
+  const [prevContactDraftToken, setPrevContactDraftToken] = useState<number | undefined | typeof NOT_YET_APPLIED>(
+    NOT_YET_APPLIED,
+  );
+  if (contactDraft?.token !== prevContactDraftToken) {
+    setPrevContactDraftToken(contactDraft?.token);
+    if (contactDraft) {
+      setKindDraft("Phone");
+      setValueDraft(contactDraft.value);
+      setActionError(null);
+    }
+  }
+
   useEffect(() => {
     if (!contactDraft) {
       return;
     }
 
-    setKindDraft("Phone");
-    setValueDraft(contactDraft.value);
-    setActionError(null);
     formRef.current?.querySelector<HTMLInputElement>("input:not([type=hidden])")?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactDraft?.token]);

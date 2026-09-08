@@ -85,6 +85,21 @@ export function OwnerSitesPage() {
 
   const timeZone = useMemo(() => resolveTimeZone(), []);
 
+  // `23-100`: adjusted during render, not in an effect - `react-hooks/set-state-in-effect` (v7) flags
+  // a synchronous `setState` in an effect body (react.dev/learn/you-might-not-need-an-effect, "Adjusting
+  // some state when a prop changes"). Reset to the loading state on every new search, not only on mount
+  // - a stale page from the previous query must not sit on screen while a new one loads (`sites: null`
+  // is what the `Skeleton`/table branch below treats as "loading"). Comparing against the previous
+  // `activeQuery` here does the same reset one render earlier than the effect used to, with no commit
+  // of the stale page in between - `VisitorHistoryPanel`'s identical `23-96` conversion is the
+  // precedent.
+  const [prevActiveQuery, setPrevActiveQuery] = useState(activeQuery);
+  if (activeQuery !== prevActiveQuery) {
+    setPrevActiveQuery(activeQuery);
+    setSites(null);
+    setError(null);
+  }
+
   useEffect(() => {
     if (!accessToken) {
       // `RequireAuth` guarantees a signed-in user by the time this renders - same "reaching here is
@@ -93,11 +108,6 @@ export function OwnerSitesPage() {
     }
 
     let cancelled = false;
-    // Reset to the loading state on every new search, not only on mount - a stale page from the
-    // previous query must not sit on screen while a new one loads (`sites: null` is what
-    // `Skeleton`/table branch below treats as "loading").
-    setSites(null);
-    setError(null);
     fetchOwnerSites(accessToken, undefined, activeQuery)
       .then((outcome) => {
         if (cancelled) {

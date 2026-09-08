@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ContactDetailsPanel, type PromotedContactDraft } from "./ContactDetailsPanel.js";
 import { ApiProblemError } from "../api/problemDetails.js";
 import { PermissionsContext, type PermissionsState } from "../auth/PermissionsContext.js";
-import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
+import { all, byText, flush, interact, one, render, renderSync, unmount } from "../testing/dom.js";
 
 /** `14-14`. The same hand-made-permissions-context shape `ChannelIdentitiesPanel.test.tsx`/
  * `ConversationTagsPanel.test.tsx` already establish. */
@@ -17,6 +17,7 @@ const contactDetailsApi = vi.hoisted(() => ({
 vi.mock("../api/contactDetailsApi.js", () => contactDetailsApi);
 
 const CONVERSATION_ID = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+const OTHER_CONVERSATION_ID = "dddddddd-dddd-dddd-dddd-dddddddddddd";
 const SITE_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 
 function Permitted({ permissions, children }: { permissions: string[]; children: ReactNode }) {
@@ -46,12 +47,16 @@ function setTextValue(element: HTMLInputElement, value: string): void {
   element.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-async function mount(permissions: string[], contactDraft?: PromotedContactDraft | null) {
-  return render(
+function panel(conversationId: string, permissions: string[], contactDraft?: PromotedContactDraft | null) {
+  return (
     <Permitted permissions={permissions}>
-      <ContactDetailsPanel conversationId={CONVERSATION_ID} accessToken="token" contactDraft={contactDraft} />
-    </Permitted>,
+      <ContactDetailsPanel conversationId={conversationId} accessToken="token" contactDraft={contactDraft} />
+    </Permitted>
   );
+}
+
+async function mount(permissions: string[], contactDraft?: PromotedContactDraft | null) {
+  return render(panel(CONVERSATION_ID, permissions, contactDraft));
 }
 
 beforeEach(() => {
@@ -419,5 +424,31 @@ describe("a promoted selection (23-10)", () => {
     expect(all(container, "input")).toHaveLength(0);
     expect(all(container, "form")).toHaveLength(0);
     expect(contactDetailsApi.recordContactDetail).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * `23-100`: `VisitorPanel` renders this panel with no `key={conversationId}` - see
+ * `ChannelIdentitiesPanel.test.tsx`'s identical describe block for why `renderSync` (commits without
+ * running any passive effect) is what makes this a real fails-before check rather than "the same
+ * behaviour, refactored": against the pre-`23-100` code the reset lived inside the effect, so this
+ * commit would still carry the previous conversation's details; against the render-phase version the
+ * reset already happened before this same commit.
+ */
+describe("switching conversations (23-100)", () => {
+  it("clears the previous conversation's contact details before the fetch effect could have run", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([
+      { id: "id-1", kind: "Phone", value: "+1 555 0100", recordedByOperatorId: "op-1", source: "Operator", verified: false, recordedAt: "x" },
+    ]);
+
+    const container = await mount(["conversation:read"]);
+    expect(container.textContent).toContain("+1 555 0100");
+
+    renderSync(panel(OTHER_CONVERSATION_ID, ["conversation:read"]));
+
+    expect(container.textContent).not.toContain("+1 555 0100");
+
+    await flush();
+    expect(contactDetailsApi.fetchContactDetails).toHaveBeenLastCalledWith("token", OTHER_CONVERSATION_ID);
   });
 });

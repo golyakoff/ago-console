@@ -2,7 +2,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PolicyPage } from "./PolicyPage.js";
 import { ApiProblemError } from "../api/problemDetails.js";
-import { render, unmount } from "../testing/dom.js";
+import { render, renderSync, unmount } from "../testing/dom.js";
 
 /**
  * `24-03`: `24-02`'s own Done-when, proven from a screen - "the current version is readable without
@@ -27,6 +27,25 @@ function app(documentKey: string, query = "") {
   return (
     <MemoryRouter initialEntries={[`/policies/${documentKey}${query}`]}>
       <Routes>
+        <Route path="/policies/:documentKey" element={<PolicyPage />} />
+      </Routes>
+    </MemoryRouter>
+  );
+}
+
+/**
+ * `23-100`: `Routes`' own `location` prop renders against an arbitrary location without touching
+ * browser/memory history - re-rendering this with a different `documentKey` is a plain prop change on
+ * `PolicyPage` (`App.tsx`'s route holds the same element regardless of which `documentKey` matched, so
+ * this is the real shape a `DocumentsPage` "read as a visitor would" navigation produces), with none of
+ * `<Link>`/`navigate()`'s own scheduling to account for. That is what makes `renderSync`
+ * (`../testing/dom.js`) apply here exactly as it does for the five conversation-workspace panels'
+ * identical fails-before checks.
+ */
+function appAt(documentKey: string) {
+  return (
+    <MemoryRouter>
+      <Routes location={`/policies/${documentKey}`}>
         <Route path="/policies/:documentKey" element={<PolicyPage />} />
       </Routes>
     </MemoryRouter>
@@ -120,5 +139,43 @@ describe("reading a specific past version via ?version=", () => {
 
     expect(documentsApi.getDocumentVersion).not.toHaveBeenCalled();
     expect(documentsApi.getCurrentDocument).toHaveBeenCalledWith("tenant-terms");
+  });
+});
+
+/**
+ * `23-100`: `renderSync` (`../testing/dom.js`) commits without running any passive effect - the same
+ * technique `ChannelIdentitiesPanel.test.tsx`'s identical describe block uses, and its doc comment
+ * explains why that gap is what makes this a real fails-before check rather than "the same behaviour,
+ * refactored": against the pre-`23-100` code the reset lived inside the effect, so this commit would
+ * still carry the previous document's body; against the render-phase version the reset already
+ * happened before it.
+ */
+describe("switching documents (23-100)", () => {
+  it("clears the previous document's body before the fetch effect could have run", async () => {
+    documentsApi.getCurrentDocument
+      .mockResolvedValueOnce({
+        documentKey: "tenant-terms",
+        version: "v2",
+        sequence: 2,
+        title: "Tenant Terms",
+        body: "These are the terms.",
+        publishedAt: "2026-03-12T10:00:00Z",
+      })
+      .mockResolvedValueOnce({
+        documentKey: "privacy-policy",
+        version: "v1",
+        sequence: 1,
+        title: "Privacy Policy",
+        body: "How we handle your data.",
+        publishedAt: "2026-04-01T00:00:00Z",
+      });
+
+    const container = await render(appAt("tenant-terms"));
+    expect(container.textContent).toContain("These are the terms.");
+
+    renderSync(appAt("privacy-policy"));
+
+    expect(container.textContent).not.toContain("These are the terms.");
+    expect(container.textContent).not.toContain("Tenant Terms");
   });
 });
