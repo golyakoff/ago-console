@@ -5,7 +5,7 @@ import type { User } from "oidc-client-ts";
 import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { OwnerSiteDetailPage } from "./OwnerSiteDetailPage.js";
-import type { OwnerSiteDetail, OwnerSiteModule } from "../api/ownerApi.js";
+import type { OwnerSiteDetail, OwnerSiteModule, OwnerSiteOperator } from "../api/ownerApi.js";
 import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
@@ -33,6 +33,8 @@ const ownerApi = vi.hoisted(() => ({
   revokeOwnerModule: vi.fn(),
   // `23-66`: the quantity screen's own write, mocked the same way.
   grantOwnerModuleQuantity: vi.fn(),
+  // `23-68`: the operator roster's own restore-seat write, mocked the same way.
+  restoreOwnerOperatorSeat: vi.fn(),
 }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
 
@@ -97,6 +99,18 @@ function detail(overrides: Partial<OwnerSiteDetail> = {}): OwnerSiteDetail {
     recentWindowDays: 30,
     modules: [],
     allowedOrigins: ["https://shop.example"],
+    operators: [],
+    ...overrides,
+  };
+}
+
+function oneOperator(overrides: Partial<OwnerSiteOperator> = {}): OwnerSiteOperator {
+  return {
+    operatorId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    displayName: "Jamie Locked-Out",
+    email: "jamie@shop.example",
+    holdsSeat: false,
+    roleNames: ["Operator"],
     ...overrides,
   };
 }
@@ -327,6 +341,132 @@ describe("the site detail page's own allowed-origins editor", () => {
     // field to whatever the server last held.
     const textarea = one<HTMLTextAreaElement>(container, "textarea");
     expect(textarea.value).toBe("https://shop.example/booking");
+  });
+});
+
+// `23-68`: "a locked-out tenant can be let back in without a database" - the operator roster and its
+// own restore-seat action, the recovery this item exists to build.
+describe("the site detail page's own operator roster", () => {
+  it("shows an empty-operators note rather than an empty table when the tenant holds none", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail({ operators: [] }) });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).toContain("no operators");
+  });
+
+  it("shows every operator's seat state and role names, and offers no restore action for a seated operator", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({
+        operators: [
+          oneOperator({ operatorId: "seated-1", displayName: "Sam Seated", holdsSeat: true, roleNames: ["Admin"] }),
+          oneOperator({ operatorId: "locked-out-1", displayName: "Jamie Locked-Out", holdsSeat: false, roleNames: ["Operator"] }),
+        ],
+      }),
+    });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).toContain("Sam Seated");
+    expect(container.textContent).toContain("Admin");
+    expect(container.textContent).toContain("Jamie Locked-Out");
+    expect(container.textContent).toContain("Operator");
+    // Exactly one "Restore seat" action - the seated operator's own row offers none.
+    expect(all(container, "button").filter((b) => b.textContent === "Restore seat")).toHaveLength(1);
+  });
+
+  /** `23-68`'s own scope, made visible: an operator with no role at all is shown plainly, not hidden
+   * behind a blank cell - restoring a seat is not restoring a role. */
+  it("shows 'No role' for an operator who holds none, rather than a blank cell", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ operators: [oneOperator({ holdsSeat: false, roleNames: [] })] }),
+    });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).toContain("No role");
+  });
+
+  /** The item's own headline Done-when: the ordinary case needs no dialog, no reason, nothing beyond
+   * the click - `force: false` every time, until the server itself says otherwise. */
+  it("restores a seat within the seat limit with one click, and reloads the tenant's own detail", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ operators: [oneOperator({ holdsSeat: false })] }),
+    });
+    ownerApi.restoreOwnerOperatorSeat.mockResolvedValue({
+      status: "ok",
+      result: { alreadyHeldSeat: false, overrodeSeatLimit: false },
+    });
+
+    const container = await render(shellAt());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Restore seat").click());
+
+    expect(ownerApi.restoreOwnerOperatorSeat).toHaveBeenCalledWith(
+      "token", SITE_ID, "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", { force: false, reason: null },
+    );
+    expect(container.textContent).toMatch(/seat restored/i);
+    expect(container.textContent).toMatch(/can sign in again/i);
+    // Re-read, the same "the server's own read is the only source for this table" reasoning the
+    // grant form's own equivalent test proves.
+    expect(ownerApi.fetchOwnerSiteDetail).toHaveBeenCalledTimes(2);
+  });
+
+  /** The seat-limit decision, proven from the console's own side: exceeding it opens the override
+   * dialog rather than failing silently or guessing client-side - this screen has no seat-count
+   * arithmetic of its own (`CLAUDE.md` rule 8), so it can only ever learn this from the server. */
+  it("opens the override dialog when the server says the seat limit would be exceeded, and sends no request until a reason is given", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ operators: [oneOperator({ holdsSeat: false })] }),
+    });
+    ownerApi.restoreOwnerOperatorSeat.mockResolvedValue({
+      status: "requires-force",
+      message: "Restoring this operator's seat would put the site over its seat limit of 2.",
+    });
+
+    const container = await render(shellAt());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Restore seat").click());
+
+    const dialog = one<HTMLElement>(container, "dialog[open]");
+    expect(dialog.textContent).toContain("seat limit of 2");
+
+    await interact(() => byText<HTMLButtonElement>(dialog, "button", "Override the seat limit").click());
+    expect(dialog.textContent).toMatch(/write the reason/i);
+    expect(ownerApi.restoreOwnerOperatorSeat).toHaveBeenCalledTimes(1);
+  });
+
+  it("overrides the seat limit with force and the typed reason, once one is given", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ operators: [oneOperator({ holdsSeat: false })] }),
+    });
+    ownerApi.restoreOwnerOperatorSeat.mockResolvedValueOnce({
+      status: "requires-force",
+      message: "Restoring this operator's seat would put the site over its seat limit of 2.",
+    });
+
+    const container = await render(shellAt());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Restore seat").click());
+    const dialog = one<HTMLElement>(container, "dialog[open]");
+
+    ownerApi.restoreOwnerOperatorSeat.mockResolvedValueOnce({
+      status: "ok",
+      result: { alreadyHeldSeat: false, overrodeSeatLimit: true },
+    });
+    await setTextarea(dialog, "Tenant locked itself out during a live demo; overriding to restore access.");
+    await interact(() => byText<HTMLButtonElement>(dialog, "button", "Override the seat limit").click());
+
+    expect(ownerApi.restoreOwnerOperatorSeat).toHaveBeenNthCalledWith(
+      2,
+      "token",
+      SITE_ID,
+      "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      { force: true, reason: "Tenant locked itself out during a live demo; overriding to restore access." },
+    );
+    expect(container.textContent).toMatch(/put the site over its own seat limit/i);
   });
 });
 

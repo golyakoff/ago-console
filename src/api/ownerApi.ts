@@ -138,6 +138,24 @@ export interface OwnerSiteModule {
   quantity: number | null;
 }
 
+/**
+ * `23-68`: one operator on this tenant, as the platform owner's detail screen sees it - mirrors
+ * `Ago.Chat.Contracts.OwnerSiteOperatorDto` field for field, the same reasoning `OwnerSiteModule`'s own
+ * remarks give for tracking `OwnerSiteModuleDto`.
+ */
+export interface OwnerSiteOperator {
+  operatorId: string;
+  displayName: string | null;
+  email: string | null;
+  /** `false` is the locked-out candidate this item exists for - the console offers "Restore seat"
+   * exactly for a row where this is `false`. */
+  holdsSeat: boolean;
+  /** Every role this operator currently holds. An empty list is the "stripped their own last role"
+   * case `23-68`'s own scope names but does not fix - shown plainly, not hidden, so restoring a seat
+   * is never mistaken for restoring a role. */
+  roleNames: string[];
+}
+
 /** `23-14`: `GET /api/v1/owner/sites/{siteId}`'s response body - mirrors
  * `Ago.Chat.Contracts.OwnerSiteDetailResponse`. The same eight aggregate fields `OwnerSiteSummary`
  * carries, for exactly one tenant, plus `modules`. */
@@ -161,6 +179,9 @@ export interface OwnerSiteDetail {
    * Every entry is already in normalized form (no path, no trailing slash) - the server refuses
    * anything else at write time (`updateOwnerSiteAllowedOrigins` below). */
   allowedOrigins: string[];
+  /** `23-68`: every non-removed operator this site currently has - added so the owner's detail screen
+   * can name a locked-out operator to restore a seat for without a second round trip. */
+  operators: OwnerSiteOperator[];
 }
 
 /**
@@ -500,6 +521,96 @@ export async function revokeOwnerModule(
   }
 
   return { status: "ok" };
+}
+
+/**
+ * `23-68`: the body `POST /api/v1/owner/sites/{siteId}/operators/{operatorId}/restore-seat` takes -
+ * mirrors `Ago.Chat.Api.Owner.OwnerOperatorsEndpoints.RestoreOperatorSeatRequest`. `force`/`reason`
+ * are the identical asymmetry `RevokeOwnerModuleDraft`'s own remarks describe for its sibling override:
+ * omitting `force` (or setting it `false`) unambiguously means "not forcing" - the ordinary restore,
+ * within the tenant's own seat limit, needs neither field. This console never tries to know in advance
+ * whether a given restore will exceed the limit; it tries the ordinary call first and only asks for a
+ * reason once the server says `"requires-force"` (`restoreOwnerOperatorSeat`'s own remarks).
+ */
+export interface RestoreOwnerOperatorSeatDraft {
+  force: boolean;
+  reason: string | null;
+}
+
+/**
+ * `23-68`: what actually happened - mirrors `Ago.Chat.Api.Owner.OwnerOperatorsEndpoints.RestoreOperatorSeatResponse`.
+ * `alreadyHeldSeat` lets the console say "nothing to do" rather than implying a change that did not
+ * occur; `overrodeSeatLimit` lets it say the seat limit was knowingly exceeded.
+ */
+export interface RestoreOwnerOperatorSeatResult {
+  alreadyHeldSeat: boolean;
+  overrodeSeatLimit: boolean;
+}
+
+/**
+ * `23-68`: the outcome of restoring an operator's seat as the platform owner - the identical
+ * `"requires-force"`/`"invalid"` split `RevokeOwnerModuleOutcome`'s own remarks describe for its
+ * sibling override, restated for this one. `"requires-force"` is the seat-limit override landing in
+ * the browser (`Operator.SeatRestoreExceedsLimitRequiresForce`, `409`) - the remedy is not "fix what
+ * you typed", it is "state plainly that you mean to override the seat limit and say why". `"invalid"`
+ * covers the one remaining caller mistake this route can make: `force` set with a blank or missing
+ * reason (`Operator.SeatRestoreReasonRequired`, `400`).
+ */
+export type RestoreOwnerOperatorSeatOutcome =
+  | { status: "ok"; result: RestoreOwnerOperatorSeatResult }
+  | { status: "not-authorized" }
+  | { status: "not-found" }
+  | { status: "requires-force"; message: string }
+  | { status: "invalid"; message: string };
+
+/**
+ * `23-68`: `POST /api/v1/owner/sites/{siteId}/operators/{operatorId}/restore-seat` - the platform
+ * owner's own recovery write, reached from `/owner`'s tenant detail screen. Called first with
+ * `force: false` for the ordinary case (this item's own headline scenario); a caller that gets back
+ * `"requires-force"` collects a reason and calls again with `force: true` - the identical two-call
+ * shape `OwnerSiteDetailPage`'s own revoke-a-purchase flow already uses for `revokeOwnerModule`.
+ */
+export async function restoreOwnerOperatorSeat(
+  accessToken: string,
+  siteId: string,
+  operatorId: string,
+  draft: RestoreOwnerOperatorSeatDraft,
+): Promise<RestoreOwnerOperatorSeatOutcome> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/owner/sites/${siteId}/operators/${operatorId}/restore-seat`);
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: withActiveSiteHeader({
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify(draft),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    return { status: "not-authorized" };
+  }
+
+  if (response.status === 404) {
+    return { status: "not-found" };
+  }
+
+  if (response.status === 409) {
+    const problem = (await response.json()) as { detail?: string };
+    return { status: "requires-force", message: problem.detail ?? "This would put the site over its seat limit." };
+  }
+
+  if (response.status === 400) {
+    const problem = (await response.json()) as { detail?: string };
+    return { status: "invalid", message: problem.detail ?? "A reason is required." };
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to restore the operator's seat: ${response.status}`);
+  }
+
+  const body = (await response.json()) as { alreadyHeldSeat: boolean; overrodeSeatLimit: boolean };
+  return { status: "ok", result: { alreadyHeldSeat: body.alreadyHeldSeat, overrodeSeatLimit: body.overrodeSeatLimit } };
 }
 
 /**
