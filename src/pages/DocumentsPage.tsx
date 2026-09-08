@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import {
@@ -22,6 +22,7 @@ import { Alert } from "../components/Alert.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { formatAbsolute, resolveTimeZone } from "../time/format.js";
+import { Link } from "react-router-dom";
 import type { ConsoleStrings } from "../i18n/strings.js";
 
 /**
@@ -117,9 +118,15 @@ export function DocumentsPage() {
             purpose="Contact"
             summary={state.documents.contact}
             badge={
-              state.documents.contactConsentRequired
-                ? strings.documentsContactRequiredBadge
-                : strings.documentsContactNotRequiredBadge
+              state.documents.contactConsentRequired ? (
+                strings.documentsContactRequiredBadge
+              ) : (
+                <>
+                  {strings.documentsContactNotRequiredIntro}
+                  <Link to="/channels/widget">{strings.navWidgetAppearance}</Link>
+                  {strings.documentsContactNotRequiredOutro}
+                </>
+              )
             }
             badgeTone={state.documents.contactConsentRequired ? "info" : "danger"}
             title={strings.documentsContactPanelTitle}
@@ -148,7 +155,12 @@ interface ConsentDocumentPanelProps {
   accessToken: string;
   purpose: ConsentPurpose;
   summary: SiteConsentDocumentSummary;
-  badge: string;
+  /**
+   * `23-108`: a `ReactNode`, not a `string`, so the not-required case can carry a real `<Link>` to
+   * the screen it names. `23-107`'s rule: a screen name is not a path, and the person reading this
+   * is by definition somebody who does not know the product.
+   */
+  badge: ReactNode;
   badgeTone: "info" | "danger";
   title: string;
   onPublished: () => void;

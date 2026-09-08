@@ -79,6 +79,7 @@ export function WidgetConfigPage() {
   const [locale, setLocale] = useState<WidgetLocale>("En");
   const [noticeTextInput, setNoticeTextInput] = useState("");
   const [noticeUrlInput, setNoticeUrlInput] = useState("");
+  const [requireContactConsent, setRequireContactConsent] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [noticeUrlValidationError, setNoticeUrlValidationError] = useState<string | null>(null);
@@ -100,6 +101,7 @@ export function WidgetConfigPage() {
         setLocale(dto.locale);
         setNoticeTextInput(dto.noticeText ?? "");
         setNoticeUrlInput(dto.noticeUrl ?? "");
+        setRequireContactConsent(dto.requireContactConsent);
         setLoadError(null);
       })
       .catch((err: unknown) =>
@@ -171,6 +173,7 @@ export function WidgetConfigPage() {
         locale,
         noticeText: trimmedNoticeText.length > 0 ? trimmedNoticeText : null,
         noticeUrl: trimmedNoticeUrl.length > 0 ? trimmedNoticeUrl : null,
+        requireContactConsent,
       });
       setCurrent(dto);
       setColorInput(dto.primaryColorHex ?? "");
@@ -178,6 +181,7 @@ export function WidgetConfigPage() {
       setLocale(dto.locale);
       setNoticeTextInput(dto.noticeText ?? "");
       setNoticeUrlInput(dto.noticeUrl ?? "");
+      setRequireContactConsent(dto.requireContactConsent);
       setSaved(true);
     } catch (err) {
       setSubmitError(err instanceof WidgetConfigError ? err.message : strings.widgetSubmitError);
@@ -317,6 +321,21 @@ export function WidgetConfigPage() {
                   />
                 )}
               </Field>
+
+              {/* `23-108`: the control the documents screen has been telling tenants to switch on
+                  since it shipped, and which existed nowhere in this console. `label` wraps the input
+                  rather than using `Field`, because `Field` renders a label *above* its control and a
+                  checkbox reads as caption-then-box - the same shape `WorkerCard` already uses. */}
+              <label className="ago-row">
+                <input
+                  type="checkbox"
+                  checked={requireContactConsent}
+                  disabled={submitting}
+                  onChange={(e) => setRequireContactConsent(e.target.checked)}
+                />
+                <span>{strings.widgetRequireContactConsentLabel}</span>
+              </label>
+              <p className="ago-field__description">{strings.widgetRequireContactConsentDescription}</p>
             </div>
           </Panel>
 

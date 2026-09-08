@@ -2,9 +2,10 @@ import { useMemo, type ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthContext, type AuthState } from "../auth/AuthContext.js";
+import { en } from "../i18n/en.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { DocumentsPage } from "./DocumentsPage.js";
-import { byText, interact, one, render, unmount } from "../testing/dom.js";
+import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
 import type { User } from "oidc-client-ts";
 
 /**
@@ -143,8 +144,24 @@ describe("the two consent-document panels", () => {
     const container = await render(page());
 
     expect(container.textContent).toContain(
-      "Not required yet - turn on \"Require consent before collecting contact details\"",
+      "Not required yet. Turn on \"Require consent before collecting contact details\"",
     );
+  });
+
+  // `23-108`: the assertion above only ever checked the wording, and the wording was pointing at a
+  // control that existed nowhere in this console - the phrase appeared exactly once in the whole
+  // codebase, in that sentence. Naming a destination is worth nothing if a tenant cannot reach it
+  // (`23-107`), so the destination is now a real link and this is what stops it silently becoming
+  // prose again.
+  it("gives the tenant a link to the screen that carries the setting, not just its name", async () => {
+    const container = await render(page());
+
+    const link = all(container, "a").find((a) => a.getAttribute("href") === "/channels/widget");
+
+    expect(link, "the not-required warning must link to the widget screen").toBeTruthy();
+    // Asserted against the nav's own string rather than a literal: the point is that the link carries
+    // the words the menu uses, so a rename must not be able to make this sentence wrong again.
+    expect(link?.textContent).toBe(en.navWidgetAppearance);
   });
 
   it("states the Contact document is required once the widget setting is on", async () => {
