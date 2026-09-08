@@ -420,6 +420,17 @@
 
 /* The icon is decorative - `aria-hidden`, because the alert's role and its text already carry the
    meaning, and a screen reader announcing "warning sign" adds nothing. */
+/* `23-107`: an alert's action is a control, so the UX gate's 24px interactive floor applies to it -
+   and an inline link inheriting body line-height is 22.5px tall, which is how `operators-team` went
+   red. Fixing it on the wrapper rather than at each call site covers every alert action at once,
+   including `OnboardingPage`'s, which has the same defect today and is simply not a screen the gate
+   opens. 2rem, not 24px exactly, so a fractional line-height cannot land back on the boundary. */
+.ago-alert__action > :is(a, button) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+}
+
 .ago-alert__glyph {
   flex: none;
   line-height: var(--ago-leading-base);
