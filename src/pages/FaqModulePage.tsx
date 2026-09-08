@@ -2,15 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
-import { fetchModules, updateModule, ModulesError } from "../api/modulesApi.js";
+import { fetchModules, ModulesError } from "../api/modulesApi.js";
 import { fetchKnowledgeBase, updateKnowledgeBase, KnowledgeBaseError } from "../api/faqKnowledgeBaseApi.js";
-import { parseTriggerWords, validateModuleDraft } from "./moduleConfigValidation.js";
 import { formatAbsolute, parseInstant, resolveTimeZone } from "../time/format.js";
 import { PageHead } from "../shell/AppShell.js";
 import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
 import { Field } from "../components/Field.js";
-import { Input } from "../components/Input.js";
 import { Textarea } from "../components/Textarea.js";
 import { Button } from "../components/Button.js";
 import { Alert } from "../components/Alert.js";
@@ -52,16 +50,20 @@ export function FaqModulePage() {
   const strings = useStrings();
   const timeZone = useMemo(() => resolveTimeZone(), []);
 
-  // --- Module registration (Ago.Chat.Api) ---
+  // --- Which products are on this account (Ago.Chat.Api), read-only ---
+  // `23-84`: a read, not a form. `23-83` removed the tenant-facing provisioning writes entirely -
+  // `adr/0151`: a tenant never turns a capability on for themselves - so the only thing left for this
+  // panel to do is say what is on the account. That item deliberately kept the `GET` for exactly this.
+  //
+  // The form this replaces never worked, and that is established rather than assumed: it sent
+  // moduleKey/triggerWords/entryPoint and the endpoint also required a credential and a provisioning
+  // secret, which `ModuleCredential`'s own constructor rejects as null before any module is contacted.
+  // Every submit it could make was refused from the day it shipped (`19-03`).
   const [moduleLoaded, setModuleLoaded] = useState(false);
+  const [moduleEnabled, setModuleEnabled] = useState(false);
   const [moduleKey, setModuleKey] = useState(SUGGESTED_MODULE_KEY);
-  const [triggerWordsInput, setTriggerWordsInput] = useState("");
-  const [entryPointInput, setEntryPointInput] = useState("");
+  const [triggerWords, setTriggerWords] = useState<string[]>([]);
   const [moduleLoadError, setModuleLoadError] = useState<string | null>(null);
-  const [moduleValidationError, setModuleValidationError] = useState<string | null>(null);
-  const [moduleSubmitError, setModuleSubmitError] = useState<string | null>(null);
-  const [moduleSaved, setModuleSaved] = useState(false);
-  const [moduleSubmitting, setModuleSubmitting] = useState(false);
 
   // --- Knowledge base (Ago.Faq.Api) ---
   const [kbLoaded, setKbLoaded] = useState(false);
@@ -81,9 +83,9 @@ export function FaqModulePage() {
     fetchModules(accessToken, siteId)
       .then((response) => {
         const existing = response.modules.find((m) => m.moduleKey === SUGGESTED_MODULE_KEY) ?? null;
+        setModuleEnabled(existing !== null);
         setModuleKey(existing?.moduleKey ?? SUGGESTED_MODULE_KEY);
-        setTriggerWordsInput(existing ? existing.triggerWords.join(", ") : "");
-        setEntryPointInput(existing?.entryPoint ?? "");
+        setTriggerWords(existing?.triggerWords ?? []);
         setModuleLoaded(true);
         setModuleLoadError(null);
       })
@@ -130,47 +132,6 @@ export function FaqModulePage() {
     return <AccessRefusal title={strings.navFaqAssistant} message={strings.faqForbidden} strings={strings} />;
   }
 
-  const handleModuleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setModuleSaved(false);
-    setModuleSubmitError(null);
-
-    const trimmedKey = moduleKey.trim();
-    const triggerWords = parseTriggerWords(triggerWordsInput);
-    const trimmedEntryPoint = entryPointInput.trim();
-
-    const problem = validateModuleDraft(trimmedKey, triggerWords, trimmedEntryPoint, strings);
-    setModuleValidationError(problem);
-    if (problem !== null) {
-      return;
-    }
-
-    const accessToken = user?.access_token;
-    if (!accessToken || !siteId) {
-      // `RequireAuth` guarantees a signed-in session and `siteId` arrives on the same response
-      // `hasPermission` above depends on - same "reaching here is a wiring bug" reasoning
-      // `WidgetConfigPage`/`OfflineAutoReplyPage` state for their own equivalent check.
-      return;
-    }
-
-    setModuleSubmitting(true);
-    try {
-      const dto = await updateModule(accessToken, siteId, {
-        moduleKey: trimmedKey,
-        triggerWords,
-        entryPoint: trimmedEntryPoint,
-      });
-      setModuleKey(dto.moduleKey);
-      setTriggerWordsInput(dto.triggerWords.join(", "));
-      setEntryPointInput(dto.entryPoint);
-      setModuleSaved(true);
-    } catch (err) {
-      setModuleSubmitError(err instanceof ModulesError ? err.message : strings.faqModuleSubmitError);
-    } finally {
-      setModuleSubmitting(false);
-    }
-  };
-
   const handleKnowledgeBaseSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setKbSaved(false);
@@ -208,57 +169,20 @@ export function FaqModulePage() {
         </Panel>
       ) : (
         <Panel title={strings.faqModulePanelTitle} description={strings.faqModuleDescription}>
-          <form className="ago-stack" onSubmit={(e) => void handleModuleSubmit(e)}>
-            <Field label={strings.faqModuleKeyFieldLabel} description={strings.faqModuleKeyFieldDescription}>
-              {(controlProps) => (
-                <Input
-                  {...controlProps}
-                  value={moduleKey}
-                  onChange={(e) => setModuleKey(e.target.value)}
-                  placeholder={strings.faqModuleKeyPlaceholder}
-                  disabled={moduleSubmitting}
-                />
+          {moduleEnabled ? (
+            <dl className="ago-stack">
+              <dt>{strings.faqModuleEnabledLabel}</dt>
+              <dd>{moduleKey}</dd>
+              {triggerWords.length > 0 && (
+                <>
+                  <dt>{strings.faqModuleTriggerWordsLabel}</dt>
+                  <dd>{triggerWords.join(", ")}</dd>
+                </>
               )}
-            </Field>
-
-            <Field
-              label={strings.faqTriggerWordsFieldLabel}
-              description={strings.faqTriggerWordsFieldDescription}
-            >
-              {(controlProps) => (
-                <Input
-                  {...controlProps}
-                  value={triggerWordsInput}
-                  onChange={(e) => setTriggerWordsInput(e.target.value)}
-                  placeholder={strings.faqTriggerWordsPlaceholder}
-                  disabled={moduleSubmitting}
-                />
-              )}
-            </Field>
-
-            <Field label={strings.faqEntryPointFieldLabel} description={strings.faqEntryPointFieldDescription}>
-              {(controlProps) => (
-                <Input
-                  {...controlProps}
-                  type="url"
-                  value={entryPointInput}
-                  onChange={(e) => setEntryPointInput(e.target.value)}
-                  placeholder={strings.faqEntryPointPlaceholder}
-                  disabled={moduleSubmitting}
-                />
-              )}
-            </Field>
-
-            {moduleValidationError && <Alert tone="danger">{moduleValidationError}</Alert>}
-            {moduleSubmitError && <Alert tone="danger">{moduleSubmitError}</Alert>}
-            {moduleSaved && <Alert tone="success">{strings.siteConfigSavedAlert}</Alert>}
-
-            <div className="ago-row">
-              <Button type="submit" variant="primary" disabled={moduleSubmitting}>
-                {moduleSubmitting ? strings.siteConfigSavingButton : strings.siteConfigSaveButton}
-              </Button>
-            </div>
-          </form>
+            </dl>
+          ) : (
+            <p className="ago-meta">{strings.faqModuleNotEnabled}</p>
+          )}
         </Panel>
       )}
 

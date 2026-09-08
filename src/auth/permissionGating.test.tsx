@@ -951,10 +951,13 @@ describe("a gated page reached directly by URL", () => {
 
     expect(container.textContent).not.toContain("You do not have permission");
     expect(modulesApi.fetchModules).toHaveBeenCalledWith("token", SITE_ID);
-    // The knowledge-base panel renders its own "not configured" state, not a second form, because
-    // this file's mocked `config.faqApiBaseUrl` is `null` - only the module-registration form's own
-    // Save button exists here.
-    expect(byText(container, "button", "Save")).not.toBeNull();
+    // `23-84`: this used to assert a Save button, which belonged to the module-registration form -
+    // the knowledge-base panel renders its own "not configured" state here, because this file's
+    // mocked `config.faqApiBaseUrl` is `null`. That form is gone (`23-83` removed the tenant-facing
+    // write routes it called), so this screen now has **no** submit at all for a permitted operator,
+    // and asserting its absence is the stronger statement about what a tenant may do.
+    expect(container.querySelector("button[type='submit']")).toBeNull();
+    expect(container.textContent).toContain("Not enabled on this account");
     expect(container.textContent).toContain("not configured for this deployment yet");
   });
 
