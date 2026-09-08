@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import {
@@ -178,7 +179,14 @@ export function OperatorsTeamPage() {
           {/* `13-03`'s own over-seats case: a site sitting above its seat limit after a downgrade -
               rendered honestly, every row still listed below, never hidden. */}
           {summary.overSeats && (
-            <Alert tone="info" title={strings.operatorsTeamOverSeatsTitle}>
+            // `23-107`: a real link to where a tenant actually raises the limit or frees a seat, not
+            // a name for the tenant to go find in the nav themselves - the same fix
+            // `CalendarWorkersPage.tsx`'s own no-calendar note got.
+            <Alert
+              tone="info"
+              title={strings.operatorsTeamOverSeatsTitle}
+              action={<Link to="/account/billing">{strings.navBilling}</Link>}
+            >
               {strings.operatorsTeamOverSeatsBody} {summary.heldSeats}/{summary.seatLimit}.
             </Alert>
           )}
@@ -299,7 +307,12 @@ export function OperatorsTeamPage() {
           // Done-when: "inviting when the seat limit is already reached is refused *before* the
           // invite is created, and says so in the tenant's own words" - no `createOperatorInvite`
           // call is ever made from this branch; the dialog's only footer action is `Close`.
-          <Alert tone="info" title={strings.operatorsTeamInviteAtLimitTitle}>
+          // `23-107`: same fix as the over-seats Alert above - a real link, not a name.
+          <Alert
+            tone="info"
+            title={strings.operatorsTeamInviteAtLimitTitle}
+            action={<Link to="/account/billing">{strings.navBilling}</Link>}
+          >
             {strings.operatorsTeamInviteAtLimitBody} {summary?.seatLimit}.
           </Alert>
         ) : (

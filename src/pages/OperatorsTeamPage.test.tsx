@@ -136,12 +136,15 @@ describe("the team list", () => {
     expect(container.textContent).toContain("No seat");
   });
 
-  it("shows the over-seats banner when the summary says overSeats", async () => {
+  it("shows the over-seats banner when the summary says overSeats, with a real link to Billing", async () => {
     twoOperatorsAndASummary(0);
 
     const container = await render(page());
 
     expect(container.textContent).toContain("Over your seat limit");
+    // `23-107`: a link, not just the word "Billing" in a sentence a tenant has to go find in the nav.
+    const link = byText<HTMLAnchorElement>(container, "a", "Billing");
+    expect(link?.getAttribute("href")).toBe("/account/billing");
   });
 
   it("never shows the over-seats banner when the site is within its limit", async () => {
@@ -161,6 +164,9 @@ describe("the pre-invite seat check", () => {
 
     expect(container.textContent).toContain("You are at your seat limit");
     expect(operatorTeamApi.createOperatorInvite).not.toHaveBeenCalled();
+    // `23-107`: same fix as the over-seats banner - a real link to Billing, not just its name.
+    const link = byText<HTMLAnchorElement>(container, "a", "Billing");
+    expect(link?.getAttribute("href")).toBe("/account/billing");
   });
 
   it("sends the invite and shows the code, when there is room", async () => {

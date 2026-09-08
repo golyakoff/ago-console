@@ -1574,9 +1574,11 @@ export interface ConsoleStrings {
   calendarQueueOverdueNote: string;
   calendarRejectButton: string;
   calendarNoShowButton: string;
-  calendarSetupEmbedDescription: string;
-  calendarSetupEmbedSnippetAriaLabel: string;
-  calendarSetupEmbedSiteKeyHint: string;
+  /** `23-105`: replaces the pasted embed snippet this screen used to show - booking now arrives on
+   * the widget's own handshake response (`ago-widget`'s `VisitorSessionResponse.enabledModules`)
+   * once the platform grants this site the calendar module, so there is nothing left for a tenant to
+   * paste. See `CalendarSetupPage.tsx`'s own doc comment for the item this replaced. */
+  calendarSetupBookingAutomaticNote: string;
   calendarSetupOriginsTitle: string;
   calendarSetupOriginsDescription: string;
   calendarSetupOriginsFieldLabel: string;
@@ -1640,7 +1642,15 @@ export interface ConsoleStrings {
   calendarSlotsLinkLabel: string;
   calendarRecutLinkLabel: string;
   calendarAddWorkerButton: string;
-  calendarWorkersNoCalendarNote: string;
+  /** `23-107`: replaces `calendarWorkersNoCalendarNote` - that string named the destination
+   * («Настройка») without saying how to reach it, and rendered as a footnote under the disabled
+   * control it explained. Split around a real `<Link to="/calendar/setup">` in
+   * `CalendarWorkersPage.tsx`, whose own label is `navCalendarSetup` (the same string the nav item
+   * uses), so the two cannot say two different things for the same destination. `Intro` carries no
+   * trailing space and `Reason` no leading one on the Russian side - see that file's own remarks on
+   * why the three pieces are written adjacent, with no JSX whitespace between them. */
+  calendarWorkersNoCalendarIntro: string;
+  calendarWorkersNoCalendarReason: string;
   calendarNewWorkerTitle: string;
   calendarEditWorkerTitle: string;
   calendarViewSlotsLinkLabel: string;
@@ -1673,7 +1683,11 @@ export interface ConsoleStrings {
   calendarCycleWorkingDaysFieldLabel: string;
   calendarCycleRestDaysFieldLabel: string;
   calendarCycleShiftPatternNote: string;
-  calendarWeeklyHoursNote: string;
+  /** `23-107`: split around a real `<Link to="/calendar/setup">` in `WorkerScheduleSection.tsx`, the
+   * same pattern `calendarWorkersNoCalendarIntro`/`Reason` established - see that pair's own doc
+   * comment for why the three pieces sit adjacent with no JSX whitespace between them. */
+  calendarWeeklyHoursIntro: string;
+  calendarWeeklyHoursReason: string;
   calendarSlotLengthFieldLabel: string;
   calendarSlotLengthNote: string;
   calendarBufferFieldLabel: string;
@@ -2006,6 +2020,11 @@ export interface ConsoleStrings {
   deviceStorageWidgetNoticeUrlHolds: string;
   deviceStorageWidgetNoticeUrlWhy: string;
   deviceStorageWidgetNoticeUrlLifetime: string;
+  /** `23-105`: the `enabled-modules` row - `ago-widget/src/storage.ts`'s own new entry in
+   * `WIDGET_STORAGE_DISCLOSURE`, added the same day `data-booking` stopped being read. */
+  deviceStorageEnabledModulesHolds: string;
+  deviceStorageEnabledModulesWhy: string;
+  deviceStorageEnabledModulesLifetime: string;
   deviceStorageConversationIdHolds: string;
   deviceStorageConversationIdWhy: string;
   deviceStorageConversationIdLifetime: string;

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
@@ -160,14 +159,8 @@ export function CalendarSetupPage() {
 
       <BookingReadiness readiness={readiness} />
 
-      <Panel title={strings.calendarSetupOriginsTitle} description={strings.calendarSetupEmbedDescription}>
-        <pre aria-label={strings.calendarSetupEmbedSnippetAriaLabel}>{embedSnippet()}</pre>
-
-        <p className="ago-field__description">
-          {strings.calendarSetupEmbedSiteKeyHint} <Link to="/channels/install">{strings.navInstallWidget}</Link>
-        </p>
-
-        <p className="ago-field__description">{strings.calendarSetupOriginsDescription}</p>
+      <Panel title={strings.calendarSetupOriginsTitle} description={strings.calendarSetupOriginsDescription}>
+        <p className="ago-field__description">{strings.calendarSetupBookingAutomaticNote}</p>
         <OriginsForm
           origins={configuration.allowedOrigins}
           disabled={busy}
@@ -208,35 +201,18 @@ export function CalendarSetupPage() {
   );
 }
 
-/**
- * `22-22`: every attribute here is one the widget actually reads, taken from
- * `ago-widget/src/config.ts` rather than remembered. Its `parseConfig` accepts exactly `data-site`,
- * `data-api`, `data-booking`, `data-demo-notice` and `data-public-demo` - nothing else.
- *
- * <b>Four things were wrong, and only one of them was visible.</b> The host was a literal ellipsis
- * and the filename was `ago-chat.js`; `#342` renamed the bundle to `widget.js`, and
- * {@link InstallSnippetPage} composes its own URL from `apiBaseUrl` for the reason its comment
- * gives, so this composes it the same way rather than keeping a second spelling that can drift.
- * `data-booking-api` was read by nothing at all. And `data-booking` was given this tenant`s calendar
- * public key while the widget tests `dataset["booking"] === "true"` - so a real key evaluated to
- * false and <b>the booking chip silently never rendered</b>: the widget loaded, chat worked, and
- * booking simply was not there. That is the one a tenant could not have diagnosed.
- *
- * <b>The site key stays a placeholder deliberately.</b> It is the chat site`s key, and reading it
- * needs `site:configure` (`GET /api/v1/sites/{siteId}/installation`) - a permission this screen does
- * not require, since `calendar:configure` reaches here. Fetching it would either fail for a
- * calendar-only operator or widen this screen`s own gate. The copy names where to get it instead.
- * Whether a tenant should meet two embed snippets at all is an information-architecture question
- * `22-22` records and does not answer.
- */
-function embedSnippet(): string {
-  return [
-    `<script src="${config.apiBaseUrl}/widget/widget.js"`,
-    `        data-site="YOUR-CHAT-SITE-KEY"`,
-    `        data-booking="true"`,
-    `        async></script>`,
-  ].join("\n");
-}
+// `22-22` found and fixed this screen's embed snippet - `data-booking` was handed this tenant's
+// calendar public key while the widget tested `dataset["booking"] === "true"`, so a real key
+// evaluated to false and the booking chip silently never rendered. `23-105` (`docs/backlog/23-105-*
+// .md`, `adr/0151`) found the snippet itself was the wrong fix: booking is an entitlement, and
+// `adr/0151` says only the platform grants one - a shop's own page asserting it (via any attribute,
+// spelled correctly or not) was never this screen's promise to keep. This screen no longer emits an
+// embed snippet at all; `ago-widget` now learns whether booking is enabled from the same handshake
+// response that already carries colour, position and locale (`VisitorSessionResponse.enabledModules`),
+// so a page pasted before this shipped and never touched again gets booking the moment the platform
+// grants it. `InstallSnippetPage` is unchanged and remains the one screen that emits an embed tag -
+// it never carried `data-booking`, so after this there is exactly one snippet in the console and
+// nothing product-specific in it, which is the information-architecture question `22-22` recorded.
 
 function OriginsForm({
   origins,

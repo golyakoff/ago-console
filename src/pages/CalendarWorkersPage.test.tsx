@@ -179,13 +179,18 @@ describe("the workers screen", () => {
     });
   });
 
-  it("refuses to offer a create card before there is a calendar to put a worker on", async () => {
+  // `23-107`: this used to be a footnote under the disabled button, naming «Настройка» with no way
+  // to reach it. It is now a real link to the actual route, rendered above the button it explains.
+  it("refuses to offer a create card before there is a calendar to put a worker on, and links to where to add one", async () => {
     calendarApi.getConfiguration.mockResolvedValue({ ...configuration, calendars: [] });
     calendarApi.listWorkers.mockResolvedValue([]);
 
     const container = await render(page());
 
-    expect(container.textContent).toContain("Add a calendar first");
+    expect(container.textContent).toContain("Add a calendar first, on the Setup screen - a worker belongs to exactly one.");
+    const link = byText<HTMLAnchorElement>(container, "a", "Setup");
+    expect(link?.getAttribute("href")).toBe("/calendar/setup");
+
     const addButton = byText<HTMLButtonElement>(container, "button", "Add worker");
     expect(addButton?.disabled).toBe(true);
   });

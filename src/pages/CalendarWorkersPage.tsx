@@ -213,6 +213,20 @@ export function CalendarWorkersPage() {
           )}
         />
 
+        {/* `23-107`: the guidance renders *before* the disabled button it explains, not as a footnote
+            under it - "explanation more prominent than the control", the item's own scope. An
+            `Alert`, not a `<p className="ago-meta">`: the smallest, greyest text on the screen is the
+            wrong weight for the one thing a tenant reaching an empty table actually needs to read.
+            The three pieces sit adjacent with no JSX whitespace between them - `Intro`/`Reason`
+            themselves carry the Russian side's «guillemets» right up against the link text, and the
+            English side its own surrounding spaces - see those strings' own doc comment. */}
+        {calendars.length === 0 && editing === null && (
+          <Alert tone="info">
+            {strings.calendarWorkersNoCalendarIntro}
+            <Link to="/calendar/setup">{strings.navCalendarSetup}</Link>
+            {strings.calendarWorkersNoCalendarReason}
+          </Alert>
+        )}
         {editing === null && (
           <div className="ago-row">
             <Button variant="primary" disabled={busy || calendars.length === 0} onClick={() => setEditing("new")}>
@@ -220,7 +234,6 @@ export function CalendarWorkersPage() {
             </Button>
           </div>
         )}
-        {calendars.length === 0 && editing === null && <p className="ago-meta">{strings.calendarWorkersNoCalendarNote}</p>}
       </Panel>
 
       {editing !== null && (
