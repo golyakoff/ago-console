@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChannelIdentitiesPanel } from "./ChannelIdentitiesPanel.js";
 import { ApiProblemError } from "../api/problemDetails.js";
 import { PermissionsContext, type PermissionsState } from "../auth/PermissionsContext.js";
-import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
+import { all, byText, flush, interact, one, render, renderSync, unmount } from "../testing/dom.js";
 
 /** `14-12`/`14-13`. The same hand-made-permissions-context shape `ConversationOutcomePanel.test.tsx`/
  * `ConversationTagsPanel.test.tsx` already establish. */
@@ -17,6 +17,7 @@ const channelIdentitiesApi = vi.hoisted(() => ({
 vi.mock("../api/channelIdentitiesApi.js", () => channelIdentitiesApi);
 
 const CONVERSATION_ID = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+const OTHER_CONVERSATION_ID = "dddddddd-dddd-dddd-dddd-dddddddddddd";
 const SITE_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 
 function Permitted({ permissions, children }: { permissions: string[]; children: ReactNode }) {
@@ -38,17 +39,21 @@ function Permitted({ permissions, children }: { permissions: string[]; children:
   return <PermissionsContext.Provider value={value}>{children}</PermissionsContext.Provider>;
 }
 
-async function mount(permissions: string[], onInsertIntoComposer: (text: string) => void = () => undefined) {
-  return render(
+function panel(conversationId: string, permissions: string[], onInsertIntoComposer: (text: string) => void = () => undefined) {
+  return (
     <Permitted permissions={permissions}>
       <ChannelIdentitiesPanel
-        conversationId={CONVERSATION_ID}
+        conversationId={conversationId}
         siteId={SITE_ID}
         accessToken="token"
         onInsertIntoComposer={onInsertIntoComposer}
       />
-    </Permitted>,
+    </Permitted>
   );
+}
+
+async function mount(permissions: string[], onInsertIntoComposer: (text: string) => void = () => undefined) {
+  return render(panel(CONVERSATION_ID, permissions, onInsertIntoComposer));
 }
 
 beforeEach(() => {
@@ -321,5 +326,45 @@ describe("preferring a channel", () => {
 
     expect(one(container, '[role="alert"]').textContent).toContain("server wording");
     expect(container.textContent).not.toContain("Preferred");
+  });
+});
+
+/**
+ * `23-100`: `VisitorPanel` renders this panel with no `key={conversationId}`, so switching the
+ * operator's selected conversation updates this component's props in place rather than remounting it
+ * - the reset has to be real, not merely "a fresh mount would have shown nothing anyway."
+ *
+ * `renderSync` (unlike `render`/`interact`, which drain the microtask queue effects run on) returns
+ * the instant React has committed, before any `useEffect` has fired. That is what makes this a real
+ * fails-before check: against the pre-`23-100` code, the reset lived inside the effect, so the DOM
+ * checked here would still show the previous conversation's identity for at least this one commit.
+ * Against the render-phase version, the reset already happened before this same commit - React
+ * discards and re-renders synchronously when state is adjusted during render
+ * (react.dev/learn/you-might-not-need-an-effect).
+ */
+describe("switching conversations (23-100)", () => {
+  it("clears the previous conversation's identities before the fetch effect could have run", async () => {
+    channelIdentitiesApi.fetchChannelIdentities.mockResolvedValue([
+      {
+        channelIdentityId: "id-1",
+        kind: "Telegram",
+        address: "tg-user-1",
+        firstSeenAt: "x",
+        lastSeenAt: "x",
+        isPreferred: false,
+      },
+    ]);
+
+    const container = await mount(["conversation:read"]);
+    expect(container.textContent).toContain("tg-user-1");
+
+    renderSync(panel(OTHER_CONVERSATION_ID, ["conversation:read"]));
+
+    expect(container.textContent).not.toContain("tg-user-1");
+
+    // Lets the pending fetch for the new conversation settle, so the test does not leave a dangling
+    // promise resolution for the next one.
+    await flush();
+    expect(channelIdentitiesApi.fetchChannelIdentities).toHaveBeenLastCalledWith("token", OTHER_CONVERSATION_ID);
   });
 });

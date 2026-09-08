@@ -1,4 +1,5 @@
 import { act, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 
 /**
@@ -69,6 +70,40 @@ export async function render(node: ReactNode): Promise<HTMLElement> {
   await act(async () => {
     mountPoint.render(node);
     await flush();
+  });
+
+  return container;
+}
+
+/**
+ * `23-100`: renders (or re-renders) `node` and returns as soon as React has committed, deliberately
+ * *without* running any passive effect - so a test can inspect the DOM at the exact point a
+ * `useEffect` has not fired yet, but a render-phase state adjustment (React's own "adjust state during
+ * render" technique, `react.dev/learn/you-might-not-need-an-effect`) already has. That gap is the one
+ * thing worth proving about moving a reset out of an effect: the old, effect-based reset could not
+ * clear stale state before this same synchronous commit, so a test built on this function fails
+ * against that code and passes against the render-phase version - the "fails-before" evidence
+ * `23-100`'s own report needs, not just "the same behaviour, refactored" duplicated over from `render`.
+ *
+ * Deliberately `flushSync`, not `act`: React's own `act` (even called with a synchronous, non-`async`
+ * body) still drains the passive-effect queue before returning - it exists precisely so a test does not
+ * need to think about that gap, which makes it useless for a test whose whole point *is* the gap.
+ * `flushSync` commits synchronously and stops there; passive effects stay scheduled exactly as they
+ * would after a real browser paint, which is what makes the difference here real rather than an
+ * artefact of the test harness. This is the one function in this file that intentionally steps outside
+ * `act`'s guarantee - callers must drain the effect queue themselves afterwards (`flush`/`interact`)
+ * before making any assertion that depends on one having run.
+ */
+export function renderSync(node: ReactNode): HTMLElement {
+  if (container === null || root === null) {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+  }
+
+  const mountPoint = root;
+  flushSync(() => {
+    mountPoint.render(node);
   });
 
   return container;

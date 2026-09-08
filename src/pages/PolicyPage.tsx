@@ -44,15 +44,28 @@ export function PolicyPage() {
     { status: "loading" } | { status: "ready"; document: DocumentVersionResponse } | { status: "error"; message: string }
   >({ status: "loading" });
 
-  useEffect(() => {
-    let cancelled = false;
-    setState({ status: "loading" });
+  // `23-100`: adjusted during render, not in an effect - `react-hooks/set-state-in-effect` (v7) flags
+  // a synchronous `setState` in an effect body (react.dev/learn/you-might-not-need-an-effect, "Adjusting
+  // some state when a prop changes"); comparing against the previous `documentKey`/`version` pair here
+  // does the same reset one render earlier, with no flash of the previous document's text before the
+  // effect used to fire - navigating between two published documents (`DocumentsPage`'s "read as a
+  // visitor would" link, this component's own doc comment) does not remount this route, so a stale
+  // body could otherwise sit on screen while the new one loads. `VisitorHistoryPanel`'s identical
+  // `23-96` conversion is the precedent.
+  const [prevDocumentKey, setPrevDocumentKey] = useState(documentKey);
+  const [prevVersion, setPrevVersion] = useState(version);
+  if (documentKey !== prevDocumentKey || version !== prevVersion) {
+    setPrevDocumentKey(documentKey);
+    setPrevVersion(version);
+    setState(documentKey ? { status: "loading" } : { status: "error", message: strings.policyPageNotFound });
+  }
 
+  useEffect(() => {
     if (!documentKey) {
-      setState({ status: "error", message: strings.policyPageNotFound });
       return;
     }
 
+    let cancelled = false;
     // `23-37`: a `?version=` query resolves that exact, immutable version instead of "current" -
     // `getDocumentVersion`/`getCurrentDocument` share the identical response shape, so nothing else
     // in this component needs to branch on which one answered.

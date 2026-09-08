@@ -66,12 +66,21 @@ export function ChannelIdentitiesPanel({
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
+  // `23-100`: adjusted during render, not in an effect - `react-hooks/set-state-in-effect` (v7) flags
+  // a synchronous `setState` in an effect body (react.dev/learn/you-might-not-need-an-effect, "Adjusting
+  // some state when a prop changes"); comparing against the previous `conversationId` here does the
+  // same reset one render earlier, with no flash of the previous conversation's identities before the
+  // effect used to fire - `VisitorHistoryPanel`'s identical `23-96` conversion is the precedent.
+  const [prevConversationId, setPrevConversationId] = useState(conversationId);
+  if (conversationId !== prevConversationId) {
+    setPrevConversationId(conversationId);
     setIdentities(null);
     setLoadError(null);
     setActionError(null);
     setRequestedCode(null);
+  }
 
+  useEffect(() => {
     if (!accessToken || !hasPermission("conversation:read")) {
       return;
     }

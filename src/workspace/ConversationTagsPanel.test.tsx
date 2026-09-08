@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConversationTagsPanel } from "./ConversationTagsPanel.js";
 import type { TagDto } from "../api/tagsApi.js";
 import { PermissionsContext, type PermissionsState } from "../auth/PermissionsContext.js";
-import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
+import { all, byText, flush, interact, one, render, renderSync, unmount } from "../testing/dom.js";
 
 /**
  * `19-02`: the console-rendered half of this item's own Done-when - "an AI-applied tag is visibly
@@ -21,6 +21,7 @@ const tagsApi = vi.hoisted(() => ({
 vi.mock("../api/tagsApi.js", () => tagsApi);
 
 const CONVERSATION_ID = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+const OTHER_CONVERSATION_ID = "dddddddd-dddd-dddd-dddd-dddddddddddd";
 const SITE_TAGS: TagDto[] = [
   { id: "tag-billing", name: "Billing", createdAt: "2026-01-01T00:00:00Z" },
   { id: "tag-shipping", name: "Shipping", createdAt: "2026-01-01T00:00:00Z" },
@@ -46,12 +47,16 @@ function Permitted({ permissions, children }: { permissions: string[]; children:
   return <PermissionsContext.Provider value={value}>{children}</PermissionsContext.Provider>;
 }
 
-async function mount(permissions: string[]): Promise<HTMLElement> {
-  return render(
+function panel(conversationId: string, permissions: string[]) {
+  return (
     <Permitted permissions={permissions}>
-      <ConversationTagsPanel conversationId={CONVERSATION_ID} siteTags={SITE_TAGS} accessToken="token" />
-    </Permitted>,
+      <ConversationTagsPanel conversationId={conversationId} siteTags={SITE_TAGS} accessToken="token" />
+    </Permitted>
   );
+}
+
+async function mount(permissions: string[]): Promise<HTMLElement> {
+  return render(panel(CONVERSATION_ID, permissions));
 }
 
 beforeEach(() => {
@@ -131,5 +136,31 @@ describe("basic rendering", () => {
     const container = await mount(["conversation:read"]);
 
     expect(container.textContent).toContain("No tags applied.");
+  });
+});
+
+/**
+ * `23-100`: `VisitorPanel` renders this panel with no `key={conversationId}` - see
+ * `ChannelIdentitiesPanel.test.tsx`'s identical describe block for why `renderSync` (commits without
+ * running any passive effect) is what makes this a real fails-before check rather than "the same
+ * behaviour, refactored": against the pre-`23-100` code the reset lived inside the effect, so this
+ * commit would still carry the previous conversation's tags; against the render-phase version the
+ * reset already happened before this same commit.
+ */
+describe("switching conversations (23-100)", () => {
+  it("clears the previous conversation's tags before the fetch effect could have run", async () => {
+    tagsApi.fetchConversationTags.mockResolvedValue([
+      { id: "tag-billing", name: "Billing", createdAt: "2026-01-01T00:00:00Z", source: "Operator" },
+    ]);
+
+    const container = await mount(["conversation:read"]);
+    expect(container.textContent).toContain("Billing");
+
+    renderSync(panel(OTHER_CONVERSATION_ID, ["conversation:read"]));
+
+    expect(container.textContent).not.toContain("Billing");
+
+    await flush();
+    expect(tagsApi.fetchConversationTags).toHaveBeenLastCalledWith("token", OTHER_CONVERSATION_ID);
   });
 });

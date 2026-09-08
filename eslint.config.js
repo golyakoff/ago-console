@@ -41,26 +41,56 @@ export default tseslint.config(
   // here, not per-callsite, because the rule does not fit this codebase at all until the Compiler is
   // adopted - see this item's own report for what adopting it would mean.
   { files: ["src/**/*.{ts,tsx}"], rules: { "react-hooks/preserve-manual-memoization": "off" } },
-  // `23-96`: this specific list of files carries pre-existing `react-hooks/set-state-in-effect`
-  // findings (v7 is the first version of this plugin that polices the pattern) that this item's own
-  // report fixed a representative few of and explicitly left the rest of, rather than rewriting ~20
-  // fetch-on-mount/reset-on-id-change effects across calendar, billing, report and conversation-panel
-  // screens without the per-screen review that needs. The rule stays a full "error" everywhere else,
-  // including new code in these same files going forward - only the lines already present when this
-  // migration landed are downgraded, and only in these files, so `npm run lint` keeps failing on any
-  // *new* instance of the pattern instead of hiding it here. Tracked in a follow-up backlog item (not
-  // yet numbered at the time this file was written - see this item's own report).
+  // `23-100`: `23-96` left twenty-three `react-hooks/set-state-in-effect` findings across twenty-one
+  // files on this list, in two shapes - **reset-on-id-change** (a panel clearing its own state when
+  // the conversation or worker it shows changes) and **fetch-on-mount** (a screen loading a default
+  // window of data the first time it renders). This item converted every reset-on-id-change site:
+  // `OwnerSitesPage` (keyed on `activeQuery`), `PolicyPage` (keyed on `documentKey`/`version` - this
+  // route does not remount between two published documents) and the five conversation-workspace panels
+  // (`ChannelIdentitiesPanel`, `ContactDetailsPanel`, `ConversationNotesPanel`,
+  // `ConversationOutcomePanel`, `ConversationTagsPanel`, all keyed on `conversationId`) - each now
+  // adjusts state during render instead of in an effect (react.dev/learn/you-might-not-need-an-effect),
+  // the same technique `23-96` already used for `Composer`/`VisitorHistoryPanel`. None of those eight
+  // findings remain; all eight files are off this list.
   //
-  // **Corrected at landing: the two sentences above claim more than ESLint can do.** Severity is
-  // per-file, not per-line - there is no mechanism that distinguishes a finding that existed when this
-  // landed from one added tomorrow. So a *new* `set-state-in-effect` in any of the twenty-one files
-  // below is a warning too, not an error, and `npm run lint` will not fail on it. That is the real
-  // cost of this override and it is bounded by the list: every other file in the console still errors.
-  // `23-100` is the follow-up that removes the list, and until it lands these files are the soft spot.
+  // **What is left is fetch-on-mount, and it stays deliberately unconverted.** Every remaining file
+  // calls an async data-loading function directly inside a `useEffect` (`void reload(signal)` or
+  // equivalent) - the plugin's v7 static analysis flags that call itself, not merely a literal
+  // synchronous `setState`, because calling an async function is still a direct, unconditional call
+  // from the effect body regardless of where the `await` sits inside it. Silencing that by reshaping
+  // the same call into a `.then()` chain would dodge the linter without answering the question the
+  // rule is actually asking - *when should this request fire, and relative to what* - which is exactly
+  // the per-screen judgement `23-100`'s own scope refused to make mechanically for twelve calendar/
+  // report screens and one already-intricate reconnect path in one sitting:
+  // - `WorkerScheduleSection` (keyed on `workerId`), `CalendarWorkerSlotsPage` (`workerId` + `range`),
+  //   `CalendarBookingsPage`/`CalendarContactsPage`/`CalendarQueuePage`/`CalendarServicesPage`/
+  //   `CalendarAvailabilityPage` (permission-gated, some also re-fetch on a `range` the operator picks):
+  //   whether switching the worker or the range should show a skeleton first or keep the stale grid
+  //   until the new one arrives is a screen-level UX call this item does not make on their behalf.
+  // - `BookingFlowConversionPage`/`ConversionReportPage`/`MyNumbersPage`/`OperatorAnalyticsPage`/
+  //   `TagBreakdownReportPage`: each already states, in its own comment, a deliberate "load the
+  //   server's own default window on first render" design - moving that fetch changes what "opening
+  //   the report" means, not just how the linter reads it.
+  // - `DocumentsPage`: the top-level list load (permission-gated, effectively once per site) and its
+  //   nested `AcceptancesList` (one instance per consent purpose) are the identical fetch-on-mount
+  //   shape one level apart; converting the parent without the child - or the reverse - would split one
+  //   screen's loading behaviour in two, which is the "convert half a screen" failure mode `23-100`'s
+  //   own brief warns against.
+  // - `TeamChatPage`: this file's own doc comment already explains why the mount-load and the
+  //   reconnect catch-up share one effect and one `previousConnectionStateRef` on purpose - splitting
+  //   it needs the same care that comment took, not a mechanical pass.
+  //
+  // The rule stays a full "error" everywhere else, including new code in these same files going
+  // forward - only the lines already present when `23-96` landed are downgraded, and only in the files
+  // below. **Severity is per-file, not per-line** - there is no mechanism that distinguishes a finding
+  // that existed when `23-96` landed from one added tomorrow, so a *new* `set-state-in-effect` in any
+  // of the files below is a warning too, not an error, and `npm run lint` will not fail on it. That is
+  // the real cost of this override and it is bounded by the list: every other file in the console
+  // (including the eight this item just removed) still errors on it. A follow-up item carries the
+  // fetch-on-mount half out, screen by screen, and deletes this block once the list is empty.
   {
     files: [
       "src/calendar/WorkerScheduleSection.tsx",
-      "src/owner/OwnerSitesPage.tsx",
       "src/pages/BookingFlowConversionPage.tsx",
       "src/pages/CalendarAvailabilityPage.tsx",
       "src/pages/CalendarBookingsPage.tsx",
@@ -72,14 +102,8 @@ export default tseslint.config(
       "src/pages/DocumentsPage.tsx",
       "src/pages/MyNumbersPage.tsx",
       "src/pages/OperatorAnalyticsPage.tsx",
-      "src/pages/PolicyPage.tsx",
       "src/pages/TagBreakdownReportPage.tsx",
       "src/pages/TeamChatPage.tsx",
-      "src/workspace/ChannelIdentitiesPanel.tsx",
-      "src/workspace/ContactDetailsPanel.tsx",
-      "src/workspace/ConversationNotesPanel.tsx",
-      "src/workspace/ConversationOutcomePanel.tsx",
-      "src/workspace/ConversationTagsPanel.tsx",
     ],
     rules: { "react-hooks/set-state-in-effect": "warn" },
   },

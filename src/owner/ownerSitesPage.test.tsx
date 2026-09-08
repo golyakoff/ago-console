@@ -1,4 +1,5 @@
 import { useMemo, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "oidc-client-ts";
@@ -338,5 +339,57 @@ describe("the platform-sites page's own search", () => {
     const container = await render(shellAt());
 
     expect(container.textContent).not.toContain("of 41 sites match");
+  });
+
+  /**
+   * `23-100`: `search`'s own two `interact` calls (typing, then clicking) each drain the passive-
+   * effect queue - by the time either one returns, any fetch it triggered has already settled, so
+   * neither can tell "the reset happened during render" apart from "the reset happened in an effect
+   * that ran before the assertion." This test clicks the submit button raw, deliberately outside
+   * `act`/`interact` (`ChannelIdentitiesPanel.test.tsx`'s `renderSync` doc comment explains the
+   * technique this mirrors for a state change that originates inside the tree rather than from a
+   * changed prop): React still commits a discrete event's own synchronous state updates without
+   * `act`, but leaves the resulting `useEffect` - the one that would actually fetch the new page -
+   * on the passive-effect queue until something drains it. Against the pre-`23-100` code the reset
+   * lived in that same effect, so the previous page would still be on screen at this checkpoint;
+   * against the render-phase version the reset already happened before this commit.
+   *
+   * The click itself is wrapped in `flushSync` (not `act`), for the same reason `renderSync`
+   * (`../testing/dom.js`) is: `createRoot` gives even a discrete click's own state update concurrent,
+   * not synchronous, priority by default, so an un-wrapped `.click()` here would not have committed
+   * anything yet by the time the assertion below runs. `flushSync` forces the commit without touching
+   * the passive-effect queue, which is the one gap this test needs to see across.
+   */
+  it("clears the previous results before the fetch effect could have run", async () => {
+    ownerApi.fetchOwnerSites.mockResolvedValueOnce({
+      status: "ok",
+      page: { sites: [oneSite()], nextBefore: null, recentWindowDays: 30, matchingSites: 1, totalSites: 1 },
+    });
+
+    const container = await render(shellAt());
+    await flush();
+    expect(container.textContent).toContain("Demo Shop One");
+
+    const input = one<HTMLInputElement>(container, 'input[type="text"]');
+    await interact(() => {
+      INPUT_VALUE_DESCRIPTOR?.set?.call(input, "Bakery");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    ownerApi.fetchOwnerSites.mockResolvedValueOnce({
+      status: "ok",
+      page: { sites: [], nextBefore: null, recentWindowDays: 30, matchingSites: 0, totalSites: 1 },
+    });
+
+    flushSync(() => {
+      byText<HTMLButtonElement>(container, "button", "Search").click();
+    });
+
+    expect(container.textContent).not.toContain("Demo Shop One");
+    expect(container.textContent).toContain("Loading platform sites");
+
+    // Settles the fetch the click actually triggered, so the next test starts clean.
+    await interact(() => undefined);
+    expect(ownerApi.fetchOwnerSites).toHaveBeenLastCalledWith("token", undefined, "Bakery");
   });
 });

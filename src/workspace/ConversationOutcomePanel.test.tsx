@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConversationOutcomePanel } from "./ConversationOutcomePanel.js";
 import { ApiProblemError } from "../api/problemDetails.js";
 import { PermissionsContext, type PermissionsState } from "../auth/PermissionsContext.js";
-import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
+import { all, byText, flush, interact, one, render, renderSync, unmount } from "../testing/dom.js";
 
 /**
  * `18-10`. The same hand-made-permissions-context shape `CloseConversationButton.test.tsx` already
@@ -19,6 +19,7 @@ const conversationsApi = vi.hoisted(() => ({
 vi.mock("../api/conversationsApi.js", () => conversationsApi);
 
 const CONVERSATION_ID = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+const OTHER_CONVERSATION_ID = "dddddddd-dddd-dddd-dddd-dddddddddddd";
 
 function Permitted({ permissions, children }: { permissions: string[]; children: ReactNode }) {
   const SITE_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
@@ -40,12 +41,16 @@ function Permitted({ permissions, children }: { permissions: string[]; children:
   return <PermissionsContext.Provider value={value}>{children}</PermissionsContext.Provider>;
 }
 
-async function mount(permissions: string[]): Promise<HTMLElement> {
-  return render(
+function panel(conversationId: string, permissions: string[]) {
+  return (
     <Permitted permissions={permissions}>
-      <ConversationOutcomePanel conversationId={CONVERSATION_ID} accessToken="token" />
-    </Permitted>,
+      <ConversationOutcomePanel conversationId={conversationId} accessToken="token" />
+    </Permitted>
   );
+}
+
+async function mount(permissions: string[]): Promise<HTMLElement> {
+  return render(panel(CONVERSATION_ID, permissions));
 }
 
 beforeEach(() => {
@@ -153,5 +158,29 @@ describe("the honesty framing", () => {
     const container = await mount(["conversation:read"]);
 
     expect(container.textContent).toContain("not a sale");
+  });
+});
+
+/**
+ * `23-100`: `VisitorPanel` renders this panel with no `key={conversationId}` - see
+ * `ChannelIdentitiesPanel.test.tsx`'s identical describe block for why `renderSync` (commits without
+ * running any passive effect) is what makes this a real fails-before check rather than "the same
+ * behaviour, refactored": against the pre-`23-100` code the reset lived inside the effect, so this
+ * commit would still carry the previous conversation's outcome; against the render-phase version the
+ * reset already happened before this same commit.
+ */
+describe("switching conversations (23-100)", () => {
+  it("clears the previous conversation's outcome before the fetch effect could have run", async () => {
+    conversationsApi.fetchConversationOutcome.mockResolvedValue({ outcome: "Converted" });
+
+    const container = await mount(["conversation:read"]);
+    expect(container.textContent).toContain("Converted");
+
+    renderSync(panel(OTHER_CONVERSATION_ID, ["conversation:read"]));
+
+    expect(container.textContent).not.toContain("Converted");
+
+    await flush();
+    expect(conversationsApi.fetchConversationOutcome).toHaveBeenLastCalledWith("token", OTHER_CONVERSATION_ID);
   });
 });
