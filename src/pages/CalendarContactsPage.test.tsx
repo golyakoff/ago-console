@@ -5,7 +5,7 @@ import type { User } from "oidc-client-ts";
 import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { CalendarContactsPage } from "./CalendarContactsPage.js";
-import { render, unmount } from "../testing/dom.js";
+import { byText, interact, render, unmount } from "../testing/dom.js";
 import type { Contact } from "../api/calendarApi.js";
 
 /**
@@ -26,7 +26,7 @@ vi.mock("../config.js", () => ({
 const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
-const calendarApi = vi.hoisted(() => ({ getContacts: vi.fn() }));
+const calendarApi = vi.hoisted(() => ({ getContacts: vi.fn(), revealCustomerPhone: vi.fn() }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
 vi.mock("../api/ownerApi.js", () => ownerApi);
@@ -65,8 +65,16 @@ function page(): ReactNode {
 }
 
 const contacts: Contact[] = [
-  { customerId: "c1", phone: "+79990000001", displayName: "Anna", notes: "Prefers afternoons", noShowCount: 0, firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00" },
-  { customerId: "c2", phone: "+79990000002", displayName: null, notes: null, noShowCount: 2, firstSeenAt: "2026-04-01T09:00:00+00:00", lastSeenAt: "2026-04-01T09:00:00+00:00" },
+  {
+    customerId: "c1", phone: "+79990000001", masked: false, displayName: "Anna", notes: "Prefers afternoons",
+    noShowCount: 0, phoneVerifiedAt: null, phoneConfirmedByOperatorAt: null,
+    firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00",
+  },
+  {
+    customerId: "c2", phone: "+79990000002", masked: false, displayName: null, notes: null,
+    noShowCount: 2, phoneVerifiedAt: null, phoneConfirmedByOperatorAt: null,
+    firstSeenAt: "2026-04-01T09:00:00+00:00", lastSeenAt: "2026-04-01T09:00:00+00:00",
+  },
 ];
 
 beforeEach(() => {
@@ -119,5 +127,98 @@ describe("the contacts report", () => {
     const container = await render(page());
 
     expect(container.querySelector("table")).toBeNull();
+  });
+});
+
+/** `23-30`/`23-12`: a masked phone gets a Reveal button, never the real number, until the server's
+ * own reveal response arrives. */
+describe("revealing a masked phone (23-30)", () => {
+  const maskedContact: Contact = {
+    customerId: "c3", phone: "+7999•••0003", masked: true, displayName: "Petra", notes: null,
+    noShowCount: 0, phoneVerifiedAt: null, phoneConfirmedByOperatorAt: null,
+    firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00",
+  };
+
+  it("shows the masked value and a Reveal button, never the real number, before reveal", async () => {
+    calendarApi.getContacts.mockResolvedValue([maskedContact]);
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("+7999•••0003");
+    expect(container.textContent).not.toContain("+79990000003");
+    expect(byText(container, "button", "Reveal")).not.toBeNull();
+  });
+
+  it("replaces the masked row with the server's own unmasked response on Reveal", async () => {
+    calendarApi.getContacts.mockResolvedValue([maskedContact]);
+    calendarApi.revealCustomerPhone.mockResolvedValue({ phone: "+79990000003" });
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Reveal")?.click());
+
+    expect(calendarApi.revealCustomerPhone).toHaveBeenCalledWith("token", "c3", "ConsoleContacts");
+    expect(container.textContent).toContain("+79990000003");
+    expect(container.textContent).not.toContain("+7999•••0003");
+    expect(byText(container, "button", "Reveal")).toBeNull();
+  });
+
+  it("does not offer a Reveal button when the row already carries the real value", async () => {
+    calendarApi.getContacts.mockResolvedValue(contacts);
+
+    const container = await render(page());
+
+    expect(byText(container, "button", "Reveal")).toBeNull();
+  });
+});
+
+/** `23-30`/`23-12`/`decisions.md` §5: an SMS code and an operator's "I called and it is them" are
+ * two different strengths of evidence - this report must never merge them into one generic
+ * "verified" state. */
+describe("the two verification facts (23-30)", () => {
+  it("shows both facts as unconfirmed for a customer with neither", async () => {
+    calendarApi.getContacts.mockResolvedValue(contacts);
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Not verified");
+    expect(container.textContent).toContain("Not confirmed");
+  });
+
+  it("distinguishes an SMS-verified number from an operator-confirmed one, on the same row and on different rows", async () => {
+    calendarApi.getContacts.mockResolvedValue([
+      {
+        customerId: "c4", phone: "+79990000004", masked: false, displayName: "Verified only", notes: null,
+        noShowCount: 0, phoneVerifiedAt: "2026-05-01T09:00:00+00:00", phoneConfirmedByOperatorAt: null,
+        firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00",
+      },
+      {
+        customerId: "c5", phone: "+79990000005", masked: false, displayName: "Confirmed only", notes: null,
+        noShowCount: 0, phoneVerifiedAt: null, phoneConfirmedByOperatorAt: "2026-05-02T09:00:00+00:00",
+        firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00",
+      },
+      {
+        customerId: "c6", phone: "+79990000006", masked: false, displayName: "Both", notes: null,
+        noShowCount: 0, phoneVerifiedAt: "2026-05-01T09:00:00+00:00", phoneConfirmedByOperatorAt: "2026-05-02T09:00:00+00:00",
+        firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00",
+      },
+    ]);
+
+    const container = await render(page());
+
+    // The two facts are rendered with different words, never one merged "verified" badge - the
+    // row that has only the operator's own confirmation must never read as SMS-verified, and vice
+    // versa.
+    const verifiedOnlyRow = Array.from(container.querySelectorAll("tr")).find((tr) => tr.textContent?.includes("Verified only"));
+    expect(verifiedOnlyRow?.textContent).toContain("Verified");
+    expect(verifiedOnlyRow?.textContent).not.toContain("Confirmed");
+
+    const confirmedOnlyRow = Array.from(container.querySelectorAll("tr")).find((tr) => tr.textContent?.includes("Confirmed only"));
+    expect(confirmedOnlyRow?.textContent).toContain("Confirmed");
+    expect(confirmedOnlyRow?.textContent).not.toContain("Not confirmed");
+    expect(confirmedOnlyRow?.textContent).not.toContain("Verified");
+
+    const bothRow = Array.from(container.querySelectorAll("tr")).find((tr) => tr.textContent?.includes("Both"));
+    expect(bothRow?.textContent).toContain("Verified");
+    expect(bothRow?.textContent).toContain("Confirmed");
   });
 });

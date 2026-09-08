@@ -191,6 +191,11 @@ export interface PendingBooking {
    * reading.
    */
   phone: string | null;
+  /** `23-30`/`23-12`: whether `phone` above is the tenant's own rung-masked display form, rather
+   * than the real number - meaningful only when `phone` is non-null. `CalendarQueuePage` renders a
+   * Reveal control exactly when this is `true`, never inferring it from the string's own shape
+   * (`Ago.Calendar.Contracts.PendingBookingResponse.Masked`'s own remarks). */
+  masked: boolean;
 }
 
 /**
@@ -285,6 +290,10 @@ export interface WorkerSlot {
   /** `20-12`'s own gate, reused. See `customerId` for how its own two null-reasons are told apart. */
   customerDisplayName: string | null;
   phone: string | null;
+  /** `23-30`/`23-12`: whether `phone` is the tenant's own rung-masked display form - meaningful
+   * only when `phone` is non-null, the identical convention `PendingBooking.masked` and
+   * `ConfirmedBooking.masked` already carry. */
+  masked: boolean;
   /**
    * `20-18`: which booking this slot belongs to, null exactly when `status` is `"Available"` or
    * `"Blocked"`. Two rows sharing this value are two slots of one multi-slot booking - this is what
@@ -312,6 +321,9 @@ export interface RecutBookingPreview {
   customerId: string | null;
   customerDisplayName: string | null;
   phone: string | null;
+  /** `23-30`/`23-12`: whether `phone` is the tenant's own rung-masked display form - the identical
+   * convention every other calendar response row carrying a phone now uses. */
+  masked: boolean;
   /**
    * `false` only for a `NoShow` row: a visit that already happened cannot be cancelled through the
    * ordinary cancellation use case, so the console offers no cancel/keep control for it at all - its
@@ -344,16 +356,50 @@ export interface RecutResult {
   bookingsCancelled: number;
 }
 
+/**
+ * `23-30`/`23-12`: `phone` is always populated - masked or real, never absent, because every row on
+ * this report already passed `customer:read` the same way `ConfirmedBooking.phone`'s own remarks
+ * describe. `masked` tells the two apart; the console must not infer it from the string's own shape.
+ */
 export interface Contact {
   customerId: string;
   phone: string;
+  masked: boolean;
   displayName: string | null;
   notes: string | null;
   /** Always zero today - nothing in this product writes it yet (`20-04`'s own retro note). Shown
    * honestly rather than hidden, so the report does not imply a feature that does not exist. */
   noShowCount: number;
+  /** `20-09`'s own fact: when this number was proven reachable by an SMS code, or `null` if it never
+   * has been. */
+  phoneVerifiedAt: string | null;
+  /** `23-12`'s own distinct fact: when an operator recorded "I called and it is them", or `null` if
+   * nobody has. Never merged with `phoneVerifiedAt` - `decisions.md` §5: "'I called and it is them'
+   * is a different fact from an SMS code", so `CalendarContactsPage` renders the two as visibly
+   * different badges rather than one generic "verified" state. */
+  phoneConfirmedByOperatorAt: string | null;
   firstSeenAt: string;
   lastSeenAt: string;
+}
+
+/** `23-30`/`23-12`'s own audit view - one reveal, individually, never an aggregated count
+ * (`decisions.md` §5's amendment: "reveal counts belong in an audit view, never in the report a
+ * person is judged on" - and even here, never a per-operator tally this page could be read as
+ * ranking staff by). Field names match `Ago.Calendar.Contracts.ContactPhoneRevealResponse`
+ * verbatim. */
+export interface PhoneReveal {
+  id: string;
+  occurredAt: string;
+  customerId: string;
+  operatorId: string;
+  surface: string;
+}
+
+/** `NextBefore` is the keyset cursor for the next page, `null` once the oldest row has been
+ * reached - the same shape `searchConversations`' own `nextBeforeMessageId` already carries. */
+export interface PhoneRevealPage {
+  items: PhoneReveal[];
+  nextBefore: string | null;
 }
 
 /**
@@ -564,6 +610,49 @@ export function editDayBoundary(
 
 export function getContacts(token: string, signal?: AbortSignal): Promise<Contact[]> {
   return request<Contact[]>(token, "GET", "/contacts", undefined, signal);
+}
+
+/**
+ * `23-30`/`23-12`: `POST /contacts/{id}/reveal-phone` - one customer, one reveal, gated server-side
+ * on `customer:read` (the same permission the list reads already need). Returns the real number and
+ * nothing else (`Ago.Calendar.Contracts.CustomerPhoneRevealResponse`); the four calendar screens
+ * replace the masked row with this response rather than computing anything client-side, the identical
+ * shape `ago-chat`'s own `revealContactDetail` already established (`ContactDetailsPanel`'s own doc
+ * comment).
+ *
+ * `surface` names which screen asked, for the reveal record's own "which surface" field - a plain
+ * string, not a closed union: `RevealCustomerPhoneRequest.Surface` is stored and read back verbatim
+ * by `getPhoneReveals` below, with no server-side vocabulary to stay in step with.
+ */
+export function revealCustomerPhone(token: string, customerId: string, surface: string): Promise<{ phone: string }> {
+  return request<{ phone: string }>(
+    token, "POST", `/contacts/${encodeURIComponent(customerId)}/reveal-phone`, { surface },
+  );
+}
+
+/**
+ * `23-30`/`23-12`: `GET /contacts/phone-reveals` - the audit trail, gated server-side on
+ * `calendar:configure` rather than `customer:read`, deliberately wider than the reveal action itself
+ * (`GetPhoneRevealsForTenantHandler`'s own doc comment: revealing one number does not entitle
+ * somebody to the whole tenant's reveal history). `before`/`limit` are the keyset page this list
+ * already returns server-side - `before` is the last `id` from the previous page, `undefined` for the
+ * first one.
+ */
+export function getPhoneReveals(
+  token: string,
+  before?: string,
+  limit?: number,
+  signal?: AbortSignal,
+): Promise<PhoneRevealPage> {
+  const query = new URLSearchParams();
+  if (before !== undefined) {
+    query.set("before", before);
+  }
+  if (limit !== undefined) {
+    query.set("limit", String(limit));
+  }
+  const suffix = query.toString();
+  return request<PhoneRevealPage>(token, "GET", `/contacts/phone-reveals${suffix ? `?${suffix}` : ""}`, undefined, signal);
 }
 
 /** `20-15`. `from`/`to` are `YYYY-MM-DD`, business-local, both inclusive. */

@@ -26,7 +26,7 @@ vi.mock("../config.js", () => ({
 const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
-const calendarApi = vi.hoisted(() => ({ previewRecutSchedule: vi.fn(), recutSchedule: vi.fn() }));
+const calendarApi = vi.hoisted(() => ({ previewRecutSchedule: vi.fn(), recutSchedule: vi.fn(), revealCustomerPhone: vi.fn() }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
 vi.mock("../api/ownerApi.js", () => ownerApi);
@@ -90,6 +90,7 @@ function booking(overrides: Partial<RecutBookingPreview> = {}): RecutBookingPrev
     customerId: "c1",
     customerDisplayName: null,
     phone: null,
+    masked: false,
     canDecide: true,
     ...overrides,
   };
@@ -230,5 +231,41 @@ describe("the re-cut schedule screen", () => {
 
     expect(container.textContent).toMatch(/bookings in this range changed/);
     expect(container.textContent).not.toContain("Confirm re-cut");
+  });
+});
+
+/** `23-30`/`23-12`: a masked booking phone gets a Reveal button, never the real number, until the
+ * server's own reveal response arrives - the nested `preview.days[].bookings[]` shape this screen
+ * has, rather than a flat list. */
+describe("revealing a masked phone (23-30)", () => {
+  it("shows the masked value and a Reveal button, never the real number, before reveal", async () => {
+    calendarApi.previewRecutSchedule.mockResolvedValue({
+      days: [day({ bookings: [booking({ customerDisplayName: "Dana", phone: "+7999•••0001", masked: true })] })],
+      fingerprint: "fp-1",
+    });
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Preview")?.click());
+
+    expect(container.textContent).toContain("+7999•••0001");
+    expect(container.textContent).not.toContain("+79990000001");
+    expect(byText(container, "button", "Reveal")).not.toBeNull();
+  });
+
+  it("replaces the masked booking with the server's own unmasked response on Reveal", async () => {
+    calendarApi.previewRecutSchedule.mockResolvedValue({
+      days: [day({ bookings: [booking({ customerDisplayName: "Dana", phone: "+7999•••0001", masked: true })] })],
+      fingerprint: "fp-1",
+    });
+    calendarApi.revealCustomerPhone.mockResolvedValue({ phone: "+79990000001" });
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Preview")?.click());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Reveal")?.click());
+
+    expect(calendarApi.revealCustomerPhone).toHaveBeenCalledWith("token", "c1", "ConsoleRecut");
+    expect(container.textContent).toContain("+79990000001");
+    expect(container.textContent).not.toContain("+7999•••0001");
+    expect(byText(container, "button", "Reveal")).toBeNull();
   });
 });
