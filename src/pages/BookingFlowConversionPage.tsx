@@ -117,6 +117,20 @@ export function BookingFlowConversionPage() {
   // something immediately" first paint `OperatorAnalyticsPage` already does for `18-08`.
   useEffect(() => {
     if (allowed) {
+      // `23-100`: suppressed here rather than rewritten. `react-hooks/set-state-in-effect` is new in the
+      // plugin's v7, which folded the React Compiler's own analyzer in; it follows the call below and sees a
+      // `setState` reachable from an effect body. It is right about the shape and wrong about the defect:
+      // fetching in an effect is what React's own documentation prescribes until a framework or Suspense
+      // removes the need, and every `setState` reached from here runs after an `await`, never synchronously
+      // in the effect body. Rewriting the call to satisfy the analyzer would answer "when should this
+      // request happen" by accident rather than by decision.
+      //
+      // Per-line, replacing the file-scoped override `23-96` left: that one downgraded the rule for the
+      // whole file, so a genuinely synchronous `setState` written here tomorrow was also only a warning.
+      // This marks the one site that is deliberate and leaves the rest of the file an error again.
+      //
+      // Runs the default report window on first render, which this screen's own remarks call deliberate.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void runReport({});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

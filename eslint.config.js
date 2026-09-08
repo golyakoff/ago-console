@@ -41,72 +41,18 @@ export default tseslint.config(
   // here, not per-callsite, because the rule does not fit this codebase at all until the Compiler is
   // adopted - see this item's own report for what adopting it would mean.
   { files: ["src/**/*.{ts,tsx}"], rules: { "react-hooks/preserve-manual-memoization": "off" } },
-  // `23-100`: `23-96` left twenty-three `react-hooks/set-state-in-effect` findings across twenty-one
-  // files on this list, in two shapes - **reset-on-id-change** (a panel clearing its own state when
-  // the conversation or worker it shows changes) and **fetch-on-mount** (a screen loading a default
-  // window of data the first time it renders). This item converted every reset-on-id-change site:
-  // `OwnerSitesPage` (keyed on `activeQuery`), `PolicyPage` (keyed on `documentKey`/`version` - this
-  // route does not remount between two published documents) and the five conversation-workspace panels
-  // (`ChannelIdentitiesPanel`, `ContactDetailsPanel`, `ConversationNotesPanel`,
-  // `ConversationOutcomePanel`, `ConversationTagsPanel`, all keyed on `conversationId`) - each now
-  // adjusts state during render instead of in an effect (react.dev/learn/you-might-not-need-an-effect),
-  // the same technique `23-96` already used for `Composer`/`VisitorHistoryPanel`. None of those eight
-  // findings remain; all eight files are off this list.
+  // `23-100`: the file-scoped `set-state-in-effect` override that stood here is gone.
   //
-  // **What is left is fetch-on-mount, and it stays deliberately unconverted.** Every remaining file
-  // calls an async data-loading function directly inside a `useEffect` (`void reload(signal)` or
-  // equivalent) - the plugin's v7 static analysis flags that call itself, not merely a literal
-  // synchronous `setState`, because calling an async function is still a direct, unconditional call
-  // from the effect body regardless of where the `await` sits inside it. Silencing that by reshaping
-  // the same call into a `.then()` chain would dodge the linter without answering the question the
-  // rule is actually asking - *when should this request fire, and relative to what* - which is exactly
-  // the per-screen judgement `23-100`'s own scope refused to make mechanically for twelve calendar/
-  // report screens and one already-intricate reconnect path in one sitting:
-  // - `WorkerScheduleSection` (keyed on `workerId`), `CalendarWorkerSlotsPage` (`workerId` + `range`),
-  //   `CalendarBookingsPage`/`CalendarContactsPage`/`CalendarQueuePage`/`CalendarServicesPage`/
-  //   `CalendarAvailabilityPage` (permission-gated, some also re-fetch on a `range` the operator picks):
-  //   whether switching the worker or the range should show a skeleton first or keep the stale grid
-  //   until the new one arrives is a screen-level UX call this item does not make on their behalf.
-  // - `BookingFlowConversionPage`/`ConversionReportPage`/`MyNumbersPage`/`OperatorAnalyticsPage`/
-  //   `TagBreakdownReportPage`: each already states, in its own comment, a deliberate "load the
-  //   server's own default window on first render" design - moving that fetch changes what "opening
-  //   the report" means, not just how the linter reads it.
-  // - `DocumentsPage`: the top-level list load (permission-gated, effectively once per site) and its
-  //   nested `AcceptancesList` (one instance per consent purpose) are the identical fetch-on-mount
-  //   shape one level apart; converting the parent without the child - or the reverse - would split one
-  //   screen's loading behaviour in two, which is the "convert half a screen" failure mode `23-100`'s
-  //   own brief warns against.
-  // - `TeamChatPage`: this file's own doc comment already explains why the mount-load and the
-  //   reconnect catch-up share one effect and one `previousConnectionStateRef` on purpose - splitting
-  //   it needs the same care that comment took, not a mechanical pass.
+  // `23-96` downgraded the rule for twenty-one named files. That was per-file, which ESLint has no way
+  // to narrow: a *new* synchronous `setState` written in any of them tomorrow was only a warning too, so
+  // twenty-one files sat outside a gate the rest of the console was inside.
   //
-  // The rule stays a full "error" everywhere else, including new code in these same files going
-  // forward - only the lines already present when `23-96` landed are downgraded, and only in the files
-  // below. **Severity is per-file, not per-line** - there is no mechanism that distinguishes a finding
-  // that existed when `23-96` landed from one added tomorrow, so a *new* `set-state-in-effect` in any
-  // of the files below is a warning too, not an error, and `npm run lint` will not fail on it. That is
-  // the real cost of this override and it is bounded by the list: every other file in the console
-  // (including the eight this item just removed) still errors on it. A follow-up item carries the
-  // fetch-on-mount half out, screen by screen, and deletes this block once the list is empty.
-  {
-    files: [
-      "src/calendar/WorkerScheduleSection.tsx",
-      "src/pages/BookingFlowConversionPage.tsx",
-      "src/pages/CalendarAvailabilityPage.tsx",
-      "src/pages/CalendarBookingsPage.tsx",
-      "src/pages/CalendarContactsPage.tsx",
-      "src/pages/CalendarQueuePage.tsx",
-      "src/pages/CalendarServicesPage.tsx",
-      "src/pages/CalendarWorkerSlotsPage.tsx",
-      "src/pages/ConversionReportPage.tsx",
-      "src/pages/DocumentsPage.tsx",
-      "src/pages/MyNumbersPage.tsx",
-      "src/pages/OperatorAnalyticsPage.tsx",
-      "src/pages/TagBreakdownReportPage.tsx",
-      "src/pages/TeamChatPage.tsx",
-    ],
-    rules: { "react-hooks/set-state-in-effect": "warn" },
-  },
+  // The eight reset-on-id-change findings were converted outright. The remaining fifteen are
+  // fetch-on-mount, and each now carries an `eslint-disable-next-line` on its own line with its own
+  // reason: the analyzer is right about the shape and wrong about the defect, since fetching in an
+  // effect is what React documents and every `setState` it reaches runs after an `await`. Marking the
+  // fifteen deliberate sites individually leaves every other line in those files an error again, which
+  // is strictly more protection than the list it replaces - not less.
   // `ux-gate/` is a second TypeScript project (its own `tsconfig.json`, sibling to `src`'s - that
   // file's own doc comment says why it cannot share `tsconfig.app.json`), so it gets its own
   // type-aware-linting block rather than folding into the one above: pointing `parserOptions.project`
