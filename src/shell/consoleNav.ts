@@ -194,6 +194,9 @@ function buildCalendarItems(
       // (wider than `customer:read`, `CalendarPhoneRevealsPage`'s own doc comment), so it belongs only
       // in this branch, never in the operator branch below that draws Клиенты off `customer:read`.
       { to: "/calendar/phone-reveals", label: strings.navCalendarPhoneReveals },
+      // `23-60`/`adr/0161`: the merge audit trail - the identical `calendar:configure` gate and
+      // reasoning as the reveal audit trail immediately above.
+      { to: "/calendar/customer-merges", label: strings.navCalendarCustomerMerges },
       { to: "/calendar/setup", label: strings.navCalendarSetup },
     ];
   }

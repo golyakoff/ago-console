@@ -313,7 +313,7 @@ describe("the operator navigation", () => {
 
     expect(sectionLabels(container)).toEqual(["Conversations", "Analytics", "Calendar", "Team"]);
     await openSection(container, "Calendar");
-    expect(itemLabels(container)).toEqual(["Masters", "Services", "Schedule", "Waiting", "Bookings", "Contacts", "Phone reveals", "Setup"]);
+    expect(itemLabels(container)).toEqual(["Masters", "Services", "Schedule", "Waiting", "Bookings", "Contacts", "Phone reveals", "Merges", "Setup"]);
     // `23-34`: "Bookings" is a real link now (`/calendar/bookings`, `CalendarBookingsPage`) - it was
     // `reserved` only until this item gave the confirmed-bookings screen an actual route.
     expect(reservedItemLabels(container)).toEqual([]);
@@ -457,7 +457,7 @@ describe("the operator navigation", () => {
     expect(mutedItemLabels(container)).toEqual([]);
 
     await openSection(container, "Calendar");
-    expect(itemLabels(container)).toEqual(["Masters", "Services", "Schedule", "Waiting", "Bookings", "Contacts", "Phone reveals", "Setup"]);
+    expect(itemLabels(container)).toEqual(["Masters", "Services", "Schedule", "Waiting", "Bookings", "Contacts", "Phone reveals", "Merges", "Setup"]);
     expect(mutedItemLabels(container)).toEqual([]);
 
     await openSection(container, "Team");
