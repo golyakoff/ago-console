@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
-import { getContacts, revealCustomerPhone, type Contact } from "../api/calendarApi.js";
+import { getContacts, revealCustomerPhone, type Contact, type CustomerMergeOutcome } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
 import { renderPhone, type RevealControl } from "../calendar/calendarFormat.js";
+import { CustomerMergeDialog } from "./CustomerMergeDialog.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Badge } from "../components/Badge.js";
@@ -45,6 +46,15 @@ export function CalendarContactsPage() {
   // identical state.
   const [revealingCustomerId, setRevealingCustomerId] = useState<string | null>(null);
   const canViewContacts = hasPermission("calendar:configure") || hasPermission("customer:read");
+  // `23-60`/`adr/0161`: gated client-side on `customer:edit`, the same permission
+  // `MergeCustomersHandler` checks server-side - an operator who cannot merge never sees a Merge
+  // button that would only fail, the identical "the client-side gate matches exactly what the write
+  // requires" discipline `GetCustomerMergePreviewHandler`'s own doc comment states server-side.
+  const canMergeCustomers = hasPermission("customer:edit");
+  // `23-60`: the two candidate ids the dialog is open for, or `null` when it is closed - a plain
+  // pair rather than a boolean plus separate id fields, since the dialog always needs both at once.
+  const [mergeCandidateIds, setMergeCandidateIds] = useState<{ First: string; Second: string } | null>(null);
+  const [lastMergeOutcome, setLastMergeOutcome] = useState<CustomerMergeOutcome | null>(null);
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
@@ -135,6 +145,17 @@ export function CalendarContactsPage() {
 
   const reveal: RevealControl = { revealingCustomerId, onReveal: (id) => void handleReveal(id) };
 
+  // `23-60`/`adr/0161`: the dialog reports what actually happened, not what the operator asked for -
+  // `outcome.survivorCustomerId`/`absorbedCustomerId` are the server's own decision
+  // (`MergeCustomersHandler`'s own doc comment). This closes the dialog, shows the bookings-moved
+  // count, and reloads the list - the merged-away row disappears from it because
+  // `IContactsReadStore` excludes a tombstoned row, not because this handler removes it locally.
+  const handleMerged = (outcome: CustomerMergeOutcome) => {
+    setMergeCandidateIds(null);
+    setLastMergeOutcome(outcome);
+    void reload();
+  };
+
   const columns: TableColumn<Contact>[] = [
     { key: "phone", header: strings.calendarContactsColumnPhone, render: (contact) => renderPhone(contact, strings, reveal) },
     {
@@ -194,6 +215,30 @@ export function CalendarContactsPage() {
         return instant === null ? null : <span title={formatAbsolute(instant, timeZone, strings)}>{formatDateStamp(instant, timeZone, strings)}</span>;
       },
     },
+    // `23-60`/`adr/0161`: `ContactRow.duplicatePhoneCustomerIds`'s own console surface - a badge
+    // naming the situation, and a Merge button that opens the confirmation dialog against the first
+    // other customer sharing this row's own phone. Rendered only when `canMergeCustomers` - never a
+    // disabled button an operator without `customer:edit` could see and wonder about.
+    {
+      key: "duplicate",
+      header: strings.calendarContactsColumnDuplicate,
+      render: (contact) =>
+        contact.duplicatePhoneCustomerIds.length === 0 ? null : (
+          <>
+            <Badge tone="accent">{strings.calendarContactsDuplicateHint}</Badge>
+            {canMergeCustomers && (
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  setMergeCandidateIds({ First: contact.customerId, Second: contact.duplicatePhoneCustomerIds[0] })
+                }
+              >
+                {strings.calendarContactsMergeButton}
+              </Button>
+            )}
+          </>
+        ),
+    },
   ];
 
   return (
@@ -205,6 +250,23 @@ export function CalendarContactsPage() {
       />
 
       {error !== null && <Alert tone="danger">{error}</Alert>}
+
+      {lastMergeOutcome !== null && (
+        <Alert tone="success">
+          {strings.calendarMergeDoneBookingsMovedLabel}: {lastMergeOutcome.bookingsMoved}
+        </Alert>
+      )}
+
+      {mergeCandidateIds !== null && (
+        <CustomerMergeDialog
+          open
+          accessToken={user?.access_token}
+          firstCustomerId={mergeCandidateIds.First}
+          secondCustomerId={mergeCandidateIds.Second}
+          onClose={() => setMergeCandidateIds(null)}
+          onMerged={handleMerged}
+        />
+      )}
 
       {contacts === null && error === null ? (
         <Panel>

@@ -1597,6 +1597,7 @@ export interface ConsoleStrings {
    * `calendar:configure` branch, since the read itself is gated on that wider permission
    * server-side (`CalendarPhoneRevealsPage`'s own doc comment). */
   navCalendarPhoneReveals: string;
+  navCalendarCustomerMerges: string;
   calendarLoading: string;
   calendarDeleteButton: string;
   calendarBackButton: string;
@@ -1849,6 +1850,47 @@ export interface ConsoleStrings {
   calendarContactsConfirmedLabel: string;
   calendarContactsNotConfirmedLabel: string;
 
+  // --- `23-60`/`adr/0161`: the "shares a phone" hint and the Merge action it opens - `ContactRow`'s
+  // own `duplicatePhoneCustomerIds`, surfaced on the contacts screen where an operator already sees
+  // both cards. ---
+  calendarContactsColumnDuplicate: string;
+  /** Shown on a row that shares a phone with at least one other live customer - a short label, not
+   * a sentence, since the Merge button beside it is what actually explains the situation. */
+  calendarContactsDuplicateHint: string;
+  calendarContactsMergeButton: string;
+
+  /** `23-60`/`adr/0161`: the confirmation dialog - `MergeCustomersDialog`'s own doc comment on why
+   * this is where the irreversibility of a merge has to be felt, not a footnote. */
+  calendarMergeDialogTitle: string;
+  calendarMergeDialogLoading: string;
+  /** Appears once the preview has loaded, above the Confirm button - the sentence that carries
+   * `adr/0161`'s own "no undo, ever" decision to the one moment it can still change an operator's
+   * mind. */
+  calendarMergeDialogIrreversibleWarning: string;
+  /** Marks whichever candidate `MergeCustomersHandler` decided will survive - never a choice the
+   * dialog offers the operator, see that handler's own doc comment for why. */
+  calendarMergeDialogSurvivorBadge: string;
+  calendarMergeDialogAbsorbedBadge: string;
+  calendarMergeDialogBookingsHeading: string;
+  calendarMergeDialogNoBookings: string;
+  calendarMergeDialogNoShowCountLabel: string;
+  calendarMergeDialogConfirmButton: string;
+  calendarMergeDialogConfirmingLabel: string;
+  calendarMergeDialogCancelButton: string;
+  /** Paired with a raw count in code (`calendarBookingsCountLabel`'s own "label: N" shape, never a
+   * pluralised sentence) - how many bookings the merge actually reassigned, shown after a successful
+   * merge so "0 bookings moved" (two contacts that happened to share a phone but neither ever
+   * booked) reads differently from a merge that reattributed a real history. */
+  calendarMergeDoneBookingsMovedLabel: string;
+  /** `23-60`: the server's own `EventStatus` member names
+   * (`PendingConfirmation`/`Booked`/`Cancelled`/`NoShow`), translated for
+   * `CustomerMergeDialog`'s own booking-history list - the first screen in this console to render a
+   * raw booking status rather than a screen already scoped to one status by its own query. */
+  calendarStatusPendingConfirmation: string;
+  calendarStatusBooked: string;
+  calendarStatusCancelled: string;
+  calendarStatusNoShow: string;
+
   // --- `23-34`: `/calendar/bookings` - what is actually booked, by day and by master. Grouped, not a
   // flat table (`CalendarBookingsPage`'s own doc comment on why): one `Panel` per business-local day,
   // one nested `Panel` per master inside it, each carrying a `Badge` with its own row count so an
@@ -1882,6 +1924,7 @@ export interface ConsoleStrings {
   calendarAvailabilityForbidden: string;
   calendarContactsForbidden: string;
   calendarPhoneRevealsForbidden: string;
+  calendarCustomerMergesForbidden: string;
 
   // --- `23-30`/`23-12`: `/calendar/phone-reveals` - the reveal audit trail, `CalendarPhoneRevealsPage`'s
   // own screen. Keyset-paged, the same "Load more" shape `searchLoadMoreButton`/`searchLoadingMoreLabel`
@@ -1894,6 +1937,20 @@ export interface ConsoleStrings {
   calendarPhoneRevealsColumnSurface: string;
   calendarPhoneRevealsLoadMoreButton: string;
   calendarPhoneRevealsLoadingMoreLabel: string;
+
+  // --- `23-60`/`adr/0161`: `/calendar/customer-merges` - the merge audit trail, the same keyset
+  // "Load more" shape as the phone-reveal audit trail two doors up, and the identical
+  // `calendar:configure` gate for the identical reason (`GetCustomerMergesForTenantHandler`'s own
+  // doc comment). ---
+  calendarCustomerMergesDescription: string;
+  calendarCustomerMergesEmpty: string;
+  calendarCustomerMergesColumnWhen: string;
+  calendarCustomerMergesColumnSurvivor: string;
+  calendarCustomerMergesColumnAbsorbed: string;
+  calendarCustomerMergesColumnOperator: string;
+  calendarCustomerMergesColumnBookingsMoved: string;
+  calendarCustomerMergesLoadMoreButton: string;
+  calendarCustomerMergesLoadingMoreLabel: string;
 
   /** `23-21`, generalised by `23-24` beyond the calendar (renamed from `calendarForbiddenGrantHint`
    * - the wording was already generic, "this workspace", never "the calendar"). Appended after

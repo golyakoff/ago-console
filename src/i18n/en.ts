@@ -1021,6 +1021,7 @@ export const en: ConsoleStrings = {
   navCalendarAvailability: "Schedule",
   navCalendarContacts: "Contacts",
   navCalendarPhoneReveals: "Phone reveals",
+  navCalendarCustomerMerges: "Merges",
   calendarLoading: "Loading…",
   calendarDeleteButton: "Delete",
   calendarBackButton: "Back",
@@ -1251,6 +1252,29 @@ export const en: ConsoleStrings = {
   calendarContactsConfirmedLabel: "Confirmed",
   calendarContactsNotConfirmedLabel: "Not confirmed",
 
+  calendarContactsColumnDuplicate: "Duplicate",
+  calendarContactsDuplicateHint: "Shares a phone with another customer",
+  calendarContactsMergeButton: "Merge",
+
+  calendarMergeDialogTitle: "Merge two customer records",
+  calendarMergeDialogLoading: "Loading both customers' own booking history…",
+  calendarMergeDialogIrreversibleWarning:
+    "This cannot be undone. Every booking below will belong to one record, and the other record " +
+    "will no longer appear in the contacts list.",
+  calendarMergeDialogSurvivorBadge: "Will be kept",
+  calendarMergeDialogAbsorbedBadge: "Will be merged away",
+  calendarMergeDialogBookingsHeading: "Bookings",
+  calendarMergeDialogNoBookings: "No bookings.",
+  calendarMergeDialogNoShowCountLabel: "No-shows",
+  calendarMergeDialogConfirmButton: "Merge, permanently",
+  calendarMergeDialogConfirmingLabel: "Merging…",
+  calendarMergeDialogCancelButton: "Cancel",
+  calendarMergeDoneBookingsMovedLabel: "Bookings moved",
+  calendarStatusPendingConfirmation: "Awaiting confirmation",
+  calendarStatusBooked: "Booked",
+  calendarStatusCancelled: "Cancelled",
+  calendarStatusNoShow: "No-show",
+
   calendarBookingsDescription: "Confirmed bookings, by day and by master.",
   calendarBookingsEmpty: "Nothing is booked in this range yet.",
   calendarBookingsColumnWhen: "When",
@@ -1269,6 +1293,7 @@ export const en: ConsoleStrings = {
   calendarAvailabilityForbidden: "You do not have permission to edit the calendar's availability.",
   calendarContactsForbidden: "You do not have permission to view the calendar's contacts.",
   calendarPhoneRevealsForbidden: "You do not have permission to view the phone-reveal audit trail.",
+  calendarCustomerMergesForbidden: "You do not have permission to view the customer-merge audit trail.",
 
   calendarPhoneRevealsDescription: "Every individual reveal of a masked customer phone number, in this tenant.",
   calendarPhoneRevealsEmpty: "Nobody has revealed a phone number yet.",
@@ -1278,6 +1303,16 @@ export const en: ConsoleStrings = {
   calendarPhoneRevealsColumnSurface: "Surface",
   calendarPhoneRevealsLoadMoreButton: "Load more",
   calendarPhoneRevealsLoadingMoreLabel: "Loading more…",
+
+  calendarCustomerMergesDescription: "Every customer merge performed in this tenant - who did it, when, and which record absorbed which.",
+  calendarCustomerMergesEmpty: "Nobody has merged two customer records yet.",
+  calendarCustomerMergesColumnWhen: "When",
+  calendarCustomerMergesColumnSurvivor: "Kept",
+  calendarCustomerMergesColumnAbsorbed: "Merged away",
+  calendarCustomerMergesColumnOperator: "Operator",
+  calendarCustomerMergesColumnBookingsMoved: "Bookings moved",
+  calendarCustomerMergesLoadMoreButton: "Load more",
+  calendarCustomerMergesLoadingMoreLabel: "Loading more…",
   accessRefusalGrantHint: "Ask an owner or admin at this workspace to grant it to you.",
   calendarAbsentForTenant:
     "This workspace does not have the calendar. It is switched on per workspace, not by any " +
