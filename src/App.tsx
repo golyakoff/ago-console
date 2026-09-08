@@ -10,6 +10,7 @@ import { SignupPage } from "./pages/SignupPage.js";
 import { PolicyPage } from "./pages/PolicyPage.js";
 import { OnboardingPage } from "./pages/OnboardingPage.js";
 import { RedeemInvitePage } from "./pages/RedeemInvitePage.js";
+import { InvitePreviewPage } from "./pages/InvitePreviewPage.js";
 import { WorkspaceLayout } from "./workspace/WorkspaceLayout.js";
 import { NoConversationSelected } from "./workspace/NoConversationSelected.js";
 import { ConversationPage } from "./pages/ConversationPage.js";
@@ -125,6 +126,22 @@ export function App() {
         element={
           <PreSessionStringsProvider>
             <PolicyPage />
+          </PreSessionStringsProvider>
+        }
+      />
+      {/* `23-70`: `/invite/:code` - the landing page a colleague reaches by opening the link
+          `/team/people`'s own invite dialog now hands out, before signing in at all. Public, the same
+          shape as `/policies/:documentKey` right above and for the identical reason: whoever opens
+          this has no account yet, so there is nothing here for `RequireAuth` to gate
+          (`InvitePreviewPage.tsx`'s own doc comment). Wrapped in `PreSessionStringsProvider` for the
+          same "no site, no locale to read, and the answer is Russian" reasoning `23-28` gave
+          `/onboarding`/`/redeem-invite`/`/policies` - this route has exactly as little to read a
+          locale from as any of them. */}
+      <Route
+        path="/invite/:code"
+        element={
+          <PreSessionStringsProvider>
+            <InvitePreviewPage />
           </PreSessionStringsProvider>
         }
       />

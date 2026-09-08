@@ -7,6 +7,7 @@ import { ApiProblemError } from "../api/problemDetails.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { RedeemInvitePage } from "./RedeemInvitePage.js";
+import { savePendingInviteCode } from "../auth/pendingInviteCode.js";
 import { byText, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
@@ -277,6 +278,29 @@ describe("the four outcomes the backlog names, plus the two the handler actually
 
     expect(container.querySelector("form")).not.toBeNull();
     expect(one<HTMLInputElement>(container, "input").value).toBe("expired-code");
+  });
+});
+
+describe("23-70: prefilling from /invite/:code's own 'Continue' button", () => {
+  it("prefills the code field from a pending invite code, and consumes it so a second mount finds nothing", async () => {
+    savePendingInviteCode("kims-shop-invite-code");
+
+    const container = await render(app());
+
+    expect(one<HTMLInputElement>(container, "input").value).toBe("kims-shop-invite-code");
+
+    // Consumed, not merely read - `pendingInviteCode.ts`'s own remarks on why. A second page (a
+    // second tab reusing the same origin's sessionStorage, or a remount) finds the field empty
+    // rather than replaying a stale code.
+    await unmount();
+    const secondContainer = await render(app());
+    expect(one<HTMLInputElement>(secondContainer, "input").value).toBe("");
+  });
+
+  it("leaves the field empty as before when no invite link was ever opened", async () => {
+    const container = await render(app());
+
+    expect(one<HTMLInputElement>(container, "input").value).toBe("");
   });
 });
 

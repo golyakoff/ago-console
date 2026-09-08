@@ -1063,7 +1063,15 @@ export interface ConsoleStrings {
    * retrievable again afterward. */
   operatorsTeamInviteSuccessTitle: string;
   operatorsTeamInviteSuccessBody: string;
-  operatorsTeamInviteCodeLabel: string;
+  /** `23-70`: the invite is a URL now (`/invite/{code}`), not a bare code - "the invitation is a URL,
+   * not a token... that lands the colleague somewhere that explains itself" (this item's own backlog
+   * text). Renamed from `operatorsTeamInviteCodeLabel`, the same rename the value itself already
+   * needed. */
+  operatorsTeamInviteLinkLabel: string;
+  /** `23-70`: copying the link is one action, the same `Button`+"copied" confirmation shape
+   * `InstallSnippetPage`'s own `copyKey`/`copySnippet` already establish. */
+  operatorsTeamInviteCopyButton: string;
+  operatorsTeamInviteCopiedLabel: string;
   /** `${operatorsTeamInviteExpiresLabel} ${date}` - the invite's own `expiresAt`. */
   operatorsTeamInviteExpiresLabel: string;
   operatorsTeamInviteCloseButton: string;
@@ -1876,6 +1884,36 @@ export interface ConsoleStrings {
   /** This screen's own link back to `/onboarding`, for a reader who followed that page's own
    * "Have an invite code instead?" link (`onboardingRedeemInviteLinkLabel`, below) here by mistake. */
   redeemInviteSetupOwnSiteLink: string;
+
+  // --- `23-70`: `/invite/:code` (`InvitePreviewPage`) - the landing page a colleague reaches by
+  // opening the link `/team/people` now hands out, before they have signed in at all
+  // (`POST /api/v1/operator-invites/preview`, `AllowAnonymous()`). Wrapped in the same
+  // `PreSessionStringsProvider` as `/redeem-invite` right above, for the identical reason: nobody
+  // reaching this page has a site to read a locale from yet. ---
+  invitePreviewTitle: string;
+  invitePreviewLoading: string;
+  /** `${invitePreviewSiteLabel} ${siteName}` - "which shop" (this item's own backlog text). */
+  invitePreviewSiteLabel: string;
+  /** `${invitePreviewInvitedByLabel} ${name}` - "from whom". Only rendered when the server names an
+   * inviter (`OperatorInvitePreviewResponse.invitedByDisplayName` can be `null`, `RedeemInvitePage`'s
+   * own `operatorLabel`-style fallback has the precedent for why). */
+  invitePreviewInvitedByLabel: string;
+  /** `${invitePreviewExpiresLabel} ${date}` - "that it expires", visible on the link itself now, not
+   * only at creation (this item's own Done-when). */
+  invitePreviewExpiresLabel: string;
+  invitePreviewContinueButton: string;
+  /** `OperatorInvite.Expired` (`200`, `Status: "Expired"` - this item's own trap: "not 404 and not
+   * throw"). */
+  invitePreviewExpiredMessage: string;
+  /** `Status: "Redeemed"` - somebody, possibly this same reader on an earlier click, already spent
+   * this exact link. */
+  invitePreviewRedeemedMessage: string;
+  /** `OperatorInvite.NotFound` (`404`) - a link that names no real invite at all, whether mistyped or
+   * invented; the same info-hiding wording `redeemInviteErrorNotFound` already uses for the identical
+   * server fact on the redemption side of this same code. */
+  invitePreviewNotFoundMessage: string;
+  /** Anything else - a network failure, or a status this screen does not otherwise name. */
+  invitePreviewErrorGeneric: string;
 
   // --- `23-28`: `/callback`, `/signup`, `/onboarding` - the three pre-session pages that hardcoded
   // English literals directly, because `StringsContext.tsx`'s own default was believed to be the

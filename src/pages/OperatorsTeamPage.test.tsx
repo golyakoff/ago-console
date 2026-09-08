@@ -88,12 +88,21 @@ function twoOperatorsAndASummary(seatLimit: number) {
   operatorTeamApi.fetchSeatAssignmentSummary.mockResolvedValue({ heldSeats: 1, seatLimit, overSeats: 1 > seatLimit });
 }
 
+let writeTextMock: ReturnType<typeof vi.fn>;
+
 beforeEach(() => {
   vi.clearAllMocks();
   tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [{ siteId: SITE_ID, siteName: "Test Site" }] });
   ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
   operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: [OPERATORS_TEAM_PERMISSION], siteId: SITE_ID });
   twoOperatorsAndASummary(2);
+  // `23-70`: jsdom does not implement the Clipboard API - the same stand-in
+  // `InstallSnippetPage.test.tsx`'s own `beforeEach` already uses, for the identical reason.
+  writeTextMock = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", {
+    value: { writeText: writeTextMock },
+    configurable: true,
+  });
 });
 
 afterEach(async () => {
@@ -169,7 +178,7 @@ describe("the pre-invite seat check", () => {
     expect(link?.getAttribute("href")).toBe("/account/billing");
   });
 
-  it("sends the invite and shows the code, when there is room", async () => {
+  it("sends the invite and shows a link built from the code, when there is room", async () => {
     twoOperatorsAndASummary(5);
     operatorTeamApi.createOperatorInvite.mockResolvedValue({
       operatorInviteId: "invite-1",
@@ -184,7 +193,33 @@ describe("the pre-invite seat check", () => {
     await interact(() => byText<HTMLButtonElement>(container, "button", "Send invite").click());
 
     expect(operatorTeamApi.createOperatorInvite).toHaveBeenCalledWith("token", SITE_ID);
-    expect(container.textContent).toContain("abc123");
+    // `23-70`: a URL the colleague can be sent, not a bare token - "the invitation is a URL... that
+    // can be pasted into whatever the tenant already uses" (this item's own backlog text).
+    expect(container.textContent).toContain("/invite/abc123");
+    // The expiry is visible on the link's own screen, not only implied by it having been created.
+    expect(container.textContent).toContain("Expires");
+  });
+
+  it("copies the invite link to the clipboard and confirms it, and says the link is shown only once", async () => {
+    twoOperatorsAndASummary(5);
+    operatorTeamApi.createOperatorInvite.mockResolvedValue({
+      operatorInviteId: "invite-1",
+      code: "abc123",
+      expiresAt: "2026-09-10T00:00:00Z",
+    });
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Invite a colleague").click());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Send invite").click());
+
+    // `23-70`'s own Done-when: "the screen says what to do with it and that it will not be shown
+    // again" - before the copy button is even clicked.
+    expect(container.textContent).toContain("shown here only once");
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Copy link").click());
+
+    expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining("/invite/abc123"));
+    expect(container.textContent).toContain("Copied to clipboard.");
   });
 });
 
