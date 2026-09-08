@@ -7,10 +7,12 @@ import {
   fetchOwnerSiteDetail,
   grantOwnerModule,
   grantOwnerModuleQuantity,
+  restoreOwnerOperatorSeat,
   revokeOwnerModule,
   updateOwnerSiteAllowedOrigins,
   type OwnerSiteDetail,
   type OwnerSiteModule,
+  type OwnerSiteOperator,
 } from "../api/ownerApi.js";
 import { en } from "../i18n/en.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
@@ -129,6 +131,24 @@ export function OwnerSiteDetailPage() {
   const [quantityError, setQuantityError] = useState<string | null>(null);
   const [quantitySaved, setQuantitySaved] = useState<{ moduleKey: string; quantity: number } | null>(null);
   const [quantitySubmitting, setQuantitySubmitting] = useState(false);
+
+  // `23-68`: the operator roster's own restore-seat action. `restoringOperatorId` is which row's own
+  // button shows a busy state, not a dialog flag - the ordinary restore (within the seat limit, this
+  // item's own headline scenario) needs no dialog at all, matching `handleGenerateCredential`'s own
+  // "the simplest control that can hold the value" judgement. `forceDialogOperator` opens only once
+  // the server itself says the seat limit would be exceeded (`"requires-force"`) - the identical
+  // "try first, escalate only once the server says so" shape `handleRevokeConfirm`'s own force/reason
+  // asymmetry uses, except there the asymmetry is known up front from `grantedByOwner` and here it is
+  // not knowable client-side at all (this screen has no seat-count arithmetic of its own - `CLAUDE.md`
+  // rule 8: a compare-and-set read belongs to the database, not a browser guess).
+  const [restoringOperatorId, setRestoringOperatorId] = useState<string | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [restoreSaved, setRestoreSaved] = useState<{ operatorId: string; overrodeSeatLimit: boolean } | null>(null);
+  const [forceDialogOperator, setForceDialogOperator] = useState<OwnerSiteOperator | null>(null);
+  const [forceDialogMessage, setForceDialogMessage] = useState<string | null>(null);
+  const [forceReason, setForceReason] = useState("");
+  const [forceError, setForceError] = useState<string | null>(null);
+  const [forceSubmitting, setForceSubmitting] = useState(false);
 
   const timeZone = useMemo(() => resolveTimeZone(), []);
 
@@ -492,6 +512,102 @@ export function OwnerSiteDetailPage() {
       });
   };
 
+  // `23-68`: the ordinary restore - tried with `force: false` first, always. Success and "already
+  // held it" both land here as a plain confirmation; only "requires-force" branches into the dialog
+  // below, and only that dialog ever sends `force: true`.
+  const handleRestoreSeat = (operator: OwnerSiteOperator) => {
+    const accessToken = user?.access_token;
+    if (!accessToken || !siteId) {
+      return;
+    }
+
+    setRestoringOperatorId(operator.operatorId);
+    setRestoreError(null);
+    setRestoreSaved(null);
+
+    restoreOwnerOperatorSeat(accessToken, siteId, operator.operatorId, { force: false, reason: null })
+      .then((outcome) => {
+        if (outcome.status === "ok") {
+          setRestoreSaved({ operatorId: operator.operatorId, overrodeSeatLimit: outcome.result.overrodeSeatLimit });
+          // Re-read rather than splice a locally-built row in - the same "the server's own read is
+          // the only source for this table" reasoning `handleGrantSubmit`'s own remarks give, applied
+          // to the operator roster this item adds alongside the module table.
+          loadSiteDetail();
+          return;
+        }
+
+        if (outcome.status === "requires-force") {
+          setForceDialogOperator(operator);
+          setForceDialogMessage(outcome.message);
+          setForceReason("");
+          setForceError(null);
+          return;
+        }
+
+        if (outcome.status === "invalid") {
+          // Not reachable with `force: false` (the server only asks for a reason once `force` is
+          // set), but handled rather than silently swallowed - a refusal a person can act on, the
+          // same posture every other outcome branch on this page keeps.
+          setRestoreError(outcome.message);
+          return;
+        }
+
+        // `not-authorized`/`not-found` mid-session - the same genuinely-unexpected-here handling
+        // every other write on this page gives its own equivalent outcomes.
+        setError("This site could no longer be reached. Reload the page and try again.");
+      })
+      .catch((err: unknown) => {
+        setRestoreError(err instanceof Error ? err.message : "Failed to restore the operator's seat.");
+      })
+      .finally(() => {
+        setRestoringOperatorId(null);
+      });
+  };
+
+  // `23-68`: the seat-limit override, exercised only once the platform owner has read the server's
+  // own message and typed why - `adr/0118`'s own "state plainly that you mean to override this and
+  // say why" asymmetry, restated for a seat limit instead of a tenant's own purchase.
+  const handleForceConfirm = () => {
+    const accessToken = user?.access_token;
+    if (!accessToken || !siteId || !forceDialogOperator) {
+      return;
+    }
+
+    const trimmedReason = forceReason.trim();
+    if (trimmedReason.length === 0) {
+      setForceError("Write the reason you would be willing to show this tenant.");
+      return;
+    }
+
+    setForceSubmitting(true);
+    setForceError(null);
+
+    restoreOwnerOperatorSeat(accessToken, siteId, forceDialogOperator.operatorId, { force: true, reason: trimmedReason })
+      .then((outcome) => {
+        if (outcome.status === "ok") {
+          setRestoreSaved({ operatorId: forceDialogOperator.operatorId, overrodeSeatLimit: outcome.result.overrodeSeatLimit });
+          setForceDialogOperator(null);
+          setForceReason("");
+          loadSiteDetail();
+          return;
+        }
+
+        if (outcome.status === "invalid" || outcome.status === "requires-force") {
+          setForceError(outcome.message);
+          return;
+        }
+
+        setForceDialogOperator(null);
+        setError("This site could no longer be reached. Reload the page and try again.");
+      })
+      .catch((err: unknown) => {
+        setForceError(err instanceof Error ? err.message : "Failed to restore the operator's seat.");
+      })
+      .finally(() => {
+        setForceSubmitting(false);
+      });
+  };
+
   return (
     <AppShell
       // The identical sections `OwnerSitesPage` builds - "Platform sites" stays present as
@@ -641,6 +757,38 @@ export function OwnerSiteDetailPage() {
               <Alert tone="success">Saved. The widget honours this on its very next request - no restart needed.</Alert>
             )}
           </Panel>
+
+          {/* `23-68`: "a locked-out tenant can be let back in without a database" - the recovery this
+              item exists to build, reached from the same screen `23-65`'s own module grant/revoke
+              already lives on, not a new one. */}
+          <h2>Operators</h2>
+
+          <Alert tone="info">
+            Restoring a seat lets an operator sign in again - it does not restore a role. An operator
+            with no roles below signed in but was stripped of every permission; nothing here grants one
+            back.
+          </Alert>
+
+          {restoreSaved && !restoreError && (
+            <Alert tone="success">
+              Seat restored.{" "}
+              {restoreSaved.overrodeSeatLimit
+                ? "This put the site over its own seat limit, as stated when confirming."
+                : "The operator can sign in again now."}
+            </Alert>
+          )}
+          {restoreError && <Alert tone="danger">{restoreError}</Alert>}
+
+          {site.operators.length === 0 ? (
+            <p className="ago-empty">This tenant has no operators.</p>
+          ) : (
+            <Table
+              caption="Every operator this tenant currently has, not counting anyone removed."
+              columns={buildOperatorColumns(restoringOperatorId, handleRestoreSeat)}
+              rows={site.operators}
+              rowKey={(operator) => operator.operatorId}
+            />
+          )}
 
           <h2>Entitlements</h2>
 
@@ -933,6 +1081,51 @@ export function OwnerSiteDetailPage() {
           </>
         )}
       </Dialog>
+
+      {/* `23-68`: the seat-limit override - opened only once the server itself says the ordinary
+          restore would exceed this tenant's own seat limit, never guessed at client-side
+          (`handleRestoreSeat`'s own remarks). `adr/0118`'s own "state plainly that you mean to
+          override this and say why", restated for a seat limit instead of a tenant's own purchase. */}
+      <Dialog
+        open={forceDialogOperator !== null}
+        title={forceDialogOperator ? `Restore ${operatorLabel(forceDialogOperator)}'s seat` : "Restore seat"}
+        onClose={() => {
+          if (!forceSubmitting) {
+            setForceDialogOperator(null);
+          }
+        }}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setForceDialogOperator(null)} disabled={forceSubmitting}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleForceConfirm} disabled={forceSubmitting}>
+              {forceSubmitting ? "Restoring…" : "Override the seat limit"}
+            </Button>
+          </>
+        }
+      >
+        {forceDialogOperator && (
+          <>
+            <p>{forceDialogMessage}</p>
+            <Field
+              label="Reason"
+              description={'Write the reason you would be willing to show this tenant. "Cleanup" or "asked to" are not reasons.'}
+              error={forceError}
+            >
+              {(controlProps) => (
+                <Textarea
+                  {...controlProps}
+                  rows={3}
+                  value={forceReason}
+                  onChange={(event) => setForceReason(event.target.value)}
+                  disabled={forceSubmitting}
+                />
+              )}
+            </Field>
+          </>
+        )}
+      </Dialog>
     </AppShell>
   );
 }
@@ -1042,6 +1235,75 @@ function buildModuleColumns(
           </Button>
         </div>
       ),
+    },
+  ];
+}
+
+/** `23-68`: the name to show for an operator with no `displayName` - the identical "state the fact,
+ * don't fabricate one" shape `OwnerSitesPage`'s own `Unnamed site` label already uses, restated for
+ * an operator (`OperatorTeamMemberItem`'s own remarks: a minted demo tenant's operator has no claims
+ * to copy). Exported only for this file's own `buildOperatorColumns`/dialog title, not a general
+ * formatter - a real caller-facing display-name policy lives in `operatorDisplayName.ts` and this
+ * screen deliberately does not import it, since that helper reads the *signed-in* operator's own
+ * token claims, not an arbitrary row from a cross-tenant list. */
+function operatorLabel(operator: OwnerSiteOperator): string {
+  return operator.displayName && operator.displayName.trim().length > 0 ? operator.displayName : "Unnamed operator";
+}
+
+function buildOperatorColumns(
+  restoringOperatorId: string | null,
+  onRestoreSeat: (operator: OwnerSiteOperator) => void,
+): TableColumn<OwnerSiteOperator>[] {
+  return [
+    {
+      key: "operator",
+      header: "Operator",
+      render: (operator) => (
+        <div className="ago-row ago-row--tight">
+          {operator.displayName && operator.displayName.trim().length > 0 ? (
+            <strong>{operator.displayName}</strong>
+          ) : (
+            <span className="ago-meta">Unnamed operator</span>
+          )}
+          {operator.email && <span className="ago-meta">{operator.email}</span>}
+        </div>
+      ),
+    },
+    {
+      key: "roles",
+      header: "Roles",
+      render: (operator) =>
+        operator.roleNames.length === 0 ? (
+          // `23-68`'s own warning made visible: an empty role list is the "stripped their own last
+          // role" case this item names but does not fix - never rendered as a blank cell.
+          <span className="ago-meta" title="This operator holds no role - restoring a seat lets them sign in, but grants no permission back.">
+            No role
+          </span>
+        ) : (
+          operator.roleNames.join(", ")
+        ),
+    },
+    {
+      key: "seat",
+      header: "Seat",
+      render: (operator) => (
+        <Badge tone={operator.holdsSeat ? "success" : "danger"}>{operator.holdsSeat ? "Holds seat" : "No seat"}</Badge>
+      ),
+    },
+    {
+      key: "actions",
+      header: "",
+      render: (operator) =>
+        operator.holdsSeat ? null : (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onRestoreSeat(operator)}
+            disabled={restoringOperatorId === operator.operatorId}
+          >
+            {restoringOperatorId === operator.operatorId ? "Restoring…" : "Restore seat"}
+          </Button>
+        ),
     },
   ];
 }
