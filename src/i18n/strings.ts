@@ -1076,6 +1076,35 @@ export interface ConsoleStrings {
   operatorsTeamInviteExpiresLabel: string;
   operatorsTeamInviteCloseButton: string;
 
+  // `23-72`: "a tenant can appoint another administrator" - the role column, the invite dialog's role
+  // picker, and the per-row change-role action.
+  operatorsTeamRoleColumn: string;
+  /** The team-list role badges - `roleNames.includes(ROLE_ADMIN)` decides which shows, and a name that
+   * holds neither (should not happen in practice) falls back to `operatorsTeamRoleOperator`. */
+  operatorsTeamRoleOperator: string;
+  operatorsTeamRoleAdmin: string;
+
+  operatorsTeamInviteRoleLabel: string;
+  operatorsTeamInviteRoleOperatorOption: string;
+  operatorsTeamInviteRoleAdminOption: string;
+
+  /** The row action offered to an `Operator`-only colleague - promotes them. */
+  operatorsTeamChangeRoleToAdminButton: string;
+  /** The row action offered to an `Admin` colleague - demotes them back to `Operator`. */
+  operatorsTeamChangeRoleToOperatorButton: string;
+  operatorsTeamChangeRoleDialogTitle: string;
+  /** `${displayName} ${operatorsTeamChangeRoleToAdminDialogBody}` - names what the colleague gains,
+   * the same "state the consequence, not just the fact" rule `operatorsTeamRemoveDialogBody` already
+   * follows. */
+  operatorsTeamChangeRoleToAdminDialogBody: string;
+  /** `${displayName} ${operatorsTeamChangeRoleToOperatorDialogBody}` - names what the colleague loses. */
+  operatorsTeamChangeRoleToOperatorDialogBody: string;
+  operatorsTeamChangeRoleConfirmButton: string;
+  /** Fallback only - the real refusal (the last-administrator guard) comes back as the server's own
+   * `ApiProblemError` message and is shown verbatim, the same "the server's own wording, not a
+   * generic re-statement" rule every other row action on this screen already follows. */
+  operatorsTeamChangeRoleError: string;
+
   // `23-32`: TeamChatPage (`/team/chat`) - one chat per tenant, every operator in it, the owner
   // labelled. Unconditional like `navMyConversations` - see `consoleNav.ts`'s own `buildTeamItems`
   // remarks for why this entry carries no permission gate.
