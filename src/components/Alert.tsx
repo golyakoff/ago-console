@@ -37,7 +37,7 @@ export function Alert({ tone, title, action, children }: AlertProps) {
       <div className="ago-alert__body">
         {title && <span className="ago-alert__title">{title}</span>}
         <span>{children}</span>
-        {action}
+        {action && <span className="ago-alert__action">{action}</span>}
       </div>
     </div>
   );
