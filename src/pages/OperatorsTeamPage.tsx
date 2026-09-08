@@ -94,6 +94,9 @@ export function OperatorsTeamPage() {
   const [inviteSubmitting, setInviteSubmitting] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteResult, setInviteResult] = useState<CreateOperatorInviteResponseDto | null>(null);
+  // `23-70`: the link's own "copied" confirmation - the identical `Button`+`Alert` shape
+  // `InstallSnippetPage`'s own `copyKey`/`copySnippet` already establish for the same UX need.
+  const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
 
   const accessToken = user?.access_token;
 
@@ -134,6 +137,7 @@ export function OperatorsTeamPage() {
   const openInviteDialog = () => {
     setInviteError(null);
     setInviteResult(null);
+    setInviteLinkCopied(false);
     setInviteDialogOpen(true);
   };
 
@@ -141,6 +145,7 @@ export function OperatorsTeamPage() {
     setInviteDialogOpen(false);
     setInviteError(null);
     setInviteResult(null);
+    setInviteLinkCopied(false);
   };
 
   const attemptInvite = async () => {
@@ -161,6 +166,22 @@ export function OperatorsTeamPage() {
   };
 
   const expiresAtDate = inviteResult ? parseInstant(inviteResult.expiresAt) : null;
+  // `23-70`: "the invitation is a URL, not a token... something that can be pasted into whatever the
+  // tenant already uses to talk to their colleague" (this item's own backlog text) - built from this
+  // console's own origin plus `/invite/{code}` (`InvitePreviewPage`'s own route), not a second config
+  // value: this page and the landing page it links to are both served from the same console, so there
+  // is nothing here for a `VITE_*` origin to name that `window.location.origin` does not already
+  // answer, the identical reasoning `InstallSnippetPage`'s own doc comment gives for composing its
+  // snippet from `config.apiBaseUrl` rather than a second `VITE_WIDGET_BASE_URL`.
+  const inviteLink = inviteResult ? `${window.location.origin}/invite/${inviteResult.code}` : null;
+
+  const copyInviteLink = () => {
+    if (!inviteLink) {
+      return;
+    }
+    void navigator.clipboard.writeText(inviteLink);
+    setInviteLinkCopied(true);
+  };
 
   return (
     <>
@@ -294,9 +315,13 @@ export function OperatorsTeamPage() {
               {strings.operatorsTeamInviteSuccessBody}
             </Alert>
             <p>
-              <strong>{strings.operatorsTeamInviteCodeLabel}:</strong>{" "}
-              <span className="ago-mono">{inviteResult.code}</span>
+              <strong>{strings.operatorsTeamInviteLinkLabel}:</strong>
             </p>
+            <div className="ago-row">
+              <code className="ago-mono ago-install-value">{inviteLink}</code>
+              <Button onClick={copyInviteLink}>{strings.operatorsTeamInviteCopyButton}</Button>
+            </div>
+            {inviteLinkCopied && <Alert tone="success">{strings.operatorsTeamInviteCopiedLabel}</Alert>}
             {expiresAtDate && (
               <p>
                 {strings.operatorsTeamInviteExpiresLabel} {formatDateStamp(expiresAtDate, timeZone, strings)}

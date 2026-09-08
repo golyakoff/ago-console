@@ -737,8 +737,10 @@ export const en: ConsoleStrings = {
     "has",
   operatorsTeamInviteSubmitError: "Could not create that invite. Try again.",
   operatorsTeamInviteSuccessTitle: "Invite created",
-  operatorsTeamInviteSuccessBody: "Share this code with your colleague. It is shown here only once.",
-  operatorsTeamInviteCodeLabel: "Invite code",
+  operatorsTeamInviteSuccessBody: "Share this link with your colleague. It is shown here only once.",
+  operatorsTeamInviteLinkLabel: "Invite link",
+  operatorsTeamInviteCopyButton: "Copy link",
+  operatorsTeamInviteCopiedLabel: "Copied to clipboard.",
   operatorsTeamInviteExpiresLabel: "Expires",
   operatorsTeamInviteCloseButton: "Close",
 
@@ -1263,6 +1265,18 @@ export const en: ConsoleStrings = {
     "before you can join.",
   redeemInviteErrorGeneric: "We couldn't redeem that invite. Please try again.",
   redeemInviteSetupOwnSiteLink: "Setting up your own site instead?",
+
+  invitePreviewTitle: "You've been invited",
+  invitePreviewLoading: "Loading your invite…",
+  invitePreviewSiteLabel: "Site:",
+  invitePreviewInvitedByLabel: "Invited by:",
+  invitePreviewExpiresLabel: "This link expires",
+  invitePreviewContinueButton: "Continue",
+  invitePreviewExpiredMessage: "This invitation has expired. Ask whoever invited you to send a new one.",
+  invitePreviewRedeemedMessage: "This invitation has already been used.",
+  invitePreviewNotFoundMessage:
+    "We couldn't find an invitation at this link. Check that you copied it in full.",
+  invitePreviewErrorGeneric: "We couldn't load this invitation. Please try again.",
 
   callbackCompletingSignIn: "Completing sign-in…",
   callbackSignInFailedTitle: "Sign-in failed",

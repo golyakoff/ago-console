@@ -44,3 +44,47 @@ export async function redeemOperatorInvite(
 
   return (await response.json()) as RedeemOperatorInviteResponse;
 }
+
+/**
+ * `23-70`: the invite landing page's own read - `POST /api/v1/operator-invites/preview`
+ * (`Ago.Chat.Api.OperatorInvites.OperatorInviteEndpoints`), `AllowAnonymous()` on the server, so this
+ * call sends no `Authorization` header at all - unlike every other function in this file, the caller
+ * here has not signed in, and may never (`InvitePreviewPage.tsx`'s own doc comment: "a stranger opening
+ * a link they were sent").
+ *
+ * <b>`POST` with the code in the body, not `GET` with the code in the path.</b> The route
+ * `InvitePreviewPage` calls this from - `/invite/:code` - still carries the code in the browser's own
+ * URL; that half is unavoidable for a link and is a separate, already-flagged question. What is
+ * avoidable is this *API* call carrying it a second time, server-side, in a form request tracing and
+ * access logs capture by default - a live check against the deployment's own Jaeger found `url.path`
+ * recorded verbatim while `url.query` values are redacted, so neither a path segment nor a query
+ * string is where this goes. `redeemOperatorInvite` right above already sends this same code in a
+ * `POST` body for the identical reason; this function reads the code back off the page's own route
+ * param and resubmits it the same way, rather than ever putting it on this request's own URL.
+ *
+ * `Status` is one of `"Valid"`/`"Expired"`/`"Redeemed"` (`OperatorInvitePreviewStatus`'s own three
+ * cases on the server) - a plain string field on a `200`, never a distinct HTTP status per case, per
+ * this item's own trap: "an expired or already-used invitation must say so plainly, not 404 and not
+ * throw". A code that never existed at all is the one case still rejected as a real `404`, thrown as
+ * an `ApiProblemError` the same way every other call in this file already throws one.
+ */
+export interface OperatorInvitePreviewResponse {
+  siteName: string;
+  invitedByDisplayName: string | null;
+  expiresAt: string;
+  status: "Valid" | "Expired" | "Redeemed";
+}
+
+export async function previewOperatorInvite(code: string): Promise<OperatorInvitePreviewResponse> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/operator-invites/preview`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+
+  if (!response.ok) {
+    throw await problemDetailsFrom(response);
+  }
+
+  return (await response.json()) as OperatorInvitePreviewResponse;
+}

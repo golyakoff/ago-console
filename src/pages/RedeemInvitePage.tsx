@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { operatorDisplayName } from "../auth/operatorDisplayName.js";
+import { consumePendingInviteCode } from "../auth/pendingInviteCode.js";
 import { redeemOperatorInvite } from "../api/operatorInvitesApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
 import { useStrings } from "../i18n/StringsContext.js";
@@ -89,12 +90,25 @@ import { Alert } from "../components/Alert.js";
  * route (and `/onboarding`, `/signup`, `/callback`) in `App.tsx`'s `PreSessionStringsProvider` is the
  * entire fix, and the `ux-gate` exemption named above is gone along with it - this screen is no
  * longer in the position `/owner`'s permanent English is.
+ *
+ * `23-70`: the code field is now prefilled, not only typeable. `/team/people`'s own invite dialog
+ * hands out a URL (`/invite/{code}`) rather than a bare code, and its own landing page
+ * (`InvitePreviewPage`) stores that code for this page to pick up before sending a reader on through
+ * `RequireAuth`'s sign-in redirect - see this component's own `code` state initializer and
+ * `pendingInviteCode.ts` for why sessionStorage is what survives that round trip. Manual entry still
+ * works exactly as before for anyone who arrives here directly with a code in hand.
  */
 export function RedeemInvitePage() {
   const { user, logout } = useAuth();
   const strings = useStrings();
   const navigate = useNavigate();
-  const [code, setCode] = useState("");
+  // `23-70`: prefilled from `/invite/:code`'s own "Continue" button when this page is reached that
+  // way - `consumePendingInviteCode`'s own doc comment has the full reasoning for why sessionStorage,
+  // not a route param, is what survives the sign-in redirect this route sits behind. The lazy
+  // initializer form (not a bare `useState("")` plus an effect) reads it exactly once, on this page's
+  // very first render - `consumePendingInviteCode` already clears the key as it reads it, so a second
+  // read (a remount, a second tab) correctly finds nothing rather than replaying a stale value.
+  const [code, setCode] = useState(() => consumePendingInviteCode() ?? "");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
