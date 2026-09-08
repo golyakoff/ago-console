@@ -946,6 +946,9 @@ export const en: ConsoleStrings = {
   faqModuleLoadError: "Failed to load the module settings.",
   faqModuleSubmitError: "Failed to save the module settings.",
   faqModulePanelTitle: "Module registration",
+  faqModuleEnabledLabel: "Enabled",
+  faqModuleNotEnabled: "Not enabled on this account. AGO adds it — ask us.",
+  faqModuleTriggerWordsLabel: "Trigger words",
   faqModuleDescription:
     "Registers a module that answers a visitor's question through the same mechanism every AGO " +
     "Chat module uses - trigger words a visitor types, and the URL of the module's own service.",

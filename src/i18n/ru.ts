@@ -949,6 +949,9 @@ export const ru: ConsoleStrings = {
   faqModuleLoadError: "Не удалось загрузить настройки модуля.",
   faqModuleSubmitError: "Не удалось сохранить настройки модуля.",
   faqModulePanelTitle: "Регистрация модуля",
+  faqModuleEnabledLabel: "Подключён",
+  faqModuleNotEnabled: "Не подключён к этому аккаунту. Его добавляет AGO — напишите нам.",
+  faqModuleTriggerWordsLabel: "Слова-триггеры",
   faqModuleDescription:
     "Регистрирует модуль, который отвечает на вопрос посетителя тем же способом, что и любой модуль " +
     "AGO Chat - по словам-триггерам, которые вводит посетитель, и адресу собственного сервиса модуля.",

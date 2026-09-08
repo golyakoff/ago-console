@@ -97,18 +97,6 @@ function setTextValue(element: HTMLInputElement | HTMLTextAreaElement, value: st
   element.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-function moduleKeyField(container: HTMLElement): HTMLInputElement {
-  return fieldByLabel<HTMLInputElement>(container, "Module key");
-}
-
-function triggerWordsField(container: HTMLElement): HTMLInputElement {
-  return fieldByLabel<HTMLInputElement>(container, "Trigger words");
-}
-
-function entryPointField(container: HTMLElement): HTMLInputElement {
-  return fieldByLabel<HTMLInputElement>(container, "Entry point URL");
-}
-
 function kbTextField(container: HTMLElement): HTMLTextAreaElement {
   return fieldByLabel<HTMLTextAreaElement>(container, "Knowledge base text");
 }
@@ -134,85 +122,46 @@ afterEach(async () => {
   await unmount();
 });
 
-describe("the module-registration panel", () => {
-  it("suggests \"faq\" with empty trigger words and entry point when nothing is registered yet", async () => {
+describe("which products are on this account", () => {
+  // `23-84`: this panel used to be a form, and the form never worked - it sent
+  // moduleKey/triggerWords/entryPoint while the endpoint also required a credential and a
+  // provisioning secret. `23-83` then removed the tenant-facing write routes entirely
+  // (`adr/0151`: a tenant never turns a capability on for themselves), so what is left is a read.
+  it("says the module is not enabled when this site has none", async () => {
     const container = await render(page());
 
-    expect(moduleKeyField(container).value).toBe("faq");
-    expect(triggerWordsField(container).value).toBe("");
-    expect(entryPointField(container).value).toBe("");
+    expect(container.textContent).toContain("Not enabled on this account");
+    expect(container.querySelector("input[type='url']")).toBeNull();
   });
 
-  it("loads an already-registered faq module's own trigger words and entry point", async () => {
+  it("names the module and its trigger words when this site has it", async () => {
     modulesApi.fetchModules.mockResolvedValue({
-      modules: [{ moduleKey: "faq", triggerWords: ["/faq", "/помощь"], entryPoint: "https://faq.example.com" }],
+      modules: [{ moduleKey: "faq", triggerWords: ["/faq", "help"], entryPoint: "https://faq.example.com" }],
     });
 
     const container = await render(page());
 
-    expect(moduleKeyField(container).value).toBe("faq");
-    expect(triggerWordsField(container).value).toBe("/faq, /помощь");
-    expect(entryPointField(container).value).toBe("https://faq.example.com");
+    expect(container.textContent).toContain("Enabled");
+    expect(container.textContent).toContain("/faq, help");
   });
 
-  it("ignores a differently-keyed module already registered for this site", async () => {
-    // `19-03`'s own generic-modules contract: this screen only ever prefills the "faq"-keyed entry
-    // (the module key this screen suggests), not whichever module happens to be first in the list -
-    // `20-07`'s own Calendar module could be sitting in this same array.
+  it("ignores a differently-keyed module registered for this site", async () => {
     modulesApi.fetchModules.mockResolvedValue({
-      modules: [{ moduleKey: "calendar", triggerWords: ["/book"], entryPoint: "https://calendar.example.com" }],
+      modules: [{ moduleKey: "calendar", triggerWords: ["/book"], entryPoint: "https://cal.example.com" }],
     });
 
     const container = await render(page());
 
-    expect(moduleKeyField(container).value).toBe("faq");
-    expect(triggerWordsField(container).value).toBe("");
+    expect(container.textContent).toContain("Not enabled on this account");
+    expect(container.textContent).not.toContain("/book");
   });
 
-  it("parses comma-separated trigger words and saves the registration", async () => {
+  it("offers the tenant no way to write a module registration", async () => {
     const container = await render(page());
 
-    await interact(() => setTextValue(triggerWordsField(container), "/faq, /помощь"));
-    await interact(() => setTextValue(entryPointField(container), "https://faq.example.com"));
-    await interact(() => saveButtons(container)[0]?.click());
-
-    expect(modulesApi.updateModule).toHaveBeenCalledWith("token", SITE_ID, {
-      moduleKey: "faq",
-      triggerWords: ["/faq", "/помощь"],
-      entryPoint: "https://faq.example.com",
-    });
-  });
-
-  it("rejects a non-https entry point before submitting, and does not call the server", async () => {
-    const container = await render(page());
-
-    await interact(() => setTextValue(triggerWordsField(container), "/faq"));
-    await interact(() => setTextValue(entryPointField(container), "http://faq.example.com"));
-    await interact(() => saveButtons(container)[0]?.click());
-
-    expect(container.textContent).toContain("The entry point must be an absolute https:// URL.");
-    expect(modulesApi.updateModule).not.toHaveBeenCalled();
-  });
-
-  it("rejects an empty trigger-words field before submitting", async () => {
-    const container = await render(page());
-
-    await interact(() => setTextValue(entryPointField(container), "https://faq.example.com"));
-    await interact(() => saveButtons(container)[0]?.click());
-
-    expect(container.textContent).toContain("Enter at least one trigger word.");
-    expect(modulesApi.updateModule).not.toHaveBeenCalled();
-  });
-
-  it("reflects the server's saved registration back into the fields", async () => {
-    const container = await render(page());
-
-    await interact(() => setTextValue(triggerWordsField(container), "/faq"));
-    await interact(() => setTextValue(entryPointField(container), "https://faq.example.com"));
-    await interact(() => saveButtons(container)[0]?.click());
-
-    expect(triggerWordsField(container).value).toBe("/faq");
-    expect(container.textContent).toContain("Saved.");
+    // One submit button on the whole screen - the knowledge base's own, which is a different
+    // backend and genuinely the tenant's to edit. The module panel has none.
+    expect(saveButtons(container)).toHaveLength(1);
   });
 });
 
@@ -240,16 +189,17 @@ describe("the knowledge-base panel", () => {
     const container = await render(page());
 
     await interact(() => setTextValue(kbTextField(container), "Our shipping costs are..."));
-    await interact(() => saveButtons(container)[1]?.click());
+    await interact(() => saveButtons(container)[0]?.click());
 
     expect(faqKnowledgeBaseApi.updateKnowledgeBase).toHaveBeenCalledWith(
       "token",
       SITE_ID,
       "Our shipping costs are...",
     );
-    // The module-registration form's own PUT is a different backend and was not touched by saving
-    // the knowledge base - the whole point of the two-form split (`FaqModulePage.tsx`'s own doc
-    // comment).
+    // `23-84`: there is no module-registration PUT to touch any more - the tenant-facing write
+    // routes were removed by `23-83`. Kept as an assertion rather than deleted, because it is now
+    // the stronger statement: saving the knowledge base reaches one backend and this screen has no
+    // other write at all.
     expect(modulesApi.updateModule).not.toHaveBeenCalled();
   });
 
@@ -257,7 +207,7 @@ describe("the knowledge-base panel", () => {
     const container = await render(page());
 
     await interact(() => setTextValue(kbTextField(container), "Our shipping costs are..."));
-    await interact(() => saveButtons(container)[1]?.click());
+    await interact(() => saveButtons(container)[0]?.click());
 
     expect(kbTextField(container).value).toBe("Our shipping costs are...");
     expect(container.textContent).toContain("Saved.");

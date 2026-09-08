@@ -1479,6 +1479,9 @@ export interface ConsoleStrings {
   faqModuleLoadError: string;
   faqModuleSubmitError: string;
   faqModulePanelTitle: string;
+  faqModuleEnabledLabel: string;
+  faqModuleNotEnabled: string;
+  faqModuleTriggerWordsLabel: string;
   faqModuleDescription: string;
   faqModuleKeyFieldLabel: string;
   faqModuleKeyFieldDescription: string;
