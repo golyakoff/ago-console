@@ -555,11 +555,15 @@ export function seededCalendarContacts() {
     {
       customerId: "eeeeeeee-cccc-4ccc-8ccc-cccccccccccc",
       phone: "+79990000010",
+      masked: false,
       displayName: "Дана",
       notes: "Предпочитает вечер",
       noShowCount: 0,
+      phoneVerifiedAt: null,
+      phoneConfirmedByOperatorAt: null,
       firstSeenAt: "2026-06-01T09:00:00.000Z",
       lastSeenAt: "2026-08-01T09:00:00.000Z",
+      duplicatePhoneCustomerIds: [],
     },
   ];
 }
