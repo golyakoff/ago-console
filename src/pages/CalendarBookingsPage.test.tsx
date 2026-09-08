@@ -209,4 +209,29 @@ describe("confirmed bookings", () => {
     expect(container.querySelector("table")).toBeNull();
     expect(container.textContent).toContain("Nothing is booked in this range yet.");
   });
+
+  /**
+   * `23-99`: the promise this whole item makes, on the one screen its own backlog text quotes -
+   * `calendarApi.test.ts`'s own "throws CalendarApiError('shape.mismatch')" test proves
+   * `getConfirmedBookings` no longer resolves silently when a row is missing a field; this test
+   * proves the other half, that the page renders the *danger* `Alert` this file's own "explains a
+   * permission failure" test already established, never the *empty*-state `Panel` above - the two
+   * must never be the same element, or a dropped field is once again indistinguishable from a
+   * genuinely quiet week.
+   */
+  it("shows the error state, never the empty state, when the response fails 23-99's shape check", async () => {
+    const { CalendarApiError } = await import("../api/calendarApi.js");
+    calendarApi.getConfirmedBookings.mockRejectedValue(
+      new CalendarApiError("shape.mismatch", "GET /confirmed-bookings[0]: the response is missing workerDisplayName.", 200),
+    );
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("workerDisplayName");
+    expect(container.textContent).not.toContain("Nothing is booked in this range yet.");
+    // `Alert.tsx`'s own `danger` tone is the one rendered with `role="alert"` - the same
+    // distinguishing check the existing "explains a permission failure" test above relies on
+    // implicitly by asserting the message text; this one asserts the role directly.
+    expect(container.querySelector('[role="alert"]')).not.toBeNull();
+  });
 });

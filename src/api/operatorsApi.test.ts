@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { checkOperatorErasure } from "./operatorsApi.js";
+import { checkOperatorErasure, fetchMyPermissions } from "./operatorsApi.js";
+import { ShapeMismatchError } from "./shapeGuard.js";
 
 /**
  * `16-02`: `checkOperatorErasure` is `AccountDeletionPage`'s completion poll, and this file exists for
@@ -78,5 +79,40 @@ describe("checkOperatorErasure", () => {
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
 
     await expect(checkOperatorErasure("token")).resolves.toBe("unknown");
+  });
+});
+
+/**
+ * `23-99`: `fetchMyPermissions` is `PermissionsProvider`'s second call, and its `enabledModules`
+ * field alone decides whether every calendar nav entry is shown or hidden
+ * (`calendarAccess.tsx`) - this response is the console's own "does this account have anything in
+ * it" answer, not one screen's. Before this item, a response missing `enabledModules` resolved
+ * normally and `PermissionsProvider`'s own `enabledModules ?? []` default turned "we were not told"
+ * into "there is nothing" - the exact ambiguity this item exists to close.
+ */
+describe("fetchMyPermissions - 23-99 shape validation", () => {
+  it("resolves normally when the response carries every field this console reads from it", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, { operatorId: "op1", siteId: "site1", permissions: ["customer:read"], locale: "En", enabledModules: ["calendar"] }),
+    );
+
+    await expect(fetchMyPermissions("token")).resolves.toMatchObject({ enabledModules: ["calendar"] });
+  });
+
+  it("does not flag the optional credentialsArePublished as missing - it is documented absent-means-false, not a shape defect", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, { operatorId: "op1", siteId: "site1", permissions: [], locale: "En", enabledModules: [] }),
+    );
+
+    await expect(fetchMyPermissions("token")).resolves.toMatchObject({ enabledModules: [] });
+  });
+
+  it("throws rather than silently resolving when enabledModules is dropped from an otherwise well-formed response", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { operatorId: "op1", siteId: "site1", permissions: [], locale: "En" }));
+
+    const failure = await fetchMyPermissions("token").catch((reason: unknown) => reason);
+
+    expect(failure).toBeInstanceOf(ShapeMismatchError);
+    expect((failure as ShapeMismatchError).missingFields).toEqual(["enabledModules"]);
   });
 });
