@@ -79,6 +79,9 @@ export function WidgetConfigPage() {
   const [locale, setLocale] = useState<WidgetLocale>("En");
   const [noticeTextInput, setNoticeTextInput] = useState("");
   const [noticeUrlInput, setNoticeUrlInput] = useState("");
+  // `23-63`: off by default until the load call resolves - matches the server's own "off unless the
+  // tenant turns it on" default, so a slow load never briefly implies the toggle is already on.
+  const [attractAttention, setAttractAttention] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [noticeUrlValidationError, setNoticeUrlValidationError] = useState<string | null>(null);
@@ -100,6 +103,7 @@ export function WidgetConfigPage() {
         setLocale(dto.locale);
         setNoticeTextInput(dto.noticeText ?? "");
         setNoticeUrlInput(dto.noticeUrl ?? "");
+        setAttractAttention(dto.attractAttention);
         setLoadError(null);
       })
       .catch((err: unknown) =>
@@ -171,6 +175,7 @@ export function WidgetConfigPage() {
         locale,
         noticeText: trimmedNoticeText.length > 0 ? trimmedNoticeText : null,
         noticeUrl: trimmedNoticeUrl.length > 0 ? trimmedNoticeUrl : null,
+        attractAttention,
       });
       setCurrent(dto);
       setColorInput(dto.primaryColorHex ?? "");
@@ -178,6 +183,7 @@ export function WidgetConfigPage() {
       setLocale(dto.locale);
       setNoticeTextInput(dto.noticeText ?? "");
       setNoticeUrlInput(dto.noticeUrl ?? "");
+      setAttractAttention(dto.attractAttention);
       setSaved(true);
     } catch (err) {
       setSubmitError(err instanceof WidgetConfigError ? err.message : strings.widgetSubmitError);
@@ -278,6 +284,21 @@ export function WidgetConfigPage() {
                   </Select>
                 )}
               </Field>
+
+              {/* `23-63`: same "label with sibling text, no separate Field description" shape
+                  OfflineAutoReplyPage's own enabled toggle already uses - the one sentence worth
+                  saying (prefers-reduced-motion overrides this regardless) lives in the label's own
+                  sibling text. */}
+              <label className="ago-row">
+                <input
+                  type="checkbox"
+                  checked={attractAttention}
+                  onChange={(e) => setAttractAttention(e.target.checked)}
+                  disabled={submitting}
+                />
+                <span>{strings.widgetAttractAttentionLabel}</span>
+              </label>
+              <p className="ago-meta">{strings.widgetAttractAttentionDescription}</p>
             </div>
           </Panel>
 

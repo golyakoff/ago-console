@@ -136,6 +136,7 @@ beforeEach(() => {
     locale: "Ru",
     noticeText: null,
     noticeUrl: null,
+    attractAttention: false,
   });
   widgetConfigApi.updateWidgetConfig.mockImplementation((_token: string, _siteId: string, dto: unknown) =>
     Promise.resolve(dto),
@@ -283,5 +284,90 @@ describe("the widget processing notice fields", () => {
     expect(noticeTextField(container).value).toBe("We read what you send us.");
     expect(noticeUrlField(container).value).toBe("https://tenant.example/privacy");
     expect(container.textContent).toContain("Saved.");
+  });
+});
+
+/** `23-63`: the "Attract attention while closed" checkbox, found by its own label text the same
+ * `byText`-then-walk-to-the-control way `OfflineAutoReplyPage`'s own enabled toggle would be found -
+ * a plain `<label className="ago-row">` wrapping the `<input>`, not a `Field`-wired `htmlFor`/`id`
+ * pair like the select/textarea fields above. */
+function attractAttentionCheckbox(container: HTMLElement): HTMLInputElement {
+  const label = byText<HTMLLabelElement>(container, "label", "Attract attention while closed");
+  if (label === null) {
+    throw new Error("no 'Attract attention while closed' label found");
+  }
+
+  const input = label.querySelector("input[type='checkbox']");
+  if (!(input instanceof HTMLInputElement)) {
+    throw new Error("'Attract attention while closed' label has no checkbox");
+  }
+
+  return input;
+}
+
+/**
+ * `23-63`: the console half of the item - a checkbox, off by default, saved through the same one PUT
+ * every other field on this screen already uses. Modeled on "the widget language field" block above.
+ */
+describe("the widget attract-attention checkbox", () => {
+  it("is off by default when the site has never turned it on", async () => {
+    const container = await render(page());
+
+    expect(attractAttentionCheckbox(container).checked).toBe(false);
+  });
+
+  it("loads the site's current setting into the checkbox", async () => {
+    widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
+      siteId: SITE_ID,
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "En",
+      noticeText: null,
+      noticeUrl: null,
+      attractAttention: true,
+    });
+    const container = await render(page());
+
+    expect(attractAttentionCheckbox(container).checked).toBe(true);
+  });
+
+  it("saves the chosen setting alongside every other field, in one PUT", async () => {
+    const container = await render(page());
+
+    await interact(() => attractAttentionCheckbox(container).click());
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(widgetConfigApi.updateWidgetConfig).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({ position: "BottomRight", attractAttention: true }),
+    );
+  });
+
+  it("reflects the server's saved setting back into the checkbox", async () => {
+    const container = await render(page());
+    widgetConfigApi.updateWidgetConfig.mockResolvedValue({
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "En",
+      noticeText: null,
+      noticeUrl: null,
+      attractAttention: true,
+    });
+
+    await interact(() => attractAttentionCheckbox(container).click());
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(attractAttentionCheckbox(container).checked).toBe(true);
+    expect(container.textContent).toContain("Saved.");
+  });
+
+  // `23-63`'s own scope: "for some people repeated motion is a symptom trigger" - the console's own
+  // copy must say the setting can be silently overridden, not merely toggle a switch and imply that
+  // is the whole story.
+  it("states in words that reduced motion overrides this setting regardless", async () => {
+    const container = await render(page());
+
+    expect(container.textContent).toMatch(/reduced motion/i);
   });
 });

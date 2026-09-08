@@ -312,6 +312,9 @@ export const en: ConsoleStrings = {
   widgetNoticeUrlFieldLabel: "Notice link (optional)",
   widgetNoticeUrlFieldDescription: "A link to your own policy page. Must start with https://.",
   widgetNoticeUrlValidation: "The link must be an absolute https:// URL.",
+  widgetAttractAttentionLabel: "Attract attention while closed",
+  widgetAttractAttentionDescription:
+    "Pulses the launcher a few times, then stops - never while the panel is open, never after it has been dismissed. Always off for a visitor whose browser asks for reduced motion, whatever this setting says.",
 
   installForbidden: "You do not have permission to view this site's installation details.",
   installLoadError: "Failed to load your installation details.",
