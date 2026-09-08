@@ -32,6 +32,15 @@ export interface WidgetConfigDto {
   /** `16-04`: where the notice points for detail - the tenant's own policy page. `null` alongside
    * `noticeText` is the same "show nothing" default; either field may be set without the other. */
   noticeUrl: string | null;
+  /**
+   * `23-108`: **this field was missing from this interface while the server has always had it**, and
+   * that was not merely an omission. `updateWidgetConfig` below `JSON.stringify`s this object as the
+   * whole PUT body, and the server's `UpdateWidgetConfigRequest` takes a non-nullable `bool` - so an
+   * absent property bound to `false`, and saving a colour would have silently switched off a consent
+   * gate the API genuinely enforces. It was harmless only because nothing in the console could turn it
+   * on in the first place, which is the other half of the same defect.
+   */
+  requireContactConsent: boolean;
 }
 
 /**

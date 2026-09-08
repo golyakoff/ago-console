@@ -300,6 +300,9 @@ export const en: ConsoleStrings = {
     "their page will not see the new color, position, or language until they reload it.",
   widgetLoadingLabel: "Loading the widget configuration…",
   widgetPanelTitle: "Launcher",
+  widgetRequireContactConsentLabel: "Require consent before collecting contact details",
+  widgetRequireContactConsentDescription:
+    "While this is on, the widget will not record a phone number or an email address until the visitor has accepted your consent document. Off, details are recorded without it and a published document binds nobody.",
   widgetColorFieldLabel: "Primary color (hex, optional)",
   widgetColorFieldDescription: "Leave empty to use the widget's own built-in default.",
   widgetColorPreviewTitle: "Preview",
@@ -412,8 +415,9 @@ export const en: ConsoleStrings = {
   documentsContactPanelTitle: "Consent to collect contact details",
   documentsMarketingPanelTitle: "Consent to marketing",
   documentsContactRequiredBadge: "Required before a visitor's phone number or email is collected",
-  documentsContactNotRequiredBadge:
-    "Not required yet - turn on \"Require consent before collecting contact details\" in Widget appearance, or this binds nobody",
+  documentsContactNotRequiredIntro:
+    "Not required yet. Turn on \"Require consent before collecting contact details\" on the ",
+  documentsContactNotRequiredOutro: " screen, or the document you published binds nobody.",
   documentsMarketingNeverRequiredNote: "This document is always optional - accepting it never gates anything.",
   documentsCurrentVersionLabel: "Current version",
   documentsNoVersionsYet: "Nothing published yet.",

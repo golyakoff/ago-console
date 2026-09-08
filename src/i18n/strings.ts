@@ -476,6 +476,9 @@ export interface ConsoleStrings {
   widgetDescription: string;
   widgetLoadingLabel: string;
   widgetPanelTitle: string;
+  /** `23-108`: `Site.WidgetConfig.RequireContactConsent`, reachable by its owner for the first time. */
+  widgetRequireContactConsentLabel: string;
+  widgetRequireContactConsentDescription: string;
   widgetColorFieldLabel: string;
   widgetColorFieldDescription: string;
   widgetColorPreviewTitle: string;
@@ -625,7 +628,14 @@ export interface ConsoleStrings {
   documentsContactPanelTitle: string;
   documentsMarketingPanelTitle: string;
   documentsContactRequiredBadge: string;
-  documentsContactNotRequiredBadge: string;
+  /**
+   * `23-108`: split in two so the destination can be a real `<Link>` between them, which is
+   * `23-107`'s rule - a screen name is not a path. It used to name the control in prose, and that
+   * control **did not exist anywhere in this console**: the phrase appeared exactly once in the
+   * whole codebase, in this sentence. The setting was real and enforced by the API the entire time.
+   */
+  documentsContactNotRequiredIntro: string;
+  documentsContactNotRequiredOutro: string;
   documentsMarketingNeverRequiredNote: string;
   documentsCurrentVersionLabel: string;
   documentsNoVersionsYet: string;

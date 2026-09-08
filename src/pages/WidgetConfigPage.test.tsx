@@ -170,6 +170,44 @@ describe("the widget language field", () => {
     );
   });
 
+  /**
+   * `23-108`. This is the half of the defect that had no symptom yet. `WidgetConfigDto` did not carry
+   * `requireContactConsent` while the server's `UpdateWidgetConfigRequest` takes a non-nullable
+   * `bool`, and this page `JSON.stringify`s that object as the entire PUT body - so an absent property
+   * bound to `false` and **saving a colour would have switched off a consent gate the API genuinely
+   * enforces**. It was harmless only because nothing in the console could turn the gate on, which is
+   * the other half of the same item.
+   *
+   * So the assertion is deliberately about a save that has nothing to do with consent: change the
+   * language, and the flag the server sent must come back unchanged in the request. A future PUT that
+   * drops the field again fails here rather than quietly clearing a tenant's setting.
+   */
+  it("carries the consent flag through a save that never touched it", async () => {
+    widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "Ru",
+      noticeText: null,
+      noticeUrl: null,
+      requireContactConsent: true,
+    });
+
+    const container = await render(page());
+
+    await interact(() => {
+      const select = localeSelect(container);
+      select.value = "En";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(widgetConfigApi.updateWidgetConfig).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({ locale: "En", requireContactConsent: true }),
+    );
+  });
+
   it("reflects the server's saved language back into the select", async () => {
     const container = await render(page());
     widgetConfigApi.updateWidgetConfig.mockResolvedValue({ primaryColorHex: null, position: "BottomRight", locale: "En" });

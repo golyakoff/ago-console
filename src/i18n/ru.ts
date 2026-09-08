@@ -296,6 +296,9 @@ export const ru: ConsoleStrings = {
     "на странице, не увидит новый цвет, положение или язык, пока не перезагрузит страницу.",
   widgetLoadingLabel: "Загрузка настроек виджета…",
   widgetPanelTitle: "Кнопка запуска",
+  widgetRequireContactConsentLabel: "Требовать согласие перед сбором контактных данных",
+  widgetRequireContactConsentDescription:
+    "Пока включено, виджет не запишет телефон или адрес электронной почты, пока посетитель не примет ваш документ о согласии. Выключено — данные записываются без него, и опубликованный документ никого не связывает.",
   widgetColorFieldLabel: "Основной цвет (hex, необязательно)",
   widgetColorFieldDescription: "Оставьте пустым, чтобы использовать встроенный цвет виджета по умолчанию.",
   widgetColorPreviewTitle: "Предпросмотр",
@@ -412,8 +415,8 @@ export const ru: ConsoleStrings = {
   documentsContactPanelTitle: "Согласие на сбор контактных данных",
   documentsMarketingPanelTitle: "Согласие на рассылку",
   documentsContactRequiredBadge: "Требуется перед сбором телефона или адреса электронной почты посетителя",
-  documentsContactNotRequiredBadge:
-    "Пока не требуется - включите «Требовать согласие перед сбором контактных данных» в настройках виджета, иначе это никого не связывает",
+  documentsContactNotRequiredIntro: "Пока не требуется. Включите «Требовать согласие перед сбором контактных данных» на экране «",
+  documentsContactNotRequiredOutro: "», иначе опубликованный документ никого не связывает.",
   documentsMarketingNeverRequiredNote: "Этот документ всегда необязателен - его принятие ничего не блокирует.",
   documentsCurrentVersionLabel: "Текущая версия",
   documentsNoVersionsYet: "Пока ничего не опубликовано.",
