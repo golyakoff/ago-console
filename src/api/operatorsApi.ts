@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
 import type { ErasureCheckOutcome } from "../erasure/erasureCheck.js";
+import { assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `5-08`: `GET /api/v1/operators/me` (`Ago.Chat.Api.Operators.OperatorsEndpoints`, an addition this
@@ -33,6 +34,24 @@ export interface OperatorPermissionsResponse {
   credentialsArePublished?: boolean;
 }
 
+/**
+ * `23-99`: this one response is what decides, for the whole session, which sections of the console
+ * exist at all - `enabledModules` alone is what `calendarAccess.tsx` reads to show or hide every
+ * calendar nav entry, and `PermissionsProvider`'s own `enabledModules ?? []` default (kept, see
+ * below) means a response that silently dropped this key would previously resolve to "this tenant
+ * has no modules" - word for word what a tenant that genuinely has none looks like.
+ * `credentialsArePublished` is deliberately excluded: it is optional on the wire by design (this
+ * interface's own doc comment, `23-45`), and `RequiredKeys<OperatorPermissionsResponse>` already
+ * leaves it out on that basis alone - nothing here special-cases it.
+ */
+const operatorPermissionsRequiredKeys = requiredKeysOf<OperatorPermissionsResponse>({
+  operatorId: true,
+  siteId: true,
+  permissions: true,
+  locale: true,
+  enabledModules: true,
+});
+
 export async function fetchMyPermissions(accessToken: string): Promise<OperatorPermissionsResponse> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/operators/me`, {
     headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
@@ -42,7 +61,9 @@ export async function fetchMyPermissions(accessToken: string): Promise<OperatorP
     throw new Error(`Failed to load permissions: ${response.status}`);
   }
 
-  return (await response.json()) as OperatorPermissionsResponse;
+  const body: unknown = await response.json();
+  assertHasKeys<OperatorPermissionsResponse>(body, operatorPermissionsRequiredKeys, "GET /api/v1/operators/me");
+  return body;
 }
 
 export type OperatorResolutionState = "operator" | "keycloak-identity-only";

@@ -1,5 +1,6 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
+import { ShapeMismatchError, assertArrayHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * Every call the six calendar screens make, in one file - moved unchanged from
@@ -222,6 +223,34 @@ export interface ConfirmedBooking {
   phone: string;
   masked: boolean;
 }
+
+/**
+ * `23-99`: `CalendarBookingsPage`'s own render already tells "loading" (`groups === null`, a
+ * `Skeleton`) apart from "genuinely nothing booked" (`groups !== null && groups.length === 0`, a
+ * `Panel` with `calendarBookingsEmpty`) - but only for a response that actually arrived shaped the
+ * way `ConfirmedBooking` promises. A row silently missing one of these keys (a dropped
+ * `workerDisplayName`, say) would group into the same two states without ever tripping either
+ * branch, or `groupByDayThenWorker`'s own `.find`/property reads. Every key here is required
+ * (`RequiredKeys<ConfirmedBooking>` excludes none of them - none of this DTO's fields are optional on
+ * the wire, only nullable), so this is the full field list; see `shapeGuard.ts`'s own doc comment for
+ * why TypeScript, not a second hand-maintained list, is what keeps it that way.
+ */
+const confirmedBookingRequiredKeys = requiredKeysOf<ConfirmedBooking>({
+  bookingId: true,
+  calendarId: true,
+  workerId: true,
+  workerDisplayName: true,
+  serviceId: true,
+  serviceName: true,
+  customerId: true,
+  customerDisplayName: true,
+  startsAt: true,
+  endsAt: true,
+  localDate: true,
+  weekday: true,
+  phone: true,
+  masked: true,
+});
 
 // `22-06`: `Role`/`OperatorInfo` and the six `getRoles`/`createRole`/`getOperators`/
 // `inviteOperator`/`grantOperatorRole`/`revokeOperatorRole` functions that returned/consumed them
@@ -500,7 +529,9 @@ export function getConfirmedBookings(
   signal?: AbortSignal,
 ): Promise<ConfirmedBooking[]> {
   const query = new URLSearchParams({ from, to });
-  return request<ConfirmedBooking[]>(token, "GET", `/confirmed-bookings?${query.toString()}`, undefined, signal);
+  return request<ConfirmedBooking[]>(token, "GET", `/confirmed-bookings?${query.toString()}`, undefined, signal, (value) => {
+    assertArrayHasKeys<ConfirmedBooking>(value, confirmedBookingRequiredKeys, "GET /confirmed-bookings");
+  });
 }
 
 /** The queue's own verb. Confirmation is what happens when nobody acts, so the operator-facing
@@ -578,15 +609,36 @@ export function recutSchedule(
   return request<RecutResult>(token, "POST", `/workers/${encodeURIComponent(workerId)}/schedule/recut`, body);
 }
 
+/**
+ * `23-99`: `validate` is an opt-in fifth parameter, not a change to every call this function already
+ * makes - the item's own chosen reading is validation only where an absent field would otherwise
+ * look like an empty list or count, not a schema for every response (that is reading 3, explicitly
+ * out of scope). A caller that passes one gets a `CalendarApiError("shape.mismatch", ...)` in place
+ * of `ShapeMismatchError` thrown - the same type, and the same `catch`, every other rejection from
+ * this file already produces, so `calendarErrorMessage`'s existing fallthrough (an unrecognised code
+ * renders `reason.message` verbatim) covers it for free rather than needing a sixth error type.
+ */
 async function request<T>(
   token: string,
   method: string,
   path: string,
   body?: unknown,
   signal?: AbortSignal,
+  validate?: (value: unknown) => asserts value is T,
 ): Promise<T> {
   const response = await send(token, method, path, body, signal);
-  return (await response.json()) as T;
+  const parsed: unknown = await response.json();
+  if (validate) {
+    try {
+      validate(parsed);
+    } catch (reason) {
+      if (reason instanceof ShapeMismatchError) {
+        throw new CalendarApiError("shape.mismatch", reason.message, response.status);
+      }
+      throw reason;
+    }
+  }
+  return parsed as T;
 }
 
 async function requestVoid(token: string, method: string, path: string, body?: unknown): Promise<void> {

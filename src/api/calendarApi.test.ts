@@ -3,6 +3,7 @@ import {
   CalendarApiError,
   createCalendar,
   getConfiguration,
+  getConfirmedBookings,
   getPendingBookings,
   rejectBooking,
   setAllowedOrigins,
@@ -167,5 +168,85 @@ describe("the calendar API client", () => {
     } finally {
       config.calendarApiBaseUrl = original;
     }
+  });
+
+  /**
+   * `23-99`: `docs/backlog/23-99-*.md`'s own chosen reading, applied to the exact screen its own
+   * text quotes - `CalendarBookingsPage`'s `groups.length === 0` branch. Before this item,
+   * `getConfirmedBookings` returned whatever `response.json()` produced with no check at all - a row
+   * silently missing `workerDisplayName` (a fixture rewritten by hand, a rolled-back calendar
+   * deployment answering an older contract, `adr/0012`'s own "independently versioned" risk) would
+   * resolve normally and group in among real rows, or - if every row in the range were affected -
+   * resolve to something that grouped into nothing, indistinguishable from a day with nothing booked.
+   */
+  describe("getConfirmedBookings - 23-99 shape validation", () => {
+    it("resolves normally when every row carries every field ConfirmedBooking promises", async () => {
+      fetchMock.mockResolvedValue(
+        new Response(
+          JSON.stringify([
+            {
+              bookingId: "b1",
+              calendarId: "cal1",
+              workerId: "w1",
+              workerDisplayName: "Anna",
+              serviceId: "s1",
+              serviceName: "Haircut",
+              customerId: "c1",
+              customerDisplayName: "Ivan",
+              startsAt: "2026-09-08T09:00:00+00:00",
+              endsAt: "2026-09-08T09:45:00+00:00",
+              localDate: "2026-09-08",
+              weekday: 2,
+              phone: "+79990000001",
+              masked: false,
+            },
+          ]),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
+      await expect(getConfirmedBookings("operator-token", "2026-09-08", "2026-09-14")).resolves.toHaveLength(1);
+    });
+
+    it("resolves an empty array as an empty array - a genuinely empty range is not a shape mismatch", async () => {
+      fetchMock.mockResolvedValue(new Response("[]", { status: 200, headers: { "Content-Type": "application/json" } }));
+
+      await expect(getConfirmedBookings("operator-token", "2026-09-08", "2026-09-14")).resolves.toEqual([]);
+    });
+
+    it("throws CalendarApiError('shape.mismatch') rather than silently resolving, when a row is missing a required field", async () => {
+      fetchMock.mockResolvedValue(
+        new Response(
+          JSON.stringify([
+            {
+              bookingId: "b1",
+              calendarId: "cal1",
+              workerId: "w1",
+              // `workerDisplayName` dropped - the exact shape of the incident 23-41/23-99 were both
+              // carved from, one field absent from an otherwise well-formed response.
+              serviceId: "s1",
+              serviceName: "Haircut",
+              customerId: "c1",
+              customerDisplayName: "Ivan",
+              startsAt: "2026-09-08T09:00:00+00:00",
+              endsAt: "2026-09-08T09:45:00+00:00",
+              localDate: "2026-09-08",
+              weekday: 2,
+              phone: "+79990000001",
+              masked: false,
+            },
+          ]),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
+      const failure = (await getConfirmedBookings("operator-token", "2026-09-08", "2026-09-14").catch(
+        (reason: unknown) => reason,
+      )) as CalendarApiError;
+
+      expect(failure).toBeInstanceOf(CalendarApiError);
+      expect(failure.code).toBe("shape.mismatch");
+      expect(failure.message).toContain("workerDisplayName");
+    });
   });
 });
