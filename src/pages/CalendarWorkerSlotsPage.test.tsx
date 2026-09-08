@@ -5,7 +5,7 @@ import type { User } from "oidc-client-ts";
 import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { CalendarWorkerSlotsPage } from "./CalendarWorkerSlotsPage.js";
-import { render, unmount } from "../testing/dom.js";
+import { all, byText, interact, render, unmount } from "../testing/dom.js";
 import type { TenantConfiguration, WorkerSlot } from "../api/calendarApi.js";
 
 /**
@@ -29,7 +29,7 @@ vi.mock("../config.js", () => ({
 const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
-const calendarApi = vi.hoisted(() => ({ getConfiguration: vi.fn(), getWorkerSlots: vi.fn() }));
+const calendarApi = vi.hoisted(() => ({ getConfiguration: vi.fn(), getWorkerSlots: vi.fn(), revealCustomerPhone: vi.fn() }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
 vi.mock("../api/ownerApi.js", () => ownerApi);
@@ -104,6 +104,7 @@ function slot(overrides: Partial<WorkerSlot> = {}): WorkerSlot {
     customerId: null,
     customerDisplayName: null,
     phone: null,
+    masked: false,
     bookingId: null,
     ...overrides,
   };
@@ -189,5 +190,38 @@ describe("the materialised slot view", () => {
     const container = await render(page());
 
     expect(container.textContent).toMatch(/does not have permission/i);
+  });
+});
+
+/** `23-30`/`23-12`: a masked phone gets a Reveal button, never the real number, until the server's
+ * own reveal response arrives. */
+describe("revealing a masked phone (23-30)", () => {
+  it("shows the masked value and a Reveal button, never the real number, before reveal", async () => {
+    calendarApi.getWorkerSlots.mockResolvedValue([
+      slot({ status: "Booked", customerId: "c1", customerDisplayName: "Dana", phone: "+7999•••0001", masked: true }),
+    ]);
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("+7999•••0001");
+    expect(container.textContent).not.toContain("+79990000001");
+    expect(byText(container, "button", "Reveal")).not.toBeNull();
+  });
+
+  it("replaces every row for that customer with the server's own unmasked response on Reveal", async () => {
+    calendarApi.getWorkerSlots.mockResolvedValue([
+      slot({ eventId: "e1", status: "Booked", customerId: "c1", customerDisplayName: "Dana", phone: "+7999•••0001", masked: true }),
+      slot({ eventId: "e2", localDate: "2026-05-13", status: "Booked", customerId: "c1", customerDisplayName: "Dana", phone: "+7999•••0001", masked: true }),
+    ]);
+    calendarApi.revealCustomerPhone.mockResolvedValue({ phone: "+79990000001" });
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Reveal")?.click());
+
+    expect(calendarApi.revealCustomerPhone).toHaveBeenCalledWith("token", "c1", "ConsoleWorkerSlots");
+    // Both rows for this customer are unmasked, not just the one whose button was clicked.
+    expect((container.textContent?.match(/\+79990000001/g) ?? []).length).toBe(2);
+    expect(container.textContent).not.toContain("+7999•••0001");
+    expect(all(container, "button").filter((b) => b.textContent === "Reveal")).toHaveLength(0);
   });
 });

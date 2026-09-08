@@ -7,13 +7,14 @@ import {
   CalendarApiError,
   previewRecutSchedule,
   recutSchedule,
+  revealCustomerPhone,
   type RecutBookingPreview,
   type RecutDayPreview,
   type RecutPreviewResult,
   type RecutResult,
 } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
-import { renderCustomer, renderPhone, slotStatusLabel } from "../calendar/calendarFormat.js";
+import { renderCustomer, renderPhone, slotStatusLabel, type RevealControl } from "../calendar/calendarFormat.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
@@ -44,6 +45,11 @@ type Decision = "Cancel" | "Keep";
  * <b>The confirmation is a second panel, not a `Dialog`.</b> Same reasoning as
  * `CalendarWorkersPage.tsx`'s own delete confirmation - consistency with this console's existing
  * inline-confirmation shape over introducing a modal for one screen.
+ *
+ * `23-30`/`23-12`: a masked booking phone gets a Reveal button, threaded down through
+ * `RecutDayRow`/`RecutBookingRow` as one `RevealControl` built once here - `handleReveal` updates
+ * every day's `bookings` array in `preview`, since a re-cut's own nested shape has no single flat
+ * list the way the other three screens do.
  */
 export function CalendarWorkerRecutPage() {
   const { workerId } = useParams<{ workerId: string }>();
@@ -59,6 +65,9 @@ export function CalendarWorkerRecutPage() {
   const [result, setResult] = useState<RecutResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // `23-30`: which customer's own Reveal is in flight, if any - `CalendarWorkerSlotsPage`'s own
+  // identical state, kept per-page rather than shared because each page owns its own list to update.
+  const [revealingCustomerId, setRevealingCustomerId] = useState<string | null>(null);
 
   const loadPreview = useCallback(
     async (event?: { preventDefault(): void }) => {
@@ -151,6 +160,40 @@ export function CalendarWorkerRecutPage() {
     }
   };
 
+  // `23-30`: replaces every booking row for this customer, across every previewed day, with the
+  // server's own unmasked phone - `preview` is the one piece of state a booking's phone lives in, so
+  // this is the whole "replace the row" the item asks for, applied at the nested shape this screen
+  // actually has (`RecutDayPreview.bookings`, not a flat list).
+  const handleReveal = async (customerId: string) => {
+    const accessToken = user?.access_token;
+    if (!accessToken) {
+      return;
+    }
+
+    setRevealingCustomerId(customerId);
+    setError(null);
+    try {
+      const { phone } = await revealCustomerPhone(accessToken, customerId, "ConsoleRecut");
+      setPreview((prev) =>
+        prev === null
+          ? prev
+          : {
+              ...prev,
+              days: prev.days.map((day) => ({
+                ...day,
+                bookings: day.bookings.map((b) => (b.customerId === customerId ? { ...b, phone, masked: false } : b)),
+              })),
+            },
+      );
+    } catch (reason) {
+      setError(calendarErrorMessage(reason, strings));
+    } finally {
+      setRevealingCustomerId(null);
+    }
+  };
+
+  const reveal: RevealControl = { revealingCustomerId, onReveal: (id) => void handleReveal(id) };
+
   return (
     <>
       <PageHead title={strings.calendarRecutTitle} description={strings.calendarRecutDescription} />
@@ -209,6 +252,7 @@ export function CalendarWorkerRecutPage() {
               decisions={decisions}
               strings={strings}
               timeZone={timeZone}
+              reveal={reveal}
               onDecide={(bookingId, decision) => setDecisions((current) => ({ ...current, [bookingId]: decision }))}
             />
           ))}
@@ -259,12 +303,14 @@ function RecutDayRow({
   decisions,
   strings,
   timeZone,
+  reveal,
   onDecide,
 }: {
   day: RecutDayPreview;
   decisions: Record<string, Decision>;
   strings: ConsoleStrings;
   timeZone: string | null;
+  reveal: RevealControl;
   onDecide: (bookingId: string, decision: Decision) => void;
 }) {
   const kept = dayIsKept(day, decisions);
@@ -286,6 +332,7 @@ function RecutDayRow({
             decision={decisions[booking.bookingId]}
             strings={strings}
             timeZone={timeZone}
+            reveal={reveal}
             onDecide={(decision) => onDecide(booking.bookingId, decision)}
           />
         ))}
@@ -299,12 +346,14 @@ function RecutBookingRow({
   decision,
   strings,
   timeZone,
+  reveal,
   onDecide,
 }: {
   booking: RecutBookingPreview;
   decision: Decision | undefined;
   strings: ConsoleStrings;
   timeZone: string | null;
+  reveal: RevealControl;
   onDecide: (decision: Decision) => void;
 }) {
   const groupName = `recut-decision-${booking.bookingId}`;
@@ -320,7 +369,7 @@ function RecutBookingRow({
       </span>
       <span>{booking.serviceName ?? <span className="ago-meta">—</span>}</span>
       <span>{renderCustomer(booking, strings)}</span>
-      <span>{renderPhone(booking, strings)}</span>
+      <span>{renderPhone(booking, strings, reveal)}</span>
       <span className="ago-meta">({slotStatusLabel(booking.status, strings)})</span>
       {booking.canDecide ? (
         <span className="ago-row">

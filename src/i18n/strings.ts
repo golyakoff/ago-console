@@ -1593,6 +1593,10 @@ export interface ConsoleStrings {
   navCalendarWorkers: string;
   navCalendarAvailability: string;
   navCalendarContacts: string;
+  /** `23-30`/`23-12`: the reveal audit trail - drawn only in `buildCalendarItems`' full
+   * `calendar:configure` branch, since the read itself is gated on that wider permission
+   * server-side (`CalendarPhoneRevealsPage`'s own doc comment). */
+  navCalendarPhoneReveals: string;
   calendarLoading: string;
   calendarDeleteButton: string;
   calendarBackButton: string;
@@ -1607,6 +1611,11 @@ export interface ConsoleStrings {
   calendarToFieldLabel: string;
   calendarHiddenContactLabel: string;
   calendarHiddenContactTooltip: string;
+  /** `23-30`/`23-12`: `renderPhone`'s own Reveal control - shown beside a masked, non-null phone on
+   * every calendar screen that can carry one. Never rendered for a `null` phone (`calendarHiddenContact*`
+   * above covers that state) or an unmasked one. */
+  calendarRevealPhoneButton: string;
+  calendarRevealingPhoneButton: string;
   calendarWeekdaySunday: string;
   calendarWeekdayMonday: string;
   calendarWeekdayTuesday: string;
@@ -1829,6 +1838,16 @@ export interface ConsoleStrings {
   calendarContactsColumnFirstSeen: string;
   calendarContactsColumnLastSeen: string;
   calendarNotRecordedLabel: string;
+  /** `23-30`/`23-12`/`decisions.md` §5: the two verification facts, rendered as separate columns
+   * with separate badge tones - never merged into one "verified" state. `PhoneVerified` is the SMS
+   * code's own answer (`20-09`); `PhoneConfirmed` is an operator's "I called and it is them", a
+   * weaker, human-asserted fact. */
+  calendarContactsColumnPhoneVerified: string;
+  calendarContactsColumnPhoneConfirmed: string;
+  calendarContactsVerifiedLabel: string;
+  calendarContactsNotVerifiedLabel: string;
+  calendarContactsConfirmedLabel: string;
+  calendarContactsNotConfirmedLabel: string;
 
   // --- `23-34`: `/calendar/bookings` - what is actually booked, by day and by master. Grouped, not a
   // flat table (`CalendarBookingsPage`'s own doc comment on why): one `Panel` per business-local day,
@@ -1862,6 +1881,19 @@ export interface ConsoleStrings {
   calendarWorkerRecutForbidden: string;
   calendarAvailabilityForbidden: string;
   calendarContactsForbidden: string;
+  calendarPhoneRevealsForbidden: string;
+
+  // --- `23-30`/`23-12`: `/calendar/phone-reveals` - the reveal audit trail, `CalendarPhoneRevealsPage`'s
+  // own screen. Keyset-paged, the same "Load more" shape `searchLoadMoreButton`/`searchLoadingMoreLabel`
+  // already established for `SearchConversationsPage`. ---
+  calendarPhoneRevealsDescription: string;
+  calendarPhoneRevealsEmpty: string;
+  calendarPhoneRevealsColumnWhen: string;
+  calendarPhoneRevealsColumnCustomer: string;
+  calendarPhoneRevealsColumnOperator: string;
+  calendarPhoneRevealsColumnSurface: string;
+  calendarPhoneRevealsLoadMoreButton: string;
+  calendarPhoneRevealsLoadingMoreLabel: string;
 
   /** `23-21`, generalised by `23-24` beyond the calendar (renamed from `calendarForbiddenGrantHint`
    * - the wording was already generic, "this workspace", never "the calendar"). Appended after

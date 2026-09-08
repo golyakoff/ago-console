@@ -131,17 +131,20 @@ function buildAnalyticsItems(isAdmin: boolean, strings: ConsoleStrings): AppShel
  * ("lacks `calendar:configure`, not the tenant" used to mean "nothing at all") with one branch per
  * capability an operator can genuinely hold:
  *
- * - **Holds `calendar:configure`**: the full seven items, ordinary, never muted - `Услуги` is new
+ * - **Holds `calendar:configure`**: the full eight items, ordinary, never muted - `Услуги` is new
  *   (carved out of `/calendar/setup` onto its own screen, `CalendarSetupPage`'s own doc comment on
  *   the split). `Записи` was `reserved` until `23-34`; it is now a real link
  *   (`/calendar/bookings` - `CalendarBookingsPage`), the confirmed-bookings screen the pending queue
- *   above it never was. Ordered dictionaries-first, then what came of them, then configuration last,
- *   matching the item's own "the calendar runs from its dictionaries to its results" instruction.
+ *   above it never was. `23-30`/`23-12` adds the reveal audit trail (`/calendar/phone-reveals`) right
+ *   after Клиенты, gated on this same `calendar:configure` server-side rather than `customer:read` -
+ *   see `CalendarPhoneRevealsPage`'s own doc comment for why that is deliberately the wider gate.
+ *   Ordered dictionaries-first, then what came of them, then configuration last, matching the item's
+ *   own "the calendar runs from its dictionaries to its results" instruction.
  * - **Lacks it, but `isAdmin`**: one muted entry - this identity is the tenant, so whether or not the
  *   module happens to be enabled yet, buying (or granting themselves the permission on an already-
  *   enabled one) is something they can do without anyone else's help, which is exactly what `muted`
- *   now means. Collapsed to one representative entry rather than all seven individually muted links -
- *   `adr/0129`'s own reasoning: a tenant does not need seven doors into a room they have not paid for,
+ *   now means. Collapsed to one representative entry rather than all eight individually muted links -
+ *   `adr/0129`'s own reasoning: a tenant does not need eight doors into a room they have not paid for,
  *   one clearly-marked one is the whole message.
  * - **Lacks it, and not `isAdmin`**: **`23-57`** - the operator branch, one real entry per permission
  *   this identity actually holds, each checked independently rather than as one bundle:
@@ -187,6 +190,10 @@ function buildCalendarItems(
       { to: "/calendar/waiting", label: strings.navCalendarQueue, end: true },
       { to: "/calendar/bookings", label: strings.navCalendarBookings },
       { to: "/calendar/clients", label: strings.navCalendarContacts },
+      // `23-30`/`23-12`: the reveal audit trail - gated server-side on `calendar:configure` itself
+      // (wider than `customer:read`, `CalendarPhoneRevealsPage`'s own doc comment), so it belongs only
+      // in this branch, never in the operator branch below that draws Клиенты off `customer:read`.
+      { to: "/calendar/phone-reveals", label: strings.navCalendarPhoneReveals },
       { to: "/calendar/setup", label: strings.navCalendarSetup },
     ];
   }
