@@ -8,7 +8,8 @@ import { DEVICE_STORAGE_DISCLOSURE_ROWS } from "./deviceStorageDisclosure.js";
  * repositories build and deploy independently, and console does not consume widget as a package.
  *
  * `WIDGET_STORAGE_KEYS_AS_OF_THIS_ITEM` below is a hand transcription of that widget-side list's key
- * names, taken when `24-15` shipped. `ago-widget`'s own `storage.disclosure.test.ts` is what actually
+ * names, taken when `24-15` shipped and updated by `23-105` for the `enabled-modules` row that item
+ * added. `ago-widget`'s own `storage.disclosure.test.ts` is what actually
  * proves *that* list matches the widget's runtime writes, by driving `WidgetStorage` against a real
  * `localStorage` - this test proves the other half available on this side of the boundary: that this
  * console's own copy of the list has not silently drifted from the transcription. A key added to (or
@@ -28,6 +29,7 @@ const WIDGET_STORAGE_KEYS_AS_OF_THIS_ITEM = [
   "widget-locale",
   "widget-notice-text",
   "widget-notice-url",
+  "enabled-modules",
   "conversation-id",
   "last-sequence:<conversationId>",
 ];

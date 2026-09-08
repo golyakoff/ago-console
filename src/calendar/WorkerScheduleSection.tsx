@@ -307,7 +307,15 @@ export function WorkerScheduleSection({ workerId }: WorkerScheduleSectionProps) 
           </>
         )}
 
-        {form.kind === "Weekly" && <p className="ago-field__description">{strings.calendarWeeklyHoursNote}</p>}
+        {/* `23-107`: a real link to the screen named, not just its name - the same fix
+            `CalendarWorkersPage.tsx`'s own `calendarWorkersNoCalendarIntro`/`Reason` applies. */}
+        {form.kind === "Weekly" && (
+          <p className="ago-field__description">
+            {strings.calendarWeeklyHoursIntro}
+            <Link to="/calendar/setup">{strings.navCalendarSetup}</Link>
+            {strings.calendarWeeklyHoursReason}
+          </p>
+        )}
 
         <Field label={strings.calendarSlotLengthFieldLabel} description={strings.calendarSlotLengthNote}>
           {(controlProps) => (

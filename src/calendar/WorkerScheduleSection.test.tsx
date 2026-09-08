@@ -124,6 +124,18 @@ describe("the worker schedule section", () => {
     expect(fieldByLabel<HTMLInputElement>(container, "Buffer between slots (minutes)").value).toBe("10");
   });
 
+  // `23-107`: the weekly-hours note used to name "the Setup screen" with no way to reach it - now a
+  // real link, the same fix `CalendarWorkersPage.test.tsx`'s own no-calendar note got.
+  it("links the weekly-hours note to the actual Setup screen", async () => {
+    calendarApi.getWorkerSchedule.mockResolvedValue(weekly);
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Weekly hours are set on the Setup screen’s working-hours form, per day of the week.");
+    const link = byText<HTMLAnchorElement>(container, "a", "Setup");
+    expect(link?.getAttribute("href")).toBe("/calendar/setup");
+  });
+
   it("creates a weekly schedule with the numbers a human typed", async () => {
     const container = await render(page());
 

@@ -125,40 +125,21 @@ afterEach(async () => {
 });
 
 describe("the tenant setup screen", () => {
-  // `22-22`: this test used to assert `data-booking="demo-barbershop"` and a `data-booking-api`
-  // attribute - it encoded the defect rather than catching it, which is why CI stayed green while the
-  // snippet could not work. It now asserts only what `ago-widget/src/config.ts` actually reads, and
-  // asserts the absence of what it does not.
-  it("shows an embed snippet the widget can actually read", async () => {
+  // `23-105`: this screen used to show an embed snippet with a `data-booking` attribute for the
+  // tenant to paste - `22-22` fixed what the snippet said, `23-105` found the snippet itself was the
+  // wrong fix: booking is an entitlement (`adr/0151`), and no attribute on a tenant's own page can
+  // assert one. This test proves the replacement holds - no snippet, no `<pre>`, no instruction to
+  // edit anything - which is the item's own Done-when ("the setup screen stops asking a tenant to
+  // change their site").
+  it("does not ask the tenant to paste or edit anything - booking arrives on its own", async () => {
     const container = await render(page());
 
-    const snippet = container.querySelector("pre[aria-label='Embed snippet']");
-
-    // The literal "true", not a key: the widget tests `dataset["booking"] === "true"`, so any real
-    // public key here evaluates to false and the booking chip silently never renders.
-    expect(snippet?.textContent).toContain('data-booking="true"');
-    expect(snippet?.textContent).not.toContain("demo-barbershop");
-
-    // `#342` renamed the bundle, and the URL is composed from apiBaseUrl the way InstallSnippetPage
-    // composes its own, so the two cannot drift apart again.
-    expect(snippet?.textContent).toContain("/widget/widget.js");
-    expect(snippet?.textContent).not.toContain("ago-chat.js");
-    expect(snippet?.textContent).not.toContain("…");
-
-    // Read by nothing in the widget's parseConfig.
-    expect(snippet?.textContent).not.toContain("data-booking-api");
-
-    expect(snippet?.textContent).toContain("data-site=");
-    expect(snippet?.textContent?.match(/<script/g)).toHaveLength(1);
-  });
-
-  it("tells the tenant where to get the site key it cannot fill in for them", async () => {
-    const container = await render(page());
-
-    // The chat site's key needs `site:configure`; this screen is reached with `calendar:configure`.
-    // So the placeholder stays and the copy has to lead somewhere.
-    const link = byText<HTMLAnchorElement>(container, "a", "Install widget");
-    expect(link?.getAttribute("href")).toBe("/channels/install");
+    expect(container.querySelector("pre")).toBeNull();
+    expect(container.textContent).not.toContain("data-booking");
+    expect(container.textContent).not.toContain("<script");
+    expect(container.textContent).toContain(
+      "Booking appears in the chat widget already installed on your site as soon as this account is granted the calendar module",
+    );
   });
 
   it("creates a calendar with an IANA zone", async () => {

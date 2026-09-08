@@ -708,7 +708,7 @@ export const en: ConsoleStrings = {
   operatorsTeamOverSeatsTitle: "Over your seat limit",
   operatorsTeamOverSeatsBody:
     "This site is holding more seats than its plan allows - most likely after a downgrade. Everyone below still " +
-    "works; free a seat, or raise your limit in Billing, when you are ready. Occupied:",
+    "works; free a seat, or raise your limit, when you are ready. Occupied:",
 
   operatorsTeamGrantSeatButton: "Grant seat",
   operatorsTeamRevokeSeatButton: "Revoke seat",
@@ -729,7 +729,7 @@ export const en: ConsoleStrings = {
   operatorsTeamInviteSendingButton: "Sending…",
   operatorsTeamInviteAtLimitTitle: "You are at your seat limit",
   operatorsTeamInviteAtLimitBody:
-    "Free a seat above, or raise your seat limit in Billing, before inviting another colleague - your site already " +
+    "Free a seat above, or raise your seat limit, before inviting another colleague - your site already " +
     "has",
   operatorsTeamInviteSubmitError: "Could not create that invite. Try again.",
   operatorsTeamInviteSuccessTitle: "Invite created",
@@ -1026,9 +1026,8 @@ export const en: ConsoleStrings = {
   calendarQueueOverdueNote: " · overdue - the sweep is not running",
   calendarRejectButton: "Reject",
   calendarNoShowButton: "No-show",
-  calendarSetupEmbedDescription: "Paste this on your own site. One tag: the chat widget and the booking flow arrive together.",
-  calendarSetupEmbedSnippetAriaLabel: "Embed snippet",
-  calendarSetupEmbedSiteKeyHint: "Replace YOUR-CHAT-SITE-KEY with your site key, which is on",
+  calendarSetupBookingAutomaticNote:
+    "Booking appears in the chat widget already installed on your site as soon as this account is granted the calendar module - there is nothing to paste or change on your page.",
   calendarSetupOriginsTitle: "Approved page origins",
   calendarSetupOriginsDescription: "A page may only embed your booking surface if its origin is listed here. Scheme, host and port - no path.",
   calendarSetupOriginsFieldLabel: "One origin per line",
@@ -1082,7 +1081,8 @@ export const en: ConsoleStrings = {
   calendarSlotsLinkLabel: "Slots",
   calendarRecutLinkLabel: "Re-cut",
   calendarAddWorkerButton: "Add worker",
-  calendarWorkersNoCalendarNote: "Add a calendar first, on the Setup screen - a worker belongs to exactly one.",
+  calendarWorkersNoCalendarIntro: "Add a calendar first, on the ",
+  calendarWorkersNoCalendarReason: " screen - a worker belongs to exactly one.",
   calendarNewWorkerTitle: "New worker",
   calendarEditWorkerTitle: "Edit worker",
   calendarViewSlotsLinkLabel: "View slots",
@@ -1119,7 +1119,8 @@ export const en: ConsoleStrings = {
   calendarCycleShiftPatternNote: 
     "“2 on, 2 off” is 2 working / 2 rest days. “24 on, 72 off” is 1 working / 3 rest days, " +
     "plus the hours below - not a 24-hour window.",
-  calendarWeeklyHoursNote: "Weekly hours are set on the Setup screen’s working-hours form, per day of the week.",
+  calendarWeeklyHoursIntro: "Weekly hours are set on the ",
+  calendarWeeklyHoursReason: " screen’s working-hours form, per day of the week.",
   calendarSlotLengthFieldLabel: "Slot length (minutes)",
   calendarSlotLengthNote: "A service longer than this needs more than one slot, claimed together as one booking.",
   calendarBufferFieldLabel: "Buffer between slots (minutes)",
@@ -1362,6 +1363,10 @@ export const en: ConsoleStrings = {
   deviceStorageWidgetNoticeUrlHolds: "A link to your own privacy policy, alongside the notice text above.",
   deviceStorageWidgetNoticeUrlWhy: "Same purpose as the notice text above.",
   deviceStorageWidgetNoticeUrlLifetime: "Same as the accent colour above.",
+  deviceStorageEnabledModulesHolds: "Which of your paid add-ons (for example, online booking) are switched on for this site.",
+  deviceStorageEnabledModulesWhy: "Lets the widget show or hide an add-on's entry point without asking the server again on every reload.",
+  deviceStorageEnabledModulesLifetime:
+    "Refreshed at least once a day, and sooner if the identity token above is itself due for renewal; removed entirely once you have no add-on switched on.",
   deviceStorageConversationIdHolds: "The id of the conversation this browser last held with you.",
   deviceStorageConversationIdWhy: "Lets a reload resume the same conversation instead of starting a new one.",
   deviceStorageConversationIdLifetime:

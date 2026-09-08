@@ -78,6 +78,12 @@ export const DEVICE_STORAGE_DISCLOSURE_ROWS: DeviceStorageDisclosureRow[] = [
     lifetimeKey: "deviceStorageWidgetNoticeUrlLifetime",
   },
   {
+    key: "enabled-modules",
+    holdsKey: "deviceStorageEnabledModulesHolds",
+    whyKey: "deviceStorageEnabledModulesWhy",
+    lifetimeKey: "deviceStorageEnabledModulesLifetime",
+  },
+  {
     key: "conversation-id",
     holdsKey: "deviceStorageConversationIdHolds",
     whyKey: "deviceStorageConversationIdWhy",

@@ -680,7 +680,7 @@ export const ru: ConsoleStrings = {
   productsChatActionLabel: "Открыть переписки",
 
   productsCalendarDescription:
-    "Позвольте клиентам записываться к вашим сотрудникам и ведите расписание прямо здесь.",
+    "Позвольте клиентам записываться к вашим мастерам и ведите расписание прямо здесь.",
   productsCalendarActionLabel: "Открыть очередь записей",
 
   productsFaqDescription:
@@ -709,7 +709,7 @@ export const ru: ConsoleStrings = {
   operatorsTeamOverSeatsTitle: "Превышен лимит мест",
   operatorsTeamOverSeatsBody:
     "На этом сайте занято больше мест, чем позволяет текущий тариф - скорее всего, после понижения тарифа. Все " +
-    "ниже по-прежнему работают; освободите место или повысьте лимит в разделе «Оплата», когда будете готовы. " +
+    "ниже по-прежнему работают; освободите место или повысьте лимит, когда будете готовы. " +
     "Занято:",
 
   operatorsTeamGrantSeatButton: "Выделить место",
@@ -731,7 +731,7 @@ export const ru: ConsoleStrings = {
   operatorsTeamInviteSendingButton: "Отправляем…",
   operatorsTeamInviteAtLimitTitle: "Достигнут лимит мест",
   operatorsTeamInviteAtLimitBody:
-    "Освободите место выше или повысьте лимит в разделе «Оплата», прежде чем приглашать ещё одного коллегу - на " +
+    "Освободите место выше или повысьте лимит, прежде чем приглашать ещё одного коллегу - на " +
     "сайте уже занято",
   operatorsTeamInviteSubmitError: "Не удалось создать приглашение. Попробуйте ещё раз.",
   operatorsTeamInviteSuccessTitle: "Приглашение создано",
@@ -1001,7 +1001,7 @@ export const ru: ConsoleStrings = {
   calendarRefreshButton: "Обновить",
   calendarActiveLabel: "Активен",
   calendarInactiveLabel: "Неактивен",
-  calendarWorkerFieldLabel: "Сотрудник",
+  calendarWorkerFieldLabel: "Мастер",
   calendarDayFieldLabel: "День",
   calendarOpensFieldLabel: "Открытие",
   calendarClosesFieldLabel: "Закрытие",
@@ -1029,9 +1029,8 @@ export const ru: ConsoleStrings = {
   calendarQueueOverdueNote: " · просрочено - проверка дедлайнов не запущена",
   calendarRejectButton: "Отклонить",
   calendarNoShowButton: "Неявка",
-  calendarSetupEmbedDescription: "Вставьте это на свой сайт. Один тег: чат-виджет и сценарий записи приходят вместе.",
-  calendarSetupEmbedSnippetAriaLabel: "Код для вставки",
-  calendarSetupEmbedSiteKeyHint: "Замените YOUR-CHAT-SITE-KEY на ключ вашего сайта — он на странице",
+  calendarSetupBookingAutomaticNote:
+    "Запись появится в чат-виджете, уже установленном на вашем сайте, как только этому аккаунту предоставят модуль календаря — вставлять или менять на странице ничего не нужно.",
   calendarSetupOriginsTitle: "Разрешённые источники страницы",
   calendarSetupOriginsDescription: "Страница может встроить вашу форму записи, только если её источник указан здесь. Схема, хост и порт - без пути.",
   calendarSetupOriginsFieldLabel: "По одному источнику на строку",
@@ -1060,9 +1059,9 @@ export const ru: ConsoleStrings = {
   calendarSetupWorkingHoursDescription: 
     "Настенные часы в собственном часовом поясе календаря - «мы открываемся в девять», а не момент " +
     "времени. Смена, переходящая через полночь, - это два правила на два дня.",
-  calendarSetupNoWorkersNote: "Сначала добавьте сотрудника - рабочие часы принадлежат сотруднику на календаре.",
+  calendarSetupNoWorkersNote: "Сначала добавьте мастера - рабочие часы принадлежат мастеру на календаре.",
   calendarSetupAddWorkingHoursButton: "Добавить рабочие часы",
-  calendarSetupWorkerNotOnCalendarNote: "Этот сотрудник ещё не на календаре, поэтому часов для него нет.",
+  calendarSetupWorkerNotOnCalendarNote: "Этот мастер ещё не на календаре, поэтому часов для него нет.",
 
   calendarReadinessTitle: "Может ли клиент записаться прямо сейчас?",
   calendarReadinessNoCalendarLabel: "Календаря пока нет",
@@ -1073,25 +1072,26 @@ export const ru: ConsoleStrings = {
   calendarReadinessFixItLink: "Исправить",
   calendarReadinessViewSlotsLink: "Посмотреть слоты",
   calendarReadinessCalendarPublishedLabel: "Календарь опубликован",
-  calendarReadinessWorkerOnCalendarLabel: "На календаре есть активный сотрудник",
-  calendarReadinessServiceOfferedLabel: "Этот сотрудник оказывает услугу",
-  calendarReadinessWorkingHoursConfiguredLabel: "У этого сотрудника заданы рабочие часы или циклический график",
-  calendarReadinessScheduleSavedLabel: "У этого сотрудника сохранён график",
+  calendarReadinessWorkerOnCalendarLabel: "На календаре есть активный мастер",
+  calendarReadinessServiceOfferedLabel: "Этот мастер оказывает услугу",
+  calendarReadinessWorkingHoursConfiguredLabel: "У этого мастера заданы рабочие часы или циклический график",
+  calendarReadinessScheduleSavedLabel: "У этого мастера сохранён график",
   calendarReadinessSlotsMaterializedLabel: "Слоты сгенерированы в пределах горизонта",
 
-  calendarWorkersTitle: "Сотрудники",
+  calendarWorkersTitle: "Мастера",
   calendarEditButton: "Изменить",
   calendarScheduleButton: "Расписание",
   calendarSlotsLinkLabel: "Слоты",
   calendarRecutLinkLabel: "Пересчёт",
-  calendarAddWorkerButton: "Добавить сотрудника",
-  calendarWorkersNoCalendarNote: "Сначала добавьте календарь на экране «Настройка» - у сотрудника ровно один.",
-  calendarNewWorkerTitle: "Новый сотрудник",
-  calendarEditWorkerTitle: "Изменить сотрудника",
+  calendarAddWorkerButton: "Добавить мастера",
+  calendarWorkersNoCalendarIntro: "Сначала добавьте календарь на экране «",
+  calendarWorkersNoCalendarReason: "» - у мастера ровно один.",
+  calendarNewWorkerTitle: "Новый мастер",
+  calendarEditWorkerTitle: "Изменить мастера",
   calendarViewSlotsLinkLabel: "Смотреть слоты",
   calendarWorkersDeleteConfirmPrefix: "Удалить ",
   calendarWorkersDeleteConfirmSuffix: 
-    "? Это работает только для сотрудника, которого никогда не бронировали - если есть ожидающий, " +
+    "? Это работает только для мастера, которого никогда не бронировали - если есть ожидающий, " +
     "подтверждённый визит или неявка, будет отказано, и консоль покажет собственную причину сервера.",
   calendarLastNameFieldLabel: "Фамилия",
   calendarFirstNameFieldLabel: "Имя",
@@ -1101,8 +1101,8 @@ export const ru: ConsoleStrings = {
   calendarDisplayNameDerivedNote: "Формируется из имени и фамилии, пока вы его не измените.",
   calendarCalendarFieldLabel: "Календарь",
   calendarServicesPerformedLegend: "Выполняемые услуги",
-  calendarWorkerCardNoCalendarNote: "Сначала добавьте календарь - у сотрудника ровно один.",
-  calendarWorkersEmpty: "Сотрудников пока нет.",
+  calendarWorkerCardNoCalendarNote: "Сначала добавьте календарь - у мастера ровно один.",
+  calendarWorkersEmpty: "Мастеров пока нет.",
   calendarWorkersColumnName: "Имя",
   calendarWorkersColumnActive: "Активен",
   calendarWorkersColumnCreated: "Создан",
@@ -1111,7 +1111,7 @@ export const ru: ConsoleStrings = {
   calendarBackfilledNameTooltip: "Заполнено из старой записи - нужно указать настоящее имя",
   calendarNeedsCorrectionLabel: "(нужно исправить)",
   calendarScheduleSectionTitle: "Расписание",
-  calendarScheduleEmptyNote: "Расписания пока нет - этот сотрудник ничего не материализует, пока оно не сохранено.",
+  calendarScheduleEmptyNote: "Расписания пока нет - этот мастер ничего не материализует, пока оно не сохранено.",
   calendarTemplateFieldLabel: "Шаблон",
   calendarWeeklyTemplateOption: "Недельный (обычная неделя)",
   calendarCycleTemplateOption: "Цикл (N дней работы, M дней отдыха)",
@@ -1122,7 +1122,8 @@ export const ru: ConsoleStrings = {
   calendarCycleShiftPatternNote: 
     "«2 через 2» - это 2 рабочих / 2 выходных дня. «Сутки через трое» - это 1 рабочий / 3 выходных " +
     "дня, плюс часы ниже - это не 24-часовое окно.",
-  calendarWeeklyHoursNote: "Недельные часы задаются в форме рабочих часов на экране «Настройка», по дням недели.",
+  calendarWeeklyHoursIntro: "Недельные часы задаются в форме рабочих часов на экране «",
+  calendarWeeklyHoursReason: "», по дням недели.",
   calendarSlotLengthFieldLabel: "Длина слота (минуты)",
   calendarSlotLengthNote: "Услуга длиннее этого займёт больше одного слота, забронированных вместе как одна запись.",
   calendarBufferFieldLabel: "Перерыв между слотами (минуты)",
@@ -1146,7 +1147,7 @@ export const ru: ConsoleStrings = {
   calendarSlotsHeadingPrefix: "Слоты — ",
   calendarSlotsHeadingSuffix: "",
   calendarSlotsHeadingFallback: "Слоты",
-  calendarSlotsDescription: "Что реально произвело расписание этого сотрудника - свободно, удержано, забронировано, отменено, неявка или намеренная блокировка.",
+  calendarSlotsDescription: "Что реально произвело расписание этого мастера - свободно, удержано, забронировано, отменено, неявка или намеренная блокировка.",
   calendarSlotsTimezoneNotePrefix: " Время указано по местному поясу ",
   calendarSlotsTimezoneNoteSuffix: ".",
   calendarSlotsEmpty: "В этом диапазоне нет слотов.",
@@ -1165,7 +1166,7 @@ export const ru: ConsoleStrings = {
   calendarSlotStatusBlocked: "Заблокирован",
   calendarRecutTitle: "Пересчёт расписания",
   calendarRecutDescription: 
-    "Сдвигает курсор материализации этого сотрудника назад к уже нарезанной дате и заново создаёт " +
+    "Сдвигает курсор материализации этого мастера назад к уже нарезанной дате и заново создаёт " +
     "каждый день между ними по текущему шаблону. Это удаляет свободные слоты и для любой записи, " +
     "которую вы решите отменить, отменяет её через обычный сценарий отмены - клиенту сообщается, а " +
     "собственная строка записи сохраняется как отменённая, а не удаляется.",
@@ -1196,7 +1197,7 @@ export const ru: ConsoleStrings = {
   calendarCancelDecisionLabel: "Отменить",
   calendarKeepDecisionLabel: "Оставить",
   calendarAlreadyNoShowNote: "Уже произошло как неявка - нельзя отменить, этот день сохраняется.",
-  calendarAvailabilityNoWorkersNote: "Ни один сотрудник ещё не на календаре, поэтому редактировать дни нельзя.",
+  calendarAvailabilityNoWorkersNote: "Ни один мастер ещё не на календаре, поэтому редактировать дни нельзя.",
   calendarCloseDayTitle: "Закрыть день",
   calendarCloseDayDescription: "Удаляет все свободные слоты в этот день и оставляет вместо них одну блокирующую строку, чтобы следующий запуск материализации молча не заполнил его снова.",
   calendarCloseDayButton: "Закрыть день",
@@ -1228,9 +1229,9 @@ export const ru: ConsoleStrings = {
   calendarQueueForbidden: "У вас нет прав на просмотр очереди бронирований календаря.",
   calendarElsewhereNotice: "Календарь у вас есть в другом магазине. Переключитесь с помощью селектора вверху страницы:",
   calendarSetupForbidden: "У вас нет прав на настройку календаря.",
-  calendarWorkersForbidden: "У вас нет прав на управление сотрудниками календаря.",
-  calendarWorkerSlotsForbidden: "У вас нет прав на просмотр слотов сотрудника.",
-  calendarWorkerRecutForbidden: "У вас нет прав на перекраивание расписания сотрудника.",
+  calendarWorkersForbidden: "У вас нет прав на управление мастерами календаря.",
+  calendarWorkerSlotsForbidden: "У вас нет прав на просмотр слотов мастера.",
+  calendarWorkerRecutForbidden: "У вас нет прав на перекраивание расписания мастера.",
   calendarAvailabilityForbidden: "У вас нет прав на изменение доступности календаря.",
   calendarContactsForbidden: "У вас нет прав на просмотр контактов календаря.",
   accessRefusalGrantHint: "Попросите владельца или администратора этого магазина выдать вам этот доступ.",
@@ -1367,6 +1368,10 @@ export const ru: ConsoleStrings = {
   deviceStorageWidgetNoticeUrlHolds: "Ссылка на вашу политику конфиденциальности, рядом с текстом уведомления выше.",
   deviceStorageWidgetNoticeUrlWhy: "То же назначение, что и у текста уведомления выше.",
   deviceStorageWidgetNoticeUrlLifetime: "Так же, как у акцентного цвета выше.",
+  deviceStorageEnabledModulesHolds: "Какие из ваших платных дополнений (например, онлайн-запись) включены для этого сайта.",
+  deviceStorageEnabledModulesWhy: "Позволяет виджету показывать или скрывать точку входа дополнения, не спрашивая сервер при каждой перезагрузке.",
+  deviceStorageEnabledModulesLifetime:
+    "Обновляется не реже раза в день, а также при обновлении токена личности выше; полностью удаляется, если ни одно дополнение не включено.",
   deviceStorageConversationIdHolds: "Id диалога, который этот браузер вёл с вами последним.",
   deviceStorageConversationIdWhy: "Позволяет при перезагрузке продолжить тот же диалог, а не начинать новый.",
   deviceStorageConversationIdLifetime:
