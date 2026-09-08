@@ -744,6 +744,25 @@ export const en: ConsoleStrings = {
   operatorsTeamInviteExpiresLabel: "Expires",
   operatorsTeamInviteCloseButton: "Close",
 
+  operatorsTeamRoleColumn: "Role",
+  operatorsTeamRoleOperator: "Operator",
+  operatorsTeamRoleAdmin: "Administrator",
+
+  operatorsTeamInviteRoleLabel: "Role",
+  operatorsTeamInviteRoleOperatorOption: "Operator - answers conversations",
+  operatorsTeamInviteRoleAdminOption: "Administrator - manages the team, no conversations",
+
+  operatorsTeamChangeRoleToAdminButton: "Make administrator",
+  operatorsTeamChangeRoleToOperatorButton: "Make operator",
+  operatorsTeamChangeRoleDialogTitle: "Change this colleague's role?",
+  operatorsTeamChangeRoleToAdminDialogBody:
+    "will be able to manage the team - invite and remove colleagues, change roles, configure the site - and will " +
+    "stop receiving new conversations unless they also hold a seat.",
+  operatorsTeamChangeRoleToOperatorDialogBody:
+    "will no longer be able to manage the team - invite or remove colleagues, change roles, configure the site.",
+  operatorsTeamChangeRoleConfirmButton: "Change role",
+  operatorsTeamChangeRoleError: "Could not change that colleague's role. Try again.",
+
   teamChatTitle: "Team chat",
   teamChatDescription: "Talk to your colleagues without leaving the console. Nobody outside your team sees this.",
   teamChatLoadingLabel: "Loading the team chat…",

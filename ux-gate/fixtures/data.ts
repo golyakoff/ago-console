@@ -236,7 +236,10 @@ export function seededAllConversations() {
  * (`GetOperatorTeamHandler`, `OperatorTeamResponseDto`). Three rows, deliberately: two named,
  * seat-holding operators and one unseated, unnamed one (`UNSEATED_OPERATOR_ID`'s own doc comment) -
  * so both `Badge` tones this screen uses (`operatorsTeamSeatHeld`/`operatorsTeamSeatNotHeld`) and
- * both name renderings (a real name, and the id-fallback) appear in the same screenshot. */
+ * both name renderings (a real name, and the id-fallback) appear in the same screenshot.
+ * `23-72`: `roleNames` joined the wire shape - one row holds `["Admin"]` so the role column's own
+ * two `Badge` tones (and the `ChangeOperatorRoleButton` action, offering the opposite direction on
+ * each row) both appear in the same screenshot the same way the seat column already does. */
 export function seededOperatorTeam() {
   return {
     operators: [
@@ -246,9 +249,9 @@ export function seededOperatorTeam() {
       // screen's own "no untranslated interface text" run has nothing incidentally Latin to flag
       // (found live: an ASCII `@example-shop.ru` address failed that assertion the first time this
       // screen ran).
-      { operatorId: OPERATOR_ID, displayName: "Мария Кузнецова", email: "мария@кофейня.рф", holdsSeat: true },
-      { operatorId: OTHER_OPERATOR_ID, displayName: "Иван Петров", email: "иван@кофейня.рф", holdsSeat: true },
-      { operatorId: UNSEATED_OPERATOR_ID, displayName: null, email: null, holdsSeat: false },
+      { operatorId: OPERATOR_ID, displayName: "Мария Кузнецова", email: "мария@кофейня.рф", holdsSeat: true, roleNames: ["Admin"] },
+      { operatorId: OTHER_OPERATOR_ID, displayName: "Иван Петров", email: "иван@кофейня.рф", holdsSeat: true, roleNames: ["Operator"] },
+      { operatorId: UNSEATED_OPERATOR_ID, displayName: null, email: null, holdsSeat: false, roleNames: ["Operator"] },
     ],
   };
 }

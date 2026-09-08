@@ -4,11 +4,14 @@ import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import {
   ApiProblemError,
+  changeOperatorRole,
   createOperatorInvite,
   fetchOperatorTeam,
   fetchSeatAssignmentSummary,
   removeOperator,
   toggleOperatorSeat,
+  ROLE_ADMIN,
+  ROLE_OPERATOR,
   type CreateOperatorInviteResponseDto,
   type OperatorTeamMemberDto,
   type SeatAssignmentSummaryDto,
@@ -21,11 +24,13 @@ import { Table } from "../components/Table.js";
 import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
 import { Dialog } from "../components/Dialog.js";
+import { Select } from "../components/Select.js";
 import { Alert } from "../components/Alert.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { RemoveOperatorButton } from "./RemoveOperatorButton.js";
 import { SeatToggleButton } from "./SeatToggleButton.js";
+import { ChangeOperatorRoleButton } from "./ChangeOperatorRoleButton.js";
 
 /** `23-22`'s own dedicated permission - the first thing the console ever checks it for
  * (`ui-inventory.md` §13.4's own finding: "the console never checks that permission, has no route
@@ -60,19 +65,20 @@ function operatorLabel(operatorId: string, displayName: string | null): ReactNod
  * existing write endpoints unchanged - `operatorTeamApi.ts` is a thin wire-shape file over all four,
  * new and old alike.
  *
- * ## The pre-invite seat check, and why it reads the table's own length rather than `heldSeats`
+ * ## The pre-invite seat check, and why it counts the team list rather than using `heldSeats`
  *
  * `RedeemOperatorInviteHandler`'s own real refusal predicate at redemption time is
  * `operatorCount >= seatLimit`, where `operatorCount` counts every `operators` row with
- * `removed_at IS NULL` - regardless of `holds_seat` (`OperatorInviteRedemptionRepository`'s own
- * remarks: "how many operator rows does this site have", not "how many currently hold an assigned
- * seat"). That is a different, larger count than `heldSeats` (`HoldsSeat AND RemovedAt IS NULL`), the
- * number `/settings/billing` shows as "seats used". A site with one operator who toggled their own
- * seat off has `heldSeats` one lower than its real row count - so predicting the redemption refusal
- * from `heldSeats` would tell an inviter "you have room" the moment before the server disagrees. This
- * screen's own team list already holds every active row (seat-less ones included), so its own
- * `.length` is exactly the number the server will compare against the limit - reused here rather than
- * a second, different-shaped count.
+ * `removed_at IS NULL` (`OperatorInviteRedemptionRepository`'s own remarks: "how many operator rows
+ * does this site have", unchanged since `13-03`) - never `heldSeats` (`HoldsSeat AND RemovedAt IS
+ * NULL`), the number `/settings/billing` shows as "seats used". A site with one operator who toggled
+ * their own seat off has `heldSeats` one lower than its real row count, so predicting the redemption
+ * refusal from `heldSeats` would tell an inviter "you have room" the moment before the server
+ * disagrees. `23-72`: an administrator invite is not exempt from this count either - a role is not a
+ * purchase (`adr/0151`), and the row it creates is still an ordinary `operators` row.
+ * `activeOperatorCount` mirrors the server's own predicate exactly (every active row) rather than a
+ * narrower, more optimistic one - the same "predict the exact refusal" goal this paragraph always
+ * described.
  *
  * ## The removal consequence, said before the click
  *
@@ -97,6 +103,9 @@ export function OperatorsTeamPage() {
   // `23-70`: the link's own "copied" confirmation - the identical `Button`+`Alert` shape
   // `InstallSnippetPage`'s own `copyKey`/`copySnippet` already establish for the same UX need.
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
+  // `23-72`: the invite dialog's own role choice - defaults to Operator, the console's original,
+  // only offer before this item.
+  const [inviteRoleName, setInviteRoleName] = useState(ROLE_OPERATOR);
 
   const accessToken = user?.access_token;
 
@@ -130,7 +139,18 @@ export function OperatorsTeamPage() {
     return <AccessRefusal title={strings.operatorsTeamTitle} message={strings.operatorsTeamForbidden} strings={strings} />;
   }
 
-  // See this component's own doc comment for why `team.length`, never `summary.heldSeats`.
+  // See this component's own doc comment for why this is derived from the team list's own rows, never
+  // `summary.heldSeats` - `OperatorInviteRedemptionRepository`'s own real refusal predicate counts every
+  // active `operators` row regardless of role or current seat-holding status, so predicting it from
+  // `summary.heldSeats` would tell an inviter "you have room" the moment before the server disagrees.
+  // `23-72`: an administrator invite is not exempt from this count - a role is not a purchase (`adr/0151`
+  // keeps entitlement and permission apart), but the row it creates is still an ordinary `operators` row
+  // and the seat-limit check has always counted rows, not seats held, since `13-03`. No `inviteRoleName`
+  // check belongs here: the role picker itself only renders once this is already false (see the JSX
+  // below), so a role-based exemption here could never be reached in the one case - at the limit - where
+  // it would matter. An earlier draft carried `&& inviteRoleName === ROLE_OPERATOR`, which every test
+  // still passed with removed, because nothing can ever exercise it; found while independently verifying
+  // this item rather than by a failing test.
   const activeOperatorCount = team?.length ?? 0;
   const atSeatLimit = summary !== null && activeOperatorCount >= summary.seatLimit;
 
@@ -138,6 +158,7 @@ export function OperatorsTeamPage() {
     setInviteError(null);
     setInviteResult(null);
     setInviteLinkCopied(false);
+    setInviteRoleName(ROLE_OPERATOR);
     setInviteDialogOpen(true);
   };
 
@@ -156,7 +177,7 @@ export function OperatorsTeamPage() {
     setInviteSubmitting(true);
     setInviteError(null);
     try {
-      const created = await createOperatorInvite(accessToken, siteId);
+      const created = await createOperatorInvite(accessToken, siteId, inviteRoleName);
       setInviteResult(created);
     } catch (err) {
       setInviteError(err instanceof ApiProblemError ? err.message : strings.operatorsTeamInviteSubmitError);
@@ -241,6 +262,15 @@ export function OperatorsTeamPage() {
                     render: (row) => row.email ?? "—",
                   },
                   {
+                    key: "role",
+                    header: strings.operatorsTeamRoleColumn,
+                    render: (row) => (
+                      <Badge tone={row.roleNames.includes(ROLE_ADMIN) ? "brand" : "neutral"}>
+                        {row.roleNames.includes(ROLE_ADMIN) ? strings.operatorsTeamRoleAdmin : strings.operatorsTeamRoleOperator}
+                      </Badge>
+                    ),
+                  },
+                  {
                     key: "seat",
                     header: strings.operatorsTeamSeatColumn,
                     render: (row) => (
@@ -254,6 +284,17 @@ export function OperatorsTeamPage() {
                     header: strings.operatorsTeamActionsColumn,
                     render: (row) => (
                       <div className="ago-row">
+                        <ChangeOperatorRoleButton
+                          isAdmin={row.roleNames.includes(ROLE_ADMIN)}
+                          displayName={row.displayName ?? row.operatorId.slice(0, 8)}
+                          onChange={(newRoleName) => {
+                            if (!accessToken || !siteId) {
+                              return Promise.resolve();
+                            }
+                            return changeOperatorRole(accessToken, siteId, row.operatorId, newRoleName);
+                          }}
+                          onChanged={load}
+                        />
                         <SeatToggleButton
                           holdsSeat={row.holdsSeat}
                           onToggle={(holdsSeat) => {
@@ -331,7 +372,9 @@ export function OperatorsTeamPage() {
         ) : atSeatLimit ? (
           // Done-when: "inviting when the seat limit is already reached is refused *before* the
           // invite is created, and says so in the tenant's own words" - no `createOperatorInvite`
-          // call is ever made from this branch; the dialog's only footer action is `Close`.
+          // call is ever made from this branch; the dialog's only footer action is `Close`. Applies
+          // regardless of the role picked below - `activeOperatorCount`'s own remarks state why an
+          // administrator invite is not exempt.
           // `23-107`: same fix as the over-seats Alert above - a real link, not a name.
           <Alert
             tone="info"
@@ -342,9 +385,20 @@ export function OperatorsTeamPage() {
           </Alert>
         ) : (
           <div className="ago-stack">
+            {/* `23-72`: the role picker - the API already took `roleName` at invite creation
+                (`13-01`), this dialog just never offered a choice before this item. */}
+            <label>
+              {strings.operatorsTeamInviteRoleLabel}
+              <Select value={inviteRoleName} onChange={(event) => setInviteRoleName(event.target.value)}>
+                <option value={ROLE_OPERATOR}>{strings.operatorsTeamInviteRoleOperatorOption}</option>
+                <option value={ROLE_ADMIN}>{strings.operatorsTeamInviteRoleAdminOption}</option>
+              </Select>
+            </label>
+
             <p>
               {strings.operatorsTeamInviteCostBody} {activeOperatorCount + 1}/{summary?.seatLimit}.
             </p>
+
             {inviteError && <Alert tone="danger">{inviteError}</Alert>}
           </div>
         )}

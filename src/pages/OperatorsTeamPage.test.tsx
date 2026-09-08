@@ -32,6 +32,7 @@ const operatorTeamApi = vi.hoisted(() => ({
   createOperatorInvite: vi.fn(),
   toggleOperatorSeat: vi.fn(),
   removeOperator: vi.fn(),
+  changeOperatorRole: vi.fn(),
 }));
 
 vi.mock("../api/operatorsApi.js", async () => {
@@ -79,10 +80,13 @@ function page(): ReactNode {
 }
 
 function twoOperatorsAndASummary(seatLimit: number) {
+  // Both `Operator`-role rows, one with a toggled-off seat - this is what `heldSeats` (1) and this
+  // screen's own seat-row-count prediction (2, `activeOperatorCount`) genuinely diverge on, which is
+  // the scenario `OperatorsTeamPage`'s own doc comment names.
   operatorTeamApi.fetchOperatorTeam.mockResolvedValue({
     operators: [
-      { operatorId: NAMED_ID, displayName: "Ada Lovelace", email: "ada@example.invalid", holdsSeat: true },
-      { operatorId: UNNAMED_ID, displayName: null, email: null, holdsSeat: false },
+      { operatorId: NAMED_ID, displayName: "Ada Lovelace", email: "ada@example.invalid", holdsSeat: true, roleNames: ["Operator"] },
+      { operatorId: UNNAMED_ID, displayName: null, email: null, holdsSeat: false, roleNames: ["Operator"] },
     ],
   });
   operatorTeamApi.fetchSeatAssignmentSummary.mockResolvedValue({ heldSeats: 1, seatLimit, overSeats: 1 > seatLimit });
@@ -145,6 +149,24 @@ describe("the team list", () => {
     expect(container.textContent).toContain("No seat");
   });
 
+  // `23-72`: the role column - an operator holding "Admin" shows the Administrator badge, one holding
+  // only "Operator" shows the Operator badge. Its own dedicated seed (not `twoOperatorsAndASummary`,
+  // which deliberately keeps both rows "Operator" for the seat-count tests below).
+  it("shows the administrator badge for an Admin-role operator, and the operator badge otherwise", async () => {
+    operatorTeamApi.fetchOperatorTeam.mockResolvedValue({
+      operators: [
+        { operatorId: NAMED_ID, displayName: "Ada Lovelace", email: "ada@example.invalid", holdsSeat: true, roleNames: ["Operator"] },
+        { operatorId: UNNAMED_ID, displayName: null, email: null, holdsSeat: false, roleNames: ["Admin"] },
+      ],
+    });
+    operatorTeamApi.fetchSeatAssignmentSummary.mockResolvedValue({ heldSeats: 1, seatLimit: 2, overSeats: false });
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Administrator");
+    expect(container.textContent).toContain("Operator");
+  });
+
   it("shows the over-seats banner when the summary says overSeats, with a real link to Billing", async () => {
     twoOperatorsAndASummary(0);
 
@@ -192,7 +214,9 @@ describe("the pre-invite seat check", () => {
 
     await interact(() => byText<HTMLButtonElement>(container, "button", "Send invite").click());
 
-    expect(operatorTeamApi.createOperatorInvite).toHaveBeenCalledWith("token", SITE_ID);
+    // `23-72`: the invite dialog defaults to Operator, so an ordinary invite (no role picked)
+    // still asks the server for that role explicitly - there is no "no role" state on the wire.
+    expect(operatorTeamApi.createOperatorInvite).toHaveBeenCalledWith("token", SITE_ID, "Operator");
     // `23-70`: a URL the colleague can be sent, not a bare token - "the invitation is a URL... that
     // can be pasted into whatever the tenant already uses" (this item's own backlog text).
     expect(container.textContent).toContain("/invite/abc123");
@@ -223,7 +247,69 @@ describe("the pre-invite seat check", () => {
   });
 });
 
+describe("the invite dialog's role picker", () => {
+  // `23-72`: the API already took `roleName` at invite creation (`13-01`); this item adds the choice
+  // to the dialog. An administrator invite is not exempt from the seat-limit check - a role is not a
+  // purchase (`adr/0151`), and the row it creates is still an ordinary `operators` row (`13-03`'s own
+  // seat-limit predicate, unchanged), so choosing Admin at the limit refuses exactly like Operator does.
+  it("stays refused at the seat limit no matter which role is picked", async () => {
+    twoOperatorsAndASummary(2);
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Invite a colleague").click());
+    expect(container.textContent).toContain("You are at your seat limit");
+
+    const roleSelect = container.querySelector("select");
+    expect(roleSelect).toBeNull();
+    expect(operatorTeamApi.createOperatorInvite).not.toHaveBeenCalled();
+  });
+
+  it("sends an Admin-role invite when there is room", async () => {
+    twoOperatorsAndASummary(5);
+    operatorTeamApi.createOperatorInvite.mockResolvedValue({
+      operatorInviteId: "invite-2",
+      code: "def456",
+      expiresAt: "2026-09-10T00:00:00Z",
+    });
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Invite a colleague").click());
+
+    const roleSelect = container.querySelector("select");
+    await interact(() => {
+      if (roleSelect) {
+        roleSelect.value = "Admin";
+        roleSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Send invite").click());
+    expect(operatorTeamApi.createOperatorInvite).toHaveBeenCalledWith("token", SITE_ID, "Admin");
+  });
+});
+
 describe("row actions", () => {
+  it("changes a colleague's role, after confirming, and reloads the team", async () => {
+    operatorTeamApi.changeOperatorRole.mockResolvedValue(undefined);
+
+    const container = await render(page());
+    // Ada holds only "Operator" (twoOperatorsAndASummary's own seed) - the row action offered is
+    // "Make administrator".
+    await interact(() =>
+      byText<HTMLButtonElement>(container, "button", "Make administrator").click(),
+    );
+    expect(container.textContent).toContain("Ada Lovelace");
+    expect(operatorTeamApi.changeOperatorRole).not.toHaveBeenCalled();
+
+    const confirmButtons = all(container, "dialog button").filter((b) => b.textContent === "Change role");
+    await interact(() => confirmButtons[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+
+    expect(operatorTeamApi.changeOperatorRole).toHaveBeenCalledWith("token", SITE_ID, NAMED_ID, "Admin");
+    expect(operatorTeamApi.fetchOperatorTeam).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("row actions (seat and removal)", () => {
   it("toggles a seat and reloads the team", async () => {
     operatorTeamApi.toggleOperatorSeat.mockResolvedValue(undefined);
 

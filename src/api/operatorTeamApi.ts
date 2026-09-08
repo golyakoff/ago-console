@@ -17,6 +17,9 @@ export interface OperatorTeamMemberDto {
   displayName: string | null;
   email: string | null;
   holdsSeat: boolean;
+  /** `23-72`: every role this operator currently holds - plural because the account's own founder
+   * holds both seeded roles at once (`RegisterSiteHandler`'s own remarks), not a single "the" role. */
+  roleNames: string[];
 }
 
 export interface OperatorTeamResponseDto {
@@ -80,16 +83,36 @@ export function fetchSeatAssignmentSummary(accessToken: string, siteId: string):
   return operatorTeamFetch<SeatAssignmentSummaryDto>(accessToken, `/api/v1/sites/${siteId}/operators/seat-assignment-summary`);
 }
 
-/** `RoleName` is never offered as a choice on this screen (this item's own Out of scope: no role
- * catalogue exists yet, so a picker would just be the eleven-permission vocabulary `flows.md` 4.3
- * warns against) - always the ordinary `"Operator"` role every seed script already grants a fresh
- * site's own first operator. */
-const ORDINARY_ROLE_NAME = "Operator";
+/** `23-72`: the only two role names any site has today (`RegisterSiteHandler`'s own seeding) - named
+ * once here rather than as string literals scattered through the invite dialog and the role-change
+ * button, the same reasoning the old `ORDINARY_ROLE_NAME` constant this replaces already had. Not an
+ * enum: a role is still a name resolved server-side (`ago-chat`'s own `IRoleRepository`), never a typed
+ * value this console owns. */
+export const ROLE_OPERATOR = "Operator";
+export const ROLE_ADMIN = "Admin";
 
-export function createOperatorInvite(accessToken: string, siteId: string): Promise<CreateOperatorInviteResponseDto> {
+export function createOperatorInvite(
+  accessToken: string,
+  siteId: string,
+  roleName: string,
+): Promise<CreateOperatorInviteResponseDto> {
   return operatorTeamFetch<CreateOperatorInviteResponseDto>(accessToken, `/api/v1/sites/${siteId}/operator-invites`, {
     method: "POST",
-    body: JSON.stringify({ roleName: ORDINARY_ROLE_NAME }),
+    body: JSON.stringify({ roleName }),
+  });
+}
+
+/** `23-72`: "an administrator can change an existing colleague's role, both directions" - the console's
+ * own call to `Ago.Chat.Api`'s new `POST .../operators/{operatorId}/role`. */
+export function changeOperatorRole(
+  accessToken: string,
+  siteId: string,
+  operatorId: string,
+  roleName: string,
+): Promise<void> {
+  return operatorTeamVoidFetch(accessToken, `/api/v1/sites/${siteId}/operators/${operatorId}/role`, {
+    method: "POST",
+    body: JSON.stringify({ roleName }),
   });
 }
 

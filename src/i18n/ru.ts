@@ -745,6 +745,25 @@ export const ru: ConsoleStrings = {
   operatorsTeamInviteExpiresLabel: "Действует до",
   operatorsTeamInviteCloseButton: "Закрыть",
 
+  operatorsTeamRoleColumn: "Роль",
+  operatorsTeamRoleOperator: "Оператор",
+  operatorsTeamRoleAdmin: "Администратор",
+
+  operatorsTeamInviteRoleLabel: "Роль",
+  operatorsTeamInviteRoleOperatorOption: "Оператор - отвечает на обращения",
+  operatorsTeamInviteRoleAdminOption: "Администратор - управляет командой, не отвечает на обращения",
+
+  operatorsTeamChangeRoleToAdminButton: "Сделать администратором",
+  operatorsTeamChangeRoleToOperatorButton: "Сделать оператором",
+  operatorsTeamChangeRoleDialogTitle: "Изменить роль этого коллеги?",
+  operatorsTeamChangeRoleToAdminDialogBody:
+    "сможет управлять командой - приглашать и удалять коллег, менять роли, настраивать сайт - и перестанет получать " +
+    "новые обращения, если только за ним не закреплено место.",
+  operatorsTeamChangeRoleToOperatorDialogBody:
+    "больше не сможет управлять командой - приглашать и удалять коллег, менять роли, настраивать сайт.",
+  operatorsTeamChangeRoleConfirmButton: "Изменить роль",
+  operatorsTeamChangeRoleError: "Не удалось изменить роль коллеги. Попробуйте ещё раз.",
+
   teamChatTitle: "Общение",
   teamChatDescription: "Общайтесь с коллегами, не покидая консоль. Никто за пределами вашей команды этого не видит.",
   teamChatLoadingLabel: "Загружаем общение…",
