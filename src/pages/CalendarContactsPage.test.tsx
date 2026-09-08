@@ -6,7 +6,7 @@ import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { CalendarContactsPage } from "./CalendarContactsPage.js";
 import { byText, interact, render, unmount } from "../testing/dom.js";
-import type { Contact } from "../api/calendarApi.js";
+import type { Contact, CustomerMergePreview } from "../api/calendarApi.js";
 
 /**
  * `22-06`: `/calendar/contacts` - moved from `ago-calendar-console`'s own `ContactsPage.test.tsx`,
@@ -26,7 +26,12 @@ vi.mock("../config.js", () => ({
 const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
-const calendarApi = vi.hoisted(() => ({ getContacts: vi.fn(), revealCustomerPhone: vi.fn() }));
+const calendarApi = vi.hoisted(() => ({
+  getContacts: vi.fn(),
+  revealCustomerPhone: vi.fn(),
+  getCustomerMergePreview: vi.fn(),
+  mergeCustomers: vi.fn(),
+}));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
 vi.mock("../api/ownerApi.js", () => ownerApi);
@@ -69,11 +74,13 @@ const contacts: Contact[] = [
     customerId: "c1", phone: "+79990000001", masked: false, displayName: "Anna", notes: "Prefers afternoons",
     noShowCount: 0, phoneVerifiedAt: null, phoneConfirmedByOperatorAt: null,
     firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00",
+    duplicatePhoneCustomerIds: [],
   },
   {
     customerId: "c2", phone: "+79990000002", masked: false, displayName: null, notes: null,
     noShowCount: 2, phoneVerifiedAt: null, phoneConfirmedByOperatorAt: null,
     firstSeenAt: "2026-04-01T09:00:00+00:00", lastSeenAt: "2026-04-01T09:00:00+00:00",
+    duplicatePhoneCustomerIds: [],
   },
 ];
 
@@ -137,6 +144,7 @@ describe("revealing a masked phone (23-30)", () => {
     customerId: "c3", phone: "+7999•••0003", masked: true, displayName: "Petra", notes: null,
     noShowCount: 0, phoneVerifiedAt: null, phoneConfirmedByOperatorAt: null,
     firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00",
+    duplicatePhoneCustomerIds: [],
   };
 
   it("shows the masked value and a Reveal button, never the real number, before reveal", async () => {
@@ -190,16 +198,19 @@ describe("the two verification facts (23-30)", () => {
         customerId: "c4", phone: "+79990000004", masked: false, displayName: "Verified only", notes: null,
         noShowCount: 0, phoneVerifiedAt: "2026-05-01T09:00:00+00:00", phoneConfirmedByOperatorAt: null,
         firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00",
+    duplicatePhoneCustomerIds: [],
       },
       {
         customerId: "c5", phone: "+79990000005", masked: false, displayName: "Confirmed only", notes: null,
         noShowCount: 0, phoneVerifiedAt: null, phoneConfirmedByOperatorAt: "2026-05-02T09:00:00+00:00",
         firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00",
+    duplicatePhoneCustomerIds: [],
       },
       {
         customerId: "c6", phone: "+79990000006", masked: false, displayName: "Both", notes: null,
         noShowCount: 0, phoneVerifiedAt: "2026-05-01T09:00:00+00:00", phoneConfirmedByOperatorAt: "2026-05-02T09:00:00+00:00",
         firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00",
+    duplicatePhoneCustomerIds: [],
       },
     ]);
 
@@ -220,5 +231,111 @@ describe("the two verification facts (23-30)", () => {
     const bothRow = Array.from(container.querySelectorAll("tr")).find((tr) => tr.textContent?.includes("Both"));
     expect(bothRow?.textContent).toContain("Verified");
     expect(bothRow?.textContent).toContain("Confirmed");
+  });
+});
+
+/** `23-60`/`adr/0161`: the "shares a phone" hint, the Merge button it opens, and the confirmation
+ * dialog's own irreversibility copy - not `MergeCustomersDialog`'s own detailed behaviour (covered
+ * where the dialog is defined), only that this page wires it correctly: gated on `customer:edit`,
+ * opened with the right two ids, and that a successful merge reloads the list and reports how many
+ * bookings moved. */
+describe("merging duplicate customers (23-60)", () => {
+  const duplicatePair: Contact[] = [
+    {
+      customerId: "c7", phone: "+79990000007", masked: false, displayName: "Booking Anna", notes: null,
+      noShowCount: 0, phoneVerifiedAt: null, phoneConfirmedByOperatorAt: null,
+      firstSeenAt: "2026-01-01T09:00:00+00:00", lastSeenAt: "2026-01-01T09:00:00+00:00",
+      duplicatePhoneCustomerIds: ["c8"],
+    },
+    {
+      customerId: "c8", phone: "+79990000007", masked: false, displayName: "Chat Anna", notes: null,
+      noShowCount: 0, phoneVerifiedAt: null, phoneConfirmedByOperatorAt: null,
+      firstSeenAt: "2026-02-01T09:00:00+00:00", lastSeenAt: "2026-02-01T09:00:00+00:00",
+      duplicatePhoneCustomerIds: ["c7"],
+    },
+  ];
+
+  const preview: CustomerMergePreview = {
+    first: {
+      customerId: "c7", source: "Booking", willSurvive: true, phone: "+79990000007", masked: false,
+      displayName: "Booking Anna", noShowCount: 0,
+      bookings: [
+        {
+          bookingId: "b1", status: "Booked", serviceName: "Haircut", workerDisplayName: "Kim",
+          startsAt: "2026-03-01T09:00:00+00:00", endsAt: "2026-03-01T09:45:00+00:00", localDate: "2026-03-01",
+        },
+      ],
+    },
+    second: {
+      customerId: "c8", source: "Chat", willSurvive: false, phone: "+79990000007", masked: false,
+      displayName: "Chat Anna", noShowCount: 0, bookings: [],
+    },
+  };
+
+  it("shows a duplicate hint on a row that shares a phone with another customer, and none otherwise", async () => {
+    calendarApi.getContacts.mockResolvedValue(duplicatePair);
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure", "customer:edit"], siteId: SITE_ID });
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Shares a phone with another customer");
+  });
+
+  it("offers no Merge button for an operator without customer:edit, even on a duplicate row", async () => {
+    calendarApi.getContacts.mockResolvedValue(duplicatePair);
+    // The default beforeEach grants only calendar:configure.
+
+    const container = await render(page());
+
+    expect(byText(container, "button", "Merge")).toBeNull();
+  });
+
+  it("opens the confirmation dialog naming both customers, and states the merge cannot be undone", async () => {
+    calendarApi.getContacts.mockResolvedValue(duplicatePair);
+    calendarApi.getCustomerMergePreview.mockResolvedValue(preview);
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure", "customer:edit"], siteId: SITE_ID });
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Merge")?.click());
+
+    expect(calendarApi.getCustomerMergePreview).toHaveBeenCalledWith("token", "c7", "c8", expect.anything());
+    expect(container.textContent).toContain("cannot be undone");
+    expect(container.textContent).toContain("Kim");
+    expect(container.textContent).toContain("Haircut");
+  });
+
+  it("on confirm, merges, closes the dialog, reloads the contacts list and reports bookings moved", async () => {
+    calendarApi.getContacts.mockResolvedValue(duplicatePair);
+    calendarApi.getCustomerMergePreview.mockResolvedValue(preview);
+    calendarApi.mergeCustomers.mockResolvedValue({ survivorCustomerId: "c7", absorbedCustomerId: "c8", bookingsMoved: 3 });
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure", "customer:edit"], siteId: SITE_ID });
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Merge")?.click());
+    calendarApi.getContacts.mockResolvedValue([duplicatePair[0]]);
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Merge, permanently")?.click());
+
+    expect(calendarApi.mergeCustomers).toHaveBeenCalledWith("token", "c7", "c8");
+    expect(byText(container, "h2", "Merge two customer records")).toBeNull();
+    expect(container.textContent).toContain("Bookings moved");
+    expect(container.textContent).toContain("3");
+    expect(calendarApi.getContacts).toHaveBeenCalledTimes(2);
+  });
+
+  it("surfaces a failed merge as an error, without closing the dialog", async () => {
+    const { CalendarApiError } = await import("../api/calendarApi.js");
+    calendarApi.getContacts.mockResolvedValue(duplicatePair);
+    calendarApi.getCustomerMergePreview.mockResolvedValue(preview);
+    calendarApi.mergeCustomers.mockRejectedValue(
+      new CalendarApiError("contacts.customer_already_merged", "Customer c8 was already merged into c7.", 409),
+    );
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure", "customer:edit"], siteId: SITE_ID });
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Merge")?.click());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Merge, permanently")?.click());
+
+    expect(container.textContent).toContain("already merged");
+    expect(byText(container, "h2", "Merge two customer records")).not.toBeNull();
   });
 });

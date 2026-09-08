@@ -47,6 +47,7 @@ import { CalendarAvailabilityPage } from "./pages/CalendarAvailabilityPage.js";
 import { CalendarContactsPage } from "./pages/CalendarContactsPage.js";
 import { CalendarBookingsPage } from "./pages/CalendarBookingsPage.js";
 import { CalendarPhoneRevealsPage } from "./pages/CalendarPhoneRevealsPage.js";
+import { CalendarCustomerMergesPage } from "./pages/CalendarCustomerMergesPage.js";
 
 /**
  * `23-31`: a moved drill-down route (`:workerId/slots`, `:workerId/recut` - neither has a nav entry
@@ -380,6 +381,9 @@ export function App() {
             own doc comment). `buildCalendarItems` in `consoleNav.ts` draws this entry only in the
             full-access branch. */}
         <Route path="/calendar/phone-reveals" element={<CalendarPhoneRevealsPage />} />
+        {/* `23-60`/`adr/0161`: the merge audit trail - the identical `calendar:configure` gate and
+            reasoning as the reveal audit trail immediately above. */}
+        <Route path="/calendar/customer-merges" element={<CalendarCustomerMergesPage />} />
 
         {/* --- `23-31`: redirects for every moved address - eighteen genuine dead-address cases (the
             nineteenth, `/calendar/setup`, is not one - this file's own doc comment above has the

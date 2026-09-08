@@ -380,6 +380,10 @@ export interface Contact {
   phoneConfirmedByOperatorAt: string | null;
   firstSeenAt: string;
   lastSeenAt: string;
+  /** `23-60`/`adr/0161`: every other live customer in this tenant sharing this row's own phone -
+   * what the contacts page's "shares a phone" hint and its Merge action are built from. Empty for
+   * the ordinary case. */
+  duplicatePhoneCustomerIds: string[];
 }
 
 /** `23-30`/`23-12`'s own audit view - one reveal, individually, never an aggregated count
@@ -399,6 +403,69 @@ export interface PhoneReveal {
  * reached - the same shape `searchConversations`' own `nextBeforeMessageId` already carries. */
 export interface PhoneRevealPage {
   items: PhoneReveal[];
+  nextBefore: string | null;
+}
+
+/** `23-60`/`adr/0161`: one booking on one of the two merge candidates - every status, not only
+ * confirmed, oldest first. Field names match `Ago.Calendar.Contracts.CustomerMergePreviewBookingResponse`
+ * verbatim. `status` is the server's own closed vocabulary
+ * (`Available`/`PendingConfirmation`/`Booked`/`Cancelled`/`NoShow`/`Blocked`), rendered by
+ * `mergeBookingStatusLabel` rather than shown verbatim. */
+export interface CustomerMergePreviewBooking {
+  bookingId: string;
+  status: string;
+  serviceName: string | null;
+  workerDisplayName: string;
+  startsAt: string;
+  endsAt: string;
+  localDate: string;
+}
+
+/** `23-60`/`adr/0161`: one of the two merge candidates - the lead card's own summary plus its full
+ * booking history, which is what the confirmation dialog shows before an operator commits. */
+export interface CustomerMergeCandidate {
+  customerId: string;
+  /** The server's own `CustomerSource` member name (`Booking`/`Chat`) - shown so an operator can
+   * see, without having to infer it, that the console (not the operator) decided which side would
+   * survive when the two sources differ (`MergeCustomersHandler`'s own doc comment). */
+  source: string;
+  /** `adr/0161`: whether the server would keep this candidate if the operator goes on to confirm -
+   * display-only. The real merge re-decides this itself rather than trusting the preview, so a
+   * stale dialog left open across a concurrent change can never act on a wrong prediction. */
+  willSurvive: boolean;
+  phone: string;
+  masked: boolean;
+  displayName: string | null;
+  noShowCount: number;
+  bookings: CustomerMergePreviewBooking[];
+}
+
+export interface CustomerMergePreview {
+  first: CustomerMergeCandidate;
+  second: CustomerMergeCandidate;
+}
+
+/** `23-60`/`adr/0161`: which of the two candidate ids the merge actually kept - decided by the
+ * server, never by the request (`mergeCustomers`'s own doc comment). */
+export interface CustomerMergeOutcome {
+  survivorCustomerId: string;
+  absorbedCustomerId: string;
+  bookingsMoved: number;
+}
+
+/** `23-60`/`adr/0161`'s own audit trail - one merge, individually, the same shape `PhoneReveal`
+ * already establishes for a different audit trail. */
+export interface CustomerMergeRecord {
+  id: string;
+  mergedAt: string;
+  survivorCustomerId: string;
+  absorbedCustomerId: string;
+  operatorId: string;
+  bookingsMoved: number;
+}
+
+export interface CustomerMergePage {
+  items: CustomerMergeRecord[];
   nextBefore: string | null;
 }
 
@@ -653,6 +720,49 @@ export function getPhoneReveals(
   }
   const suffix = query.toString();
   return request<PhoneRevealPage>(token, "GET", `/contacts/phone-reveals${suffix ? `?${suffix}` : ""}`, undefined, signal);
+}
+
+/** `23-60`/`adr/0161`: "seeing both sets of bookings before deciding" - the read behind the
+ * confirmation dialog, before `mergeCustomers` below is ever called. `firstCustomerId`/`secondCustomerId`
+ * are unordered, the identical shape the merge request itself takes - `MergeCustomersHandler`'s own
+ * doc comment explains why neither request lets the caller name a "survivor". */
+export function getCustomerMergePreview(
+  token: string,
+  firstCustomerId: string,
+  secondCustomerId: string,
+  signal?: AbortSignal,
+): Promise<CustomerMergePreview> {
+  return request<CustomerMergePreview>(
+    token, "POST", "/contacts/merge-preview", { firstCustomerId, secondCustomerId }, signal,
+  );
+}
+
+/** `23-60`/`adr/0161`: the merge itself - irreversible server-side (that ADR's own decision), so the
+ * console's own confirmation dialog is what carries the weight of saying so before this is ever
+ * called. */
+export function mergeCustomers(
+  token: string, firstCustomerId: string, secondCustomerId: string,
+): Promise<CustomerMergeOutcome> {
+  return request<CustomerMergeOutcome>(token, "POST", "/contacts/merge", { firstCustomerId, secondCustomerId });
+}
+
+/** `23-60`/`adr/0161`'s own audit trail - gated server-side on `calendar:configure`, deliberately
+ * wider than the merge action itself, the identical `getPhoneReveals` shape above. */
+export function getCustomerMerges(
+  token: string,
+  before?: string,
+  limit?: number,
+  signal?: AbortSignal,
+): Promise<CustomerMergePage> {
+  const query = new URLSearchParams();
+  if (before !== undefined) {
+    query.set("before", before);
+  }
+  if (limit !== undefined) {
+    query.set("limit", String(limit));
+  }
+  const suffix = query.toString();
+  return request<CustomerMergePage>(token, "GET", `/contacts/merges${suffix ? `?${suffix}` : ""}`, undefined, signal);
 }
 
 /** `20-15`. `from`/`to` are `YYYY-MM-DD`, business-local, both inclusive. */

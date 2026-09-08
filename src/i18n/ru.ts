@@ -1023,6 +1023,7 @@ export const ru: ConsoleStrings = {
   navCalendarAvailability: "Расписание",
   navCalendarContacts: "Клиенты",
   navCalendarPhoneReveals: "Показы телефонов",
+  navCalendarCustomerMerges: "Объединения",
   calendarLoading: "Загрузка…",
   calendarDeleteButton: "Удалить",
   calendarBackButton: "Назад",
@@ -1253,6 +1254,29 @@ export const ru: ConsoleStrings = {
   calendarContactsConfirmedLabel: "Прозвонен",
   calendarContactsNotConfirmedLabel: "Не прозвонен",
 
+  calendarContactsColumnDuplicate: "Дубликат",
+  calendarContactsDuplicateHint: "Тот же телефон, что и у другого клиента",
+  calendarContactsMergeButton: "Объединить",
+
+  calendarMergeDialogTitle: "Объединение двух карточек клиента",
+  calendarMergeDialogLoading: "Загружаем историю записей обеих карточек…",
+  calendarMergeDialogIrreversibleWarning:
+    "Это действие необратимо. Все записи ниже будут принадлежать одной карточке, а вторая " +
+    "исчезнет из списка контактов.",
+  calendarMergeDialogSurvivorBadge: "Останется",
+  calendarMergeDialogAbsorbedBadge: "Будет объединена",
+  calendarMergeDialogBookingsHeading: "Записи",
+  calendarMergeDialogNoBookings: "Записей нет.",
+  calendarMergeDialogNoShowCountLabel: "Неявок",
+  calendarMergeDialogConfirmButton: "Объединить безвозвратно",
+  calendarMergeDialogConfirmingLabel: "Объединяем…",
+  calendarMergeDialogCancelButton: "Отмена",
+  calendarMergeDoneBookingsMovedLabel: "Перенесено записей",
+  calendarStatusPendingConfirmation: "Ждёт подтверждения",
+  calendarStatusBooked: "Забронировано",
+  calendarStatusCancelled: "Отменено",
+  calendarStatusNoShow: "Неявка",
+
   calendarBookingsDescription: "Подтверждённые записи по дням и мастерам.",
   calendarBookingsEmpty: "На этот период пока ничего не записано.",
   calendarBookingsColumnWhen: "Время",
@@ -1271,6 +1295,7 @@ export const ru: ConsoleStrings = {
   calendarAvailabilityForbidden: "У вас нет прав на изменение доступности календаря.",
   calendarContactsForbidden: "У вас нет прав на просмотр контактов календаря.",
   calendarPhoneRevealsForbidden: "У вас нет прав на просмотр журнала показов телефонов.",
+  calendarCustomerMergesForbidden: "У вас нет прав на просмотр журнала объединений клиентов.",
 
   calendarPhoneRevealsDescription: "Каждый показ скрытого номера телефона клиента в этом арендаторе.",
   calendarPhoneRevealsEmpty: "Пока никто не показывал номер телефона.",
@@ -1280,6 +1305,16 @@ export const ru: ConsoleStrings = {
   calendarPhoneRevealsColumnSurface: "Экран",
   calendarPhoneRevealsLoadMoreButton: "Загрузить ещё",
   calendarPhoneRevealsLoadingMoreLabel: "Загрузка…",
+
+  calendarCustomerMergesDescription: "Все объединения клиентов в этом магазине - кто, когда и какая карточка какую поглотила.",
+  calendarCustomerMergesEmpty: "Пока никто не объединял карточки клиентов.",
+  calendarCustomerMergesColumnWhen: "Когда",
+  calendarCustomerMergesColumnSurvivor: "Осталась",
+  calendarCustomerMergesColumnAbsorbed: "Объединена",
+  calendarCustomerMergesColumnOperator: "Оператор",
+  calendarCustomerMergesColumnBookingsMoved: "Перенесено записей",
+  calendarCustomerMergesLoadMoreButton: "Загрузить ещё",
+  calendarCustomerMergesLoadingMoreLabel: "Загрузка…",
   accessRefusalGrantHint: "Попросите владельца или администратора этого магазина выдать вам этот доступ.",
   calendarAbsentForTenant:
     "У этого магазина нет календаря. Он включается для магазина целиком, а не отдельным " +
