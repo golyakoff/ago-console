@@ -41,6 +41,14 @@ export interface WidgetConfigDto {
    * on in the first place, which is the other half of the same defect.
    */
   requireContactConsent: boolean;
+  /**
+   * `23-63`: whether the launcher draws attention to itself while the panel is closed - off by
+   * default, and off until the tenant turns it on (the item's own Decision). `ago-widget`'s own
+   * `scheduleAttractAttention` (`ui/widget.ts`) is what actually decides whether to animate on any
+   * given page load - a visitor with `prefers-reduced-motion: reduce` never animates regardless of
+   * this value, so this field states the tenant's own choice, never the effective outcome.
+   */
+  attractAttention: boolean;
 }
 
 /**

@@ -501,6 +501,12 @@ export interface ConsoleStrings {
   widgetNoticeUrlFieldLabel: string;
   widgetNoticeUrlFieldDescription: string;
   widgetNoticeUrlValidation: string;
+  /** `23-63`: the launcher-attention toggle, on the identical "Launcher" panel `widgetPositionFieldLabel`
+   * already lives on - a boolean, off by default, no separate description field the way `noticeText`
+   * has: the one sentence worth saying (that reduced motion overrides it regardless) is short enough
+   * to live in the checkbox's own label sibling text rather than a second `Field` description. */
+  widgetAttractAttentionLabel: string;
+  widgetAttractAttentionDescription: string;
 
   // InstallSnippetPage (`10-06`). Reuses `siteConfigCheckingPermissions`/`siteConfigBackToQueue` from
   // the shared block above, the same way `WidgetConfigPage`/`OfflineAutoReplyPage` already do.
