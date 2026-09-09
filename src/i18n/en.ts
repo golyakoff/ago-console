@@ -731,7 +731,8 @@ export const en: ConsoleStrings = {
 
   operatorsTeamInviteButton: "Invite a colleague",
   operatorsTeamInviteDialogTitle: "Invite a colleague",
-  operatorsTeamInviteCostBody: "This will use one more of your seats, bringing your site to",
+  operatorsTeamInviteCostBodyOperator: "This will use one more Operator seat - the site will have",
+  operatorsTeamInviteCostBodyAdmin: "This will use one more Administrator seat - the site will have",
   operatorsTeamInviteConfirmButton: "Send invite",
   operatorsTeamInviteSendingButton: "Sending…",
   operatorsTeamInviteAtLimitTitle: "You are at your seat limit",

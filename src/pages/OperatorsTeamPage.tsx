@@ -395,8 +395,15 @@ export function OperatorsTeamPage() {
               </Select>
             </label>
 
+            {/* `25-18`: names which seat is being spent, reactively - re-reads `inviteRoleName` on
+                every render, so switching the picker above updates this line before submit, never
+                only at the values the dialog opened with. The count and limit stay the site's one
+                combined `activeOperatorCount`/`summary.seatLimit` - see `operatorsTeamInviteCostBodyOperator`'s
+                own doc comment in `strings.ts` for why a second, per-role figure is not fabricated
+                here. */}
             <p>
-              {strings.operatorsTeamInviteCostBody} {activeOperatorCount + 1}/{summary?.seatLimit}.
+              {(inviteRoleName === ROLE_ADMIN ? strings.operatorsTeamInviteCostBodyAdmin : strings.operatorsTeamInviteCostBodyOperator)}{" "}
+              {activeOperatorCount + 1}/{summary?.seatLimit}.
             </p>
 
             {inviteError && <Alert tone="danger">{inviteError}</Alert>}

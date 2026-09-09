@@ -732,7 +732,8 @@ export const ru: ConsoleStrings = {
 
   operatorsTeamInviteButton: "Пригласить коллегу",
   operatorsTeamInviteDialogTitle: "Пригласить коллегу",
-  operatorsTeamInviteCostBody: "Это займёт ещё одно место - на сайте станет",
+  operatorsTeamInviteCostBodyOperator: "Это займёт ещё одно место Оператора - на сайте станет",
+  operatorsTeamInviteCostBodyAdmin: "Это займёт ещё одно место Администратора - на сайте станет",
   operatorsTeamInviteConfirmButton: "Отправить приглашение",
   operatorsTeamInviteSendingButton: "Отправляем…",
   operatorsTeamInviteAtLimitTitle: "Достигнут лимит мест",
