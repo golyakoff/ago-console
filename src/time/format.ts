@@ -100,6 +100,68 @@ function zoneOf(timeZone: string | null): string {
   return timeZone ?? "UTC";
 }
 
+/**
+ * `25-22`: Russia's own regional time-zone abbreviation scheme - the fixed, checkable set the
+ * government uses for the eleven zones `calendarFormat.tsx`'s own timezone picker (`25-16`) offers,
+ * keyed by IANA zone id rather than by the locale-rendered city name. The zone id is the value this
+ * codebase actually stores and passes around, and it does not change if a translation is re-worded;
+ * matching on the rendered city string would silently break the day `city.ru` is edited for style.
+ *
+ * Deliberately only these eleven. `25-22`'s own instruction is "abbreviate what actually has a
+ * standard, checkable short form" - inventing a `МСК+10` for a zone this deployment has never shown
+ * would be exactly the guess the item warns against, so a zone missing from this table falls through
+ * to the full ICU-rendered name instead of an abbreviation.
+ */
+const RUSSIAN_ZONE_ABBREVIATIONS: Record<string, string> = {
+  "Europe/Kaliningrad": "МСК-1",
+  "Europe/Moscow": "МСК",
+  "Europe/Samara": "МСК+1",
+  "Asia/Yekaterinburg": "МСК+2",
+  "Asia/Omsk": "МСК+3",
+  "Asia/Krasnoyarsk": "МСК+4",
+  "Asia/Irkutsk": "МСК+5",
+  "Asia/Yakutsk": "МСК+6",
+  "Asia/Vladivostok": "МСК+7",
+  "Asia/Magadan": "МСК+8",
+  "Asia/Kamchatka": "МСК+9",
+};
+
+/**
+ * `25-22`: the DST-qualifier tail ICU's `timeZoneName: "long"` appends in Russian - `", стандартное
+ * время"` for a zone in its standard-time part of the year, `", летнее время"` for one in its
+ * summer part. This deployment's own zones never observe DST (`24-17` settled the numbers
+ * `date-and-time.md` rests on), so "standard time" is always true and never worth a reader's
+ * attention - and the fix removes the *tail*, not one specific string, so a zone that does observe
+ * DST (none today, possibly one later) loses the same dead words rather than needing its own case.
+ *
+ * Matches with or without a leading comma: CLDR renders a city-anchored name as `"{city}, {качество}
+ * время"` (`"Москва, стандартное время"`) but a region-adjective name as `"{Прилагательное}
+ * {качество} время"` with no comma (`"Центральноевропейское летнее время"`) - both are the same tail
+ * once anchored to the end of the string.
+ */
+const RUSSIAN_DST_QUALIFIER_TAIL = /,?\s*(?:стандартное|летнее)\s+время$/u;
+
+/**
+ * `25-22`: turns the raw ICU `timeZoneName` part into what the console actually wants to show, for
+ * the one locale this item scopes to (Russian). English keeps whatever `"long"` spells out in full
+ * (`"Moscow Standard Time"`) - the backlog item's own scope names only the Russian rendering, and
+ * `"MSK"` is not the checkable, standard abbreviation for the *English* zone name the way `"МСК"` is
+ * for the Russian one, so widening this to `en-GB` would be exactly the invented shortening `25-22`
+ * warns against.
+ */
+function renderZoneName(rawZoneName: string, timeZone: string, locale: string): string {
+  if (locale !== "ru-RU") {
+    return rawZoneName;
+  }
+
+  const abbreviation = RUSSIAN_ZONE_ABBREVIATIONS[timeZone];
+  if (abbreviation) {
+    return abbreviation;
+  }
+
+  return rawZoneName.replace(RUSSIAN_DST_QUALIFIER_TAIL, "");
+}
+
 /** `YYYY-MM-DD` *in the given zone* - the key `formatDayLabel` and the thread's day separators
  * compare. Deliberately not derived from the ISO string's own date part, which is the UTC day and
  * would put a 23:30 UTC message on the wrong side of midnight for anyone east of Greenwich. */
@@ -141,10 +203,18 @@ export function formatClockTime(instant: Date, timeZone: string | null, strings:
  * (`"Всемирное координированное время"` / `"Coordinated Universal Time"`), so the zone is still
  * always labelled and the label is never a silent local guess, exactly as before - only its shape
  * changed.
+ *
+ * `25-22`: the label's own shape changed again, Russian-only. `renderZoneName` rewrites just the
+ * `timeZoneName` part - never the date/time parts around it - so `"Москва, стандартное время"`
+ * becomes `"МСК"` and a zone with no standard abbreviation keeps its full name minus the always-true
+ * "standard time"/"summer time" tail nobody needs told to them. `formatToParts` rather than a regex
+ * over the whole formatted sentence is what makes that a targeted edit instead of a string search
+ * that could also match a day, month or connective word that happens to contain the same substring.
  */
 export function formatAbsolute(instant: Date, timeZone: string | null, strings: ConsoleStrings = en): string {
-  return new Intl.DateTimeFormat(strings.dateIntlLocale, {
-    timeZone: zoneOf(timeZone),
+  const resolvedZone = zoneOf(timeZone);
+  const parts = new Intl.DateTimeFormat(strings.dateIntlLocale, {
+    timeZone: resolvedZone,
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -152,7 +222,13 @@ export function formatAbsolute(instant: Date, timeZone: string | null, strings: 
     minute: "2-digit",
     hourCycle: "h23",
     timeZoneName: "long",
-  }).format(instant);
+  }).formatToParts(instant);
+
+  return parts
+    .map((part) =>
+      part.type === "timeZoneName" ? renderZoneName(part.value, resolvedZone, strings.dateIntlLocale) : part.value,
+    )
+    .join("");
 }
 
 /**

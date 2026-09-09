@@ -87,7 +87,9 @@ describe("formatAbsolute", () => {
       // The date, the connective word and the zone name are all Russian - not just the zone.
       expect(rendered).toContain("24 августа 2026");
       expect(rendered).toContain("14:03");
-      expect(rendered).toContain("Москва, стандартное время");
+      // `25-22`: Moscow has a standard abbreviation, so the label is "МСК" - see the `25-22`
+      // `describe` block below for the tail-dropping and abbreviation behaviour in full.
+      expect(rendered).toContain("МСК");
       // The specific regression this test exists to catch: a translation that renders the words but
       // silently drops the zone label reads as a plausible, label-less timestamp - exactly the
       // defect `date-and-time.md` rule 5 exists to prevent - so this asserts the label's actual text
@@ -110,6 +112,70 @@ describe("formatAbsolute", () => {
 
       expect(rendered).toContain("25 августа 2026"); // day-before-month, and past local midnight
       expect(rendered).toContain("01:15"); // 24-hour clock, never "1:15 AM"/"01:15 ДП"
+    });
+
+    // `25-22`: the two Done-when boxes - the DST-qualifier tail never appears, and a zone with a
+    // real standard abbreviation renders abbreviated - each proven against real `Intl` output rather
+    // than a hand-written expectation, the same discipline the rest of this file already uses.
+    describe("25-22: drops the DST-qualifier tail and abbreviates known Russian zones", () => {
+      it("abbreviates Moscow to МСК instead of spelling out the full, tail-carrying name", () => {
+        const rendered = formatAbsolute(new Date("2026-08-24T11:03:00+00:00"), MOSCOW, ru);
+
+        expect(rendered).toContain("МСК");
+        expect(rendered).not.toContain("Москва");
+        expect(rendered).not.toContain("стандартное время");
+      });
+
+      it("abbreviates every one of the eleven zones the timezone picker (25-16) offers", () => {
+        // Table-driven against the real Russian regional abbreviation scheme, keyed by IANA zone id -
+        // the same eleven entries `calendarFormat.tsx`'s `RUSSIAN_TIME_ZONES` offers, so a zone this
+        // deployment can actually select always renders its real abbreviation, never a guess.
+        const cases: Array<[string, string]> = [
+          ["Europe/Kaliningrad", "МСК-1"],
+          ["Europe/Moscow", "МСК"],
+          ["Europe/Samara", "МСК+1"],
+          ["Asia/Yekaterinburg", "МСК+2"],
+          ["Asia/Omsk", "МСК+3"],
+          ["Asia/Krasnoyarsk", "МСК+4"],
+          ["Asia/Irkutsk", "МСК+5"],
+          ["Asia/Yakutsk", "МСК+6"],
+          ["Asia/Vladivostok", "МСК+7"],
+          ["Asia/Magadan", "МСК+8"],
+          ["Asia/Kamchatka", "МСК+9"],
+        ];
+
+        for (const [zone, abbreviation] of cases) {
+          const rendered = formatAbsolute(new Date("2026-08-24T11:03:00+00:00"), zone, ru);
+          expect(rendered).toContain(abbreviation);
+        }
+      });
+
+      it("drops the standard-time tail for a zone with no standard abbreviation, keeping the city name", () => {
+        // Berlin is not a Russian zone, so it has no entry in the abbreviation table - the fix must
+        // still remove the always-true "стандартное время" tail, leaving the city/region name bare.
+        const rendered = formatAbsolute(new Date("2026-01-15T11:03:00+00:00"), BERLIN, ru);
+
+        expect(rendered).toContain("Центральная Европа");
+        expect(rendered).not.toContain("стандартное время");
+      });
+
+      it("drops the summer-time tail too, proving this is a general tail rule, not one hard-coded string", () => {
+        // Same zone, a summer date - real Intl renders "Центральная Европа, летнее время" here.
+        // `24-17`/`25-22` do not need this deployment to ever show a DST zone for the rule to be
+        // right: the fix removes the tail pattern, not the one literal string this deployment happens
+        // to produce today.
+        const rendered = formatAbsolute(new Date("2026-08-24T11:03:00+00:00"), BERLIN, ru);
+
+        expect(rendered).toContain("Центральная Европа");
+        expect(rendered).not.toContain("летнее время");
+      });
+
+      it("leaves the English rendering untouched - 25-22 scopes the fix to Russian only", () => {
+        const rendered = formatAbsolute(new Date("2026-08-24T11:03:00+00:00"), MOSCOW);
+
+        expect(rendered).toContain("Moscow Standard Time");
+        expect(rendered).not.toContain("MSK");
+      });
     });
   });
 });
