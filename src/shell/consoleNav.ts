@@ -76,7 +76,7 @@ export function buildTenantNavSections(
 
   const sections: (AppShellNavSection | null)[] = [
     buildSection("talk", strings.navConversations, buildTalkItems(isAdmin, strings)),
-    buildSection("analytics", strings.navAnalytics, buildAnalyticsItems(isAdmin, strings)),
+    buildSection("analytics", strings.navAnalytics, buildAnalyticsItems(hasPermission, isAdmin, strings)),
     buildSection("calendar", strings.navSectionCalendar, buildCalendarItems(hasPermission, isAdmin, strings)),
     buildSection("team", strings.navSectionTeam, buildTeamItems(permissionsKnown, hasPermission, strings)),
     buildSection("channels", strings.navSectionChannels, buildChannelsItems(isAdmin, strings)),
@@ -112,15 +112,32 @@ function buildTalkItems(isAdmin: boolean, strings: ConsoleStrings): AppShellNavI
 
 /** `23-18`: "Мои показатели" stays unconditional - `GetOwnAnalyticsForOperatorHandler` checks nothing
  * beyond being a real operator of this site, on purpose (a grant here would be a thing a tenant could
- * withhold, which `docs/design/flows.md` 2.4 exists to prevent). The other four are the same
- * `site:configure` gate every settings screen shares, hidden rather than muted when lacking it. */
-function buildAnalyticsItems(isAdmin: boolean, strings: ConsoleStrings): AppShellNavItem[] {
+ * withhold, which `docs/design/flows.md` 2.4 exists to prevent). The next four are the same
+ * `site:configure` gate every settings screen shares, hidden rather than muted when lacking it.
+ *
+ * `25-17`: "Показы телефонов" (`/calendar/phone-reveals`) moved in here from `buildCalendarItems`,
+ * correcting `25-12`'s own placement - a tenant reading the nav looks for an audit trail of *who saw
+ * what* under Analytics, beside "Мои показатели" and the other analytics screens, not under
+ * Calendar's operational/setup items. Only the section changed: the gate is still exactly
+ * `calendar:configure`, independent of `isAdmin`, matching where it sat in `buildCalendarItems`
+ * before this item (that function's own full-access branch, never the admin-muted or operator
+ * branches) - which is why this takes `hasPermission` directly rather than folding into the
+ * `isAdmin`-gated block above. The route itself stays `/calendar/phone-reveals`; moving the nav entry
+ * without moving the URL was a deliberate, considered call (`25-17`'s own report), not an oversight -
+ * every other Calendar-owned audit trail (`/calendar/customer-merges`) keeps its own `/calendar/`
+ * path regardless of which rail section links to it, and a URL rename here would have been a second,
+ * unrelated change riding along with a nav-placement fix.
+ */
+function buildAnalyticsItems(hasPermission: (permission: string) => boolean, isAdmin: boolean, strings: ConsoleStrings): AppShellNavItem[] {
   const items: AppShellNavItem[] = [{ to: "/analytics/me", label: strings.navMyNumbers }];
   if (isAdmin) {
     items.push({ to: "/analytics/site", label: strings.navAnalytics });
     items.push({ to: "/analytics/conversion", label: strings.navConversionReport });
     items.push({ to: "/analytics/tags", label: strings.navTagBreakdown });
     items.push({ to: "/analytics/booking-flow", label: strings.navBookingFlow });
+  }
+  if (hasPermission("calendar:configure")) {
+    items.push({ to: "/calendar/phone-reveals", label: strings.navCalendarPhoneReveals });
   }
   return items;
 }
@@ -131,19 +148,20 @@ function buildAnalyticsItems(isAdmin: boolean, strings: ConsoleStrings): AppShel
  * ("lacks `calendar:configure`, not the tenant" used to mean "nothing at all") with one branch per
  * capability an operator can genuinely hold:
  *
- * - **Holds `calendar:configure`**: the full eight items, ordinary, never muted - `Услуги` is new
+ * - **Holds `calendar:configure`**: the full seven items, ordinary, never muted - `Услуги` is new
  *   (carved out of `/calendar/setup` onto its own screen, `CalendarSetupPage`'s own doc comment on
  *   the split). `Записи` was `reserved` until `23-34`; it is now a real link
  *   (`/calendar/bookings` - `CalendarBookingsPage`), the confirmed-bookings screen the pending queue
- *   above it never was. `23-30`/`23-12` adds the reveal audit trail (`/calendar/phone-reveals`) right
- *   after Клиенты, gated on this same `calendar:configure` server-side rather than `customer:read` -
- *   see `CalendarPhoneRevealsPage`'s own doc comment for why that is deliberately the wider gate.
- *   `25-12`: reordered to the fill order a tenant actually works through, replacing the old
- *   dictionaries-first order - В ожидании, Записи, Клиенты (the day-to-day operational screens, most-
- *   used first) lead, then Мастера → Услуги → Расписание (the setup dictionaries, in the same
- *   dependency order `GetBookingReadinessHandler`'s own `Order` now states), then Настройка (a chosen
- *   middle position, not a settled one - see this branch's own item below), then the two audit trails
- *   last, opened rarely and only after something else already happened.
+ *   above it never was. `25-12`: reordered to the fill order a tenant actually works through,
+ *   replacing the old dictionaries-first order - В ожидании, Записи, Клиенты (the day-to-day
+ *   operational screens, most-used first) lead, then Мастера → Услуги → Расписание (the setup
+ *   dictionaries, in the same dependency order `GetBookingReadinessHandler`'s own `Order` now
+ *   states), then Настройка (a chosen middle position, not a settled one - see this branch's own item
+ *   below), then the merge audit trail last, opened rarely and only after something else already
+ *   happened. `25-17`: the reveal audit trail (`/calendar/phone-reveals`) that used to sit here,
+ *   right after Клиенты, moved to `buildAnalyticsItems` - it kept exactly this same
+ *   `calendar:configure` gate, only the nav section changed, so it is no longer drawn from this
+ *   function at all.
  * - **Lacks it, but `isAdmin`**: one muted entry - this identity is the tenant, so whether or not the
  *   module happens to be enabled yet, buying (or granting themselves the permission on an already-
  *   enabled one) is something they can do without anyone else's help, which is exactly what `muted`
@@ -207,14 +225,9 @@ function buildCalendarItems(
       // chosen middle ground, not a settled answer - see `25-12`'s own backlog item and the worker's
       // report for why, and move it in one line if a different resting place is wanted instead.
       { to: "/calendar/setup", label: strings.navCalendarSetup },
-      // `23-30`/`23-12`: the reveal audit trail - gated server-side on `calendar:configure` itself
-      // (wider than `customer:read`, `CalendarPhoneRevealsPage`'s own doc comment), so it belongs only
-      // in this branch, never in the operator branch below that draws Клиенты off `customer:read`.
-      // `25-12`: kept last alongside Объединения below - both are audit trails, opened rarely and only
-      // after something else already happened.
-      { to: "/calendar/phone-reveals", label: strings.navCalendarPhoneReveals },
-      // `23-60`/`adr/0161`: the merge audit trail - the identical `calendar:configure` gate and
-      // reasoning as the reveal audit trail immediately above.
+      // `23-60`/`adr/0161`: the merge audit trail - gated server-side on `calendar:configure` itself
+      // (wider than `customer:read`, matching `CalendarPhoneRevealsPage`'s own reasoning for the same
+      // gate on the reveal audit trail, which `25-17` moved to `buildAnalyticsItems` below).
       { to: "/calendar/customer-merges", label: strings.navCalendarCustomerMerges },
     ];
   }
