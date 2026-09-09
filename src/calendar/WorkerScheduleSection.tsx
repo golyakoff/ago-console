@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarApiError, getWorkerSchedule, saveWorkerSchedule, type WorkerSchedule } from "../api/calendarApi.js";
 import { useAuth } from "../auth/AuthContext.js";
@@ -174,8 +174,9 @@ export function WorkerScheduleSection({ workerId }: WorkerScheduleSectionProps) 
     return () => controller.abort();
   }, [reload]);
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
+  // `25-13`: a plain async function, not a form-submit handler - see this component's own render
+  // below for why it can no longer be a `<form onSubmit>`.
+  const handleSubmit = async () => {
     const accessToken = user?.access_token;
     if (!accessToken) {
       return;
@@ -244,7 +245,16 @@ export function WorkerScheduleSection({ workerId }: WorkerScheduleSectionProps) 
       {existing === null && <p className="ago-meta">{strings.calendarScheduleEmptyNote}</p>}
       {error !== null && <Alert tone="danger">{error}</Alert>}
 
-      <form className="ago-stack" onSubmit={(event) => void handleSubmit(event)}>
+      {/* `25-13`: a `<div>`, not a `<form>` - this section renders as a child of `WorkerCard`'s own
+          `<form>` (`CalendarWorkersPage.tsx`), and a `<form>` nested inside another `<form>` is
+          invalid HTML: the browser's own form-submission fallback took over on click, navigating to
+          the current page instead of running `handleSubmit`, and nothing this section's own save
+          ever reached the network. The `required`/`min` attributes below no longer trigger the
+          browser's own constraint validation (that only fires on a real form submission) - every
+          field already carries a sensible default (`defaultForm()`), and an invalid value a tenant
+          types over one is now caught server-side, surfaced through this component's own existing
+          `catch`/`calendarErrorMessage` path, the same way any other rejected save already is. */}
+      <div className="ago-stack">
         <Field label={strings.calendarTemplateFieldLabel}>
           {(controlProps) => (
             <Select
@@ -377,11 +387,11 @@ export function WorkerScheduleSection({ workerId }: WorkerScheduleSectionProps) 
         )}
 
         <div className="ago-row">
-          <Button type="submit" variant="primary" disabled={busy}>
+          <Button type="button" variant="primary" disabled={busy} onClick={() => void handleSubmit()}>
             {existing === null ? strings.calendarCreateScheduleButton : strings.calendarSaveScheduleButton}
           </Button>
         </div>
-      </form>
+      </div>
     </Panel>
   );
 }
