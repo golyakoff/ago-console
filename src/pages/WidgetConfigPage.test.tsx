@@ -114,6 +114,20 @@ function noticeUrlField(container: HTMLElement): HTMLInputElement {
   return field;
 }
 
+/** `25-24`: the notice card's own secondary "edit"/"cancel" toggle - found by its own button text,
+ * never rendered at all once nothing has been set yet (the editor is the only thing to show then). */
+function noticeEditButton(container: HTMLElement): HTMLButtonElement | null {
+  return byText<HTMLButtonElement>(container, "button", "Edit");
+}
+
+function noticeShowFullyButton(container: HTMLElement): HTMLButtonElement | null {
+  return byText<HTMLButtonElement>(container, "button", "Show fully");
+}
+
+function noticeShowLessButton(container: HTMLElement): HTMLButtonElement | null {
+  return byText<HTMLButtonElement>(container, "button", "Show less");
+}
+
 // `ConversationPage.test.tsx`'s own precedent (its long comment has the full reasoning): a direct
 // `.value = x` assignment is swallowed by React's own tracked setter as "no change", so no `onChange`
 // ever fires - going through the *prototype's* setter, then dispatching a real "input" event (not
@@ -232,9 +246,14 @@ describe("the widget language field", () => {
  * `16-04`: the console half of the widget's processing notice - two more optional fields on the same
  * screen, saved through the same one PUT `updateWidgetConfig` already makes. Modeled on "the widget
  * language field" block above, which is `11-10`'s own precedent for adding a field to this screen.
+ *
+ * `25-24`: once a site has a notice, the editor is no longer the default view - a read-only card
+ * showing the *current* text/link is, with "Edit" the deliberate secondary action that reveals the
+ * same fields these tests already drove. `current === null` is untouched - editing something that has
+ * never existed has nothing to default to a read view of, so it keeps behaving exactly as before.
  */
 describe("the widget processing notice fields", () => {
-  it("loads the site's current notice text and link into the fields", async () => {
+  it("shows the site's current notice text and link as a read-only card, not the editor", async () => {
     widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
       siteId: SITE_ID,
       primaryColorHex: null,
@@ -245,15 +264,96 @@ describe("the widget processing notice fields", () => {
     });
     const container = await render(page());
 
-    expect(noticeTextField(container).value).toBe("We read what you send us.");
-    expect(noticeUrlField(container).value).toBe("https://tenant.example/privacy");
+    expect(container.textContent).toContain("We read what you send us.");
+    expect(byText(container, "a", "https://tenant.example/privacy")).not.toBeNull();
+    // The editor is not the default view once there is something to show instead - the field this
+    // describe block used to assert on directly is behind the "Edit" toggle now (next test).
+    expect(container.querySelector(".ago-field__label")?.textContent).not.toBe("Notice text (optional)");
   });
 
-  it("leaves both fields empty when the site has never configured a notice", async () => {
+  it("reveals the editor, pre-filled with the current text and link, behind its own 'Edit' toggle", async () => {
+    widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
+      siteId: SITE_ID,
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "En",
+      noticeText: "We read what you send us.",
+      noticeUrl: "https://tenant.example/privacy",
+    });
+    const container = await render(page());
+
+    const editButton = noticeEditButton(container);
+    if (editButton === null) {
+      throw new Error("no 'Edit' toggle found");
+    }
+    await interact(() => editButton.click());
+
+    expect(noticeTextField(container).value).toBe("We read what you send us.");
+    expect(noticeUrlField(container).value).toBe("https://tenant.example/privacy");
+
+    // The same toggle reads "Cancel" while open (`strings.cancelButton`, reused rather than a second
+    // string for the identical idea `25-21`'s own `ConsentDocumentPanel` toggle already names) and
+    // hides the editor again on a second click.
+    expect(byText(container, "button", "Cancel")).not.toBeNull();
+    await interact(() => editButton.click());
+    expect(byText(container, ".ago-field__label", "Notice text (optional)")).toBeNull();
+  });
+
+  it("leaves the editor open by default, with no 'Edit' toggle at all, when nothing has been set", async () => {
     const container = await render(page());
 
     expect(noticeTextField(container).value).toBe("");
     expect(noticeUrlField(container).value).toBe("");
+    expect(noticeEditButton(container)).toBeNull();
+  });
+
+  // `25-24`'s own Scope: "truncated to the first 10 lines" with a working "show fully" expansion.
+  it("truncates a notice longer than 10 lines, and 'Show fully' reveals the rest", async () => {
+    const elevenLines = Array.from({ length: 11 }, (_, i) => `Line ${i + 1}`).join("\n");
+    widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
+      siteId: SITE_ID,
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "En",
+      noticeText: elevenLines,
+      noticeUrl: null,
+    });
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Line 10");
+    expect(container.textContent).not.toContain("Line 11");
+
+    const showFully = noticeShowFullyButton(container);
+    if (showFully === null) {
+      throw new Error("no 'Show fully' control found for an 11-line notice");
+    }
+    await interact(() => showFully.click());
+
+    expect(container.textContent).toContain("Line 11");
+    expect(noticeShowLessButton(container)).not.toBeNull();
+  });
+
+  // The other side of the same boundary: exactly 10 lines needs no expansion at all.
+  it("shows a 10-line notice in full, with no 'Show fully' control", async () => {
+    const tenLines = Array.from({ length: 10 }, (_, i) => `Line ${i + 1}`).join("\n");
+    widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
+      siteId: SITE_ID,
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "En",
+      noticeText: tenLines,
+      noticeUrl: null,
+    });
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Line 10");
+    expect(noticeShowFullyButton(container)).toBeNull();
+  });
+
+  it("states plainly that visitors see no notice at all when nothing has been set", async () => {
+    const container = await render(page());
+
+    expect(container.textContent).toMatch(/not set/i);
   });
 
   it("saves the notice text and link alongside color, position, and language, in one PUT", async () => {
@@ -274,7 +374,7 @@ describe("the widget processing notice fields", () => {
     );
   });
 
-  it("sends null for both fields when left empty", async () => {
+  it("sends null for both fields when cleared through the editor", async () => {
     widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
       siteId: SITE_ID,
       primaryColorHex: null,
@@ -285,6 +385,11 @@ describe("the widget processing notice fields", () => {
     });
     const container = await render(page());
 
+    const editButton = noticeEditButton(container);
+    if (editButton === null) {
+      throw new Error("no 'Edit' toggle found");
+    }
+    await interact(() => editButton.click());
     await interact(() => setTextValue(noticeTextField(container), ""));
     await interact(() => setTextValue(noticeUrlField(container), ""));
     await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
@@ -309,7 +414,7 @@ describe("the widget processing notice fields", () => {
     expect(widgetConfigApi.updateWidgetConfig).not.toHaveBeenCalled();
   });
 
-  it("reflects the server's saved notice back into the fields", async () => {
+  it("reflects the server's saved notice back into the read-only card, editor collapsed", async () => {
     const container = await render(page());
     widgetConfigApi.updateWidgetConfig.mockResolvedValue({
       primaryColorHex: null,
@@ -322,9 +427,61 @@ describe("the widget processing notice fields", () => {
     await interact(() => setTextValue(noticeTextField(container), "We read what you send us."));
     await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
 
-    expect(noticeTextField(container).value).toBe("We read what you send us.");
-    expect(noticeUrlField(container).value).toBe("https://tenant.example/privacy");
+    expect(container.textContent).toContain("We read what you send us.");
+    expect(byText(container, "a", "https://tenant.example/privacy")).not.toBeNull();
     expect(container.textContent).toContain("Saved.");
+  });
+});
+
+/**
+ * `25-24`: `requireContactConsent` used to sit inside the same card as the notice text/link fields,
+ * reading as if accepting the notice is what gates contact-detail collection - a different question
+ * from what the notice says. It now has its own panel, proven here rather than only in "the widget
+ * processing notice fields" above (which never mentions this checkbox at all any more).
+ */
+describe("the contact-consent panel", () => {
+  function contactConsentPanelTitle(container: HTMLElement): HTMLHeadingElement | null {
+    return byText<HTMLHeadingElement>(container, "h2", "Contact consent");
+  }
+
+  function requireContactConsentCheckbox(container: HTMLElement): HTMLInputElement {
+    const label = byText<HTMLLabelElement>(container, "label", "Require consent before collecting contact details");
+    if (label === null) {
+      throw new Error("no 'Require consent before collecting contact details' label found");
+    }
+
+    const input = label.querySelector("input[type='checkbox']");
+    if (!(input instanceof HTMLInputElement)) {
+      throw new Error("'Require consent before collecting contact details' label has no checkbox");
+    }
+
+    return input;
+  }
+
+  it("gives the checkbox its own panel, separate from the notice card", async () => {
+    const container = await render(page());
+
+    const title = contactConsentPanelTitle(container);
+    expect(title).not.toBeNull();
+
+    const panel = title?.closest(".ago-panel");
+    expect(panel).not.toBeNull();
+    expect(panel?.querySelector("input[type='checkbox']")).not.toBeNull();
+    // The notice card's own fields must not live inside this same panel.
+    expect(panel?.textContent).not.toContain("Notice text (optional)");
+  });
+
+  it("still saves through the same one PUT everything else on this screen already uses", async () => {
+    const container = await render(page());
+
+    await interact(() => requireContactConsentCheckbox(container).click());
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(widgetConfigApi.updateWidgetConfig).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({ requireContactConsent: true }),
+    );
   });
 });
 

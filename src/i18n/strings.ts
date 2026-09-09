@@ -493,7 +493,12 @@ export interface ConsoleStrings {
   /** `16-04`: a second panel on the same screen, same terms every field above already uses - the
    * tenant's own sentence about who processes what a visitor is about to write, and a link to their
    * own policy. Both optional; the widget renders nothing when both are empty (never an AGO-authored
-   * default - `Ago.Chat.Domain.WidgetConfig`'s own remarks). */
+   * default - `Ago.Chat.Domain.WidgetConfig`'s own remarks).
+   *
+   * `25-24`: this panel's title now names the notice-text card alone - `requireContactConsent` moved
+   * to its own `widgetContactConsentPanelTitle` panel below, since the two are different questions
+   * (what the notice says vs. whether accepting something is mandatory) that grouping them under one
+   * title implied were the same. */
   widgetNoticePanelTitle: string;
   widgetNoticeTextFieldLabel: string;
   widgetNoticeTextFieldDescription: string;
@@ -501,6 +506,21 @@ export interface ConsoleStrings {
   widgetNoticeUrlFieldLabel: string;
   widgetNoticeUrlFieldDescription: string;
   widgetNoticeUrlValidation: string;
+  /** `25-24`: the card's default, read-only view of the tenant's *current* notice - `widgetNoticeCurrentLabel`
+   * captions the (possibly truncated, `widgetNoticeShowFully`/`widgetNoticeShowLess`) text,
+   * `widgetNoticeUrlCurrentLabel` the link, and `widgetNoticeNotSetLabel` covers the one case with no
+   * current text or link to show at all. `widgetNoticeEditButton` is the deliberate secondary action
+   * that reveals the same `widgetNoticeTextFieldLabel`/`widgetNoticeUrlFieldLabel` editor untouched -
+   * `strings.cancelButton` (already declared above) is reused for the toggle's own open state, the
+   * same reuse `25-21`'s `ConsentDocumentPanel` already makes for its identical toggle. */
+  widgetNoticeCurrentLabel: string;
+  widgetNoticeUrlCurrentLabel: string;
+  widgetNoticeNotSetLabel: string;
+  widgetNoticeShowFully: string;
+  widgetNoticeShowLess: string;
+  widgetNoticeEditButton: string;
+  /** `25-24`: `requireContactConsent`'s own card, split out of the notice-text panel above. */
+  widgetContactConsentPanelTitle: string;
   /** `23-63`: the launcher-attention toggle, on the identical "Launcher" panel `widgetPositionFieldLabel`
    * already lives on - a boolean, off by default, no separate description field the way `noticeText`
    * has: the one sentence worth saying (that reduced motion overrides it regardless) is short enough

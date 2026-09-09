@@ -87,6 +87,19 @@
   border: 1px solid var(--ago-line-strong);
 }
 
+/* `25-24`: the consent-notice card's own read-only preview of the tenant's current notice text - a
+ * tenant-authored paragraph, so it needs the identical wrapping `.ago-search-result__body` already
+ * gives free text of unknown length: `white-space: pre-wrap` keeps the tenant's own line breaks
+ * (what `10-line` truncation counts against) instead of collapsing them, and `overflow-wrap: anywhere`
+ * is the same guard against a single unbroken "word" forcing horizontal scroll (the ux-gate's own
+ * overflow check) that `.ago-install-value`/`.ago-search-result__body` already take for the same
+ * reason - user-authored text, not markup this codebase controls the shape of. */
+.ago-notice-preview {
+  margin: var(--ago-space-2) 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* --- Install-snippet screen (`10-06`) ----------------------------------------------------------
  * A read-only value the tenant is meant to copy verbatim (the public key, a configured origin) -
  * `.ago-mono` alone (`components.css`) sets the typeface but not a boundary, and a value meant to be

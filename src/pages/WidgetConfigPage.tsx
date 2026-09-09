@@ -11,6 +11,7 @@ import {
   type WidgetPosition,
 } from "../api/widgetConfigApi.js";
 import { isValidHexColor, isValidNoticeUrl } from "./widgetConfigValidation.js";
+import { truncateToLines } from "./textTruncation.js";
 import { PageHead } from "../shell/AppShell.js";
 import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
@@ -64,6 +65,10 @@ const AUTO_OPEN_DELAY_OPTIONS: readonly AutoOpenDelaySeconds[] = [15, 30, 45, 60
 
 const DEFAULT_SWATCH_COLOR = "#2f6fed";
 
+// `25-24`: the consent-notice card's own read-only preview - the item's own Scope names this exact
+// number ("truncated to the first 10 lines").
+const NOTICE_TEXT_PREVIEW_LINES = 10;
+
 /**
  * `11-02`: `/settings/widget` - the console's first tenant self-service configuration screen.
  * `adr/0023` names "tenant self-service configuration, starting with `6-03`'s webhook endpoint
@@ -98,6 +103,14 @@ export function WidgetConfigPage() {
   const [noticeTextInput, setNoticeTextInput] = useState("");
   const [noticeUrlInput, setNoticeUrlInput] = useState("");
   const [requireContactConsent, setRequireContactConsent] = useState(false);
+  // `25-24`: the consent-notice card defaults to its read-only current-text view; editing the text or
+  // the link is a deliberate secondary action this toggle reveals, the same `formOpen`/`formVisible`
+  // shape `25-21`'s `ConsentDocumentPanel` already established for the identical problem one screen
+  // over (a form that used to render unconditionally beside a read view of what already exists).
+  const [noticeEditOpen, setNoticeEditOpen] = useState(false);
+  // Independent of `noticeEditOpen` above: this is the "показать полностью" control over the *read*
+  // view's own truncation, not a second way to reach the editor.
+  const [noticeTextExpanded, setNoticeTextExpanded] = useState(false);
   // `23-63`: off by default until the load call resolves - matches the server's own "off unless the
   // tenant turns it on" default, so a slow load never briefly implies the toggle is already on.
   const [attractAttention, setAttractAttention] = useState(false);
@@ -241,6 +254,12 @@ export function WidgetConfigPage() {
       setAutoOpenDelaySeconds(dto.autoOpenDelaySeconds);
       setAutoOpenGreetingTextInput(dto.autoOpenGreetingText ?? "");
       setAcceptUnverifiedPhone(dto.acceptUnverifiedPhone);
+      // `25-24`: collapses the notice editor back behind its toggle now that the read view above it
+      // has the freshly saved text to show instead - the same "the read view is what replaces the
+      // form, so the form does not need to stay open next to it" reasoning `ConsentDocumentPanel`'s
+      // own `onPublished` already applies in `25-21`. A no-op when the card had no notice at all
+      // (`noticeEditOpen` plays no part in `formVisible` there - see the render below).
+      setNoticeEditOpen(false);
       setSaved(true);
     } catch (err) {
       setSubmitError(err instanceof WidgetConfigError ? err.message : strings.widgetSubmitError);
@@ -250,6 +269,18 @@ export function WidgetConfigPage() {
   };
 
   const swatchColor = isValidHexColor(colorInput.trim()) ? colorInput.trim() : DEFAULT_SWATCH_COLOR;
+
+  // `25-24`: read from `current` (the last successfully loaded/saved config), never from the
+  // controlled `noticeTextInput`/`noticeUrlInput` draft state above - the card's job is to say what
+  // is *actually* in effect right now, which a half-typed, unsaved edit is not. `current` can still
+  // be `null` here (the load call failed rather than never having run - the outer skeleton guard
+  // above only covers "still loading", not "errored"), so every read goes through `?.`.
+  const hasNotice = Boolean(current?.noticeText || current?.noticeUrl);
+  const noticeTextPreview = truncateToLines(current?.noticeText ?? "", NOTICE_TEXT_PREVIEW_LINES);
+  // The editor is the only thing to show when nothing has been set yet (nothing to default to
+  // instead), and otherwise only when the toggle above has been opened - `25-21`'s own
+  // `formVisible = current === null || formOpen` restated for this screen's equivalent case.
+  const noticeFormVisible = !hasNotice || noticeEditOpen;
 
   return (
     <>
@@ -270,12 +301,13 @@ export function WidgetConfigPage() {
           <Skeleton lines={3} label={strings.widgetLoadingLabel} />
         </Panel>
       ) : (
-        // `16-04`: one `<form>` now spans both panels below - a single PUT still writes every field
+        // `16-04`: one `<form>` now spans every panel below - a single PUT still writes every field
         // (`Ago.Chat.Api.WidgetConfig.WidgetConfigEndpoints`), and one `<form>`/one Save button is what
-        // makes that visible instead of implying two independent saves. `Panel` stays split in two
-        // regardless: "Launcher" is an appearance choice, "Processing notice" is the tenant's own
-        // statement about data handling, and a reviewer scanning panel titles should be able to tell
-        // the two apart at a glance even though saving either one saves both.
+        // makes that visible instead of implying independent saves. `Panel` stays split regardless:
+        // "Launcher" is an appearance choice, "Consent notice" is the tenant's own statement about data
+        // handling, and (`25-24`) "Contact consent" is a different question again - whether accepting
+        // something is mandatory before contact data is collected - so a reviewer scanning panel titles
+        // can tell all three apart at a glance even though saving any one of them saves all three.
         <form className="ago-stack" onSubmit={(e) => void handleSubmit(e)}>
           <Panel title={strings.widgetPanelTitle}>
             <div className="ago-stack">
@@ -409,43 +441,99 @@ export function WidgetConfigPage() {
             </div>
           </Panel>
 
+          {/*
+            `25-24`: this card used to hold the notice text/link fields *and* `requireContactConsent`
+            together, which reads as if accepting the notice is what turns contact-detail collection
+            on or off. They are two different questions - what the notice says, and whether accepting
+            something is mandatory before contact data is collected - so the checkbox now gets its own
+            card below, and this one is only ever about the notice's own current text and link.
+          */}
           <Panel title={strings.widgetNoticePanelTitle}>
             <div className="ago-stack">
-              <Field
-                label={strings.widgetNoticeTextFieldLabel}
-                description={strings.widgetNoticeTextFieldDescription}
-              >
-                {(controlProps) => (
-                  <Textarea
-                    {...controlProps}
-                    rows={3}
-                    value={noticeTextInput}
-                    onChange={(e) => setNoticeTextInput(e.target.value)}
-                    placeholder={strings.widgetNoticeTextPlaceholder}
-                    disabled={submitting}
-                  />
-                )}
-              </Field>
+              {hasNotice ? (
+                <>
+                  <div>
+                    <strong>{strings.widgetNoticeCurrentLabel}</strong>
+                    <p className="ago-notice-preview">
+                      {noticeTextExpanded ? current?.noticeText : noticeTextPreview.visible}
+                    </p>
+                    {noticeTextPreview.truncated && (
+                      <Button type="button" variant="secondary" onClick={() => setNoticeTextExpanded((v) => !v)}>
+                        {noticeTextExpanded ? strings.widgetNoticeShowLess : strings.widgetNoticeShowFully}
+                      </Button>
+                    )}
+                  </div>
+                  {current?.noticeUrl && (
+                    <div>
+                      <strong>{strings.widgetNoticeUrlCurrentLabel}</strong>{" "}
+                      <a href={current.noticeUrl} target="_blank" rel="noreferrer">
+                        {current.noticeUrl}
+                      </a>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p>{strings.widgetNoticeNotSetLabel}</p>
+              )}
 
-              <Field
-                label={strings.widgetNoticeUrlFieldLabel}
-                description={strings.widgetNoticeUrlFieldDescription}
-                error={noticeUrlValidationError}
-              >
-                {(controlProps) => (
-                  <Input
-                    {...controlProps}
-                    type="url"
-                    value={noticeUrlInput}
-                    onChange={(e) => setNoticeUrlInput(e.target.value)}
-                    // Not translated - an example URL is a format example, not language-bearing text,
-                    // the same reasoning the hex-color placeholder above already gives.
-                    placeholder="https://example.com/privacy"
-                    disabled={submitting}
-                  />
-                )}
-              </Field>
+              {/* `25-21`'s own `formOpen`/`formVisible` shape, restated here: a toggle only when
+                  there is a read view to toggle away from - nothing published yet leaves the editor
+                  as the only thing to show, exactly as `ConsentDocumentPanel` treats `current === null`. */}
+              {hasNotice && (
+                <div>
+                  <Button type="button" variant="secondary" onClick={() => setNoticeEditOpen((open) => !open)}>
+                    {noticeEditOpen ? strings.cancelButton : strings.widgetNoticeEditButton}
+                  </Button>
+                </div>
+              )}
 
+              {noticeFormVisible && (
+                <>
+                  <Field
+                    label={strings.widgetNoticeTextFieldLabel}
+                    description={strings.widgetNoticeTextFieldDescription}
+                  >
+                    {(controlProps) => (
+                      <Textarea
+                        {...controlProps}
+                        rows={3}
+                        value={noticeTextInput}
+                        onChange={(e) => setNoticeTextInput(e.target.value)}
+                        placeholder={strings.widgetNoticeTextPlaceholder}
+                        disabled={submitting}
+                      />
+                    )}
+                  </Field>
+
+                  <Field
+                    label={strings.widgetNoticeUrlFieldLabel}
+                    description={strings.widgetNoticeUrlFieldDescription}
+                    error={noticeUrlValidationError}
+                  >
+                    {(controlProps) => (
+                      <Input
+                        {...controlProps}
+                        type="url"
+                        value={noticeUrlInput}
+                        onChange={(e) => setNoticeUrlInput(e.target.value)}
+                        // Not translated - an example URL is a format example, not language-bearing text,
+                        // the same reasoning the hex-color placeholder above already gives.
+                        placeholder="https://example.com/privacy"
+                        disabled={submitting}
+                      />
+                    )}
+                  </Field>
+                </>
+              )}
+            </div>
+          </Panel>
+
+          {/* `25-24`: `requireContactConsent` moved out of the card above - it gates whether contact
+              details are collected at all, a different question from what the notice says, and its
+              own `widgetRequireContactConsentDescription` already names the document (`/account/documents`,
+              `23-37`) that actually does the gating, not this notice's text. */}
+          <Panel title={strings.widgetContactConsentPanelTitle}>
+            <div className="ago-stack">
               {/* `23-108`: the control the documents screen has been telling tenants to switch on
                   since it shipped, and which existed nowhere in this console. `label` wraps the input
                   rather than using `Field`, because `Field` renders a label *above* its control and a
@@ -463,10 +551,10 @@ export function WidgetConfigPage() {
             </div>
           </Panel>
 
-          {/* `25-39`: a third panel, kept separate from "Launcher"/"Processing notice" - this is not
-              an appearance choice or a data-handling statement, it is a temporary workaround for a
-              missing SMS/voice gateway account (`14-15`), and the panel title plus description say so
-              plainly rather than reading like an ordinary feature toggle. */}
+          {/* `25-39`: a fourth panel, kept separate from "Launcher"/"Consent notice"/"Contact consent" -
+              this is not an appearance choice or a data-handling statement, it is a temporary
+              workaround for a missing SMS/voice gateway account (`14-15`), and the panel title plus
+              description say so plainly rather than reading like an ordinary feature toggle. */}
           <Panel title={strings.widgetBookingPanelTitle}>
             <div className="ago-stack">
               <label className="ago-row">
