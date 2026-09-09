@@ -1195,6 +1195,46 @@ export interface ConsoleStrings {
   telegramChannelDisconnectConfirmButton: string;
   telegramChannelDisconnectError: string;
 
+  // `25-09`: MaxChannelPage (`/channels/max`) - the second of `23-31`'s three reserved channel places
+  // to become a real screen, built on `TelegramChannelPage`'s own shape above but deliberately narrower
+  // where MAX's backend is narrower (`MaxChannelPage`'s own doc comment has the full reasoning). Gated
+  // on `channel:manage` (`MAX_CHANNEL_PERMISSION`), the identical dedicated-permission-screen shape.
+  maxChannelTitle: string;
+  maxChannelDescription: string;
+  maxChannelForbidden: string;
+  maxChannelLoadError: string;
+  maxChannelLoadingLabel: string;
+  maxChannelPanelTitle: string;
+  /** Shown only while `connected` is `false` - explains what to paste and where it comes from. */
+  maxChannelNotConnectedBody: string;
+  maxChannelTokenFieldLabel: string;
+  maxChannelTokenFieldDescription: string;
+  maxChannelConnectButton: string;
+  maxChannelConnectingButton: string;
+  /** Fallback only - a real refusal (a bad or already-revoked token) arrives as `ApiProblemError.message`
+   * from `ConversationErrors.ChannelInvalidToken`'s own `detail`, surfaced via `MaxChannelEndpoints.
+   * HandleConnectAsync`'s `POST /subscriptions` rollback - the same "show what the provider said"
+   * discipline `telegramChannelConnectError` already follows, against a different provider call. */
+  maxChannelConnectError: string;
+  /** `${maxChannelConnectedSinceLabel} ${date}` - `status.createdAt`, when the credential was first
+   * registered. Unlike `telegramChannelConnectedSinceLabel`, there is no sibling "checked at" label:
+   * `MaxChannelEndpoints.HandleStatusAsync` never re-checks anything after registration
+   * (`MaxChannelPage`'s own doc comment: MAX's API has no cheap live-check call to make on every read). */
+  maxChannelConnectedSinceLabel: string;
+  /** The one badge this screen ever shows for a connected credential - never `telegramChannelVerifiedBadge`'s
+   * three-state sibling set (`Verified`/`Not responding`/`Could not check just now`), because none of
+   * those three facts is something `MaxChannelEndpoints.HandleStatusAsync` can actually tell this
+   * screen (`MaxChannelPage`'s own doc comment). "Connected" here means only "an active credential row
+   * exists", not "MAX was just asked and agreed". */
+  maxChannelConnectedBadge: string;
+  maxChannelDisconnectButton: string;
+  maxChannelDisconnectDialogTitle: string;
+  /** States the consequence directly, the same `telegramChannelDisconnectDialogBody` precedent -
+   * disconnecting stops delivery immediately, it does not just hide the row. */
+  maxChannelDisconnectDialogBody: string;
+  maxChannelDisconnectConfirmButton: string;
+  maxChannelDisconnectError: string;
+
   // `18-08`: OperatorAnalyticsPage (`/analytics`) - the site owner's own basic self-service report,
   // gated on `site:configure` the same way `SearchConversationsPage`/`AdminConversationsPage` already
   // are, so it reuses their "checking permissions"/"back to queue" shape rather than duplicating it.

@@ -814,6 +814,28 @@ export const ru: ConsoleStrings = {
   telegramChannelDisconnectConfirmButton: "Отключить",
   telegramChannelDisconnectError: "Не удалось отключить бота. Попробуйте ещё раз.",
 
+  maxChannelTitle: "Бот MAX",
+  maxChannelDescription: "Подключите свой бот в MAX, чтобы посетители могли писать ему, а ваша команда отвечала отсюда.",
+  maxChannelForbidden: "У вас нет прав на управление каналами этого сайта.",
+  maxChannelLoadError: "Не удалось проверить канал MAX. Попробуйте перезагрузить страницу.",
+  maxChannelLoadingLabel: "Проверяем канал MAX…",
+  maxChannelPanelTitle: "Бот MAX",
+  maxChannelNotConnectedBody:
+    "Вставьте токен бота, который выдал @MasterBot при создании бота в MAX. AGO проверит его в MAX, прежде чем сохранить.",
+  maxChannelTokenFieldLabel: "Токен бота",
+  maxChannelTokenFieldDescription: "После сохранения больше нигде не показывается.",
+  maxChannelConnectButton: "Подключить",
+  maxChannelConnectingButton: "Подключаем…",
+  maxChannelConnectError: "Не удалось подключить бота. Попробуйте ещё раз.",
+  maxChannelConnectedSinceLabel: "Подключено с",
+  maxChannelConnectedBadge: "Подключено",
+  maxChannelDisconnectButton: "Отключить",
+  maxChannelDisconnectDialogTitle: "Отключить этого бота?",
+  maxChannelDisconnectDialogBody:
+    "Бот сразу перестанет доставлять сообщения. Вы можете подключить его — или другого бота — снова в любой момент.",
+  maxChannelDisconnectConfirmButton: "Отключить",
+  maxChannelDisconnectError: "Не удалось отключить бота. Попробуйте ещё раз.",
+
   navAnalytics: "Аналитика",
   analyticsPageDescription:
     "Как работает ваш сайт: количество диалогов, среднее время до первого ответа и диалоги, " +

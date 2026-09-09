@@ -24,6 +24,7 @@ import { SearchConversationsPage } from "./pages/SearchConversationsPage.js";
 import { WidgetConfigPage } from "./pages/WidgetConfigPage.js";
 import { InstallSnippetPage } from "./pages/InstallSnippetPage.js";
 import { TelegramChannelPage } from "./pages/TelegramChannelPage.js";
+import { MaxChannelPage } from "./pages/MaxChannelPage.js";
 import { FaqModulePage } from "./pages/FaqModulePage.js";
 import { OfflineAutoReplyPage } from "./pages/OfflineAutoReplyPage.js";
 import { CannedResponsesPage } from "./pages/CannedResponsesPage.js";
@@ -293,11 +294,17 @@ export function App() {
         {/* `23-31`: moved from `/settings/widget` - "Каналы" section, "Виджет на сайте" (renamed from
             "Внешний вид виджета" the same day, `consoleNav.ts`'s own remarks). */}
         <Route path="/channels/widget" element={<WidgetConfigPage />} />
+        {/* `25-09`: same "route stays outside the workspace layout, page gates itself internally"
+            shape as the two channel routes above it - `MaxChannelPage` checks `channel:manage` itself.
+            The second of `23-31`'s three reserved channel places to become a real screen (`23-36` built
+            Telegram's first); "Другие каналы" stays reserved (`consoleNav.ts`'s own remarks). Placed
+            before Telegram's own route, matching `consoleNav.ts`'s unchanged list order. */}
+        <Route path="/channels/max" element={<MaxChannelPage />} />
         {/* `23-36`: same "route stays outside the workspace layout, page gates itself internally"
-            shape as the two channel routes above it - `TelegramChannelPage` checks `channel:manage`
+            shape as the channel routes around it - `TelegramChannelPage` checks `channel:manage`
             itself. The first of `23-31`'s three reserved channel places to become a real screen; MAX
-            and "Другие каналы" stay reserved (`consoleNav.ts`'s own remarks on why one channel end to
-            end, not three half-built ones). */}
+            is now real too (`25-09`), "Другие каналы" stays reserved (`consoleNav.ts`'s own remarks on
+            why one channel end to end, not three half-built ones). */}
         <Route path="/channels/telegram" element={<TelegramChannelPage />} />
         {/* `19-03`: same "route stays outside the workspace layout, page gates itself internally"
             shape as the ones around it - `FaqModulePage` gates itself on `site:configure` internally,
