@@ -508,6 +508,32 @@ export interface ConsoleStrings {
   widgetAttractAttentionLabel: string;
   widgetAttractAttentionDescription: string;
 
+  /** `23-64`: the auto-open panel, on the same "Launcher" panel as the two toggles above - a
+   * checkbox (off by default, `adr/0148`'s whole design), a delay `Select` (the closed six-value set
+   * `Ago.Chat.Domain.AutoOpenDelay` fixes, not a free number), and a `Textarea` for the tenant's own
+   * greeting line, with no default text of ours - the identical "no default sentence we supply"
+   * posture `widgetNoticeTextFieldDescription` already states for its own field. */
+  widgetAutoOpenLabel: string;
+  widgetAutoOpenDescription: string;
+  widgetAutoOpenDelayFieldLabel: string;
+  widgetAutoOpenGreetingFieldLabel: string;
+  widgetAutoOpenGreetingFieldDescription: string;
+  widgetAutoOpenGreetingPlaceholder: string;
+  /** UX-only mirror of `Ago.Chat.Domain.WidgetConfig`'s own "auto-open enabled requires a greeting"
+   * guard - the same posture `widgetColorValidation`/`widgetNoticeUrlValidation` already take toward
+   * their own server-side rule. */
+  widgetAutoOpenGreetingRequiredValidation: string;
+  /** `23-64`: the six option labels for `AutoOpenDelaySeconds` - a fixed, hand-written map rather than
+   * a pluralization function, the same "closed set of two, hand-written" shape `LOCALE_LABELS` already
+   * uses in `WidgetConfigPage.tsx` (that page's own comment on why this project has exactly two
+   * selects, now three). Keyed by the delay itself, `AutoOpenDelaySeconds`'s own values. */
+  widgetAutoOpenDelay15: string;
+  widgetAutoOpenDelay30: string;
+  widgetAutoOpenDelay45: string;
+  widgetAutoOpenDelay60: string;
+  widgetAutoOpenDelay90: string;
+  widgetAutoOpenDelay120: string;
+
   // InstallSnippetPage (`10-06`). Reuses `siteConfigCheckingPermissions`/`siteConfigBackToQueue` from
   // the shared block above, the same way `WidgetConfigPage`/`OfflineAutoReplyPage` already do.
   /** Shown instead of `widgetForbidden`'s sibling text - phrased for this screen's own subject

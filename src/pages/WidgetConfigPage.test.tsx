@@ -137,6 +137,9 @@ beforeEach(() => {
     noticeText: null,
     noticeUrl: null,
     attractAttention: false,
+    autoOpenEnabled: false,
+    autoOpenDelaySeconds: 30,
+    autoOpenGreetingText: null,
   });
   widgetConfigApi.updateWidgetConfig.mockImplementation((_token: string, _siteId: string, dto: unknown) =>
     Promise.resolve(dto),
@@ -329,6 +332,53 @@ describe("the widget processing notice fields", () => {
  * `byText`-then-walk-to-the-control way `OfflineAutoReplyPage`'s own enabled toggle would be found -
  * a plain `<label className="ago-row">` wrapping the `<input>`, not a `Field`-wired `htmlFor`/`id`
  * pair like the select/textarea fields above. */
+/** `23-64`: the auto-open checkbox, delay `<select>` and greeting `<textarea>`, found the same
+ * "label/htmlFor, never by class name" way every other field on this page's own test file already
+ * uses. */
+function autoOpenCheckbox(container: HTMLElement): HTMLInputElement {
+  const label = byText<HTMLLabelElement>(container, "label", "Open the widget automatically");
+  if (label === null) {
+    throw new Error("no 'Open the widget automatically' label found");
+  }
+
+  const input = label.querySelector("input[type='checkbox']");
+  if (!(input instanceof HTMLInputElement)) {
+    throw new Error("'Open the widget automatically' label has no checkbox");
+  }
+
+  return input;
+}
+
+function autoOpenDelaySelect(container: HTMLElement): HTMLSelectElement {
+  const label = byText<HTMLLabelElement>(container, ".ago-field__label", "Delay before opening");
+  if (label === null) {
+    throw new Error("no 'Delay before opening' field label found");
+  }
+
+  const id = label.getAttribute("for");
+  const select = id ? document.getElementById(id) : null;
+  if (!(select instanceof HTMLSelectElement)) {
+    throw new Error("'Delay before opening' field is not a <select>");
+  }
+
+  return select;
+}
+
+function autoOpenGreetingField(container: HTMLElement): HTMLTextAreaElement {
+  const label = byText<HTMLLabelElement>(container, ".ago-field__label", "Greeting text");
+  if (label === null) {
+    throw new Error("no 'Greeting text' field label found");
+  }
+
+  const id = label.getAttribute("for");
+  const field = id ? document.getElementById(id) : null;
+  if (!(field instanceof HTMLTextAreaElement)) {
+    throw new Error("'Greeting text' field is not a <textarea>");
+  }
+
+  return field;
+}
+
 function attractAttentionCheckbox(container: HTMLElement): HTMLInputElement {
   const label = byText<HTMLLabelElement>(container, "label", "Attract attention while closed");
   if (label === null) {
@@ -407,5 +457,134 @@ describe("the widget attract-attention checkbox", () => {
     const container = await render(page());
 
     expect(container.textContent).toMatch(/reduced motion/i);
+  });
+});
+
+/**
+ * `23-64`: the console half of the item - a checkbox (off by default), a delay `<select>` (the
+ * closed six-value set), and a greeting `<textarea>` with no default text, saved through the same one
+ * PUT every other field on this screen already uses. Modeled on "the widget attract-attention
+ * checkbox" block above.
+ */
+describe("the widget auto-open fields", () => {
+  it("is off by default, with the default delay, when the site has never turned it on", async () => {
+    const container = await render(page());
+
+    expect(autoOpenCheckbox(container).checked).toBe(false);
+    expect(autoOpenDelaySelect(container).value).toBe("30");
+    expect(autoOpenGreetingField(container).value).toBe("");
+  });
+
+  it("loads the site's current setting into the checkbox, select and greeting field", async () => {
+    widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
+      siteId: SITE_ID,
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "En",
+      noticeText: null,
+      noticeUrl: null,
+      attractAttention: false,
+      autoOpenEnabled: true,
+      autoOpenDelaySeconds: 60,
+      autoOpenGreetingText: "Hi, need any help?",
+    });
+    const container = await render(page());
+
+    expect(autoOpenCheckbox(container).checked).toBe(true);
+    expect(autoOpenDelaySelect(container).value).toBe("60");
+    expect(autoOpenGreetingField(container).value).toBe("Hi, need any help?");
+  });
+
+  it("saves the chosen setting alongside every other field, in one PUT", async () => {
+    const container = await render(page());
+
+    await interact(() => autoOpenCheckbox(container).click());
+    setTextValue(autoOpenGreetingField(container), "Hi, need any help?");
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(widgetConfigApi.updateWidgetConfig).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({
+        position: "BottomRight",
+        autoOpenEnabled: true,
+        autoOpenDelaySeconds: 30,
+        autoOpenGreetingText: "Hi, need any help?",
+      }),
+    );
+  });
+
+  it("reflects the server's saved setting back into the fields", async () => {
+    const container = await render(page());
+    widgetConfigApi.updateWidgetConfig.mockResolvedValue({
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "En",
+      noticeText: null,
+      noticeUrl: null,
+      attractAttention: false,
+      autoOpenEnabled: true,
+      autoOpenDelaySeconds: 90,
+      autoOpenGreetingText: "Hi, need any help?",
+    });
+
+    await interact(() => autoOpenCheckbox(container).click());
+    setTextValue(autoOpenGreetingField(container), "Hi, need any help?");
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(autoOpenCheckbox(container).checked).toBe(true);
+    expect(autoOpenDelaySelect(container).value).toBe("90");
+    expect(container.textContent).toContain("Saved.");
+  });
+
+  // `23-64`'s own Scope: "There is no default sentence we supply" - this is this file's fails-before
+  // proof for the client-side half of that guard (`Ago.Chat.Domain.WidgetConfig`'s own constructor is
+  // the server-side half, covered by `ago-chat`'s `UpdateWidgetConfigHandlerTests`). Turning auto-open
+  // on with an empty greeting must be caught before the request is even sent, not discovered as a
+  // rejected PUT.
+  it("rejects turning auto-open on with an empty greeting, and sends nothing", async () => {
+    const container = await render(page());
+
+    await interact(() => autoOpenCheckbox(container).click());
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(container.textContent).toMatch(/needs a greeting/i);
+    expect(widgetConfigApi.updateWidgetConfig).not.toHaveBeenCalled();
+  });
+
+  // The identical guard, but for whitespace-only text - not merely an empty string.
+  it("rejects turning auto-open on with a whitespace-only greeting, and sends nothing", async () => {
+    const container = await render(page());
+
+    await interact(() => autoOpenCheckbox(container).click());
+    setTextValue(autoOpenGreetingField(container), "   ");
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(container.textContent).toMatch(/needs a greeting/i);
+    expect(widgetConfigApi.updateWidgetConfig).not.toHaveBeenCalled();
+  });
+
+  // Leaving auto-open off is always valid, whatever the greeting field happens to hold - the guard
+  // above is conditional on the checkbox, not unconditional on the field.
+  it("allows saving with an empty greeting when auto-open stays off", async () => {
+    const container = await render(page());
+
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(widgetConfigApi.updateWidgetConfig).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({ autoOpenEnabled: false, autoOpenGreetingText: null }),
+    );
+  });
+
+  it("offers exactly the six delays the backlog item fixes, in ascending order", async () => {
+    const container = await render(page());
+
+    const options = Array.from(autoOpenDelaySelect(container).querySelectorAll("option")).map(
+      (o) => o.value,
+    );
+
+    expect(options).toEqual(["15", "30", "45", "60", "90", "120"]);
   });
 });
