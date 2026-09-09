@@ -138,8 +138,12 @@ function buildAnalyticsItems(isAdmin: boolean, strings: ConsoleStrings): AppShel
  *   above it never was. `23-30`/`23-12` adds the reveal audit trail (`/calendar/phone-reveals`) right
  *   after Клиенты, gated on this same `calendar:configure` server-side rather than `customer:read` -
  *   see `CalendarPhoneRevealsPage`'s own doc comment for why that is deliberately the wider gate.
- *   Ordered dictionaries-first, then what came of them, then configuration last, matching the item's
- *   own "the calendar runs from its dictionaries to its results" instruction.
+ *   `25-12`: reordered to the fill order a tenant actually works through, replacing the old
+ *   dictionaries-first order - В ожидании, Записи, Клиенты (the day-to-day operational screens, most-
+ *   used first) lead, then Мастера → Услуги → Расписание (the setup dictionaries, in the same
+ *   dependency order `GetBookingReadinessHandler`'s own `Order` now states), then Настройка (a chosen
+ *   middle position, not a settled one - see this branch's own item below), then the two audit trails
+ *   last, opened rarely and only after something else already happened.
  * - **Lacks it, but `isAdmin`**: one muted entry - this identity is the tenant, so whether or not the
  *   module happens to be enabled yet, buying (or granting themselves the permission on an already-
  *   enabled one) is something they can do without anyone else's help, which is exactly what `muted`
@@ -184,20 +188,34 @@ function buildCalendarItems(
 ): AppShellNavItem[] {
   if (hasPermission("calendar:configure")) {
     return [
+      { to: "/calendar/waiting", label: strings.navCalendarQueue, end: true },
+      { to: "/calendar/bookings", label: strings.navCalendarBookings },
+      // `25-12`: Клиенты moved up here, ahead of the setup dictionaries below - the tenant's own
+      // customer base is consulted routinely once the calendar runs, not a one-time setup step, so it
+      // sits with the two operational screens above it rather than with Мастера/Услуги/Расписание.
+      { to: "/calendar/clients", label: strings.navCalendarContacts },
+      // `25-12`: Мастера → Услуги → Расписание, in the same fill order `GetBookingReadinessHandler`'s
+      // own `Order` now states server-side - a worker before a service can be assigned to one, a
+      // service before hours are meaningfully checked by the readiness funnel.
       { to: "/calendar/masters", label: strings.navCalendarWorkers },
       { to: "/calendar/services", label: strings.navCalendarServices },
       { to: "/calendar/schedule", label: strings.navCalendarAvailability },
-      { to: "/calendar/waiting", label: strings.navCalendarQueue, end: true },
-      { to: "/calendar/bookings", label: strings.navCalendarBookings },
-      { to: "/calendar/clients", label: strings.navCalendarContacts },
+      // `25-12`: placed right after the three dictionaries rather than with them - an open question
+      // this item names rather than assumes. `BookingReadiness.tsx`'s own `ROUTE_FOR` map sends both
+      // `WorkingHoursConfigured` (early setup) and `CalendarPublished` (the last, "go live" step) to
+      // this one page, so no single position in a fill-order list fits it perfectly; this is the
+      // chosen middle ground, not a settled answer - see `25-12`'s own backlog item and the worker's
+      // report for why, and move it in one line if a different resting place is wanted instead.
+      { to: "/calendar/setup", label: strings.navCalendarSetup },
       // `23-30`/`23-12`: the reveal audit trail - gated server-side on `calendar:configure` itself
       // (wider than `customer:read`, `CalendarPhoneRevealsPage`'s own doc comment), so it belongs only
       // in this branch, never in the operator branch below that draws Клиенты off `customer:read`.
+      // `25-12`: kept last alongside Объединения below - both are audit trails, opened rarely and only
+      // after something else already happened.
       { to: "/calendar/phone-reveals", label: strings.navCalendarPhoneReveals },
       // `23-60`/`adr/0161`: the merge audit trail - the identical `calendar:configure` gate and
       // reasoning as the reveal audit trail immediately above.
       { to: "/calendar/customer-merges", label: strings.navCalendarCustomerMerges },
-      { to: "/calendar/setup", label: strings.navCalendarSetup },
     ];
   }
   if (isAdmin) {
@@ -211,7 +229,9 @@ function buildCalendarItems(
     items.push({ to: "/calendar/waiting", label: strings.navCalendarQueue, end: true });
   }
   if (hasPermission("customer:read")) {
-    // `23-34`'s own branch, kept - `Bookings` first, matching the full-access ordering above.
+    // `23-34`'s own branch, kept - `Bookings` before `Clients`, matching the full-access ordering
+    // above (`25-12`: still true after that item's reorder - Waiting, Bookings, Clients are the same
+    // first three, in the same relative order, in both branches).
     items.push({ to: "/calendar/bookings", label: strings.navCalendarBookings });
     items.push({ to: "/calendar/clients", label: strings.navCalendarContacts });
   }
