@@ -1094,7 +1094,7 @@ export const en: ConsoleStrings = {
   calendarPublishedLabel: "published",
   calendarNotPublishedLabel: "not published",
   calendarSetupCalendarNameLabel: "Calendar name",
-  calendarSetupCalendarZoneLabel: "IANA time zone",
+  calendarSetupCalendarZoneLabel: "Time zone",
   calendarSetupCalendarPublishedLabel: "Published",
   calendarSetupAddCalendarButton: "Add calendar",
   calendarSetupServicesTitle: "Services",
