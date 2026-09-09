@@ -37,6 +37,7 @@ const calendarApi = vi.hoisted(() => ({
   updateWorker: vi.fn(),
   deleteWorker: vi.fn(),
   getWorkerSchedule: vi.fn(),
+  saveWorkerSchedule: vi.fn(),
 }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
@@ -222,6 +223,47 @@ describe("the workers screen", () => {
     await interact(() => saveButton?.click());
 
     expect(calendarApi.updateWorker).toHaveBeenCalledWith("token", "w1", expect.objectContaining({ isActive: false }));
+  });
+
+  /** `25-13`: `WorkerScheduleSection` renders as a child of `WorkerCard`'s own `<form>`
+   * (`onSubmit={(fields) => ...}`, above). A `<form>` inside a `<form>` is invalid HTML - the real
+   * bug this item fixed was exactly that nesting, which made a real browser fall back to navigating
+   * the page instead of running the schedule section's own save handler. jsdom does not reproduce
+   * that navigation quirk faithfully enough to fail this test against the pre-fix code by itself, so
+   * the structural fact the fix actually rests on is asserted directly: editing a worker must never
+   * put two `<form>` elements on the page at once. */
+  it("never nests a second form inside the edit form when the schedule section is open", async () => {
+    const container = await render(page());
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Edit")?.click());
+
+    expect(container.querySelectorAll("form")).toHaveLength(1);
+  });
+
+  it("saves a new schedule from the button beside the schedule fields", async () => {
+    calendarApi.saveWorkerSchedule.mockResolvedValue({
+      kind: "Weekly",
+      slotMinutes: 30,
+      bufferMinutes: 0,
+      horizonDays: 30,
+      materializeFrom: "2026-09-09",
+      cycleAnchor: null,
+      cycleWorkingDays: null,
+      cycleRestDays: null,
+      cycleStartsAt: null,
+      cycleEndsAt: null,
+      buffersCountTowardServiceDuration: true,
+    });
+
+    const container = await render(page());
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Edit")?.click());
+    const createButton = byText<HTMLButtonElement>(container, "button", "Create schedule");
+    await interact(() => createButton?.click());
+
+    expect(calendarApi.saveWorkerSchedule).toHaveBeenCalledWith(
+      "token", "w1", expect.objectContaining({ kind: "Weekly", slotMinutes: 30 }),
+    );
   });
 
   // `23-23`: the same server-computed readiness `CalendarSetupPage` renders, on this screen too - the
