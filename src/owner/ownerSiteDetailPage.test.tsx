@@ -819,6 +819,23 @@ describe("the site detail page's own entitlements table - quantity", () => {
     // cell 6 of module/triggerWords/grantedBy/expires/status/quantity/actions.
     expect(row.cells[5]?.textContent).toBe("0");
   });
+
+  // `23-89`: the failure this states out loud - an owner grants during a support call, sees no
+  // immediate change, and grants again rather than waiting on a wire nothing here names. The
+  // standing alert has to say both that the wait is real and bounded, and that repeating the grant
+  // is safe, without the owner needing to know what an outbox is.
+  it("tells the owner the module applies asynchronously, roughly how long that takes, and that granting again is safe", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ modules: [oneModule({ moduleKey: "calendar", quantity: 2 })] }),
+    });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).toMatch(/within a few seconds/i);
+    expect(container.textContent).toMatch(/about a minute/i);
+    expect(container.textContent).toMatch(/granting the same number again is always safe/i);
+  });
 });
 
 describe("the site detail page's own quantity dialog", () => {
