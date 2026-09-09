@@ -38,6 +38,7 @@ import { OperatorsTeamPage } from "./pages/OperatorsTeamPage.js";
 import { TeamChatPage } from "./pages/TeamChatPage.js";
 import { OwnerSitesPage } from "./owner/OwnerSitesPage.js";
 import { OwnerSiteDetailPage } from "./owner/OwnerSiteDetailPage.js";
+import { OwnerPricingPage } from "./owner/OwnerPricingPage.js";
 import { CalendarQueuePage } from "./pages/CalendarQueuePage.js";
 import { CalendarSetupPage } from "./pages/CalendarSetupPage.js";
 import { CalendarServicesPage } from "./pages/CalendarServicesPage.js";
@@ -223,6 +224,21 @@ export function App() {
           <RequireAuth>
             <PermissionsProvider>
               <OwnerSiteDetailPage />
+            </PermissionsProvider>
+          </RequireAuth>
+        }
+      />
+      {/* `25-20`: the platform owner's own price list - the identical gate and "outside the operator
+          layout" reasoning as `/owner`/`/owner/sites/:siteId` above, since it is the same actor and
+          the same policy (`RequirePlatformOwner` on `GET /api/v1/owner/pricing`), not a different
+          one. Reached from `OwnerSitesPage`'s own "Price list" link, not from a second pinned nav
+          entry - see `OwnerPricingPage`'s own remarks. */}
+      <Route
+        path="/owner/pricing"
+        element={
+          <RequireAuth>
+            <PermissionsProvider>
+              <OwnerPricingPage />
             </PermissionsProvider>
           </RequireAuth>
         }

@@ -193,6 +193,19 @@ describe("the platform-sites page's own navigation", () => {
     expect(container.querySelector(".ago-shell")?.classList.contains("ago-shell--fixed")).toBe(false);
     expect(container.querySelector(".ago-shell__main")?.classList.contains("ago-shell__main--fixed")).toBe(false);
   });
+
+  // `25-20`: the price list's own entry point from this page - a plain in-page link, not a second
+  // pinned nav entry (`OwnerPricingPage`'s own remarks on why).
+  it("offers a Price list link to a granted caller", async () => {
+    tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [] });
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: [], siteId: null });
+
+    const container = await render(shellAt());
+
+    const link = byText<HTMLAnchorElement>(container, "a", "Price list");
+    expect(link).not.toBeNull();
+    expect(link?.getAttribute("href")).toBe("/owner/pricing");
+  });
 });
 
 describe("the platform-sites page's own table", () => {

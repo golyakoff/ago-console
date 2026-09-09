@@ -273,6 +273,11 @@ export function OwnerSitesPage() {
         <>
           <PageHead
             title="Platform sites"
+            // `25-20`: the price list's own entry point - a plain in-page link rather than a second
+            // `AppShell` `pinnedItem` (that slot holds exactly one entry, "Platform sites" itself,
+            // and both owner screens already reuse it to point back here). `PageHead`'s own `aside`
+            // slot is "status or secondary controls, rendered opposite the title" - exactly this.
+            aside={<Link to="/owner/pricing">Price list</Link>}
             // Found live, 2026-08-28: the table below used to sit in its own titled `Panel` ("Sites"),
             // whose description carried the one fact `PageHead` did not already say - the time window
             // behind "message volume" and "last activity". That fact is real, not redundant (unlike
