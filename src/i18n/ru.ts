@@ -1096,7 +1096,7 @@ export const ru: ConsoleStrings = {
   calendarPublishedLabel: "опубликован",
   calendarNotPublishedLabel: "не опубликован",
   calendarSetupCalendarNameLabel: "Название календаря",
-  calendarSetupCalendarZoneLabel: "Часовой пояс IANA",
+  calendarSetupCalendarZoneLabel: "Часовой пояс",
   calendarSetupCalendarPublishedLabel: "Опубликован",
   calendarSetupAddCalendarButton: "Добавить календарь",
   calendarSetupServicesTitle: "Услуги",

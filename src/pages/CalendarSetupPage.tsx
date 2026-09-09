@@ -12,7 +12,7 @@ import {
   type TenantConfiguration,
 } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
-import { weekdayNames } from "../calendar/calendarFormat.js";
+import { timeZoneOptions, weekdayNames } from "../calendar/calendarFormat.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
 import { BookingReadiness } from "../calendar/BookingReadiness.js";
 import { PageHead } from "../shell/AppShell.js";
@@ -292,9 +292,20 @@ function CalendarForm({
       </Field>
 
       <Field label={strings.calendarSetupCalendarZoneLabel}>
-        {/* An IANA zone id, never an offset: wrong for half the year in any zone with DST, and this
-            value can never change once slots exist - unchanged from the source. */}
-        {(controlProps) => <Input {...controlProps} value={timeZone} onChange={(e) => setTimeZone(e.target.value)} required disabled={disabled} />}
+        {/* `25-16`: a curated, localized dropdown - never free text. The *stored* value is still an
+            IANA zone id, never an offset (wrong for half the year in any zone with DST, and this
+            value can never change once slots exist - unchanged from the source); only how a tenant
+            picks it changed. `timeZoneOptions` also guarantees the currently-selected value always
+            has a matching `<option>`, even for a saved zone outside the curated eleven. */}
+        {(controlProps) => (
+          <Select {...controlProps} value={timeZone} onChange={(e) => setTimeZone(e.target.value)} required disabled={disabled}>
+            {timeZoneOptions(strings, timeZone).map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+        )}
       </Field>
 
       <label className="ago-row">

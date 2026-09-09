@@ -131,3 +131,92 @@ export function renderPhone(
     </span>
   );
 }
+
+/**
+ * `25-16`: the eleven time zones of the Russian Federation (fixed since the 2014 return to permanent
+ * standard time - `24-17` in `ago-calendar` already settled that none of this deployment's zones
+ * observe DST, so "the offset" and "the current offset" are the same reading for every zone below,
+ * permanently). This is the "reasonably short and relevant" set the item calls for: a Russian-market
+ * chat/calendar product's tenants are realistically choosing among these eleven, not the full IANA
+ * database of hundreds. One canonical IANA id per federal offset - tzdata's own primary alias for
+ * that offset (`Asia/Krasnoyarsk`, not `Asia/Novosibirsk`, which currently shares its +07:00 but has
+ * its own DST *history* and so its own zone entry) - with `Europe`/`Asia` and the city name each
+ * translated by hand rather than through `Intl.DisplayNames`: verified live against this project's
+ * own Node runtime, `new Intl.DisplayNames(["ru"], { type: "timeZone" })` throws
+ * `RangeError: Value timeZone out of range for Intl.DisplayNames options property type` - `"timeZone"`
+ * has never been a valid `Intl.DisplayNames` type per ECMA-402, so the localized-city-name half of
+ * this item cannot come from that API at all, confirming the item's own warning to check live rather
+ * than assume. A curated translation map is the other option the item names, and is what this is.
+ */
+const CURATED_TIME_ZONES: readonly {
+  zone: string;
+  continent: { en: string; ru: string };
+  city: { en: string; ru: string };
+}[] = [
+  { zone: "Europe/Kaliningrad", continent: { en: "Europe", ru: "Европа" }, city: { en: "Kaliningrad", ru: "Калининград" } },
+  { zone: "Europe/Moscow", continent: { en: "Europe", ru: "Европа" }, city: { en: "Moscow", ru: "Москва" } },
+  { zone: "Europe/Samara", continent: { en: "Europe", ru: "Европа" }, city: { en: "Samara", ru: "Самара" } },
+  { zone: "Asia/Yekaterinburg", continent: { en: "Asia", ru: "Азия" }, city: { en: "Yekaterinburg", ru: "Екатеринбург" } },
+  { zone: "Asia/Omsk", continent: { en: "Asia", ru: "Азия" }, city: { en: "Omsk", ru: "Омск" } },
+  { zone: "Asia/Krasnoyarsk", continent: { en: "Asia", ru: "Азия" }, city: { en: "Krasnoyarsk", ru: "Красноярск" } },
+  { zone: "Asia/Irkutsk", continent: { en: "Asia", ru: "Азия" }, city: { en: "Irkutsk", ru: "Иркутск" } },
+  { zone: "Asia/Yakutsk", continent: { en: "Asia", ru: "Азия" }, city: { en: "Yakutsk", ru: "Якутск" } },
+  { zone: "Asia/Vladivostok", continent: { en: "Asia", ru: "Азия" }, city: { en: "Vladivostok", ru: "Владивосток" } },
+  { zone: "Asia/Magadan", continent: { en: "Asia", ru: "Азия" }, city: { en: "Magadan", ru: "Магадан" } },
+  { zone: "Asia/Kamchatka", continent: { en: "Asia", ru: "Азия" }, city: { en: "Kamchatka", ru: "Камчатка" } },
+];
+
+/**
+ * Reads `zone`'s current UTC offset live through `Intl.DateTimeFormat`'s own `timeZoneName:
+ * "shortOffset"` (`"GMT+3"`, `"GMT+5:30"`, or bare `"GMT"` for UTC itself) and reshapes it into the
+ * fixed-width `"+HH:MM"` the item's own spec asks for - never a value stored or hand-computed here,
+ * so a zone whose offset changes stays correct without this file being touched again. Guarded rather
+ * than left to throw: a saved-but-unresolvable zone id must still render *a* label, the same
+ * "must never be the reason something fails to render" posture `time/format.ts`'s `resolveTimeZone`
+ * already takes for the browser's own ambient zone.
+ */
+function zoneOffsetLabel(zone: string, dateIntlLocale: string, now: Date = new Date()): string {
+  try {
+    const parts = new Intl.DateTimeFormat(dateIntlLocale, { timeZone: zone, timeZoneName: "shortOffset" }).formatToParts(now);
+    const raw = parts.find((part) => part.type === "timeZoneName")?.value ?? "GMT";
+    const match = /^GMT([+-]\d{1,2})(?::(\d{2}))?$/.exec(raw);
+    if (match === null) {
+      return "+00:00"; // bare "GMT" (UTC itself) or a shape this regex does not expect
+    }
+    const sign = match[1].startsWith("-") ? "-" : "+";
+    const hours = String(Math.abs(Number(match[1]))).padStart(2, "0");
+    const minutes = match[2] ?? "00";
+    return `${sign}${hours}:${minutes}`;
+  } catch {
+    return "+00:00"; // an id Intl cannot resolve at all - still renders, never throws through to the page
+  }
+}
+
+export interface TimeZoneOption {
+  value: string;
+  label: string;
+}
+
+/**
+ * `25-16`: the calendar setup screen's own timezone picker. The curated eleven above, each shown
+ * translated into `strings`' own language and offset-labelled live, plus - the item's own "an
+ * existing site's stored zone id must still resolve to a selectable option" requirement -
+ * `selectedZone` appended when it is not already one of the eleven, so a site configured against a
+ * zone outside this list (a legacy value, or one entered by hand before this item) never loses its
+ * setting on the next visit to this screen. An unlisted zone has no curated translation to show, so
+ * it falls back to its own raw IANA id rather than guessing one - still selectable, still
+ * offset-labelled live, just not translated.
+ */
+export function timeZoneOptions(strings: ConsoleStrings, selectedZone: string): TimeZoneOption[] {
+  const lang: "en" | "ru" = strings.dateIntlLocale.startsWith("ru") ? "ru" : "en";
+  const options = CURATED_TIME_ZONES.map((entry) => ({
+    value: entry.zone,
+    label: `${entry.continent[lang]}/${entry.city[lang]} (${zoneOffsetLabel(entry.zone, strings.dateIntlLocale)})`,
+  }));
+
+  if (!options.some((option) => option.value === selectedZone)) {
+    options.push({ value: selectedZone, label: `${selectedZone} (${zoneOffsetLabel(selectedZone, strings.dateIntlLocale)})` });
+  }
+
+  return options;
+}
