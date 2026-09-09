@@ -265,8 +265,8 @@ function buildTeamItems(
  * five, which is the "Каналы целиком требует прав арендатора" half of the item's own reasoning.
  * `10-06`: "Установка виджета" stays first, above the list - a task, not a channel (this section's
  * own naming rule, decided 2026-09-06: every *other* entry here is named for the channel it is, not
- * for an action). "Бот MAX"/"Другие каналы" stay `reserved` - each has a working adapter (`14-02`,
- * and four more for the "other" row) but no console screen yet.
+ * for an action). "Другие каналы" stays `reserved` - VK, Email, WhatsApp and Avito each have a
+ * working adapter (`14-08`/`14-10`/`14-11`, Email's own `14-09`) but no console screen yet.
  *
  * `23-36`: "Бот Telegram" is no longer `reserved` - `TelegramChannelPage` (`/channels/telegram`) is a
  * real screen, the first of these three places to become one (rule 15: one channel end to end, not
@@ -274,7 +274,11 @@ function buildTeamItems(
  * proxy than the server's own `channel:manage` check on that screen's endpoints - the identical gap
  * every other `isAdmin`-gated entry here already has against its own real permission
  * (`WidgetConfigPage`/`InstallSnippetPage` both check `site:configure` itself, not something
- * channel-specific), not one this item introduces. */
+ * channel-specific), not one this item introduces.
+ *
+ * `25-09`: "Бот MAX" is no longer `reserved` either - `MaxChannelPage` (`/channels/max`) is the second
+ * of these three places to become a real screen, kept in its original position (before Telegram) so
+ * this list's order does not shuffle as each reserved place is filled in. */
 function buildChannelsItems(isAdmin: boolean, strings: ConsoleStrings): AppShellNavItem[] {
   if (!isAdmin) {
     return [];
@@ -282,7 +286,7 @@ function buildChannelsItems(isAdmin: boolean, strings: ConsoleStrings): AppShell
   return [
     { to: "/channels/install", label: strings.navInstallWidget },
     { to: "/channels/widget", label: strings.navWidgetAppearance },
-    { label: strings.navChannelsMax, reserved: true },
+    { to: "/channels/max", label: strings.navChannelsMax },
     { to: "/channels/telegram", label: strings.navChannelsTelegram },
     { label: strings.navChannelsOther, reserved: true },
   ];

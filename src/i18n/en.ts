@@ -813,6 +813,28 @@ export const en: ConsoleStrings = {
   telegramChannelDisconnectConfirmButton: "Disconnect",
   telegramChannelDisconnectError: "Could not disconnect that bot. Try again.",
 
+  maxChannelTitle: "MAX bot",
+  maxChannelDescription: "Connect your own MAX bot so visitors can message it and your team replies from here.",
+  maxChannelForbidden: "You do not have permission to manage this site's channels.",
+  maxChannelLoadError: "Could not check your MAX channel. Try reloading the page.",
+  maxChannelLoadingLabel: "Checking your MAX channel…",
+  maxChannelPanelTitle: "MAX bot",
+  maxChannelNotConnectedBody:
+    "Paste the bot token @MasterBot gave you when you created your bot in MAX. AGO checks it with MAX before saving it.",
+  maxChannelTokenFieldLabel: "Bot token",
+  maxChannelTokenFieldDescription: "Never shown again once saved.",
+  maxChannelConnectButton: "Connect",
+  maxChannelConnectingButton: "Connecting…",
+  maxChannelConnectError: "Could not connect that bot. Try again.",
+  maxChannelConnectedSinceLabel: "Connected since",
+  maxChannelConnectedBadge: "Connected",
+  maxChannelDisconnectButton: "Disconnect",
+  maxChannelDisconnectDialogTitle: "Disconnect this bot?",
+  maxChannelDisconnectDialogBody:
+    "Your bot will stop delivering messages immediately. You can reconnect it, or a different bot, at any time.",
+  maxChannelDisconnectConfirmButton: "Disconnect",
+  maxChannelDisconnectError: "Could not disconnect that bot. Try again.",
+
   navAnalytics: "Analytics",
   analyticsPageDescription:
     "How your site is doing: conversation volume, average time to first reply, and conversations " +
