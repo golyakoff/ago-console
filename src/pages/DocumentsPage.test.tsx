@@ -78,6 +78,31 @@ function emptyDocuments() {
   };
 }
 
+/** `25-21`: a Contact document with two published versions, current first - the shape every
+ * per-version test below needs (a toggle to open, and a second version to prove it does not merge
+ * with the first). Marketing gets one version too, deliberately - both panels are then in the
+ * "already set" collapsed-form state, so `byText(..., "Publish new version")` cannot ambiguously
+ * match a still-open Marketing form's own submit button alongside Contact's reveal toggle; the
+ * tests below only care about Contact's own versions and acceptances. */
+function twoVersionDocuments() {
+  return {
+    contact: {
+      purpose: "Contact" as const,
+      documentKey: "site-consent-contact-x",
+      versions: [
+        { version: "v2", sequence: 2, title: "Consent v2", publishedAt: "2026-06-01T00:00:00Z" },
+        { version: "v1", sequence: 1, title: "Consent v1", publishedAt: "2026-03-01T00:00:00Z" },
+      ],
+    },
+    contactConsentRequired: false,
+    marketing: {
+      purpose: "Marketing" as const,
+      documentKey: "site-consent-marketing-x",
+      versions: [{ version: "v1", sequence: 1, title: "Marketing consent v1", publishedAt: "2026-03-01T00:00:00Z" }],
+    },
+  };
+}
+
 function setTextValue(element: HTMLInputElement | HTMLTextAreaElement, value: string): void {
   const prototype = element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   Object.getOwnPropertyDescriptor(prototype, "value")?.set?.call(element, value);
@@ -265,54 +290,148 @@ describe("publishing a new version", () => {
   });
 });
 
+/** `25-21`: every "who accepted" test needs a real version to scope the toggle to, so these all start
+ * from `twoVersionDocuments()` rather than the fresh-site `emptyDocuments()` the suites above use -
+ * a document with nothing published yet has nothing for a per-version toggle to attach to (`current
+ * === null` renders no `VersionAcceptancesToggle` at all - proven by `"never renders a who-accepted
+ * toggle before a version exists"` below). `all(...).filter(...)` rather than `byText` (which only
+ * ever returns the first match) because two versions means two same-labelled toggle buttons - `[0]`
+ * is always the current version's (rendered first), `[1]` the next-older one. */
 describe("who accepted", () => {
-  it("loads nothing until the toggle is opened", async () => {
+  function acceptanceToggles(container: HTMLElement): HTMLButtonElement[] {
+    return all(container, "button").filter(
+      (el) => (el.textContent ?? "").trim() === "Show who accepted",
+    ) as HTMLButtonElement[];
+  }
+
+  it("never renders a who-accepted toggle before a version exists", async () => {
+    const container = await render(page());
+
+    expect(byText<HTMLButtonElement>(container, "button", "Show who accepted")).toBeNull();
+  });
+
+  it("loads nothing until a version's own toggle is opened", async () => {
+    siteConsentDocumentsApi.fetchSiteConsentDocuments.mockResolvedValue(twoVersionDocuments());
+
     await render(page());
 
     expect(siteConsentDocumentsApi.fetchSiteConsentAcceptances).not.toHaveBeenCalled();
   });
 
-  it("loads acceptances for the Contact purpose when its own toggle is opened", async () => {
+  it("loads acceptances for the Contact purpose when a version's own toggle is opened", async () => {
+    siteConsentDocumentsApi.fetchSiteConsentDocuments.mockResolvedValue(twoVersionDocuments());
     const container = await render(page());
-    const toggle = byText<HTMLButtonElement>(container, "button", "Show who accepted");
-    if (!toggle) {
-      throw new Error("toggle button not found");
-    }
 
-    await interact(() => toggle.click());
+    await interact(() => acceptanceToggles(container)[0]?.click());
 
     expect(siteConsentDocumentsApi.fetchSiteConsentAcceptances).toHaveBeenCalledWith("token", SITE_ID, "Contact");
   });
 
   it("shows the privacy note, and never a client IP or user agent column", async () => {
+    siteConsentDocumentsApi.fetchSiteConsentDocuments.mockResolvedValue(twoVersionDocuments());
     siteConsentDocumentsApi.fetchSiteConsentAcceptances.mockResolvedValue([
-      { subjectKind: "Visitor", subjectId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", documentVersion: "v1", acceptedAt: "2026-03-02T00:00:00Z" },
+      { subjectKind: "Visitor", subjectId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", documentVersion: "v2", acceptedAt: "2026-06-02T00:00:00Z" },
     ]);
     const container = await render(page());
-    const toggle = byText<HTMLButtonElement>(container, "button", "Show who accepted");
-    if (!toggle) {
-      throw new Error("toggle button not found");
-    }
 
-    await interact(() => toggle.click());
+    await interact(() => acceptanceToggles(container)[0]?.click());
 
     expect(container.textContent).toContain(
       "Shown here: which visitor, which version, and when. Not shown: IP address or browser",
     );
     expect(container.textContent).toContain("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
-    expect(container.textContent).toContain("v1");
     expect(container.textContent).not.toContain("203.0.113");
   });
 
   it("says nobody has accepted yet when the list is empty", async () => {
+    siteConsentDocumentsApi.fetchSiteConsentDocuments.mockResolvedValue(twoVersionDocuments());
     const container = await render(page());
-    const toggle = byText<HTMLButtonElement>(container, "button", "Show who accepted");
-    if (!toggle) {
-      throw new Error("toggle button not found");
-    }
 
-    await interact(() => toggle.click());
+    await interact(() => acceptanceToggles(container)[0]?.click());
 
     expect(container.textContent).toContain("Nobody has accepted this document yet.");
+  });
+
+  // `25-21`'s own "where this is likely to go wrong": a tenant with two published versions gets two
+  // separate acceptance lists, never one merged one - conflating them would misrepresent who agreed
+  // to which actual text. `fetchSiteConsentAcceptances` still returns every acceptance for the whole
+  // document kind (no version-scoped endpoint exists or is needed - `documentVersion` is already on
+  // the wire), so the proof has to be that opening one version's toggle never shows another
+  // version's subject id, not merely that the mock was called with the right purpose.
+  it("scopes each version's list to its own acceptances - never another version's", async () => {
+    siteConsentDocumentsApi.fetchSiteConsentDocuments.mockResolvedValue(twoVersionDocuments());
+    siteConsentDocumentsApi.fetchSiteConsentAcceptances.mockResolvedValue([
+      { subjectKind: "Visitor", subjectId: "v2-accepter-0000-0000-000000000000", documentVersion: "v2", acceptedAt: "2026-06-02T00:00:00Z" },
+      { subjectKind: "Visitor", subjectId: "v1-accepter-0000-0000-000000000000", documentVersion: "v1", acceptedAt: "2026-03-02T00:00:00Z" },
+    ]);
+    const container = await render(page());
+
+    // Captured once, before either click: opening a toggle relabels it "Hide", so re-querying by the
+    // "Show who accepted" text after the first click would silently shift what index [1] means.
+    const [currentToggle, olderToggle] = acceptanceToggles(container);
+    if (!currentToggle || !olderToggle) {
+      throw new Error("expected two toggles - one for Contact's current version, one for its older version");
+    }
+
+    await interact(() => currentToggle.click());
+    expect(container.textContent).toContain("v2-accepter-0000-0000-000000000000");
+    expect(container.textContent).not.toContain("v1-accepter-0000-0000-000000000000");
+
+    await interact(() => olderToggle.click());
+    expect(container.textContent).toContain("v1-accepter-0000-0000-000000000000");
+  });
+
+  it("titles the card with the version's own title, version and publish date - not a bare heading", async () => {
+    siteConsentDocumentsApi.fetchSiteConsentDocuments.mockResolvedValue(twoVersionDocuments());
+    const container = await render(page());
+
+    await interact(() => acceptanceToggles(container)[0]?.click());
+
+    const heading = all(container, "h2").find((h) => (h.textContent ?? "").startsWith("Who accepted"));
+    expect(heading?.textContent).toContain("Consent v2");
+    expect(heading?.textContent).toContain("(v2,");
+  });
+});
+
+describe("publishing a new version is a deliberate secondary action once one exists (25-21)", () => {
+  it("does not render the publish form by default once a current version exists", async () => {
+    siteConsentDocumentsApi.fetchSiteConsentDocuments.mockResolvedValue(twoVersionDocuments());
+    const container = await render(page());
+
+    expect(all(container, "form").length).toBe(0);
+  });
+
+  it("still defaults the form open when nothing has been published yet - there is no read view to show instead", async () => {
+    const container = await render(page());
+
+    expect(all(container, "form").length).toBeGreaterThan(0);
+  });
+
+  it("reveals the form from its own toggle, and can be cancelled shut again", async () => {
+    siteConsentDocumentsApi.fetchSiteConsentDocuments.mockResolvedValue(twoVersionDocuments());
+    const container = await render(page());
+
+    const reveal = byText<HTMLButtonElement>(container, "button", "Publish new version");
+    if (!reveal) {
+      throw new Error("reveal button not found");
+    }
+    await interact(() => reveal.click());
+    expect(all(container, "form").length).toBe(1);
+
+    const cancel = byText<HTMLButtonElement>(container, "button", "Cancel");
+    if (!cancel) {
+      throw new Error("cancel button not found");
+    }
+    await interact(() => cancel.click());
+    expect(all(container, "form").length).toBe(0);
+  });
+});
+
+describe("documentsPageIntro (25-21)", () => {
+  it("no longer carries the 'AGO never writes the words' sentence aimed at an always-a-form screen", async () => {
+    const container = await render(page());
+
+    expect(container.textContent).toContain("These are the documents your own visitors are asked to accept.");
+    expect(container.textContent).not.toContain("AGO never writes the words");
   });
 });

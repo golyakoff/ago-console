@@ -659,7 +659,13 @@ export interface ConsoleStrings {
   documentsPublishValidationBodyRequired: string;
   documentsAcceptancesToggleShow: string;
   documentsAcceptancesToggleHide: string;
-  documentsAcceptancesHeading: string;
+  /** `25-21`: composed at the call site as `${prefix}${version.title} (${version.version}, ${date})` -
+   * the same fixed-fragment convention `policyPagePublishedPrefix`/`policyPageVersionSeparator`
+   * already use, so the string itself carries its own trailing space rather than the call site
+   * guessing at one. Renamed from the unused `documentsAcceptancesHeading` ("Who accepted"/"Кто
+   * принял") rather than added alongside it - that key never had a call site, and the per-version
+   * card title this item introduces is what it was always going to be used for. */
+  documentsAcceptancesCardTitlePrefix: string;
   documentsAcceptancesLoadingLabel: string;
   documentsAcceptancesLoadError: string;
   documentsAcceptancesEmpty: string;
