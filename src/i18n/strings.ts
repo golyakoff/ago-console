@@ -304,6 +304,13 @@ export interface ConsoleStrings {
   closeItButton: string;
   closeConversationDialogBody: string;
 
+  // AttachmentUploadGrantToggle (`23-78`).
+  attachmentUploadGrantButton: string;
+  attachmentUploadRevokeButton: string;
+  attachmentUploadGrantToggleError: string;
+  attachmentUploadGrantedByOperatorNote: string;
+  attachmentUploadGrantedByDefaultNote: string;
+
   // closeOutcome.ts - what a failed close says. A pure function's strings, not a component's, so
   // `closeOutcomeFor` takes a `ConsoleStrings` parameter defaulted to `en` rather than calling
   // `useStrings()` itself - it has no hook context, being called from an event handler, not render.

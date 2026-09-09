@@ -20,9 +20,10 @@ import { Button } from "../components/Button.js";
 import { Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { fetchChannelDeliveries, type ChannelDeliveryDto } from "../api/channelDeliveriesApi.js";
-import { closeConversation, fetchVisitorHistory } from "../api/conversationsApi.js";
+import { closeConversation, fetchVisitorHistory, grantAttachmentUpload, revokeAttachmentUpload } from "../api/conversationsApi.js";
 import { generateReplyDraft, ReplyDraftError } from "../api/replyDraftApi.js";
 import type { VisitorHistoryResponse } from "../realtime/protocol/types.js";
+import { AttachmentUploadGrantToggle } from "../workspace/AttachmentUploadGrantToggle.js";
 import { CloseConversationButton } from "../workspace/CloseConversationButton.js";
 import { Composer } from "../workspace/Composer.js";
 import { Thread } from "../workspace/Thread.js";
@@ -727,6 +728,33 @@ export function ConversationPage() {
                 refreshQueue();
               }}
               onStaleQueue={refreshQueue}
+            />
+          )}
+
+          {/* `23-78`: absent once this tab has closed the conversation, the identical reason
+              `CloseConversationButton` right above it is - granting or revoking an upload permission
+              on a conversation nobody can send into any more has nothing left to act on. Absent
+              entirely for an operator without `conversation:attachment_upload_grant`, which the
+              component itself decides (its own remarks). */}
+          {!closed && conversation && (
+            <AttachmentUploadGrantToggle
+              conversation={conversation}
+              timeZone={timeZone}
+              onGrant={async () => {
+                if (!user?.access_token || !conversationId) {
+                  return;
+                }
+
+                await grantAttachmentUpload(user.access_token, conversationId);
+              }}
+              onRevoke={async () => {
+                if (!user?.access_token || !conversationId) {
+                  return;
+                }
+
+                await revokeAttachmentUpload(user.access_token, conversationId);
+              }}
+              onChanged={refreshQueue}
             />
           )}
         </header>
