@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
-import { getConfirmedBookings, type ConfirmedBooking } from "../api/calendarApi.js";
+import { getConfirmedBookings, revealCustomerPhone, type ConfirmedBooking } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
-import { weekdayNames } from "../calendar/calendarFormat.js";
+import { renderPhone, weekdayNames, type RevealControl } from "../calendar/calendarFormat.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
@@ -107,10 +107,19 @@ function groupByDayThenWorker(rows: ConfirmedBooking[]): DayGroup[] {
  * a day's own total and, opened one level further, exactly how many visits each master has that day,
  * with no arithmetic of their own to do.
  *
- * <b>Masking is inherited, not reimplemented.</b> `ConfirmedBooking.phone` arrives from the server
- * already masked or real, the identical shape `CalendarContactsPage`/`CalendarQueuePage` already
- * render verbatim - there is no reveal control here (`23-30` is not done), so this screen renders
- * exactly what the other two already do: the string the read model produced.
+ * <b>Masking is inherited, not reimplemented - and so is the reveal.</b> `ConfirmedBooking.phone`
+ * arrives from the server already masked or real, the identical shape `CalendarContactsPage`/
+ * `CalendarQueuePage` already render. `23-30` shipped a reveal control for four screens and named
+ * this one only in a comment above ("there is no reveal control here") - the screen did not exist
+ * yet when `23-30` was scoped. `23-91` is the correction: this table's own `phone` column now calls
+ * the exact same `renderPhone`/`RevealControl` pair and the exact same `revealCustomerPhone` endpoint
+ * every other calendar screen uses, keyed by `customerId` (`ConfirmedBooking` already carries it on
+ * every row) - not a new reveal mechanism, so the audit record `IContactPhoneRevealRepository` writes
+ * is the same shape regardless of which of the five screens triggered it. `handleReveal` below
+ * updates the flat `rows` array, not the derived `groups` - `groupByDayThenWorker` re-derives from
+ * `rows` on every render, so a customer appearing under two different day/worker groups (same
+ * customer, two bookings) reveals in both groups from the one state update, the same
+ * "replace every row for this customer" rule `CalendarQueuePage.handleReveal`'s own comment states.
  */
 export function CalendarBookingsPage() {
   const { user } = useAuth();
@@ -120,6 +129,9 @@ export function CalendarBookingsPage() {
   const [rows, setRows] = useState<ConfirmedBooking[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState(defaultRange);
+  // `23-91`: which customer's own Reveal is in flight, if any - the identical state
+  // `CalendarContactsPage`/`CalendarQueuePage`/`CalendarWorkerSlotsPage` already keep.
+  const [revealingCustomerId, setRevealingCustomerId] = useState<string | null>(null);
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
@@ -192,6 +204,31 @@ export function CalendarBookingsPage() {
   const weekdays = weekdayNames(strings);
   const groups = rows === null ? null : groupByDayThenWorker(rows);
 
+  // `23-91`: replaces every row for this customer with the server's own unmasked phone - the
+  // identical "match by customerId, over the flat array" replacement `CalendarQueuePage.handleReveal`/
+  // `CalendarWorkerSlotsPage.handleReveal`/`CalendarContactsPage.handleReveal` already use. The real
+  // number is never computed here: `renderPhone` only draws a Reveal button, and this function only
+  // runs once the operator clicks it and the server has answered.
+  const handleReveal = async (customerId: string) => {
+    const accessToken = user?.access_token;
+    if (!accessToken) {
+      return;
+    }
+
+    setRevealingCustomerId(customerId);
+    setError(null);
+    try {
+      const { phone } = await revealCustomerPhone(accessToken, customerId, "ConsoleBookings");
+      setRows((prev) => prev?.map((row) => (row.customerId === customerId ? { ...row, phone, masked: false } : row)) ?? prev);
+    } catch (reason) {
+      setError(calendarErrorMessage(reason, strings));
+    } finally {
+      setRevealingCustomerId(null);
+    }
+  };
+
+  const reveal: RevealControl = { revealingCustomerId, onReveal: (id) => void handleReveal(id) };
+
   const columns: TableColumn<ConfirmedBooking>[] = [
     {
       key: "when",
@@ -218,7 +255,7 @@ export function CalendarBookingsPage() {
       header: strings.calendarBookingsColumnCustomer,
       render: (row) => row.customerDisplayName ?? <span className="ago-meta">{strings.calendarNotRecordedLabel}</span>,
     },
-    { key: "phone", header: strings.calendarBookingsColumnPhone, render: (row) => row.phone },
+    { key: "phone", header: strings.calendarBookingsColumnPhone, render: (row) => renderPhone(row, strings, reveal) },
   ];
 
   return (
