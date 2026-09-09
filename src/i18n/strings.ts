@@ -1052,10 +1052,28 @@ export interface ConsoleStrings {
 
   operatorsTeamInviteButton: string;
   operatorsTeamInviteDialogTitle: string;
-  /** Trailing interpolation - `${operatorsTeamInviteCostBody} ${activeCount + 1}/${seatLimit}.` -
-   * "what an invite costs against the seat limit before it is sent" (this item's own Scope,
-   * verbatim), shown in the confirmation step itself rather than only as an inline aside. */
-  operatorsTeamInviteCostBody: string;
+  /**
+   * `25-18`: one string per role rather than one role-agnostic string, so the invite confirmation
+   * names which seat it is about to spend - "This will use one more Operator seat" /
+   * "...Administrator seat", never "one more of your seats" regardless of the role picked below it.
+   * Trailing interpolation, same shape as the string this replaces -
+   * `${operatorsTeamInviteCostBodyOperator | operatorsTeamInviteCostBodyAdmin} ${activeCount +
+   * 1}/${seatLimit}.`
+   *
+   * The count and limit after the role-specific prefix are still the site's one combined figure -
+   * `OperatorsTeamPage`'s own `activeOperatorCount`/`summary.seatLimit`, unchanged by this item -
+   * not a second, per-role figure. `ago-business` decision `0011` calls for a genuinely separate
+   * Administrator limit, but `ago-chat`'s `Site` aggregate carries exactly one `SeatLimit` today and
+   * `GetSeatAssignmentSummaryHandler`/`ToggleOperatorSeatHandler`/`RedeemOperatorInviteHandler` all
+   * gate every role against it identically (verified by reading those handlers directly, not
+   * assumed) - `23-71` gave the account's administrator a seatless sign-in, but did not give
+   * Administrators their own counted pool. Showing a fabricated second limit here would tell an
+   * inviter a number the server does not enforce; naming the role without inventing a number it does
+   * not have is the honest version of this item until that backend work lands (see this item's own
+   * worker report for the specific gap named for the author to act on).
+   */
+  operatorsTeamInviteCostBodyOperator: string;
+  operatorsTeamInviteCostBodyAdmin: string;
   operatorsTeamInviteConfirmButton: string;
   operatorsTeamInviteSendingButton: string;
   /** Shown, and the invite never created, when the site is already at its seat limit -

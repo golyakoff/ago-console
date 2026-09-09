@@ -210,7 +210,8 @@ describe("the pre-invite seat check", () => {
 
     const container = await render(page());
     await interact(() => byText<HTMLButtonElement>(container, "button", "Invite a colleague").click());
-    expect(container.textContent).toContain("This will use one more of your seats");
+    // `25-18`: the dialog opens on the Operator default, so the cost line names that seat specifically.
+    expect(container.textContent).toContain("This will use one more Operator seat");
 
     await interact(() => byText<HTMLButtonElement>(container, "button", "Send invite").click());
 
@@ -285,6 +286,43 @@ describe("the invite dialog's role picker", () => {
 
     await interact(() => byText<HTMLButtonElement>(container, "button", "Send invite").click());
     expect(operatorTeamApi.createOperatorInvite).toHaveBeenCalledWith("token", SITE_ID, "Admin");
+  });
+
+  /**
+   * `25-18`: the seat-cost line names which role it is spending, and reacts live to the picker -
+   * not fixed at the values the dialog opened with. Exercises both roles in one test, on the same
+   * open dialog, so a message that only differed because the dialog was re-opened could not pass by
+   * accident.
+   */
+  it("names the role being invited in the cost line, and updates it live as the picker changes", async () => {
+    twoOperatorsAndASummary(5);
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Invite a colleague").click());
+
+    // Opens on the Operator default (`23-72`'s own `inviteRoleName` initial state).
+    expect(container.textContent).toContain("This will use one more Operator seat");
+    expect(container.textContent).not.toContain("This will use one more Administrator seat");
+
+    const roleSelect = container.querySelector("select");
+    await interact(() => {
+      if (roleSelect) {
+        roleSelect.value = "Admin";
+        roleSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
+
+    expect(container.textContent).toContain("This will use one more Administrator seat");
+    expect(container.textContent).not.toContain("This will use one more Operator seat");
+
+    await interact(() => {
+      if (roleSelect) {
+        roleSelect.value = "Operator";
+        roleSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
+
+    expect(container.textContent).toContain("This will use one more Operator seat");
   });
 });
 
