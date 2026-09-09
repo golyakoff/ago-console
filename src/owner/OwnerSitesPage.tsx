@@ -276,8 +276,19 @@ export function OwnerSitesPage() {
             // `25-20`: the price list's own entry point - a plain in-page link rather than a second
             // `AppShell` `pinnedItem` (that slot holds exactly one entry, "Platform sites" itself,
             // and both owner screens already reuse it to point back here). `PageHead`'s own `aside`
-            // slot is "status or secondary controls, rendered opposite the title" - exactly this.
-            aside={<Link to="/owner/pricing">Price list</Link>}
+            // slot is "status or secondary controls, rendered opposite the title" - exactly this,
+            // and the other pages that already put something there (`CalendarBookingsPage`,
+            // `CalendarContactsPage`) use `Button`, never a bare `Link` - carried over here by
+            // applying `Button`'s own CSS classes to the `Link`, so this stays a real `<a>` (ctrl-click,
+            // right-click "copy link", the browser's own status-bar preview all keep working, unlike
+            // wrapping a `<button onClick={navigate(...)}>` would) while getting the identical
+            // touch-target sizing - a bare `Link` here failed the UX gate's own minimum-interactive-
+            // size check live in CI (63x22px against the enforced minimum).
+            aside={
+              <Link to="/owner/pricing" className="ago-btn ago-btn--secondary ago-btn--md">
+                Price list
+              </Link>
+            }
             // Found live, 2026-08-28: the table below used to sit in its own titled `Panel` ("Sites"),
             // whose description carried the one fact `PageHead` did not already say - the time window
             // behind "message volume" and "last activity". That fact is real, not redundant (unlike
