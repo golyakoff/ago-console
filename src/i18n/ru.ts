@@ -320,6 +320,24 @@ export const ru: ConsoleStrings = {
   widgetAttractAttentionLabel: "Привлекать внимание, пока виджет закрыт",
   widgetAttractAttentionDescription:
     "Кнопка несколько раз слегка подрагивает, затем перестаёт - никогда, пока панель открыта, и никогда после того, как посетитель её закрыл. Всегда отключено, если браузер посетителя просит уменьшить анимацию, независимо от этой настройки.",
+  widgetAutoOpenLabel: "Раскрывать виджет автоматически",
+  widgetAutoOpenDescription:
+    "Через указанную задержку панель откроется сама и покажет ваше приветствие - оно рисуется только в " +
+    "браузере посетителя и никуда не отправляется, пока он сам не напишет вам. С нашей стороны ничего не " +
+    "создаётся, пока этого не произошло.",
+  widgetAutoOpenDelayFieldLabel: "Задержка перед открытием",
+  widgetAutoOpenGreetingFieldLabel: "Текст приветствия",
+  widgetAutoOpenGreetingFieldDescription:
+    "Это ваша собственная первая фраза, показанная как будто от вашего имени - AGO не пишет её за вас, и " +
+    "текста по умолчанию нет.",
+  widgetAutoOpenGreetingPlaceholder: "Здравствуйте! Нужна помощь с выбором?",
+  widgetAutoOpenGreetingRequiredValidation: "Для автораскрытия нужно приветствие - текста по умолчанию нет.",
+  widgetAutoOpenDelay15: "15 секунд",
+  widgetAutoOpenDelay30: "30 секунд",
+  widgetAutoOpenDelay45: "45 секунд",
+  widgetAutoOpenDelay60: "60 секунд",
+  widgetAutoOpenDelay90: "90 секунд",
+  widgetAutoOpenDelay120: "120 секунд",
 
   installForbidden: "У вас нет права просматривать данные для установки этого сайта.",
   installLoadError: "Не удалось загрузить данные для установки.",

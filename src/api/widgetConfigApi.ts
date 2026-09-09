@@ -19,6 +19,16 @@ export type WidgetPosition = "BottomRight" | "BottomLeft";
  */
 export type WidgetLocale = "En" | "Ru";
 
+/**
+ * `23-64`: `Ago.Chat.Domain.AutoOpenDelay`'s own six legal values, crossing the wire as the plain
+ * `int` they already are - unlike `WidgetPosition`/`WidgetLocale`, this enum's wire spelling is
+ * already its own value (`AutoOpenDelay`'s own remarks), so a numeric union is the "named union, not
+ * a bare number" this field needs, without inventing a second PascalCase-string convention to parse.
+ * A typo (`21`) is a TypeScript compile error here, the same protection `WidgetPosition` already
+ * gives its own field.
+ */
+export type AutoOpenDelaySeconds = 15 | 30 | 45 | 60 | 90 | 120;
+
 export interface WidgetConfigDto {
   primaryColorHex: string | null;
   position: WidgetPosition;
@@ -49,6 +59,22 @@ export interface WidgetConfigDto {
    * this value, so this field states the tenant's own choice, never the effective outcome.
    */
   attractAttention: boolean;
+  /**
+   * `23-64`/`adr/0148`: off by default, and off until the tenant turns it on - the identical "a
+   * schema default must not change a visitor-facing behaviour for every existing site" posture
+   * `attractAttention` already states for itself. `ago-widget`'s own auto-open timer (`ui/widget.ts`)
+   * is what actually decides whether to draw the greeting on any given page load - this field states
+   * only the tenant's own configured choice, not the effective outcome (a returning visitor who has
+   * already been shown it this session sees nothing further, regardless of this value).
+   */
+  autoOpenEnabled: boolean;
+  /** `23-64`: the closed set `AutoOpenDelaySeconds` fixes - `30` (`Ago.Chat.Domain.AutoOpenDelay.Seconds30`)
+   * for every site that has never configured one, including every row that predates this field. */
+  autoOpenDelaySeconds: AutoOpenDelaySeconds;
+  /** `23-64`: the tenant's own greeting line - never sent to the server until the visitor writes
+   * (`adr/0148`), and never an AGO-authored default the way `noticeText`'s own remarks already state
+   * for the tenant's processing notice. `null` for every site that has not configured one. */
+  autoOpenGreetingText: string | null;
 }
 
 /**

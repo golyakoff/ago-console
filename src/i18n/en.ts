@@ -323,6 +323,24 @@ export const en: ConsoleStrings = {
   widgetAttractAttentionLabel: "Attract attention while closed",
   widgetAttractAttentionDescription:
     "Pulses the launcher a few times, then stops - never while the panel is open, never after it has been dismissed. Always off for a visitor whose browser asks for reduced motion, whatever this setting says.",
+  widgetAutoOpenLabel: "Open the widget automatically",
+  widgetAutoOpenDescription:
+    "After the delay below, the panel opens itself and shows your greeting - drawn only in the visitor's " +
+    "browser, never sent anywhere, unless they actually write to you. Nothing is created on our side until " +
+    "they do.",
+  widgetAutoOpenDelayFieldLabel: "Delay before opening",
+  widgetAutoOpenGreetingFieldLabel: "Greeting text",
+  widgetAutoOpenGreetingFieldDescription:
+    "This is your own first line, shown as if from your side - AGO does not write it for you, and there is " +
+    "no default sentence.",
+  widgetAutoOpenGreetingPlaceholder: "Hi, need any help finding something?",
+  widgetAutoOpenGreetingRequiredValidation: "Auto-open needs a greeting - there is no default text.",
+  widgetAutoOpenDelay15: "15 seconds",
+  widgetAutoOpenDelay30: "30 seconds",
+  widgetAutoOpenDelay45: "45 seconds",
+  widgetAutoOpenDelay60: "60 seconds",
+  widgetAutoOpenDelay90: "90 seconds",
+  widgetAutoOpenDelay120: "120 seconds",
 
   installForbidden: "You do not have permission to view this site's installation details.",
   installLoadError: "Failed to load your installation details.",

@@ -5,6 +5,7 @@ import {
   fetchWidgetConfig,
   updateWidgetConfig,
   WidgetConfigError,
+  type AutoOpenDelaySeconds,
   type WidgetConfigDto,
   type WidgetLocale,
   type WidgetPosition,
@@ -45,6 +46,22 @@ const LOCALE_LABELS: Record<WidgetLocale, string> = {
   Ru: "Русский",
 };
 
+// `23-64`: a third closed-set-of-<N> map on this page, the same shape `POSITION_LABELS`/`LOCALE_LABELS`
+// already establish - a function of `strings` for the identical reason `positionLabels` is (a
+// module-level `Record` cannot call `useStrings()`).
+function autoOpenDelayLabels(strings: ConsoleStrings): Record<AutoOpenDelaySeconds, string> {
+  return {
+    15: strings.widgetAutoOpenDelay15,
+    30: strings.widgetAutoOpenDelay30,
+    45: strings.widgetAutoOpenDelay45,
+    60: strings.widgetAutoOpenDelay60,
+    90: strings.widgetAutoOpenDelay90,
+    120: strings.widgetAutoOpenDelay120,
+  };
+}
+
+const AUTO_OPEN_DELAY_OPTIONS: readonly AutoOpenDelaySeconds[] = [15, 30, 45, 60, 90, 120];
+
 const DEFAULT_SWATCH_COLOR = "#2f6fed";
 
 /**
@@ -73,6 +90,7 @@ export function WidgetConfigPage() {
   const { permissions, siteId, hasPermission } = usePermissions();
   const strings = useStrings();
   const POSITION_LABELS = positionLabels(strings);
+  const AUTO_OPEN_DELAY_LABELS = autoOpenDelayLabels(strings);
   const [current, setCurrent] = useState<WidgetConfigDto | null>(null);
   const [colorInput, setColorInput] = useState("");
   const [position, setPosition] = useState<WidgetPosition>("BottomRight");
@@ -83,9 +101,16 @@ export function WidgetConfigPage() {
   // `23-63`: off by default until the load call resolves - matches the server's own "off unless the
   // tenant turns it on" default, so a slow load never briefly implies the toggle is already on.
   const [attractAttention, setAttractAttention] = useState(false);
+  // `23-64`: the same "off until the load call resolves" default as `attractAttention` above, for the
+  // identical reason - plus the delay's own server-side default (`AutoOpenDelay.Seconds30`) so the
+  // select never briefly renders with nothing selected.
+  const [autoOpenEnabled, setAutoOpenEnabled] = useState(false);
+  const [autoOpenDelaySeconds, setAutoOpenDelaySeconds] = useState<AutoOpenDelaySeconds>(30);
+  const [autoOpenGreetingTextInput, setAutoOpenGreetingTextInput] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [noticeUrlValidationError, setNoticeUrlValidationError] = useState<string | null>(null);
+  const [autoOpenGreetingValidationError, setAutoOpenGreetingValidationError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -106,6 +131,9 @@ export function WidgetConfigPage() {
         setNoticeUrlInput(dto.noticeUrl ?? "");
         setRequireContactConsent(dto.requireContactConsent);
         setAttractAttention(dto.attractAttention);
+        setAutoOpenEnabled(dto.autoOpenEnabled);
+        setAutoOpenDelaySeconds(dto.autoOpenDelaySeconds);
+        setAutoOpenGreetingTextInput(dto.autoOpenGreetingText ?? "");
         setLoadError(null);
       })
       .catch((err: unknown) =>
@@ -159,6 +187,18 @@ export function WidgetConfigPage() {
     }
     setNoticeUrlValidationError(null);
 
+    // `23-64`: UX-only mirror of `Ago.Chat.Domain.WidgetConfig`'s own "auto-open enabled requires a
+    // greeting" guard - the identical posture the two checks above already take toward their own
+    // server-side rule. `UpdateWidgetConfigHandler`'s `WidgetConfig.InvalidAutoOpenGreetingText` is
+    // the real, authoritative gate; a false "looks fine" here just means the server rejects it
+    // instead and this page surfaces that `detail` text unchanged, same as every other field.
+    const trimmedAutoOpenGreetingText = autoOpenGreetingTextInput.trim();
+    if (autoOpenEnabled && trimmedAutoOpenGreetingText.length === 0) {
+      setAutoOpenGreetingValidationError(strings.widgetAutoOpenGreetingRequiredValidation);
+      return;
+    }
+    setAutoOpenGreetingValidationError(null);
+
     const accessToken = user?.access_token;
     if (!accessToken || !siteId) {
       // `RequireAuth` guarantees a signed-in session, and `siteId` arrives on the same response
@@ -179,6 +219,9 @@ export function WidgetConfigPage() {
         noticeUrl: trimmedNoticeUrl.length > 0 ? trimmedNoticeUrl : null,
         requireContactConsent,
         attractAttention,
+        autoOpenEnabled,
+        autoOpenDelaySeconds,
+        autoOpenGreetingText: trimmedAutoOpenGreetingText.length > 0 ? trimmedAutoOpenGreetingText : null,
       });
       setCurrent(dto);
       setColorInput(dto.primaryColorHex ?? "");
@@ -188,6 +231,9 @@ export function WidgetConfigPage() {
       setNoticeUrlInput(dto.noticeUrl ?? "");
       setRequireContactConsent(dto.requireContactConsent);
       setAttractAttention(dto.attractAttention);
+      setAutoOpenEnabled(dto.autoOpenEnabled);
+      setAutoOpenDelaySeconds(dto.autoOpenDelaySeconds);
+      setAutoOpenGreetingTextInput(dto.autoOpenGreetingText ?? "");
       setSaved(true);
     } catch (err) {
       setSubmitError(err instanceof WidgetConfigError ? err.message : strings.widgetSubmitError);
@@ -303,6 +349,56 @@ export function WidgetConfigPage() {
                 <span>{strings.widgetAttractAttentionLabel}</span>
               </label>
               <p className="ago-meta">{strings.widgetAttractAttentionDescription}</p>
+
+              {/* `23-64`: same "label with sibling text, no separate Field description" shape as
+                  `attractAttention` just above - the checkbox itself, then the delay/greeting controls
+                  that only matter once it is checked, always rendered (not conditionally hidden) the
+                  same way `noticeText`/`noticeUrl` stay visible regardless of whether either is
+                  filled in - one form, no branching on this screen's own layout. */}
+              <label className="ago-row">
+                <input
+                  type="checkbox"
+                  checked={autoOpenEnabled}
+                  onChange={(e) => setAutoOpenEnabled(e.target.checked)}
+                  disabled={submitting}
+                />
+                <span>{strings.widgetAutoOpenLabel}</span>
+              </label>
+              <p className="ago-meta">{strings.widgetAutoOpenDescription}</p>
+
+              <Field label={strings.widgetAutoOpenDelayFieldLabel}>
+                {(controlProps) => (
+                  <Select
+                    {...controlProps}
+                    value={autoOpenDelaySeconds}
+                    onChange={(e) => setAutoOpenDelaySeconds(Number(e.target.value) as AutoOpenDelaySeconds)}
+                    disabled={submitting}
+                  >
+                    {AUTO_OPEN_DELAY_OPTIONS.map((seconds) => (
+                      <option key={seconds} value={seconds}>
+                        {AUTO_OPEN_DELAY_LABELS[seconds]}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+
+              <Field
+                label={strings.widgetAutoOpenGreetingFieldLabel}
+                description={strings.widgetAutoOpenGreetingFieldDescription}
+                error={autoOpenGreetingValidationError}
+              >
+                {(controlProps) => (
+                  <Textarea
+                    {...controlProps}
+                    rows={2}
+                    value={autoOpenGreetingTextInput}
+                    onChange={(e) => setAutoOpenGreetingTextInput(e.target.value)}
+                    placeholder={strings.widgetAutoOpenGreetingPlaceholder}
+                    disabled={submitting}
+                  />
+                )}
+              </Field>
             </div>
           </Panel>
 
