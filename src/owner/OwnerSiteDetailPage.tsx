@@ -842,18 +842,29 @@ export function OwnerSiteDetailPage() {
           </Alert>
 
           {/* `23-66`: a quantity's own read only ever comes from this row, never from the module -
-              this screen shows what was granted, not what the module has caught up to applying. */}
+              this screen shows what was granted, not what the module has caught up to applying.
+              `23-89`: the wording used to point at "the outbox's own poll interval" as though that
+              were the actual mechanism - it is only the dispatcher's fallback for a missed wake-up
+              (`Ago.Chat.Worker.OutboxDispatcherOptions.PollInterval`'s own remarks). The number below
+              ("a minute or so") is that fallback plus one publish retry
+              (`OutboxDispatcherOptions.PublishTimeout`), not a guess - see this item's report for the
+              exact constants. What this alert cannot promise is a bound during a genuine broker
+              outage, which is why it says "running behind" rather than naming a hard ceiling. */}
           <Alert tone="info">
             A module's own countable quantity (workers, for the calendar module) is granted here and
-            applied by the module itself asynchronously - typically within a few seconds, the outbox's
-            own poll interval. This table shows what chat has granted the moment you grant it; the
-            module may take a little longer to catch up.
+            applied by the module itself asynchronously, off a queue chat writes to - typically within
+            a few seconds. This table shows what chat has granted the moment you grant it; if the
+            module hasn't caught up after about a minute, the queue is running behind rather than
+            stuck. Granting the same number again is always safe - it never doubles anything - but
+            shouldn't be necessary; the module will catch up on its own.
           </Alert>
 
           {quantitySaved && (
             <Alert tone="success">
               Granted {formatModuleQuantity(quantitySaved.quantity)} for {quantitySaved.moduleKey}. Chat's
-              own record reflects it now - the module typically applies it within a few seconds.
+              own record reflects it now - the module typically catches up within a few seconds, and
+              rarely more than about a minute. No need to grant it again even if this table still
+              shows it - that would be safe, just unnecessary.
             </Alert>
           )}
 
