@@ -72,14 +72,19 @@ function shellAt(siteId: string = SITE_ID) {
   );
 }
 
+let nextModuleId = 0;
+
 function oneModule(overrides: Partial<OwnerSiteModule> = {}): OwnerSiteModule {
+  nextModuleId += 1;
   return {
+    id: `module-${nextModuleId}`,
     moduleKey: "calendar",
     triggerWords: ["book-a-table"],
     entryPoint: "https://module.example.com/entry",
     grantedByOwner: true,
     expiresAt: null,
-    isActive: true,
+    revokedAt: null,
+    status: "Active",
     quantity: null,
     ...overrides,
   };
@@ -176,7 +181,7 @@ describe("the site detail page's own entitlements table", () => {
             moduleKey: "calendar",
             grantedByOwner: true,
             expiresAt: "2026-12-31T00:00:00Z",
-            isActive: true,
+            status: "Active",
           }),
         ],
       }),
@@ -223,14 +228,14 @@ describe("the site detail page's own entitlements table", () => {
   });
 
   /** The item's own most-emphasised Done-when: an expired grant is shown as expired, not omitted -
-   * matching what the live read-store query already decided (`isActive: false`), never recomputed by
-   * this page from `expiresAt` and the browser's own clock. */
+   * matching what the live read-store query already decided (`status: "Expired"`), never recomputed
+   * by this page from `expiresAt` and the browser's own clock. */
   it("shows an expired grant as expired, not omitted from the list", async () => {
     ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
       status: "ok",
       site: detail({
         modules: [
-          oneModule({ moduleKey: "calendar", expiresAt: "2020-01-01T00:00:00Z", isActive: false }),
+          oneModule({ moduleKey: "calendar", expiresAt: "2020-01-01T00:00:00Z", status: "Expired" }),
         ],
       }),
     });
@@ -240,6 +245,60 @@ describe("the site detail page's own entitlements table", () => {
     const row = one<HTMLTableRowElement>(container, "table tbody tr");
     expect(row.textContent).toContain("calendar");
     expect(row.textContent).toContain("Expired");
+  });
+
+  /** `23-103`: a revoked grant reads "Revoked", never conflated with "Expired" - the two are
+   * different facts (a deliberate act versus a grant's own end date quietly arriving), and this test
+   * is the console-side half of the precedence `Ago.Chat.Application.Abstractions
+   * .EnabledModuleDetailSummary`'s own remarks establish on the server. */
+  it("shows a revoked grant as Revoked, not Expired", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({
+        modules: [
+          oneModule({
+            moduleKey: "calendar",
+            expiresAt: null,
+            revokedAt: "2026-09-08T06:33:22Z",
+            status: "Revoked",
+          }),
+        ],
+      }),
+    });
+
+    const container = await render(shellAt());
+
+    const row = one<HTMLTableRowElement>(container, "table tbody tr");
+    expect(row.textContent).toContain("Revoked");
+    expect(row.textContent).not.toContain("Expired");
+  });
+
+  /** `adr/0155`: a revoke-then-re-grant leaves two rows for one (site, module) pair, both returned by
+   * the same list. Each must render as its own row - not collapse into one because they share a
+   * `moduleKey` - proven by a distinguishing fact from each row surviving into the DOM. */
+  it("renders two rows for the same module key as two distinct rows", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({
+        modules: [
+          oneModule({
+            moduleKey: "calendar",
+            expiresAt: null,
+            revokedAt: "2026-09-08T06:33:22Z",
+            status: "Revoked",
+          }),
+          oneModule({ moduleKey: "calendar", expiresAt: null, revokedAt: null, status: "Active" }),
+        ],
+      }),
+    });
+
+    const container = await render(shellAt());
+
+    const rows = all(container, "table tbody tr");
+    expect(rows).toHaveLength(2);
+    const statuses = rows.map((row) => row.textContent ?? "");
+    expect(statuses.some((text) => text.includes("Revoked"))).toBe(true);
+    expect(statuses.some((text) => text.includes("Active"))).toBe(true);
   });
 
   it("states in words what an expiry does and does not do", async () => {
@@ -513,7 +572,7 @@ describe("the site detail page's own grant form", () => {
     });
     // `GrantOwnerModuleOutcome`'s own remarks: the response is not spliced into the table locally -
     // the page re-reads the tenant's own detail instead, so the read that was already proven to
-    // reflect the server's own `isActive`/`grantedByOwner` stays the only source for that table.
+    // reflect the server's own `status`/`grantedByOwner` stays the only source for that table.
     expect(ownerApi.fetchOwnerSiteDetail).toHaveBeenCalledTimes(2);
   });
 

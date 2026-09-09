@@ -39,6 +39,7 @@ import {
   formatModuleStatus,
   formatNoRecentActivity,
   formatRecentMessagesHeader,
+  moduleStatusTone,
 } from "./ownerSites.js";
 
 /** `23-65`: whether the grant form's expiry has been chosen at all. `"unset"` is the form's own
@@ -154,8 +155,8 @@ export function OwnerSiteDetailPage() {
 
   // `23-65`: extracted out of the load effect below so a successful grant or revoke can re-run the
   // identical read rather than splice a locally-built row into `site.modules` - `GrantModuleResponse`
-  // does not even carry `isActive`/`grantedByOwner`, and this screen's own Done-when requires
-  // `isActive` to come from the server's own live comparison, never be recomputed here (`buildModuleColumns`'s
+  // does not even carry `status`/`grantedByOwner`, and this screen's own Done-when requires
+  // `status` to come from the server's own live comparison, never be recomputed here (`buildModuleColumns`'s
   // own remarks below).
   const loadSiteDetail = useCallback(() => {
     if (!accessToken || !siteId) {
@@ -357,7 +358,7 @@ export function OwnerSiteDetailPage() {
           setExpiryChoice("unset");
           setExpiryDateInput("");
           // Re-read rather than splice a locally-built row in - `outcome.module` carries no
-          // `isActive`/`grantedByOwner` (`GrantOwnerModuleOutcome`'s own remarks), and this table
+          // `status`/`grantedByOwner` (`GrantOwnerModuleOutcome`'s own remarks), and this table
           // renders only what the server itself computed.
           loadSiteDetail();
           return;
@@ -827,7 +828,7 @@ export function OwnerSiteDetailPage() {
               caption="Every module this tenant has ever had enabled, including any that have since expired."
               columns={moduleColumns}
               rows={site.modules}
-              rowKey={(module) => module.moduleKey}
+              rowKey={(module) => module.id}
             />
           )}
 
@@ -1203,10 +1204,10 @@ function buildModuleColumns(
       key: "status",
       header: "Status",
       render: (module) => (
-        // Rendered directly from the server's own `isActive` - matching what the live read-store
-        // query already decided, never recomputed here by comparing `expiresAt` against this
-        // browser's own clock (this item's own Done-when).
-        <Badge tone={module.isActive ? "success" : "danger"}>{formatModuleStatus(module.isActive)}</Badge>
+        // `23-103`: rendered directly from the server's own `status` - matching what the live
+        // read-store query already decided, never recomputed here by comparing
+        // `expiresAt`/`revokedAt` against this browser's own clock (this item's own Done-when).
+        <Badge tone={moduleStatusTone(module.status)}>{formatModuleStatus(module.status)}</Badge>
       ),
     },
     {

@@ -9,6 +9,7 @@ import {
   formatModuleStatus,
   formatNoRecentActivity,
   formatRecentMessagesHeader,
+  moduleStatusTone,
 } from "./ownerSites.js";
 
 describe("formatCount", () => {
@@ -100,14 +101,32 @@ describe("formatModuleExpiry", () => {
 });
 
 describe("formatModuleStatus", () => {
-  // Rendered straight from the server's own `isActive` - these tests exist to pin the two labels the
-  // rest of the screen depends on, not to re-derive expiry logic the console must never own.
-  it("labels an active module Active", () => {
-    expect(formatModuleStatus(true)).toBe("Active");
+  // Rendered straight from the server's own `status` - these tests exist to pin that this is a
+  // passthrough, not a place the console re-derives what the server already decided.
+  it("passes Active through unchanged", () => {
+    expect(formatModuleStatus("Active")).toBe("Active");
   });
 
-  it("labels an inactive module Expired", () => {
-    expect(formatModuleStatus(false)).toBe("Expired");
+  it("passes Expired through unchanged", () => {
+    expect(formatModuleStatus("Expired")).toBe("Expired");
+  });
+
+  it("passes Revoked through unchanged", () => {
+    expect(formatModuleStatus("Revoked")).toBe("Revoked");
+  });
+});
+
+describe("moduleStatusTone", () => {
+  it("gives Active the success tone", () => {
+    expect(moduleStatusTone("Active")).toBe("success");
+  });
+
+  it("gives Revoked the danger tone - a deliberate act, not a quiet lapse", () => {
+    expect(moduleStatusTone("Revoked")).toBe("danger");
+  });
+
+  it("gives Expired the neutral tone, distinct from Revoked", () => {
+    expect(moduleStatusTone("Expired")).toBe("neutral");
   });
 });
 

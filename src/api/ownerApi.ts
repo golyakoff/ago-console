@@ -114,6 +114,10 @@ export async function fetchOwnerSites(
  * remarks give for tracking `OwnerSiteSummaryDto`.
  */
 export interface OwnerSiteModule {
+  /** `23-103`: a stable per-row id, not derivable from `moduleKey` - `adr/0155`: a revoke-then-re-grant
+   * leaves two rows for one (site, module) pair, both returned here, and this is what tells them apart
+   * (a React list key, and which row an action is about). */
+  id: string;
   moduleKey: string;
   triggerWords: string[];
   entryPoint: string;
@@ -121,14 +125,19 @@ export interface OwnerSiteModule {
    * themselves - the wire-visible half of `22-17`'s audit distinction. */
   grantedByOwner: boolean;
   /** `null` for a grant that does not expire - rendered as an explicit "no end date", never as a
-   * blank cell (this item's own Done-when). */
+   * blank cell (this item's own Done-when). Still present after `23-103` even when `status` is
+   * `"Revoked"` - a grant can be both expired and revoked. */
   expiresAt: string | null;
-  /** `false` once `expiresAt` has passed. Computed server-side, by the same live comparison the
-   * production read path uses to decide whether chat still offers this module - rendered directly,
-   * never recomputed here by comparing `expiresAt` against the browser's own clock (this item's own
-   * Done-when: "matching what the live read-store query already decides rather than re-deriving it in
-   * the console"). */
-  isActive: boolean;
+  /** `23-103`: `null` for a grant that has never been revoked, otherwise when the platform owner
+   * revoked it - the same "the row says when" shape `expiresAt` already gives its own end date. */
+  revokedAt: string | null;
+  /** `23-103`: one of `"Active"`, `"Expired"` or `"Revoked"` - what this grant actually is right now,
+   * computed once server-side from the identical row this whole object is projected from
+   * (`Ago.Chat.Contracts.OwnerSiteModuleDto.Status`'s own remarks). Rendered directly, never
+   * re-derived here by comparing `expiresAt`/`revokedAt` against the browser's own clock. Replaces the
+   * old `isActive` boolean this field carried before `23-103` - that boolean cannot distinguish
+   * "revoked" from "expired", and the server stopped sending it. */
+  status: string;
   /** `23-66`: this module's own granted countable quantity - the calendar add-on's "N masters" is the
    * first real instance, opaque here exactly like `moduleKey` itself. `null` when no quantity was
    * ever granted for this module, distinct from `0` (a quantity explicitly granted as zero, a tenant
