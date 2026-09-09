@@ -313,11 +313,17 @@ describe("the operator navigation", () => {
 
     expect(sectionLabels(container)).toEqual(["Conversations", "Analytics", "Calendar", "Team"]);
     await openSection(container, "Calendar");
-    expect(itemLabels(container)).toEqual(["Waiting", "Bookings", "Contacts", "Masters", "Services", "Schedule", "Setup", "Phone reveals", "Merges"]);
+    expect(itemLabels(container)).toEqual(["Waiting", "Bookings", "Contacts", "Masters", "Services", "Schedule", "Setup", "Merges"]);
     // `23-34`: "Bookings" is a real link now (`/calendar/bookings`, `CalendarBookingsPage`) - it was
     // `reserved` only until this item gave the confirmed-bookings screen an actual route.
     expect(reservedItemLabels(container)).toEqual([]);
     expect(mutedItemLabels(container)).toEqual([]);
+
+    // `25-17`: "Phone reveals" moved to Analytics - still drawn from the identical
+    // `calendar:configure` gate this operator holds, even though they hold no tenant-level
+    // permission (`isAdmin` is false here) and so see none of the other four Analytics screens.
+    await openSection(container, "Analytics");
+    expect(itemLabels(container)).toEqual(["My numbers", "Phone reveals"]);
   });
 
   it("`23-34`/`23-57`: offers the Calendar section with Bookings and Contacts, to an operator who holds customer:read but neither calendar:configure nor site:configure", async () => {
@@ -458,8 +464,13 @@ describe("the operator navigation", () => {
     expect(mutedItemLabels(container)).toEqual([]);
 
     await openSection(container, "Calendar");
-    expect(itemLabels(container)).toEqual(["Waiting", "Bookings", "Contacts", "Masters", "Services", "Schedule", "Setup", "Phone reveals", "Merges"]);
+    expect(itemLabels(container)).toEqual(["Waiting", "Bookings", "Contacts", "Masters", "Services", "Schedule", "Setup", "Merges"]);
     expect(mutedItemLabels(container)).toEqual([]);
+
+    // `25-17`: "Phone reveals" lives under Analytics now, alongside the other four tenant-only
+    // analytics screens this identity also sees (it holds site:configure).
+    await openSection(container, "Analytics");
+    expect(itemLabels(container)).toEqual(["My numbers", "Analytics", "Conversion", "Tag report", "Booking flow", "Phone reveals"]);
 
     await openSection(container, "Team");
     expect(itemLabels(container)).toEqual(["Employees", "Team chat"]);
