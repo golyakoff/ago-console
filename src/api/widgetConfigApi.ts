@@ -75,6 +75,16 @@ export interface WidgetConfigDto {
    * (`adr/0148`), and never an AGO-authored default the way `noticeText`'s own remarks already state
    * for the tenant's processing notice. `null` for every site that has not configured one. */
   autoOpenGreetingText: string | null;
+  /**
+   * `25-39`: a temporary, off-by-default relaxation of the booking module's own verified-phone
+   * requirement, for as long as `14-15` has no live SMS/voice gateway account provisioned. While on,
+   * a chat-driven booking either completes straight away with a phone number the visitor already gave
+   * earlier in the conversation, or - if none was given yet - still asks for one without requiring
+   * proof of control over it. Never silently recorded as verified either way
+   * (`Ago.Calendar.Application.UseCases.ChatModuleTask.ReplyToModuleTaskHandler`'s own remarks); this
+   * is chat-module-only today, `20-10`'s public booking widget is unaffected regardless of this value.
+   */
+  acceptUnverifiedPhone: boolean;
 }
 
 /**

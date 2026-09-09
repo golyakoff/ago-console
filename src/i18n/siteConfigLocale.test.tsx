@@ -199,9 +199,14 @@ describe("the site-configuration screens for an active site with Locale = Ru", (
       "Ссылка на уведомление (необязательно)",
     ]);
     // `16-04`: the second panel title, proving the notice fields render under their own Russian
-    // heading rather than silently inside "Кнопка запуска" above.
+    // heading rather than silently inside "Кнопка запуска" above. `25-39`: a third panel title,
+    // proving the same for the temporary booking-relaxation checkbox.
     const panelTitles = all(container, ".ago-panel__title").map((t) => t.textContent?.trim());
-    expect(panelTitles).toEqual(["Кнопка запуска", "Уведомление об обработке данных"]);
+    expect(panelTitles).toEqual([
+      "Кнопка запуска",
+      "Уведомление об обработке данных",
+      "Бронирование (временно)",
+    ]);
     const saveButton = Array.from(container.querySelectorAll("button")).find((b) => b.type === "submit");
     expect(saveButton?.textContent).toBe("Сохранить");
   });

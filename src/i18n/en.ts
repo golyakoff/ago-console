@@ -341,6 +341,14 @@ export const en: ConsoleStrings = {
   widgetAutoOpenDelay60: "60 seconds",
   widgetAutoOpenDelay90: "90 seconds",
   widgetAutoOpenDelay120: "120 seconds",
+  widgetBookingPanelTitle: "Booking (temporary)",
+  widgetAcceptUnverifiedPhoneLabel: "Accept an unverified phone number for now",
+  widgetAcceptUnverifiedPhoneDescription:
+    "There is no live SMS/call provider wired up yet, so requiring a verified phone would make every " +
+    "chat-driven booking fail. While this is on, a booking completes with whatever phone number the " +
+    "visitor already gave in the conversation - or still asks for one if none was given - without " +
+    "proving they can be reached on it. The record always keeps track of which bookings were taken " +
+    "this way. Turn this off again once a real verification provider is in place.",
 
   installForbidden: "You do not have permission to view this site's installation details.",
   installLoadError: "Failed to load your installation details.",

@@ -527,6 +527,13 @@ export interface ConsoleStrings {
    * a pluralization function, the same "closed set of two, hand-written" shape `LOCALE_LABELS` already
    * uses in `WidgetConfigPage.tsx` (that page's own comment on why this project has exactly two
    * selects, now three). Keyed by the delay itself, `AutoOpenDelaySeconds`'s own values. */
+  /** `25-39`: a third widget-config panel, kept separate from "Launcher"/"Processing notice" - see
+   * `WidgetConfigPage.tsx`'s own remarks on why. A temporary, off-by-default relaxation of `20-09`'s
+   * verified-phone requirement for the chat-driven booking module, named plainly as a workaround for
+   * the missing `14-15` gateway rather than dressed up as a feature. */
+  widgetBookingPanelTitle: string;
+  widgetAcceptUnverifiedPhoneLabel: string;
+  widgetAcceptUnverifiedPhoneDescription: string;
   widgetAutoOpenDelay15: string;
   widgetAutoOpenDelay30: string;
   widgetAutoOpenDelay45: string;
