@@ -576,6 +576,28 @@ describe("the site detail page's own grant form", () => {
     expect(ownerApi.fetchOwnerSiteDetail).toHaveBeenCalledTimes(2);
   });
 
+  // `25-19`: the field used to be free text; this is the test the item's own "Done when" asks for -
+  // that picking a value from the dropdown (not merely leaving its default) is what reaches
+  // `EnableModuleForSiteAsOwnerHandler`'s own request body, proving the control is wired to the
+  // handler's actual field rather than only ever sending the option that happens to render first.
+  it("sends the module key actually picked from the dropdown, not just its default", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
+    ownerApi.grantOwnerModule.mockResolvedValue({
+      status: "ok",
+      module: { moduleKey: "faq", triggerWords: ["/booking"], expiresAt: null },
+    });
+
+    const container = await render(shellAt());
+    await fillGrantForm(container, { chooseExpiry: "never", moduleKey: "faq" });
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Grant module").click());
+
+    expect(ownerApi.grantOwnerModule).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({ moduleKey: "faq" }),
+    );
+  });
+
   it("shows the server's own refusal text inline for an invalid grant, without touching the entitlements table", async () => {
     ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
     ownerApi.grantOwnerModule.mockResolvedValue({
@@ -618,7 +640,8 @@ describe("the site detail page's own grant form", () => {
       });
 
       const container = await render(shellAt());
-      await setInput(one<HTMLInputElement>(container, 'input[placeholder="calendar"]'), "calendar");
+      // `25-19`: no module-key input to fill any more - the dropdown already defaults to "calendar",
+      // `KNOWN_MODULE_KEYS[0]`, which is the exact value this test's own mocked outcome expects back.
       await setInput(one<HTMLInputElement>(container, 'input[placeholder="/booking"]'), "/booking");
 
       await interact(() => byText<HTMLButtonElement>(container, "button", "Generate").click());
@@ -921,12 +944,42 @@ async function setInput(input: HTMLInputElement, value: string) {
   });
 }
 
+// `25-19`: the module-key field's own setter, now a `<select>` - mirrors `ContactDetailsPanel.test.tsx`'s
+// identical `setSelectValue` helper (a `"change"` event, not `"input"`, is what a native select fires).
+const SELECT_VALUE_DESCRIPTOR = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+
+async function setSelect(select: HTMLSelectElement, value: string) {
+  await interact(() => {
+    SELECT_VALUE_DESCRIPTOR?.set?.call(select, value);
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+/** The grant form's own module-key `<select>` - found by its `Field` label, not by `container.querySelector("select")`,
+ * because this page is *not* the only `<select>` on screen: `AppShell`'s own `ThemeToggle` renders one
+ * too, mounted ahead of this form in DOM order, so a bare `"select"` selector would silently drive the
+ * theme switcher instead of the grant form. `Field`'s own `htmlFor`/`id` wiring is what makes the two
+ * unambiguous. */
+function moduleKeySelect(container: HTMLElement): HTMLSelectElement {
+  const label = byText<HTMLLabelElement>(container, "label", "Module key");
+  if (label === null) {
+    throw new Error("no 'Module key' label found");
+  }
+  return one<HTMLSelectElement>(container, `#${label.htmlFor}`);
+}
+
 /** Fills every field of the grant form except (by default) the expiry, so each test opts into
  * exactly the expiry state it means to exercise - `{ chooseExpiry: false }` leaves it unset,
  * `"never"` picks the "Never expires" radio. Field values are fixed rather than parameterised: no
- * test in this file needs them to vary, only the expiry choice and the mocked outcome do. */
-async function fillGrantForm(container: HTMLElement, options: { chooseExpiry: false | "never" }) {
-  await setInput(one<HTMLInputElement>(container, 'input[placeholder="calendar"]'), "calendar");
+ * test in this file needs them to vary, only the expiry choice and (per `25-19`, optionally) the
+ * module key and the mocked outcome do. `moduleKey` defaults to `"calendar"` - the dropdown's own
+ * first option, `KNOWN_MODULE_KEYS[0]` - so every existing test keeps exercising the exact value it
+ * always has without having to name it. */
+async function fillGrantForm(
+  container: HTMLElement,
+  options: { chooseExpiry: false | "never"; moduleKey?: string },
+) {
+  await setSelect(moduleKeySelect(container), options.moduleKey ?? "calendar");
   await setInput(one<HTMLInputElement>(container, 'input[placeholder="/booking"]'), "/booking");
   await setInput(one<HTMLInputElement>(container, 'input[type="password"]'), "a-shared-secret-of-sixteen-plus-chars");
 

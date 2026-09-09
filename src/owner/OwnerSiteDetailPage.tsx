@@ -24,6 +24,7 @@ import { Dialog } from "../components/Dialog.js";
 import { Field } from "../components/Field.js";
 import { Input } from "../components/Input.js";
 import { Panel } from "../components/Panel.js";
+import { Select } from "../components/Select.js";
 import { Spinner } from "../components/Spinner.js";
 import { Table, type TableColumn } from "../components/Table.js";
 import { Textarea } from "../components/Textarea.js";
@@ -48,6 +49,37 @@ import {
  * and-nullable wire field, so this screen must not default to either "never" or a date; the platform
  * owner has to pick one. */
 type ExpiryChoice = "unset" | "never" | "date";
+
+/**
+ * `25-19`: the grant form's own module-key options, replacing the free-text input a typo used to
+ * slip through unnoticed - `EnableModuleForSiteAsOwnerHandler` only ever fails a typo'd key late
+ * (a 404-shaped `Module.EntryPointNotConfigured`), and the caption this dropdown replaces existed
+ * only to compensate for that: once the control cannot produce a value the server would reject on
+ * shape alone, the caption has nothing left to explain.
+ *
+ * **A stated interim answer, not a real source of truth.** `IModuleEntryPointProvider` (the port the
+ * handler actually resolves a key against) is deliberately opaque - keyed by whatever `ModuleKey` a
+ * caller supplies, never a fixed set Chat enumerates (`adr/0065` decision 2) - so there is no endpoint
+ * this page could call to ask "what module keys exist". This list is instead a small, hand-maintained
+ * mirror of the product's own known module vocabulary: the same two keys `ProductsPage.tsx` already
+ * hardcodes as the product's real, sellable modules (`"calendar"`, `"faq"`), and the same set
+ * `Ago.Chat.Architecture.Tests/KnownModuleKeys.cs` maintains server-side for its own literal-guard.
+ *
+ * **Deliberately not narrowed to what this one deployment has configured `ModuleEntryPoints:` for.**
+ * Only `calendar` is configured on the current cluster (`ago-deploy/k8s/base/api.yaml`) - `faq` is a
+ * real, shipped module (`19-03`, `FaqModulePage.tsx`) that simply is not deployed on this particular
+ * stand yet. Narrowing this list to "what happens to be configured right now" would make the dropdown
+ * *stricter than the API* on a deployment that has configured `faq` - exactly the regression this
+ * item's own "where this is likely to go wrong" note warns against. A key the current deployment has
+ * not configured an entry point for is still refused server-side, by name
+ * (`Module.EntryPointNotConfigured`) - the same legible refusal an unconfigured key already got before
+ * this change, not a new failure mode.
+ *
+ * **Update this list by hand when a third real module ships**, exactly the same maintenance cost
+ * `KnownModuleKeys.cs`'s own remarks accept for its server-side twin - there is no runtime discovery
+ * to keep it honest automatically.
+ */
+const KNOWN_MODULE_KEYS: readonly string[] = ["calendar", "faq"];
 
 /** What the server has said so far about this caller's access to `23-14`'s endpoint, and whether the
  * named site exists at all - the same `OwnerAccess` shape `OwnerSitesPage` uses, plus `"not-found"`
@@ -95,7 +127,11 @@ export function OwnerSiteDetailPage() {
   // `23-65`: the grant form's own state. `expiryChoice` starts `"unset"` - neither "never" nor a real
   // date - so the platform owner has to pick one before this form can submit at all; see this file's
   // own `ExpiryChoice` remarks.
-  const [moduleKeyInput, setModuleKeyInput] = useState("");
+  // `25-19`: defaults to the first known key rather than an empty/unset state - unlike `expiryChoice`
+  // just below, picking the wrong module from a short, fully-enumerated dropdown is a mistake the
+  // platform owner notices immediately on the same screen, not a silent business decision the way an
+  // un-chosen expiry would be, so there is no need to force an explicit first choice here.
+  const [moduleKeyInput, setModuleKeyInput] = useState<string>(KNOWN_MODULE_KEYS[0]);
   const [triggerWordsInput, setTriggerWordsInput] = useState("");
   const [credentialInput, setCredentialInput] = useState("");
   // `23-94`: whether the credential field currently shows its value in the clear. Starts hidden
@@ -296,14 +332,14 @@ export function OwnerSiteDetailPage() {
     setGrantSaved(false);
     setGrantError(null);
 
+    // `25-19`: no "empty module key" guard here any more - `moduleKeyInput` now comes from a `<select>`
+    // whose options are `KNOWN_MODULE_KEYS`, so it is never empty in the first place, unlike the free
+    // text this replaced. `.trim()` stays for symmetry with the two fields below it, not because a
+    // select value can carry whitespace.
     const trimmedKey = moduleKeyInput.trim();
     const triggerWords = parseTriggerWords(triggerWordsInput);
     const trimmedCredential = credentialInput.trim();
 
-    if (trimmedKey.length === 0) {
-      setGrantError("Enter a module key.");
-      return;
-    }
     if (triggerWords.length === 0) {
       setGrantError("Enter at least one trigger word.");
       return;
@@ -847,15 +883,20 @@ export function OwnerSiteDetailPage() {
             description="Gives this tenant a module with no payment - a sales trial, or restoring what a failed payment should have provisioned. The tenant cannot tell a grant apart from their own purchase in ordinary use; only this screen and the audit trail can."
           >
             <form className="ago-stack" onSubmit={handleGrantSubmit}>
-              <Field label="Module key" description="calendar, faq">
+              <Field label="Module key">
                 {(controlProps) => (
-                  <Input
+                  <Select
                     {...controlProps}
                     value={moduleKeyInput}
                     onChange={(event) => setModuleKeyInput(event.target.value)}
-                    placeholder="calendar"
                     disabled={grantSubmitting}
-                  />
+                  >
+                    {KNOWN_MODULE_KEYS.map((key) => (
+                      <option key={key} value={key}>
+                        {key}
+                      </option>
+                    ))}
+                  </Select>
                 )}
               </Field>
 
