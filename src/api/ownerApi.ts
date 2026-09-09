@@ -623,6 +623,79 @@ export async function restoreOwnerOperatorSeat(
 }
 
 /**
+ * `25-20`'s wire shape, mirrored field for field from `Ago.Chat.Contracts.OwnerSeatTierDto`. `minSeats`
+ * and `maxSeats` are inclusive, matching the server's own range check.
+ */
+export interface OwnerSeatTier {
+  key: string;
+  minSeats: number;
+  maxSeats: number;
+}
+
+/**
+ * `25-20`'s wire shape, mirrored field for field from `Ago.Chat.Contracts.OwnerSeatPricingDto` - the
+ * one billing mechanism in this product with a real, currently-charged number behind it. Every tier
+ * in `tiers` charges the identical `pricePerSeatRub`; the price lives here, once, rather than
+ * repeated unchanged on each tier row.
+ */
+export interface OwnerSeatPricing {
+  pricePerSeatRub: number;
+  billingPeriodDays: number;
+  freeSeatsIncluded: number;
+  tiers: OwnerSeatTier[];
+}
+
+/**
+ * `25-20`'s wire shape, mirrored field for field from `Ago.Chat.Contracts.OwnerBillingOptionDto`.
+ * `priceRub` is `null` on every deployment this product can describe today - see `OwnerPricingPage`'s
+ * own remarks for why an empty `billingOptions` list (never populated with an invented number) is the
+ * honest rendering of this shape rather than a gap in it.
+ */
+export interface OwnerBillingOption {
+  optionKey: string;
+  moduleKey: string | null;
+  priceRub: number | null;
+}
+
+/**
+ * `25-20`'s wire shape, mirrored field for field from `Ago.Chat.Contracts.OwnerPricingResponse`.
+ */
+export interface OwnerPricing {
+  seatPricing: OwnerSeatPricing;
+  billingOptions: OwnerBillingOption[];
+}
+
+/** The outcome of asking `25-20`'s endpoint for the price list - the identical `"not-authorized"`
+ * shape `OwnerSitesOutcome`'s own remarks establish, reused here for the identical reason: a
+ * `401`/`403` is the `RequirePlatformOwner` policy's own answer, not an exception. */
+export type OwnerPricingOutcome =
+  | { status: "ok"; pricing: OwnerPricing }
+  | { status: "not-authorized" };
+
+/**
+ * `25-20`: `GET /api/v1/owner/pricing` - every currently-paid capability's price, read from the same
+ * configuration the billing code itself charges from. Read-only, no parameters: one deployment has
+ * exactly one price list.
+ */
+export async function fetchOwnerPricing(accessToken: string): Promise<OwnerPricingOutcome> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/owner/pricing`);
+
+  const response = await fetch(url, {
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    return { status: "not-authorized" };
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to load the platform price list: ${response.status}`);
+  }
+
+  return { status: "ok", pricing: (await response.json()) as OwnerPricing };
+}
+
+/**
  * What the console *believes* about whether the signed-in caller may reach the owner screen.
  * `"unknown"` covers both "not asked yet" and "asked, and the answer was neither a yes nor a
  * refusal" (a network error, a 500) - which is treated exactly like a no everywhere it is used,
