@@ -103,13 +103,32 @@ export function formatModuleExpiry(expiresAt: string | null): string | null {
 }
 
 /**
- * `23-14`: "Active" / "Expired" - rendered directly from the server's own `isActive`, never
- * recomputed here by comparing `expiresAt` against the browser's own clock (this item's own
- * Done-when: "matching what the live read-store query already decides rather than re-deriving it in
- * the console").
+ * `23-14`/`23-103`: "Active" / "Expired" / "Revoked" - rendered directly from the server's own
+ * `status`, never recomputed here by comparing `expiresAt`/`revokedAt` against the browser's own
+ * clock (this item's own Done-when: "matching what the live read-store query already decides rather
+ * than re-deriving it in the console"). A passthrough, kept as a named function rather than inlined
+ * so this file stays the one place that knows the server sends exactly the string to show.
  */
-export function formatModuleStatus(isActive: boolean): string {
-  return isActive ? "Active" : "Expired";
+export function formatModuleStatus(status: string): string {
+  return status;
+}
+
+/**
+ * `23-103`: a badge tone per status - `Ago.Chat.Contracts.OwnerSiteModuleDto.Status`'s own remarks on
+ * why "Revoked" and "Expired" are different facts (a deliberate act versus a grant's own end date
+ * quietly arriving) carried into the console: Revoked gets the same `danger` tone Active's absence
+ * used to carry alone, Expired gets `neutral` rather than being conflated with it.
+ */
+export function moduleStatusTone(status: string): "success" | "neutral" | "danger" {
+  if (status === "Active") {
+    return "success";
+  }
+
+  if (status === "Revoked") {
+    return "danger";
+  }
+
+  return "neutral";
 }
 
 /**
