@@ -107,6 +107,10 @@ export function WidgetConfigPage() {
   const [autoOpenEnabled, setAutoOpenEnabled] = useState(false);
   const [autoOpenDelaySeconds, setAutoOpenDelaySeconds] = useState<AutoOpenDelaySeconds>(30);
   const [autoOpenGreetingTextInput, setAutoOpenGreetingTextInput] = useState("");
+  // `25-39`: off by default until the load call resolves - the identical "off unless the tenant turns
+  // it on" posture `attractAttention`/`requireContactConsent` already establish for themselves, so a
+  // slow load never briefly implies a real, verified-phone guarantee has already been relaxed.
+  const [acceptUnverifiedPhone, setAcceptUnverifiedPhone] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [noticeUrlValidationError, setNoticeUrlValidationError] = useState<string | null>(null);
@@ -134,6 +138,7 @@ export function WidgetConfigPage() {
         setAutoOpenEnabled(dto.autoOpenEnabled);
         setAutoOpenDelaySeconds(dto.autoOpenDelaySeconds);
         setAutoOpenGreetingTextInput(dto.autoOpenGreetingText ?? "");
+        setAcceptUnverifiedPhone(dto.acceptUnverifiedPhone);
         setLoadError(null);
       })
       .catch((err: unknown) =>
@@ -222,6 +227,7 @@ export function WidgetConfigPage() {
         autoOpenEnabled,
         autoOpenDelaySeconds,
         autoOpenGreetingText: trimmedAutoOpenGreetingText.length > 0 ? trimmedAutoOpenGreetingText : null,
+        acceptUnverifiedPhone,
       });
       setCurrent(dto);
       setColorInput(dto.primaryColorHex ?? "");
@@ -234,6 +240,7 @@ export function WidgetConfigPage() {
       setAutoOpenEnabled(dto.autoOpenEnabled);
       setAutoOpenDelaySeconds(dto.autoOpenDelaySeconds);
       setAutoOpenGreetingTextInput(dto.autoOpenGreetingText ?? "");
+      setAcceptUnverifiedPhone(dto.acceptUnverifiedPhone);
       setSaved(true);
     } catch (err) {
       setSubmitError(err instanceof WidgetConfigError ? err.message : strings.widgetSubmitError);
@@ -453,6 +460,25 @@ export function WidgetConfigPage() {
                 <span>{strings.widgetRequireContactConsentLabel}</span>
               </label>
               <p className="ago-field__description">{strings.widgetRequireContactConsentDescription}</p>
+            </div>
+          </Panel>
+
+          {/* `25-39`: a third panel, kept separate from "Launcher"/"Processing notice" - this is not
+              an appearance choice or a data-handling statement, it is a temporary workaround for a
+              missing SMS/voice gateway account (`14-15`), and the panel title plus description say so
+              plainly rather than reading like an ordinary feature toggle. */}
+          <Panel title={strings.widgetBookingPanelTitle}>
+            <div className="ago-stack">
+              <label className="ago-row">
+                <input
+                  type="checkbox"
+                  checked={acceptUnverifiedPhone}
+                  disabled={submitting}
+                  onChange={(e) => setAcceptUnverifiedPhone(e.target.checked)}
+                />
+                <span>{strings.widgetAcceptUnverifiedPhoneLabel}</span>
+              </label>
+              <p className="ago-field__description">{strings.widgetAcceptUnverifiedPhoneDescription}</p>
             </div>
           </Panel>
 

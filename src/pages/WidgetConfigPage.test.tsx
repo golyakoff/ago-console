@@ -393,6 +393,22 @@ function attractAttentionCheckbox(container: HTMLElement): HTMLInputElement {
   return input;
 }
 
+/** `25-39`: the "Booking (temporary)" panel's own checkbox, found the identical way
+ * `attractAttentionCheckbox` above is. */
+function acceptUnverifiedPhoneCheckbox(container: HTMLElement): HTMLInputElement {
+  const label = byText<HTMLLabelElement>(container, "label", "Accept an unverified phone number for now");
+  if (label === null) {
+    throw new Error("no 'Accept an unverified phone number for now' label found");
+  }
+
+  const input = label.querySelector("input[type='checkbox']");
+  if (!(input instanceof HTMLInputElement)) {
+    throw new Error("'Accept an unverified phone number for now' label has no checkbox");
+  }
+
+  return input;
+}
+
 /**
  * `23-63`: the console half of the item - a checkbox, off by default, saved through the same one PUT
  * every other field on this screen already uses. Modeled on "the widget language field" block above.
@@ -457,6 +473,103 @@ describe("the widget attract-attention checkbox", () => {
     const container = await render(page());
 
     expect(container.textContent).toMatch(/reduced motion/i);
+  });
+});
+
+/**
+ * `25-39`: the "Booking (temporary)" panel's own checkbox - off by default, saved through the same
+ * one PUT every other field on this screen already uses, modeled on "the widget attract-attention
+ * checkbox" block above.
+ */
+describe("the accept-unverified-phone-booking checkbox", () => {
+  it("is off by default when the site has never turned it on", async () => {
+    const container = await render(page());
+
+    expect(acceptUnverifiedPhoneCheckbox(container).checked).toBe(false);
+  });
+
+  it("loads the site's current setting into the checkbox", async () => {
+    widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
+      siteId: SITE_ID,
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "En",
+      noticeText: null,
+      noticeUrl: null,
+      acceptUnverifiedPhone: true,
+    });
+    const container = await render(page());
+
+    expect(acceptUnverifiedPhoneCheckbox(container).checked).toBe(true);
+  });
+
+  it("saves the chosen setting alongside every other field, in one PUT", async () => {
+    const container = await render(page());
+
+    await interact(() => acceptUnverifiedPhoneCheckbox(container).click());
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(widgetConfigApi.updateWidgetConfig).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({ position: "BottomRight", acceptUnverifiedPhone: true }),
+    );
+  });
+
+  it("reflects the server's saved setting back into the checkbox", async () => {
+    const container = await render(page());
+    widgetConfigApi.updateWidgetConfig.mockResolvedValue({
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "En",
+      noticeText: null,
+      noticeUrl: null,
+      acceptUnverifiedPhone: true,
+    });
+
+    await interact(() => acceptUnverifiedPhoneCheckbox(container).click());
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(acceptUnverifiedPhoneCheckbox(container).checked).toBe(true);
+    expect(container.textContent).toContain("Saved.");
+  });
+
+  // `23-108`'s own regression shape, restated for this field: a save that never touched this
+  // checkbox must still send back whatever the server last reported, not silently drop it to
+  // `false` - the exact defect class this page's own PUT-the-whole-object shape can reintroduce for
+  // any boolean field, proven once per field rather than assumed general.
+  it("carries the setting through a save that never touched it", async () => {
+    widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "Ru",
+      noticeText: null,
+      noticeUrl: null,
+      acceptUnverifiedPhone: true,
+    });
+
+    const container = await render(page());
+
+    await interact(() => {
+      const select = localeSelect(container);
+      select.value = "En";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(widgetConfigApi.updateWidgetConfig).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({ locale: "En", acceptUnverifiedPhone: true }),
+    );
+  });
+
+  // `25-39`'s own Done-when: the console must state plainly why the setting exists and that it is
+  // temporary, not present it as an ordinary feature toggle.
+  it("states in words that this is a temporary workaround for a missing verification provider", async () => {
+    const container = await render(page());
+
+    expect(container.textContent).toMatch(/temporary/i);
   });
 });
 
