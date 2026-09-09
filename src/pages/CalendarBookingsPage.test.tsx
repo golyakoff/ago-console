@@ -5,7 +5,7 @@ import type { User } from "oidc-client-ts";
 import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { CalendarBookingsPage } from "./CalendarBookingsPage.js";
-import { render, unmount } from "../testing/dom.js";
+import { byText, interact, render, unmount } from "../testing/dom.js";
 import type { ConfirmedBooking } from "../api/calendarApi.js";
 
 /**
@@ -14,6 +14,10 @@ import type { ConfirmedBooking } from "../api/calendarApi.js";
  * `permissionGating.test.tsx`, alongside every other calendar screen's own gate; this file is the
  * one `CalendarContactsPage.test.tsx`/`CalendarQueuePage.test.tsx` already establish for their own
  * screens - the rendering and grouping behaviour specific to this page.
+ *
+ * `23-91`: the "revealing a masked phone" describe block below is the fifth screen `23-30` missed -
+ * see `CalendarQueuePage.test.tsx`'s own identically-named block, which this one mirrors exactly bar
+ * the surface string.
  */
 vi.mock("../config.js", () => ({
   config: {
@@ -29,7 +33,7 @@ vi.mock("../config.js", () => ({
 const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
-const calendarApi = vi.hoisted(() => ({ getConfirmedBookings: vi.fn() }));
+const calendarApi = vi.hoisted(() => ({ getConfirmedBookings: vi.fn(), revealCustomerPhone: vi.fn() }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
 vi.mock("../api/ownerApi.js", () => ownerApi);
@@ -233,5 +237,69 @@ describe("confirmed bookings", () => {
     // distinguishing check the existing "explains a permission failure" test above relies on
     // implicitly by asserting the message text; this one asserts the role directly.
     expect(container.querySelector('[role="alert"]')).not.toBeNull();
+  });
+});
+
+/** `23-91`: `23-30` built a reveal control for four screens and missed this fifth one - it renders a
+ * masked phone (`b2` above already proves that) but had no way to reveal it. `CalendarQueuePage.test.tsx`'s
+ * own "revealing a masked phone (23-30)" describe block is the precedent this mirrors exactly, with
+ * `"ConsoleBookings"` as this screen's own surface string. */
+describe("revealing a masked phone (23-91)", () => {
+  const maskedBooking: ConfirmedBooking = {
+    bookingId: "b7",
+    calendarId: "cal1",
+    workerId: "w1",
+    workerDisplayName: "Anna Petrova",
+    serviceId: "s1",
+    serviceName: "Haircut",
+    customerId: "c9",
+    customerDisplayName: "Vera",
+    startsAt: "2026-09-08T09:00:00+00:00",
+    endsAt: "2026-09-08T09:45:00+00:00",
+    localDate: "2026-09-08",
+    weekday: 2,
+    phone: "+7999•••0009",
+    masked: true,
+  };
+
+  it("shows the masked value and a Reveal button, never the real number, before reveal", async () => {
+    calendarApi.getConfirmedBookings.mockResolvedValue([maskedBooking]);
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("+7999•••0009");
+    expect(container.textContent).not.toContain("+79990000009");
+    expect(byText(container, "button", "Reveal")).not.toBeNull();
+  });
+
+  it("replaces the masked row with the server's own unmasked response on Reveal, and writes the same record shape every other screen's reveal does", async () => {
+    calendarApi.getConfirmedBookings.mockResolvedValue([maskedBooking]);
+    calendarApi.revealCustomerPhone.mockResolvedValue({ phone: "+79990000009" });
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Reveal")?.click());
+
+    // `RevealCustomerPhoneHandler` writes one `ContactPhoneRevealToWrite` per call regardless of
+    // `Surface` - this asserts the exact same endpoint and parameter shape `CalendarQueuePage`'s own
+    // reveal test asserts, only the surface name differs.
+    expect(calendarApi.revealCustomerPhone).toHaveBeenCalledWith("token", "c9", "ConsoleBookings");
+    expect(container.textContent).toContain("+79990000009");
+    expect(container.textContent).not.toContain("+7999•••0009");
+    expect(byText(container, "button", "Reveal")).toBeNull();
+  });
+
+  it("shows an error and keeps the row masked when the reveal fails", async () => {
+    calendarApi.getConfirmedBookings.mockResolvedValue([maskedBooking]);
+    const { CalendarApiError } = await import("../api/calendarApi.js");
+    calendarApi.revealCustomerPhone.mockRejectedValue(
+      new CalendarApiError("contacts.customer_not_found", "Customer c9 does not exist in this tenant.", 404),
+    );
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Reveal")?.click());
+
+    expect(container.textContent).toContain("Customer c9 does not exist in this tenant.");
+    expect(container.textContent).toContain("+7999•••0009");
+    expect(container.textContent).not.toContain("+79990000009");
   });
 });
