@@ -173,6 +173,56 @@ export async function claimConversation(accessToken: string, conversationId: str
   throw await problemDetailsFrom(response);
 }
 
+/** `23-78`: `Ago.Chat.Api.Conversations.ConversationsEndpoints.AttachmentUploadGrantStatusDto` - the
+ * wire shape of a successful grant/revoke, returned by both endpoints below since both answer the
+ * identical question ("what is this conversation's attachment-upload grant state now") for opposite
+ * directions. `AttachmentUploadGrantToggle` uses this to show "who/when" immediately after the action
+ * it just performed, without waiting for the queue to re-fetch. */
+export interface AttachmentUploadGrantStatus {
+  conversationId: string;
+  occurredAt: string;
+  operatorId: string;
+}
+
+/**
+ * `23-78`: `POST /api/v1/conversations/{id}/grant-attachment-upload` - the same sub-resource shape
+ * `closeConversation`/`claimConversation` above already establish. `200` with the resulting grant
+ * status, not `204`, the identical reason `ConversationsEndpoints`' own remarks give for `/block`:
+ * this is reversible and the write is a single atomic statement, not a background job, so there is
+ * something worth handing straight back rather than making the console re-fetch for it.
+ *
+ * <b>Throws `ApiProblemError`</b>, the same reason `closeConversation` does: a caller has to tell a
+ * permission failure apart from "this operator is not assigned to this conversation" apart from
+ * "already granted" (`Conversation.AttachmentUploadAlreadyGranted`).
+ */
+export async function grantAttachmentUpload(accessToken: string, conversationId: string): Promise<AttachmentUploadGrantStatus> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/conversations/${conversationId}/grant-attachment-upload`, {
+    method: "POST",
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (!response.ok) {
+    throw await problemDetailsFrom(response);
+  }
+
+  return (await response.json()) as AttachmentUploadGrantStatus;
+}
+
+/** The reverse of {@link grantAttachmentUpload} - `POST .../revoke-attachment-upload`, same shape,
+ * same error handling, opposite direction. */
+export async function revokeAttachmentUpload(accessToken: string, conversationId: string): Promise<AttachmentUploadGrantStatus> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/conversations/${conversationId}/revoke-attachment-upload`, {
+    method: "POST",
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (!response.ok) {
+    throw await problemDetailsFrom(response);
+  }
+
+  return (await response.json()) as AttachmentUploadGrantStatus;
+}
+
 /**
  * `16-02`: `POST /api/v1/conversations/{id}/erase` - erasure on the visitor's own request, initiated
  * by the tenant (`16-02`'s own Scope: "the visitor has no account and no login - they ask the shop,

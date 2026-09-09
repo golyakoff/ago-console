@@ -164,6 +164,12 @@ export const en: ConsoleStrings = {
     "The visitor’s chat ends and this conversation cannot be reopened. Closing it also frees " +
     "your capacity, so you may be assigned a new conversation straight away.",
 
+  attachmentUploadGrantButton: "Allow file uploads",
+  attachmentUploadRevokeButton: "Revoke file uploads",
+  attachmentUploadGrantToggleError: "Could not change the upload permission. Try again.",
+  attachmentUploadGrantedByOperatorNote: "Granted by an operator",
+  attachmentUploadGrantedByDefaultNote: "Granted by this site’s own default",
+
   closeOutcomeNetworkError: "The console could not reach the server. Check your connection and try again.",
   closeOutcomeAlreadyClosed: "This conversation has already been closed.",
   closeOutcomeConcurrencyConflict: "Someone else was changing this conversation at the same moment. Try closing it again.",

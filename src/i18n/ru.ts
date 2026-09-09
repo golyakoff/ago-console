@@ -162,6 +162,12 @@ export const ru: ConsoleStrings = {
     "Чат с посетителем завершится, и этот диалог нельзя будет открыть заново. Закрытие также " +
     "освобождает вашу нагрузку, поэтому вам может сразу назначиться новый диалог.",
 
+  attachmentUploadGrantButton: "Разрешить загрузку файлов",
+  attachmentUploadRevokeButton: "Запретить загрузку файлов",
+  attachmentUploadGrantToggleError: "Не удалось изменить разрешение на загрузку. Попробуйте ещё раз.",
+  attachmentUploadGrantedByOperatorNote: "Разрешено оператором",
+  attachmentUploadGrantedByDefaultNote: "Разрешено по умолчанию для этого сайта",
+
   closeOutcomeNetworkError: "Консоли не удалось связаться с сервером. Проверьте соединение и попробуйте снова.",
   closeOutcomeAlreadyClosed: "Этот диалог уже закрыт.",
   closeOutcomeConcurrencyConflict: "Кто-то ещё менял этот диалог в тот же момент. Попробуйте закрыть его снова.",

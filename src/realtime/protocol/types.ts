@@ -101,6 +101,20 @@ export interface ConversationSummaryDto {
   operatorUnreadCount: number;
   operatorId?: string | null;
   operatorName?: string | null;
+  /** `23-78`: `Ago.Chat.Contracts.ConversationSummaryDto.HasAttachmentUploadGrant` - whether a
+   * visitor-side attachment upload is currently permitted for this conversation. Additive, the
+   * identical rule `operatorId`/`operatorName` above already establish - absent/`false` for a row
+   * that predates the field. `AttachmentUploadGrantToggle` is this field's one real consumer. */
+  hasAttachmentUploadGrant?: boolean;
+  /** When the grant currently in effect was set - `null`/absent whenever `hasAttachmentUploadGrant`
+   * is falsy, for the identical reason. */
+  attachmentUploadGrantedAt?: string | null;
+  /** Who granted it - `null`/absent both when there is no grant and when the grant came from the
+   * tenant-level default rather than a named operator's own act (`Ago.Chat.Domain.Conversation.Start`'s
+   * own remarks: a tenant default is not an operator's own act). `AttachmentUploadGrantToggle` reads
+   * this as "granted by the tenant's own default" whenever it is absent but
+   * `attachmentUploadGrantedAt` is present. */
+  attachmentUploadGrantedByOperatorId?: string | null;
 }
 
 /** `5-07`: `Ago.Chat.Contracts.OperatorQueueResponse` - `GET /api/v1/conversations/queue`'s body. */
