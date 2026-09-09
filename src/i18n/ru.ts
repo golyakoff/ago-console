@@ -307,7 +307,7 @@ export const ru: ConsoleStrings = {
   widgetPositionBottomRight: "Внизу справа",
   widgetPositionBottomLeft: "Внизу слева",
   widgetLanguageFieldLabel: "Язык виджета",
-  widgetNoticePanelTitle: "Уведомление об обработке данных",
+  widgetNoticePanelTitle: "Согласие на обработку персональных данных",
   widgetNoticeTextFieldLabel: "Текст уведомления (необязательно)",
   widgetNoticeTextFieldDescription:
     "Показывается посетителю до того, как он начнёт печатать. Это ваша собственная формулировка о том, " +
@@ -317,6 +317,13 @@ export const ru: ConsoleStrings = {
   widgetNoticeUrlFieldLabel: "Ссылка на уведомление (необязательно)",
   widgetNoticeUrlFieldDescription: "Ссылка на вашу собственную страницу с политикой. Должна начинаться с https://.",
   widgetNoticeUrlValidation: "Ссылка должна быть абсолютным адресом https://.",
+  widgetNoticeCurrentLabel: "Текущий текст",
+  widgetNoticeUrlCurrentLabel: "Ссылка",
+  widgetNoticeNotSetLabel: "Не задано - посетители не видят никакого уведомления.",
+  widgetNoticeShowFully: "Показать полностью",
+  widgetNoticeShowLess: "Скрыть",
+  widgetNoticeEditButton: "Изменить",
+  widgetContactConsentPanelTitle: "Согласие на сбор контактных данных",
   widgetAttractAttentionLabel: "Привлекать внимание, пока виджет закрыт",
   widgetAttractAttentionDescription:
     "Кнопка несколько раз слегка подрагивает, затем перестаёт - никогда, пока панель открыта, и никогда после того, как посетитель её закрыл. Всегда отключено, если браузер посетителя просит уменьшить анимацию, независимо от этой настройки.",

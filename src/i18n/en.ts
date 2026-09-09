@@ -311,7 +311,7 @@ export const en: ConsoleStrings = {
   widgetPositionBottomRight: "Bottom right",
   widgetPositionBottomLeft: "Bottom left",
   widgetLanguageFieldLabel: "Widget language",
-  widgetNoticePanelTitle: "Processing notice",
+  widgetNoticePanelTitle: "Consent notice",
   widgetNoticeTextFieldLabel: "Notice text (optional)",
   widgetNoticeTextFieldDescription:
     "Shown to a visitor before they type anything. This is your own sentence about how you handle " +
@@ -320,6 +320,13 @@ export const en: ConsoleStrings = {
   widgetNoticeUrlFieldLabel: "Notice link (optional)",
   widgetNoticeUrlFieldDescription: "A link to your own policy page. Must start with https://.",
   widgetNoticeUrlValidation: "The link must be an absolute https:// URL.",
+  widgetNoticeCurrentLabel: "Current text",
+  widgetNoticeUrlCurrentLabel: "Link",
+  widgetNoticeNotSetLabel: "Not set - visitors see no notice at all.",
+  widgetNoticeShowFully: "Show fully",
+  widgetNoticeShowLess: "Show less",
+  widgetNoticeEditButton: "Edit",
+  widgetContactConsentPanelTitle: "Contact consent",
   widgetAttractAttentionLabel: "Attract attention while closed",
   widgetAttractAttentionDescription:
     "Pulses the launcher a few times, then stops - never while the panel is open, never after it has been dismissed. Always off for a visitor whose browser asks for reduced motion, whatever this setting says.",
