@@ -1,11 +1,19 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import { operatorDisplayName } from "../auth/operatorDisplayName.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
-import { fetchOwnerPricing, type OwnerPricing } from "../api/ownerApi.js";
+import {
+  fetchOwnerPricing,
+  publishPriceVersion,
+  type OwnerPricedResource,
+  type OwnerPricing,
+} from "../api/ownerApi.js";
 import { en } from "../i18n/en.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
 import { Alert } from "../components/Alert.js";
+import { Button } from "../components/Button.js";
+import { Field } from "../components/Field.js";
+import { Input } from "../components/Input.js";
 import { Panel } from "../components/Panel.js";
 import { Spinner } from "../components/Spinner.js";
 import { Table, type TableColumn } from "../components/Table.js";
@@ -25,11 +33,18 @@ const TIER_LABELS: Record<string, string> = {
  * charges from, so the owner can check the product's own numbers without opening the private
  * `ago-business` repository.
  *
- * **Read-only, exactly like `OwnerSitesPage`/`OwnerSiteDetailPage`.** No edit control anywhere on
- * this screen - `25-20`'s own Scope: "this item does not build editing or a write path", and the
- * mechanism it reads from (`IBillingOptionEntitlementProvider`) carries no write path of its own
- * either (`23-86`'s own Scope: "the deployment declares what an option turns on, never what it
- * costs").
+ * **Seats and billing options stay read-only, exactly like `OwnerSitesPage`/`OwnerSiteDetailPage`
+ * - `25-20`'s own original Scope for those two sections.** The `billingOptions` mechanism this page
+ * reads (`IBillingOptionEntitlementProvider`) still carries no write path of its own
+ * (`23-86`'s own Scope: "the deployment declares what an option turns on, never what it costs").
+ *
+ * **`25-43`: "Priced resources", further down, is this screen's first real write.** Every
+ * code-registered price key, and a form (`PricedResourcePanel`) that publishes a new version for an
+ * already-registered one - never a key the owner types into existence (the server's own
+ * `PricedResourceKeys.IsKnown` guard is the actual enforcement; this page only ever renders the keys
+ * `pricedResources` already lists). Mirrors `DocumentsPage.ConsentDocumentPanel`'s own toggle-to-
+ * reveal-form/submit/refresh-via-callback shape - the identical "publish a new version" UI this
+ * item's own Scope names as its precedent.
  *
  * **Gated the identical way as every other `/owner/*` screen** - `App.tsx`'s `RequireAuth` checks
  * only "is there an OIDC session"; the route does not decide who the owner is, because
@@ -56,20 +71,21 @@ export function OwnerPricingPage() {
   const [pricing, setPricing] = useState<OwnerPricing | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // `25-43`: extracted to a `load` this component can call again once a publish succeeds, the same
+  // `DocumentsPage.load`/`onPublished` shape `ConsentDocumentPanel` already establishes for the
+  // identical "publish, then re-read the now-current version" round trip. Unlike this page's own
+  // original mount-only effect, a re-invocation after a publish has nothing to race against an
+  // unmount for in practice (the publishing panel itself is what triggers the reload, from a still-
+  // mounted page) - `DocumentsPage.load` carries no cancellation flag for the identical reason.
+  const load = useCallback(() => {
     if (!accessToken) {
       // `RequireAuth` guarantees a signed-in user by the time this renders - the same "reaching here
       // is a wiring bug" reasoning `OwnerSitesPage`'s own effect states.
       return;
     }
 
-    let cancelled = false;
     fetchOwnerPricing(accessToken)
       .then((outcome) => {
-        if (cancelled) {
-          return;
-        }
-
         if (outcome.status === "not-authorized") {
           setAccess("refused");
           return;
@@ -79,17 +95,15 @@ export function OwnerPricingPage() {
         setPricing(outcome.pricing);
       })
       .catch((err: unknown) => {
-        if (!cancelled) {
-          // Deliberately not folded into `refused` - "the API is broken" and "you may not see this"
-          // are different facts, the identical split `OwnerSitesPage`'s own catch branch keeps.
-          setError(err instanceof Error ? err.message : "Failed to load the platform price list.");
-        }
+        // Deliberately not folded into `refused` - "the API is broken" and "you may not see this"
+        // are different facts, the identical split `OwnerSitesPage`'s own catch branch keeps.
+        setError(err instanceof Error ? err.message : "Failed to load the platform price list.");
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, [accessToken]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const tierColumns: TableColumn<OwnerPricing["seatPricing"]["tiers"][number]>[] = [
     { key: "tier", header: "Tier", render: (row) => TIER_LABELS[row.key] ?? row.key },
@@ -163,7 +177,7 @@ export function OwnerPricingPage() {
         <>
           <PageHead
             title="Price list"
-            description="Every currently-paid capability and its price, read from this deployment's own billing configuration - not retyped from anywhere else. Read-only - this screen shows numbers, it changes nothing."
+            description="Every currently-paid capability and its price, read from this deployment's own billing configuration - not retyped from anywhere else. Seats and other billing options below are still a read-only view of this deployment's own configuration; priced resources, further down, is the one section that can publish a new price."
           />
 
           <Panel
@@ -201,8 +215,150 @@ export function OwnerPricingPage() {
               />
             )}
           </Panel>
+
+          <Panel
+            title="Priced resources"
+            description="Every price key the product has registered, and its own currently-effective Rouble figure. Publishing a new version here changes what the next charge for that key uses - it never touches a charge already in progress, and it never lets you invent a key that is not already in this list."
+          >
+            <div className="ago-stack">
+              {pricing.pricedResources.map((resource) => (
+                <PricedResourcePanel
+                  key={resource.key}
+                  resource={resource}
+                  accessToken={accessToken}
+                  onPublished={load}
+                />
+              ))}
+            </div>
+          </Panel>
         </>
       )}
     </AppShell>
+  );
+}
+
+interface PricedResourcePanelProps {
+  resource: OwnerPricedResource;
+  accessToken: string;
+  onPublished: () => void;
+}
+
+/**
+ * `25-43`: one price key's own current figure, plus the form that publishes its next version -
+ * mirrors `DocumentsPage.ConsentDocumentPanel`'s own toggle-to-reveal-form/submit/refresh-via-
+ * callback shape, simplified to the one field this write actually takes (`amountRub`, not a
+ * title/body pair). The form defaults closed once a version already exists, exactly like that
+ * panel's own `formOpen`/`formVisible` split, for the identical reason: reading what is already
+ * published should not require scrolling past an editable form aimed at replacing it.
+ */
+function PricedResourcePanel({ resource, accessToken, onPublished }: PricedResourcePanelProps) {
+  const [formOpen, setFormOpen] = useState(false);
+  const [draftAmount, setDraftAmount] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const hasCurrentVersion = resource.currentVersion !== null;
+  const formVisible = !hasCurrentVersion || formOpen;
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSaved(false);
+    setSubmitError(null);
+
+    const amountRub = Number(draftAmount);
+    if (draftAmount.trim().length === 0 || !Number.isFinite(amountRub) || amountRub < 0) {
+      setValidationError("Enter a Rouble amount of zero or more.");
+      return;
+    }
+    setValidationError(null);
+
+    setSubmitting(true);
+    try {
+      const outcome = await publishPriceVersion(accessToken, resource.key, amountRub);
+      if (outcome.status === "not-authorized") {
+        setSubmitError("This view is not available to you. The server refused the request.");
+        return;
+      }
+      if (outcome.status === "invalid" || outcome.status === "conflict") {
+        setSubmitError(outcome.message);
+        return;
+      }
+
+      setDraftAmount("");
+      setSaved(true);
+      // Collapses the form back behind its toggle once there is a new current version to show in
+      // its place - `onPublished()` (below) is what re-fetches that version; this just stops the
+      // form sitting open beside the read view it was reopened to replace.
+      setFormOpen(false);
+      onPublished();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Failed to publish the price version.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Panel quiet title={resource.label}>
+      <div className="ago-stack">
+        <div>
+          <strong>Current price</strong>{" "}
+          {hasCurrentVersion ? (
+            `₽${resource.currentAmountRub.toFixed(2)} (${resource.currentVersion})`
+          ) : (
+            // `25-43`'s own second decision, rendered plainly rather than as an error: a registered
+            // key with nothing published yet is the ordinary "built, not yet for sale" state.
+            "Not yet for sale - no version has been published for this key."
+          )}
+        </div>
+
+        {hasCurrentVersion && (
+          <div>
+            <Button type="button" variant="secondary" onClick={() => setFormOpen((open) => !open)}>
+              {formOpen ? "Cancel" : "Publish a new price"}
+            </Button>
+          </div>
+        )}
+
+        {/* `25-43`: the outcome alerts live outside `formVisible`'s own block, unlike
+         * `ConsentDocumentPanel`'s equivalent nesting - a successful publish for an already-published
+         * key collapses the form (`setFormOpen(false)`) in the identical render pass that sets
+         * `saved`, so an alert nested inside the form would be unmounted before it ever painted.
+         * `ConsentDocumentPanel`'s own tests never catch this because they only ever publish a
+         * document's *first* version, where `current === null` keeps the form open regardless of
+         * `formOpen` - this screen's own equivalent case (publishing again for a key that already has
+         * a version) makes the gap real, found while writing this panel's own tests. */}
+        {validationError && <Alert tone="danger">{validationError}</Alert>}
+        {submitError && <Alert tone="danger">{submitError}</Alert>}
+        {saved && <Alert tone="success">The new price was published.</Alert>}
+
+        {formVisible && (
+          <form className="ago-stack" onSubmit={(e) => void handleSubmit(e)}>
+            <Field label="New price (₽)">
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={draftAmount}
+                  onChange={(e) => setDraftAmount(e.target.value)}
+                  placeholder="0.00"
+                  disabled={submitting}
+                />
+              )}
+            </Field>
+
+            <div className="ago-row">
+              <Button type="submit" variant="primary" disabled={submitting}>
+                {submitting ? "Publishing…" : "Publish a new price"}
+              </Button>
+            </div>
+          </form>
+        )}
+      </div>
+    </Panel>
   );
 }
