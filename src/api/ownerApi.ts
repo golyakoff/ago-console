@@ -633,13 +633,20 @@ export interface OwnerSeatTier {
 }
 
 /**
- * `25-20`'s wire shape, mirrored field for field from `Ago.Chat.Contracts.OwnerSeatPricingDto` - the
- * one billing mechanism in this product with a real, currently-charged number behind it. Every tier
- * in `tiers` charges the identical `pricePerSeatRub`; the price lives here, once, rather than
- * repeated unchanged on each tier row.
+ * `25-20`'s wire shape, mirrored field for field from `Ago.Chat.Contracts.OwnerSeatPricingDto`.
+ *
+ * `25-42`: `baseSeats`/`baseSeatPriceRub`/`pricePerExtraSeatRub` are new here - `25-29`'s own real,
+ * non-flat formula (`ago-business` decision `0012`: a base charge for the first `baseSeats` seats,
+ * then `pricePerExtraSeatRub` for each seat past that). `pricePerSeatRub` stays on the wire and in
+ * this interface unchanged (`api-design.md`: never remove a field) but is no longer what this
+ * screen renders - `OwnerPricingPage`'s own remarks explain why a single per-seat number is
+ * actively wrong for this formula, not merely imprecise.
  */
 export interface OwnerSeatPricing {
   pricePerSeatRub: number;
+  baseSeats: number;
+  baseSeatPriceRub: number;
+  pricePerExtraSeatRub: number;
   billingPeriodDays: number;
   freeSeatsIncluded: number;
   tiers: OwnerSeatTier[];

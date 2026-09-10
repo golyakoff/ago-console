@@ -105,23 +105,44 @@ export function OwnerPricingPage() {
     load();
   }, [load]);
 
-  const tierColumns: TableColumn<OwnerPricing["seatPricing"]["tiers"][number]>[] = [
-    { key: "tier", header: "Tier", render: (row) => TIER_LABELS[row.key] ?? row.key },
-    {
-      key: "seats",
-      header: "Seats",
-      render: (row) => (row.minSeats === row.maxSeats ? `${row.minSeats}` : `${row.minSeats}–${row.maxSeats}`),
-      align: "end",
-    },
+  // `25-42`: `SubscriptionTierBands.ComputeSeatPriceRub`'s own formula, restated here - a base
+  // charge for the first `baseSeats` seats, then `pricePerExtraSeatRub` for each seat past that.
+  // Kept as a plain function, not a method on `OwnerPricing`, for the same reason this file never
+  // reaches for a shared "pricing math" module elsewhere: the one real computation this screen ever
+  // needs is this one line, and a module for one line would be indirection with nothing behind it.
+  const computeSeatTotalRub = (seats: number, seatPricing: OwnerPricing["seatPricing"]): number =>
+    seatPricing.baseSeatPriceRub + Math.max(0, seats - seatPricing.baseSeats) * seatPricing.pricePerExtraSeatRub;
+
+  // `25-42`: one row per concrete seat count, not one row per tier. `0012`'s own formula is not flat
+  // within a tier (`25-29`'s own correction is exactly that a single "price per seat" was already
+  // wrong the moment a tier spans more than `baseSeats` seats) - the Done-when this item states in
+  // its own words ("a tenant reading the screen at 2, 3, 4, or 5 seats sees the correct total for
+  // each") is answered directly by giving every seat count its own row and its own real total,
+  // rather than inventing one number to stand in for a whole tier the way the old column did.
+  interface SeatCountRow {
+    tierKey: string;
+    seats: number;
+    totalRub: number;
+  }
+
+  const seatCountRows: SeatCountRow[] =
+    pricing === null
+      ? []
+      : pricing.seatPricing.tiers.flatMap((tier) =>
+          Array.from({ length: tier.maxSeats - tier.minSeats + 1 }, (_, i) => tier.minSeats + i).map((seats) => ({
+            tierKey: tier.key,
+            seats,
+            totalRub: computeSeatTotalRub(seats, pricing.seatPricing),
+          })),
+        );
+
+  const tierColumns: TableColumn<SeatCountRow>[] = [
+    { key: "tier", header: "Tier", render: (row) => TIER_LABELS[row.tierKey] ?? row.tierKey },
+    { key: "seats", header: "Seats", render: (row) => `${row.seats}`, align: "end" },
     {
       key: "price",
-      header: "Price per seat",
-      // Every tier shares the identical price (`SubscriptionTierBands`'s own "no per-band discount"),
-      // so this column ignores its own row entirely and reads the one value that applies to all of
-      // them - `pricing` is never actually `null` while this table renders (it is only ever built
-      // inside the `pricing !== null` branch below), but the type stays nullable since these columns
-      // are declared once, above that branch.
-      render: () => (pricing === null ? "" : `₽${pricing.seatPricing.pricePerSeatRub.toFixed(2)}`),
+      header: "Total per billing period",
+      render: (row) => `₽${row.totalRub.toFixed(2)}`,
       align: "end",
     },
   ];
@@ -182,13 +203,16 @@ export function OwnerPricingPage() {
 
           <Panel
             title="Seats"
-            description={`Every site starts with ${pricing.seatPricing.freeSeatsIncluded} seats included, no charge. Buying more resolves to one of the two bands below, billed every ${pricing.seatPricing.billingPeriodDays} days.`}
+            // `25-42`: states the real formula in prose, not just in the table - a base charge for
+            // the first `baseSeats` seats, then a per-seat charge beyond that, so the reader has the
+            // shape of the calculation even before looking at any one row's own total.
+            description={`Every site starts with ${pricing.seatPricing.freeSeatsIncluded} seats included, no charge. Buying more costs ₽${pricing.seatPricing.baseSeatPriceRub.toFixed(2)} for the first ${pricing.seatPricing.baseSeats} seats, then +₽${pricing.seatPricing.pricePerExtraSeatRub.toFixed(2)} per seat beyond that, billed every ${pricing.seatPricing.billingPeriodDays} days.`}
           >
             <Table
-              caption="Seat pricing by tier"
+              caption="Seat pricing by seat count"
               columns={tierColumns}
-              rows={pricing.seatPricing.tiers}
-              rowKey={(row) => row.key}
+              rows={seatCountRows}
+              rowKey={(row) => `${row.tierKey}-${row.seats}`}
             />
           </Panel>
 

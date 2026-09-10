@@ -58,15 +58,19 @@ function shellAt() {
   );
 }
 
+// `25-42`: `ago-business` decision `0012`'s own real shape - one Business band (2-5 seats), a
+// 490 base charge for the first 3, +200 per seat beyond that (690 at 4, 890 at 5). Replaces this
+// fixture's own former `0008`-era two-tier/flat-590 data, which is exactly the display bug this
+// item exists to fix - a fixture asserting the old shape would have kept passing against the bug.
 const REAL_PRICING: OwnerPricing = {
   seatPricing: {
-    pricePerSeatRub: 590,
+    pricePerSeatRub: 200,
+    baseSeats: 3,
+    baseSeatPriceRub: 490,
+    pricePerExtraSeatRub: 200,
     billingPeriodDays: 30,
     freeSeatsIncluded: 2,
-    tiers: [
-      { key: "starter", minSeats: 3, maxSeats: 9 },
-      { key: "growth", minSeats: 10, maxSeats: 100 },
-    ],
+    tiers: [{ key: "starter", minSeats: 2, maxSeats: 5 }],
   },
   billingOptions: [],
   // `25-43`: empty by default - the read-only suites below never touch this section, and adding it
@@ -87,16 +91,30 @@ afterEach(async () => {
 });
 
 describe("the price-list page's own read", () => {
-  it("shows the real per-seat price, free-seat allowance and both tier bands", async () => {
+  // `25-42`'s own Done-when, in its own words: "a tenant reading the screen at 2, 3, 4, or 5 seats
+  // sees the correct total for each". Every seat count gets its own row and its own real total -
+  // never a single number standing in for the whole band.
+  it("shows the real base-plus-marginal formula, not a single flat per-seat number", async () => {
     const container = await render(shellAt());
 
-    expect(container.textContent).toContain("₽590.00");
     expect(container.textContent).toContain("2 seats included");
     expect(container.textContent).toContain("Starter");
-    expect(container.textContent).toContain("3–9");
-    expect(container.textContent).toContain("Growth");
-    expect(container.textContent).toContain("10–100");
     expect(container.textContent).toContain("30 days");
+
+    // The prose statement of the formula itself.
+    expect(container.textContent).toContain("₽490.00 for the first 3 seats");
+    expect(container.textContent).toContain("+₽200.00 per seat beyond that");
+
+    // The per-seat-count table: 2 and 3 seats both cost the flat 490 base (0 extra seats), 4 costs
+    // 490 + 1×200 = 690, 5 costs 490 + 2×200 = 890 - never a single "₽200.00 per seat" implying
+    // 5 seats costs 1000.
+    expect(container.textContent).toContain("₽490.00");
+    expect(container.textContent).toContain("₽690.00");
+    expect(container.textContent).toContain("₽890.00");
+    expect(container.textContent).not.toContain("₽1000.00");
+
+    const seatRows = container.querySelectorAll("tbody tr");
+    expect(seatRows).toHaveLength(4); // one row per seat count, 2 through 5 - never one row per tier
   });
 
   // `25-20`'s own honest finding, proven at the UI level too: an empty `billingOptions` list renders
@@ -131,7 +149,7 @@ describe("the price-list page's own read", () => {
 
     expect(container.textContent).toContain("Not authorized");
     expect(container.textContent).not.toContain("platform owner");
-    expect(container.textContent).not.toContain("₽590");
+    expect(container.textContent).not.toContain("₽490");
   });
 
   it("marks Platform sites, not a second entry, as the pinned link while here", async () => {
