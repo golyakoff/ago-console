@@ -658,11 +658,30 @@ export interface OwnerBillingOption {
 }
 
 /**
+ * `25-43`'s wire shape, mirrored field for field from `Ago.Chat.Contracts.OwnerPricedResourceDto` -
+ * one code-registered price key, whatever the server currently knows about it. `currentVersion`/
+ * `currentAmountRub` are both `null` together, exactly when nothing has ever been published for this
+ * key yet - `25-43`'s own second decision made visible here: "built, not yet for sale" is the
+ * ordinary state, never rendered as an error.
+ */
+export interface OwnerPricedResource {
+  key: string;
+  label: string;
+  currentVersion: string | null;
+  currentAmountRub: number | null;
+}
+
+/**
  * `25-20`'s wire shape, mirrored field for field from `Ago.Chat.Contracts.OwnerPricingResponse`.
+ *
+ * `25-43`: `pricedResources` is new on this response - added within the version, never replacing
+ * `seatPricing`/`billingOptions` (`api-design.md`: "add within a version, never remove or rename").
+ * It is the list `publishPriceVersion` below picks a key from; nothing on this page may invent one.
  */
 export interface OwnerPricing {
   seatPricing: OwnerSeatPricing;
   billingOptions: OwnerBillingOption[];
+  pricedResources: OwnerPricedResource[];
 }
 
 /** The outcome of asking `25-20`'s endpoint for the price list - the identical `"not-authorized"`
@@ -693,6 +712,65 @@ export async function fetchOwnerPricing(accessToken: string): Promise<OwnerPrici
   }
 
   return { status: "ok", pricing: (await response.json()) as OwnerPricing };
+}
+
+/**
+ * `25-43`: the outcome of publishing a new price version - the same `not-authorized`/`invalid`
+ * two-status shape `GrantOwnerModuleQuantityOutcome` already establishes, plus `"conflict"` for the
+ * one failure mode unique to this write: a concurrent publish for the identical key already won
+ * (`PublishPriceVersionHandler`'s own bounded retry loop exhausted, `409`) - a caller that resubmits
+ * the identical form should simply succeed against the fresher row, so this is named separately from
+ * `"invalid"` rather than folded into it.
+ */
+export type PublishPriceVersionOutcome =
+  | { status: "ok"; version: string; sequence: number; amountRub: number; publishedAt: string }
+  | { status: "not-authorized" }
+  | { status: "invalid"; message: string }
+  | { status: "conflict"; message: string };
+
+/**
+ * `25-43`: `POST /api/v1/owner/prices/{key}/versions` - publishes a new version for an
+ * already-registered key. `key` must be one of `OwnerPricing.pricedResources`' own keys; the server
+ * refuses (`"invalid"`, `400`) anything else - this function never lets a caller invent one, the same
+ * "the owner only ever sets or changes the Rouble figure for a key that already exists" boundary
+ * `25-43`'s own first decision draws.
+ */
+export async function publishPriceVersion(
+  accessToken: string,
+  key: string,
+  amountRub: number,
+): Promise<PublishPriceVersionOutcome> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/owner/prices/${encodeURIComponent(key)}/versions`);
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: withActiveSiteHeader({
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify({ amountRub }),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    return { status: "not-authorized" };
+  }
+
+  if (response.status === 400) {
+    const problem = (await response.json()) as { detail?: string };
+    return { status: "invalid", message: problem.detail ?? "This price could not be published." };
+  }
+
+  if (response.status === 409) {
+    const problem = (await response.json()) as { detail?: string };
+    return { status: "conflict", message: problem.detail ?? "Another publish for this key won the race - try again." };
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to publish the price version: ${response.status}`);
+  }
+
+  const body = (await response.json()) as { key: string; version: string; sequence: number; amountRub: number; publishedAt: string };
+  return { status: "ok", version: body.version, sequence: body.sequence, amountRub: body.amountRub, publishedAt: body.publishedAt };
 }
 
 /**

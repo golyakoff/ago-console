@@ -6,7 +6,7 @@ import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { OwnerPricingPage } from "./OwnerPricingPage.js";
 import type { OwnerPricing } from "../api/ownerApi.js";
-import { one, render, unmount } from "../testing/dom.js";
+import { byText, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
  * `25-20`: the price-list page's own behaviour tests - mirrors `ownerSitesPage.test.tsx`'s setup
@@ -23,7 +23,7 @@ vi.mock("../config.js", () => ({
 }));
 
 const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
-const ownerApi = vi.hoisted(() => ({ fetchOwnerPricing: vi.fn() }));
+const ownerApi = vi.hoisted(() => ({ fetchOwnerPricing: vi.fn(), publishPriceVersion: vi.fn() }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
@@ -69,6 +69,10 @@ const REAL_PRICING: OwnerPricing = {
     ],
   },
   billingOptions: [],
+  // `25-43`: empty by default - the read-only suites below never touch this section, and adding it
+  // here (rather than only in the "priced resources" suite's own fixtures) is what proves this new,
+  // required field does not disturb any of `25-20`'s own pre-existing assertions.
+  pricedResources: [],
 };
 
 beforeEach(() => {
@@ -136,5 +140,123 @@ describe("the price-list page's own read", () => {
     const pinned = one<HTMLAnchorElement>(container, ".ago-shell__rail-link--pinned");
     expect(pinned.textContent?.trim()).toBe("Platform sites");
     expect(pinned.getAttribute("href")).toBe("/owner");
+  });
+});
+
+/**
+ * `25-43`: the one write this screen has ever had - publishing a new version for an already-
+ * registered price key. Mirrors `DocumentsPage.test.tsx`'s own "publishing a new version" suite
+ * (`setTextValue`/`interact`/`form button[type='submit']`), the identical publish/refresh shape.
+ */
+describe("priced resources", () => {
+  function amountField(container: HTMLElement): HTMLInputElement {
+    const field = one<HTMLInputElement>(container, "input[type='number']");
+    return field;
+  }
+
+  function setTextValue(element: HTMLInputElement, value: string): void {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(element, value);
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  it("states plainly that an unpublished key is not yet for sale, rather than showing a zero price", async () => {
+    ownerApi.fetchOwnerPricing.mockResolvedValue({
+      status: "ok",
+      pricing: {
+        ...REAL_PRICING,
+        pricedResources: [{ key: "seat-base", label: "Business tier - base price", currentVersion: null, currentAmountRub: null }],
+      },
+    });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).toContain("Not yet for sale");
+    // No toggle to hide behind for a key with nothing published yet - the form is the only thing
+    // there is to show, the identical `formVisible` rule `ConsentDocumentPanel` uses for its own
+    // `current === null` case.
+    expect(container.querySelector("input[type='number']")).not.toBeNull();
+  });
+
+  it("shows a published key's own current version and amount, with the form closed behind a toggle", async () => {
+    ownerApi.fetchOwnerPricing.mockResolvedValue({
+      status: "ok",
+      pricing: {
+        ...REAL_PRICING,
+        pricedResources: [{ key: "seat-base", label: "Business tier - base price", currentVersion: "v3", currentAmountRub: 490 }],
+      },
+    });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).toContain("₽490.00 (v3)");
+    expect(container.querySelector("input[type='number']")).toBeNull();
+    expect(container.textContent).toContain("Publish a new price");
+  });
+
+  it("publishes a new version for the key and reloads the price list", async () => {
+    ownerApi.fetchOwnerPricing.mockResolvedValue({
+      status: "ok",
+      pricing: {
+        ...REAL_PRICING,
+        pricedResources: [{ key: "seat-base", label: "Business tier - base price", currentVersion: "v3", currentAmountRub: 490 }],
+      },
+    });
+    ownerApi.publishPriceVersion.mockResolvedValue({
+      status: "ok",
+      version: "v4",
+      sequence: 4,
+      amountRub: 555,
+      publishedAt: "2026-09-10T00:00:00Z",
+    });
+    const container = await render(shellAt());
+    expect(ownerApi.fetchOwnerPricing).toHaveBeenCalledTimes(1);
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Publish a new price")?.click());
+    await interact(() => setTextValue(amountField(container), "555"));
+    await interact(() => one<HTMLButtonElement>(container, "form button[type='submit']").click());
+
+    expect(ownerApi.publishPriceVersion).toHaveBeenCalledWith("token", "seat-base", 555);
+    expect(container.textContent).toContain("The new price was published.");
+    expect(ownerApi.fetchOwnerPricing).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects a negative amount before ever calling publish", async () => {
+    ownerApi.fetchOwnerPricing.mockResolvedValue({
+      status: "ok",
+      pricing: {
+        ...REAL_PRICING,
+        pricedResources: [{ key: "seat-base", label: "Business tier - base price", currentVersion: null, currentAmountRub: null }],
+      },
+    });
+    const container = await render(shellAt());
+
+    await interact(() => setTextValue(amountField(container), "-5"));
+    // Dispatched directly on the form, not via `submitButton.click()`: the input's own `min={0}`
+    // gives every real browser a second, native line of defence that blocks the click-triggered
+    // implicit submission before this component's own JS ever runs (jsdom enforces the identical
+    // HTML5 constraint-validation rule) - proven live while writing this test, the exact reason this
+    // is a defence-in-depth test for the handler's own validation branch, not a redundant one.
+    const formEl = container.querySelector("form");
+    await interact(() => formEl?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+
+    expect(container.textContent).toContain("Enter a Rouble amount of zero or more.");
+    expect(ownerApi.publishPriceVersion).not.toHaveBeenCalled();
+  });
+
+  it("shows the server's own refusal message when the key is not registered", async () => {
+    ownerApi.fetchOwnerPricing.mockResolvedValue({
+      status: "ok",
+      pricing: {
+        ...REAL_PRICING,
+        pricedResources: [{ key: "seat-base", label: "Business tier - base price", currentVersion: null, currentAmountRub: null }],
+      },
+    });
+    ownerApi.publishPriceVersion.mockResolvedValue({ status: "invalid", message: "This price key does not exist." });
+    const container = await render(shellAt());
+
+    await interact(() => setTextValue(amountField(container), "100"));
+    await interact(() => one<HTMLButtonElement>(container, "form button[type='submit']").click());
+
+    expect(container.textContent).toContain("This price key does not exist.");
   });
 });
