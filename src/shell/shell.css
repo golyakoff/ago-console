@@ -137,8 +137,10 @@
 }
 
 .ago-shell__glyph {
-  width: 2rem;
-  height: 2rem;
+  /* `25-49`: matches `.ago-shell__menu-button`'s own 2.75rem square - the header's other icon,
+     and the only other square in this row, so "the same size as a header menu icon" means this. */
+  width: 2.75rem;
+  height: 2.75rem;
   flex: none;
   border-radius: var(--ago-radius-sm);
   background: var(--ago-brand);
@@ -153,8 +155,9 @@
 
 /* The only Unbounded on any console screen - the item confines display type to the shell's
    identity, because a tool that shouts its own name in every heading is tiring to sit in.
-   `23-31`: this is now the *whole* brand text ("Офис") - the tagline span underneath it
-   (`.ago-shell__product`) is gone along with the route-driven tagline it rendered. */
+   `23-31`: this is now the *whole* brand text ("AGO Офис", `25-49`: was "Офис") - the tagline
+   span underneath it (`.ago-shell__product`) is gone along with the route-driven tagline it
+   rendered. */
 .ago-shell__wordmark {
   font-family: var(--ago-font-display);
   font-weight: 700;

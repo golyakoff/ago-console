@@ -502,17 +502,18 @@ export function AppShell({
                   <span className="ago-shell__menu-icon" aria-hidden="true" />
                 </button>
               )}
-              {/* `23-31`: the header says "Офис" and nothing else - the old two-line "AGO" wordmark
+              {/* `23-31`: the header says "AGO Офис" and nothing else - the old two-line "AGO" wordmark
                   plus a route-driven tagline ("Operator console"/"Client console"/"Platform owner
                   console") is gone, and with it the five-route `useMatch` list `OperatorShell` used
                   to compute which one to show. A brand name, like the glyph beside it - not looked up
                   in `strings`, the same reasoning `ux-gate/lib/i18nCompleteness.ts` already gives for
-                  never translating "AGO". */}
+                  never translating "AGO". `25-49`: the label itself grew from "Офис" to "AGO Офис" -
+                  the product's real name, not just its module. */}
               <span className="ago-shell__brand">
                 <span className="ago-shell__glyph" aria-hidden="true">
                   A
                 </span>
-                <span className="ago-shell__wordmark">Офис</span>
+                <span className="ago-shell__wordmark">AGO Офис</span>
               </span>
             </span>
 
@@ -690,12 +691,13 @@ export function CenteredShell({ children }: { children: ReactNode }) {
       <div className="ago-shell__sticky">
         <header className="ago-shell__header">
           <div className="ago-shell__header-row">
-            {/* `23-31`: matches `AppShell`'s own brand block - "Офис" and nothing else. */}
+            {/* `23-31`: matches `AppShell`'s own brand block - "AGO Офис" and nothing else
+                (`25-49`: renamed from "Офис"). */}
             <span className="ago-shell__brand">
               <span className="ago-shell__glyph" aria-hidden="true">
                 A
               </span>
-              <span className="ago-shell__wordmark">Офис</span>
+              <span className="ago-shell__wordmark">AGO Офис</span>
             </span>
           </div>
         </header>

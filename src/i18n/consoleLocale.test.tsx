@@ -93,10 +93,10 @@ describe("the console shell for an active site with Locale = Ru", () => {
     const container = await render(shellAt("/"));
 
     expect(container.querySelector(".ago-skip-link")?.textContent).toBe("Перейти к содержимому");
-    // `23-31`: "Офис" is the header's whole brand text now, a literal like "AGO" was before it - it
-    // does not come from `strings` and so does not vary between this test and the English one below,
-    // which is exactly what this assertion is checking.
-    expect(container.querySelector(".ago-shell__wordmark")?.textContent).toBe("Офис");
+    // `23-31`: "AGO Офис" (`25-49`: was "Офис") is the header's whole brand text now, a literal like
+    // "AGO" was before it - it does not come from `strings` and so does not vary between this test
+    // and the English one below, which is exactly what this assertion is checking.
+    expect(container.querySelector(".ago-shell__wordmark")?.textContent).toBe("AGO Офис");
     expect(sectionLabels(container)).toEqual([
       "Диалоги",
       "Аналитика",
@@ -135,7 +135,7 @@ describe("the console shell for an active site with no Locale set", () => {
     const container = await render(shellAt("/"));
 
     expect(container.querySelector(".ago-skip-link")?.textContent).toBe("Skip to content");
-    expect(container.querySelector(".ago-shell__wordmark")?.textContent).toBe("Офис");
+    expect(container.querySelector(".ago-shell__wordmark")?.textContent).toBe("AGO Офис");
     expect(sectionLabels(container)).toEqual([
       "Conversations",
       "Analytics",
