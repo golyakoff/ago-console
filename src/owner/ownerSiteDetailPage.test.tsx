@@ -972,11 +972,11 @@ async function setSelect(select: HTMLSelectElement, value: string) {
   });
 }
 
-/** The grant form's own module-key `<select>` - found by its `Field` label, not by `container.querySelector("select")`,
- * because this page is *not* the only `<select>` on screen: `AppShell`'s own `ThemeToggle` renders one
- * too, mounted ahead of this form in DOM order, so a bare `"select"` selector would silently drive the
- * theme switcher instead of the grant form. `Field`'s own `htmlFor`/`id` wiring is what makes the two
- * unambiguous. */
+/** The grant form's own module-key `<select>` - found by its `Field` label, not by
+ * `container.querySelector("select")`. `25-48` moved `AppShell`'s own `ThemeToggle` (which used to
+ * render a second `<select>` here, ahead of this form in DOM order) out to its own `/appearance`
+ * page, but this file still finds the field by its `Field` label rather than a bare selector - the
+ * same defensive habit, not a dependency on there being a second `<select>` today. */
 function moduleKeySelect(container: HTMLElement): HTMLSelectElement {
   const label = byText<HTMLLabelElement>(container, "label", "Module key");
   if (label === null) {

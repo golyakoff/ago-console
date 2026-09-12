@@ -61,6 +61,9 @@ export const ru: ConsoleStrings = {
   themeOptionLight: "Светлая",
   themeOptionDark: "Тёмная",
 
+  appearanceSettingsTitle: "Внешний вид",
+  appearanceSettingsDescription: "Как выглядит консоль на этом устройстве — Системная, Светлая или Тёмная.",
+
   agoSuffix: "назад",
 
   dateIntlLocale: "ru-RU",

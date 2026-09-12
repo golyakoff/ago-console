@@ -62,6 +62,9 @@ export const en: ConsoleStrings = {
   themeOptionLight: "Light",
   themeOptionDark: "Dark",
 
+  appearanceSettingsTitle: "Appearance",
+  appearanceSettingsDescription: "How the console looks on this device - System, Light, or Dark.",
+
   agoSuffix: "ago",
 
   dateIntlLocale: "en-GB",
