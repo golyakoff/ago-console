@@ -304,8 +304,9 @@ export const UX_GATE_SCREENS: readonly UxGateScreen[] = [
   },
   // `23-31`/`adr/0129`: the *other* real state the muting rule can render - the tenant (holds
   // `site:configure`) who has not bought the calendar. `/calendar/waiting` is the calendar's own
-  // muted representative entry's own `to`, so the rail's `activeSectionId` opens the Календарь
-  // section automatically on this exact route (`AppShell.tsx`'s own two-pass matching) - the muted
+  // muted representative entry's own `to`, so the rail's `activeSectionId` opens the Записи
+  // (`25-50`: was Календарь) section automatically on this exact route (`AppShell.tsx`'s own
+  // two-pass matching) - the muted
   // link and its `strings.navBuyableLabel` badge are visible in the rail without this gate ever
   // clicking a section header (`openScreen.ts`'s own "navigate-and-wait, never navigate-and-interact"
   // shape). The route itself still renders `CalendarAccessRefusal`'s forbidden state underneath -

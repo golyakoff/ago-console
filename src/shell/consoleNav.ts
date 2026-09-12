@@ -59,9 +59,11 @@ import { hasAnyBookingActionPermission } from "../calendar/calendarPermissions.j
  * ordinary operator's rail *exactly* four sections rather than seven collapsed ones: Каналы,
  * Автоматизация and Администрирование are entirely `isAdmin`-gated (every item inside them,
  * `Удалить аккаунт` on its own `site:erase` aside), so for `!isAdmin` each one has zero items and
- * disappears, leaving Диалоги, Аналитика, Календарь (only when this identity holds at least one of
- * `calendar:configure`, the booking permissions, or `customer:read` - `23-57`, see below) and Команда
- * (which always has at least the reserved "Общение" place, so it never empties).
+ * disappears, leaving Диалоги, Записи (only when this identity holds at least one of
+ * `calendar:configure`, the booking permissions, or `customer:read` - `23-57`, see below), Аналитика
+ * and Команда (which always has at least the reserved "Общение" place, so it never empties).
+ * `25-50`: reordered so Записи (was Календарь) is the second section, ahead of Аналитика - see the
+ * `sections` array below.
  */
 export function buildTenantNavSections(
   hasPermission: (permission: string) => boolean,
@@ -74,10 +76,14 @@ export function buildTenantNavSections(
   // which permission means "the tenant" cannot update one call site and miss the other.
   const isAdmin = permissionsKnown && hasPermission("site:configure");
 
+  // `25-50`: Диалоги, Записи (the renamed calendar section), then every remaining section in its
+  // previous relative order (Аналитика, Команда, Каналы, Автоматизация, Администрирование) -
+  // moving `calendar` up to second place is the only reorder; nothing else's relative position
+  // changes.
   const sections: (AppShellNavSection | null)[] = [
     buildSection("talk", strings.navConversations, buildTalkItems(isAdmin, strings)),
-    buildSection("analytics", strings.navAnalytics, buildAnalyticsItems(hasPermission, isAdmin, strings)),
     buildSection("calendar", strings.navSectionCalendar, buildCalendarItems(hasPermission, isAdmin, strings)),
+    buildSection("analytics", strings.navAnalytics, buildAnalyticsItems(hasPermission, isAdmin, strings)),
     buildSection("team", strings.navSectionTeam, buildTeamItems(permissionsKnown, hasPermission, strings)),
     buildSection("channels", strings.navSectionChannels, buildChannelsItems(isAdmin, strings)),
     buildSection("automation", strings.navSectionAutomation, buildAutomationItems(isAdmin, strings)),

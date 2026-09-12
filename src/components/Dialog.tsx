@@ -23,6 +23,19 @@ export interface DialogProps {
   /** Lets a trigger control point `aria-controls` at this dialog - optional because most existing
    * callers (a confirmation in front of a destructive action) have no such control to link. */
   id?: string;
+  /**
+   * `25-50`: `title` stays required - `aria-labelledby` needs a real heading to point at for every
+   * caller, and a screen-reader user still needs *something* announced the instant the dialog opens
+   * - but the mobile nav drawer (`AppShell`'s own hamburger control) has no visible use for that
+   * heading: "Console sections" duplicates the hamburger button's own `aria-label` and doubles as
+   * on-screen furniture nothing else in this console shows. Rather than making `title` optional (which
+   * would leave `aria-labelledby` pointing at nothing for a caller that omits it, or forking the markup
+   * so some `Dialog`s have no accessible name at all), this keeps the identical `<h2 id={titleId}>`
+   * and `aria-labelledby` wiring for every caller and only swaps the *visible* class for the
+   * `.ago-visually-hidden` one already used elsewhere in this codebase (`Table.tsx`'s caption,
+   * `Spinner.tsx`'s label) - the title is still announced, never shown. Defaults to `false`, so the
+   * other ten `Dialog` consumers keep their visible heading unchanged. */
+  visuallyHiddenTitle?: boolean;
   children: ReactNode;
 }
 
@@ -44,7 +57,16 @@ export interface DialogProps {
  * because the item's list is closed at eleven and names it, and because `11-06`/`13-04` are the
  * screens that will need it.
  */
-export function Dialog({ open, title, onClose, footer, variant = "modal", id, children }: DialogProps) {
+export function Dialog({
+  open,
+  title,
+  onClose,
+  footer,
+  variant = "modal",
+  id,
+  visuallyHiddenTitle = false,
+  children,
+}: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   // `11-14`: was a fixed `"ago-dialog-title"` before this item, which was already fragile - any two
   // `Dialog`s mounted at once (a screen's own confirmation dialog alongside this component's second
@@ -89,7 +111,7 @@ export function Dialog({ open, title, onClose, footer, variant = "modal", id, ch
       }}
     >
       <div className="ago-dialog__inner">
-        <h2 className="ago-dialog__title" id={titleId}>
+        <h2 className={visuallyHiddenTitle ? "ago-visually-hidden" : "ago-dialog__title"} id={titleId}>
           {title}
         </h2>
         <div>{children}</div>

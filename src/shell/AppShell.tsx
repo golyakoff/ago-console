@@ -542,6 +542,12 @@ export function AppShell({
           variant="drawer"
           open={drawerOpen}
           title={strings.navSectionsAriaLabel}
+          // `25-50`: the drawer needs an accessible name the instant it opens (`Dialog`'s own
+          // `aria-labelledby`), but no visible heading - "Console sections" is not shown anywhere
+          // else in this shell, mobile or desktop, and duplicated the hamburger button's own
+          // `aria-label` for no reader's benefit. `Dialog`'s `visuallyHiddenTitle` keeps the same
+          // string wired to the same `<h2>`/`aria-labelledby` pair, only hidden on screen.
+          visuallyHiddenTitle
           onClose={() => setDrawerOpen(false)}
         >
           <nav className="ago-shell__drawer-nav" aria-label={strings.navSectionsAriaLabel}>
