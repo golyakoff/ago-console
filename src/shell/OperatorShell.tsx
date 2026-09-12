@@ -31,9 +31,10 @@ import { TenancySwitcher } from "./TenancySwitcher.js";
  * header used to read "Operator console" or "Client console" depending on which of five hand-
  * maintained routes was active - a list `docs/design/design-system/shell.html` already recorded as
  * "already incomplete" (eight of the thirteen tenant screens were never in it). The backlog item's
- * own instruction is direct: the header now says "Офис" and nothing else, on every route, for every
- * identity - `AppShell`'s own brand block renders that literal, un-translated word (the same
- * treatment "AGO" already had), so there is nothing left for this component to compute per route.
+ * own instruction is direct: the header now says "Офис" (`25-49`: grew to "AGO Офис") and nothing
+ * else, on every route, for every identity - `AppShell`'s own brand block renders that literal,
+ * un-translated word (the same treatment "AGO" already had), so there is nothing left for this
+ * component to compute per route.
  */
 export function OperatorShell() {
   const { user, logout } = useAuth();
