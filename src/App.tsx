@@ -3,6 +3,7 @@ import { MOVED_ROUTES } from "./movedRoutes.js";
 import { RequireAuth } from "./auth/RequireAuth.js";
 import { PermissionsProvider } from "./auth/PermissionsProvider.js";
 import { OperatorConnectionProvider } from "./realtime/OperatorConnectionProvider.js";
+import { CalendarOperatorConnectionProvider } from "./realtime/CalendarOperatorConnectionProvider.js";
 import { PreSessionStringsProvider } from "./i18n/PreSessionStringsProvider.js";
 import { OperatorShell } from "./shell/OperatorShell.js";
 import { CallbackPage } from "./pages/CallbackPage.js";
@@ -249,7 +250,15 @@ export function App() {
           <RequireAuth>
             <PermissionsProvider>
               <OperatorConnectionProvider>
-                <OperatorShell />
+                {/* `25-63`: inside OperatorConnectionProvider, not beside it - both are one
+                    operator's own session-scoped connections, mounted at the identical shared
+                    layout route so navigating between the workspace and any /calendar/* screen
+                    never tears either one down. CalendarOperatorConnectionProvider itself decides
+                    whether to ever open a real connection (config.calendarApiBaseUrl configured, and
+                    this operator holds a calendar permission) - see its own doc comment. */}
+                <CalendarOperatorConnectionProvider>
+                  <OperatorShell />
+                </CalendarOperatorConnectionProvider>
               </OperatorConnectionProvider>
             </PermissionsProvider>
           </RequireAuth>

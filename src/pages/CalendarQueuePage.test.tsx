@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "oidc-client-ts";
 import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
+import { CalendarConnectionContext } from "../realtime/CalendarConnectionContext.js";
 import { CalendarQueuePage } from "./CalendarQueuePage.js";
 import { all, byText, interact, render, unmount } from "../testing/dom.js";
 import type { PendingBooking } from "../api/calendarApi.js";
@@ -69,7 +70,15 @@ function page(): ReactNode {
     <MemoryRouter>
       <Signed>
         <PermissionsProvider>
-          <CalendarQueuePage />
+          {/* `25-63`: the real CalendarOperatorConnectionProvider opens a live SignalR connection -
+              ConversationPage.test.tsx's own precedent (OperatorConnectionContext.Provider, a fake
+              value) is what this mirrors, so this suite proves the page's own rendering rather than a
+              network call jsdom cannot make. `connection: null` is also the honest default this
+              context ships in a real, unconfigured-or-unpermitted session - see
+              CalendarConnectionContext's own remarks. */}
+          <CalendarConnectionContext.Provider value={{ connection: null, connectionState: "disconnected" }}>
+            <CalendarQueuePage />
+          </CalendarConnectionContext.Provider>
         </PermissionsProvider>
       </Signed>
     </MemoryRouter>

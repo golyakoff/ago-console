@@ -15,6 +15,7 @@ import { FaqModulePage } from "../pages/FaqModulePage.js";
 import { CalendarQueuePage } from "../pages/CalendarQueuePage.js";
 import { CalendarBookingsPage } from "../pages/CalendarBookingsPage.js";
 import { CalendarContactsPage } from "../pages/CalendarContactsPage.js";
+import { CalendarConnectionContext } from "../realtime/CalendarConnectionContext.js";
 import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
@@ -163,9 +164,15 @@ function pageOnly(path: string, page: ReactNode) {
     <MemoryRouter initialEntries={[path]}>
       <Signed>
         <PermissionsProvider>
-          <Routes>
-            <Route path={path} element={page} />
-          </Routes>
+          {/* `25-63`: the real CalendarOperatorConnectionProvider opens a live SignalR connection -
+              a fake context value here (this suite's own pages that are not CalendarQueuePage never
+              read it) mirrors ConversationPage.test.tsx's own OperatorConnectionContext.Provider
+              precedent for the identical reason. */}
+          <CalendarConnectionContext.Provider value={{ connection: null, connectionState: "disconnected" }}>
+            <Routes>
+              <Route path={path} element={page} />
+            </Routes>
+          </CalendarConnectionContext.Provider>
         </PermissionsProvider>
       </Signed>
     </MemoryRouter>

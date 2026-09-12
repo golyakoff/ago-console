@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
+import { useCalendarConnection } from "../realtime/CalendarConnectionContext.js";
 import { config } from "../config.js";
 import {
   cancelBooking,
@@ -57,6 +58,7 @@ import { formatAbsolute, formatClockTime, parseInstant, resolveTimeZone } from "
 export function CalendarQueuePage() {
   const { user } = useAuth();
   const { permissions, hasPermission } = usePermissions();
+  const { connection: calendarConnection } = useCalendarConnection();
   const strings = useStrings();
   const timeZone = useMemo(() => resolveTimeZone(), []);
   const [rows, setRows] = useState<PendingBooking[] | null>(null);
@@ -108,6 +110,25 @@ export function CalendarQueuePage() {
     void reload(controller.signal);
     return () => controller.abort();
   }, [reload, canViewQueue]);
+
+  // `25-63`: the one real event this screen exists to react to live - CalendarOperatorHub pushes
+  // "PendingBookingsChanged" whenever any booking, anywhere in this tenant, enters or leaves
+  // PendingConfirmation; this re-reads the queue exactly the way the manual Refresh button already
+  // does. No per-message data is read from the push itself - it is a bare "something changed" signal,
+  // and this handler's only job is to ask the server again, which is what keeps GetPendingBookingsForTenantHandler's
+  // own permission and contact-masking decisions as the one place either is made (the push payload
+  // deliberately carries neither, see BookingPendingStateChanged's own remarks, Ago.Calendar.Contracts).
+  // `calendarConnection` is null whenever this operator's session never opened the hub at all
+  // (CalendarOperatorConnectionProvider's own guard) - the effect is then simply a no-op, the same
+  // "no live update, the initial fetch and the manual button still work" degradation as any other
+  // dropped realtime channel in this console.
+  useEffect(() => {
+    if (calendarConnection === null || !canViewQueue) {
+      return;
+    }
+
+    calendarConnection.onPendingBookingsChanged(() => void reload());
+  }, [calendarConnection, canViewQueue, reload]);
 
   if (permissions === null) {
     return <Spinner label={strings.siteConfigCheckingPermissions} />;
