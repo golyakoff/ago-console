@@ -28,6 +28,7 @@ import { CloseConversationButton } from "../workspace/CloseConversationButton.js
 import { Composer } from "../workspace/Composer.js";
 import { Thread } from "../workspace/Thread.js";
 import { VisitorPanel } from "../workspace/VisitorPanel.js";
+import { visitorEmojiPrefix } from "../workspace/visitorEmoji.js";
 import { useWorkspace } from "../workspace/workspaceContext.js";
 
 const PRESENCE_POLL_INTERVAL_MS = 10_000;
@@ -681,7 +682,11 @@ export function ConversationPage() {
           <h2 className="ago-workspace__main-title">
             {conversation ? (
               <>
-                {strings.conversationWithPrefix} <span className="ago-mono">{conversation.visitorId.slice(0, 8)}</span>
+                {strings.conversationWithPrefix}{" "}
+                <span className="ago-mono">
+                  {visitorEmojiPrefix(conversation)}
+                  {conversation.visitorId.slice(0, 8)}
+                </span>
               </>
             ) : (
               strings.conversationTitleFallback

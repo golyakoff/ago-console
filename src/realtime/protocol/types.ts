@@ -115,6 +115,15 @@ export interface ConversationSummaryDto {
    * this as "granted by the tenant's own default" whenever it is absent but
    * `attachmentUploadGrantedAt` is present. */
   attachmentUploadGrantedByOperatorId?: string | null;
+  /** `25-56`: the visitor's own memory-aid emoji pair - one glyph from a creature dictionary, one
+   * from a food dictionary, assigned once per visitor (never per conversation) and stable across every
+   * conversation that visitor ever has. Nullable/absent for the identical reason every other additive
+   * field on this DTO is - a row from a server that predates the column - even though every visitor a
+   * real caller observes has both, enforced by the two creation call sites rather than a schema
+   * constraint (`Ago.Chat.Domain.Visitor`'s own remarks). Always present or absent together; render
+   * nothing extra when either is missing rather than half a pair. */
+  emojiCreature?: string | null;
+  emojiFood?: string | null;
 }
 
 /** `5-07`: `Ago.Chat.Contracts.OperatorQueueResponse` - `GET /api/v1/conversations/queue`'s body. */
