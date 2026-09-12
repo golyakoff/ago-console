@@ -6,7 +6,7 @@ import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsContext, type PermissionsState } from "../auth/PermissionsContext.js";
 import { OperatorConnectionContext, type OperatorConnectionState } from "../realtime/OperatorConnectionContext.js";
 import { NotConnectedError, SendOutcomeUnknownError, type OperatorConnection } from "../realtime/operatorConnection.js";
-import type { MessageDto } from "../realtime/protocol/types.js";
+import type { ConversationSummaryDto, MessageDto } from "../realtime/protocol/types.js";
 import type { WorkspaceOutletContext } from "../workspace/workspaceContext.js";
 import { ApiProblemError } from "../api/problemDetails.js";
 import { ReplyDraftError } from "../api/replyDraftApi.js";
@@ -93,6 +93,21 @@ vi.mock("../api/replyDraftApi.js", async (importOriginal) => ({
 const CONVERSATION_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 const SITE_ID = "cccccccc-cccc-cccc-cccc-cccccccccccc";
 const ATTACHMENT_ID = "dddddddd-dddd-dddd-dddd-dddddddddddd";
+const VISITOR_ID = "88888888-8888-8888-8888-888888888888";
+
+/** `25-56`: a minimal `ConversationSummaryDto`, for the tests that put one in `Harness`'s
+ * `conversation` outlet field - this file's other tests all leave it `null` (the page's own fallback
+ * title), so only the two below need a real one. */
+function conversationSummary(overrides: Partial<ConversationSummaryDto> = {}): ConversationSummaryDto {
+  return {
+    conversationId: CONVERSATION_ID,
+    visitorId: VISITOR_ID,
+    state: "Assigned",
+    createdAt: "2026-08-25T09:00:00+00:00",
+    operatorUnreadCount: 0,
+    ...overrides,
+  };
+}
 
 interface SendAttempt {
   body: string;
@@ -178,6 +193,10 @@ interface HarnessOptions {
    * own `Assigned`-hit link does - default unchanged from before this item (the plain conversation
    * route, no query string). */
   initialPath?: string;
+  /** `25-56`: `useWorkspace().conversation` - `null` (the default every other test in this file
+   * relies on, for the page's own fallback title) unless a test is specifically about something this
+   * object carries, such as the header's emoji-pair prefix. */
+  conversation?: ConversationSummaryDto | null;
 }
 
 function Harness({
@@ -186,6 +205,7 @@ function Harness({
   markRead = () => undefined,
   refreshQueue = () => undefined,
   initialPath = `/conversations/${CONVERSATION_ID}`,
+  conversation = null,
 }: HarnessOptions) {
   const auth = useMemo<AuthState>(
     () => ({
@@ -224,7 +244,7 @@ function Harness({
 
   const outlet = useMemo<WorkspaceOutletContext>(
     () => ({
-      conversation: null,
+      conversation,
       now: new Date("2026-08-25T09:05:00Z"),
       timeZone: "UTC",
       refreshQueue,
@@ -241,7 +261,7 @@ function Harness({
       tags: [],
       refreshTags: () => {},
     }),
-    [markRead, refreshQueue],
+    [conversation, markRead, refreshQueue],
   );
 
   return (
@@ -714,3 +734,30 @@ describe("suggesting a reply (19-01)", () => {
   });
 });
 
+
+/**
+ * `25-56`: the open-dialog header, the second of the item's exactly-two render locations -
+ * `ConversationList.test.tsx` covers the first. `Harness`'s `conversation` outlet field defaults to
+ * `null` for every test above this one, which already proves the fallback path (`strings
+ * .conversationTitleFallback`, no short code at all); these two are the first to give it a real
+ * `ConversationSummaryDto`.
+ */
+describe("25-56: the visitor emoji pair in the open-dialog header", () => {
+  it("prepends the emoji pair to the short code when the visitor has one", async () => {
+    const fake = fakeConnection();
+    const container = await render(
+      <Harness connection={fake.connection} conversation={conversationSummary({ emojiCreature: "🐔", emojiFood: "🍊" })} />,
+    );
+
+    const heading = one(container, ".ago-workspace__main-title");
+    expect(heading.textContent?.replace(/\s+/g, " ").trim()).toBe(`Conversation with 🐔🍊 ${VISITOR_ID.slice(0, 8)}`);
+  });
+
+  it("renders only the short code, no stray text, when the pair is absent", async () => {
+    const fake = fakeConnection();
+    const container = await render(<Harness connection={fake.connection} conversation={conversationSummary()} />);
+
+    const heading = one(container, ".ago-workspace__main-title");
+    expect(heading.textContent?.replace(/\s+/g, " ").trim()).toBe(`Conversation with ${VISITOR_ID.slice(0, 8)}`);
+  });
+});
