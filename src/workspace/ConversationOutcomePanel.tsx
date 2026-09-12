@@ -6,6 +6,7 @@ import { Alert } from "../components/Alert.js";
 import { Badge, type BadgeTone } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
 import { Skeleton } from "../components/Spinner.js";
+import { Tooltip } from "../components/Tooltip.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
 
@@ -135,9 +136,16 @@ export function ConversationOutcomePanel({ conversationId, accessToken }: Conver
 
   return (
     <section className="ago-aside__section" aria-labelledby="ago-outcome-title">
-      <h3 className="ago-aside__subtitle" id="ago-outcome-title">
-        {strings.outcomeSectionTitle}
-      </h3>
+      {/* `18-10`'s own load-bearing honesty framing - this is what the operator says happened, never
+          a verified sale AGO Chat itself confirmed. `25-54`: used to render as its own paragraph at
+          the foot of this section, restated every time regardless of whether the operator was still
+          reading; it now lives in `Tooltip`, next to the heading it is actually about. */}
+      <div className="ago-tooltip-row">
+        <h3 className="ago-aside__subtitle" id="ago-outcome-title">
+          {strings.outcomeSectionTitle}
+        </h3>
+        <Tooltip content={strings.outcomeNotAVerifiedSaleNote} />
+      </div>
 
       {outcome === null && !loadError ? (
         <Skeleton lines={1} label={strings.outcomeLoadingLabel} />
@@ -167,11 +175,6 @@ export function ConversationOutcomePanel({ conversationId, accessToken }: Conver
       )}
 
       {actionError && <Alert tone="danger">{actionError}</Alert>}
-
-      {/* `18-10`'s own load-bearing honesty framing, restated at the one place an operator sets this
-          value, not only on the report that reads it back: this is what the operator says happened,
-          never a verified sale AGO Chat itself confirmed. */}
-      <p className="ago-aside__note">{strings.outcomeNotAVerifiedSaleNote}</p>
     </section>
   );
 }

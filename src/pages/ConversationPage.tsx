@@ -18,6 +18,7 @@ import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
 import { Spinner } from "../components/Spinner.js";
+import { Tooltip } from "../components/Tooltip.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { fetchChannelDeliveries, type ChannelDeliveryDto } from "../api/channelDeliveriesApi.js";
 import { closeConversation, fetchVisitorHistory, grantAttachmentUpload, revokeAttachmentUpload } from "../api/conversationsApi.js";
@@ -744,8 +745,17 @@ export function ConversationPage() {
         </header>
 
         {connectionState === "connected" ? null : (
+          // `25-54`: this used to be a full sentence rendered inline every time the connection drops -
+          // it now shows only a `(?)` trigger, but `role="status"` still needs real text in the DOM the
+          // instant this appears for the announcement to fire at all; a screen reader does not read a
+          // tooltip's own hidden content just because something focusable appeared near it. The
+          // sentence therefore still exists twice: once visually hidden, for that automatic
+          // announcement, and once inside `Tooltip`, for a sighted operator who hovers or tabs to ask
+          // what is happening - not a copy change, the same string doing both jobs it always did
+          // (state the fact, and be discoverable), through two different channels instead of one.
           <p className="ago-meta ago-workspace__main-note" role="status">
-            {strings.conversationWaitingForHub}
+            <span className="ago-visually-hidden">{strings.conversationWaitingForHub}</span>
+            <Tooltip content={strings.conversationWaitingForHub} />
           </p>
         )}
 

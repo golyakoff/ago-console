@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConversationOutcomePanel } from "./ConversationOutcomePanel.js";
 import { ApiProblemError } from "../api/problemDetails.js";
 import { PermissionsContext, type PermissionsState } from "../auth/PermissionsContext.js";
-import { all, byText, flush, interact, one, render, renderSync, unmount } from "../testing/dom.js";
+import { byText, flush, interact, one, render, renderSync, unmount } from "../testing/dom.js";
 
 /**
  * `18-10`. The same hand-made-permissions-context shape `CloseConversationButton.test.tsx` already
@@ -77,7 +77,12 @@ describe("who is offered the control", () => {
     const container = await mount(["conversation:read"]);
 
     expect(container.textContent).toContain("Converted");
-    expect(all(container, "button")).toHaveLength(0);
+    // `25-54`: no longer "zero buttons anywhere in the panel" - the header's own `Tooltip` trigger is
+    // a real `<button>` too, and it is not gated on `conversation:close` (explaining what "Converted"
+    // means is not a permission, unlike changing it). What this test is actually about is the
+    // outcome-*setting* control group, which `canSet` gates - so it asserts that group's absence
+    // directly rather than counting every button in the panel.
+    expect(container.querySelector('[role="group"]')).toBeNull();
   });
 
   it("offers the three recordable buttons to an operator holding conversation:close", async () => {
@@ -153,11 +158,36 @@ describe("recording an outcome", () => {
   });
 });
 
+/**
+ * `25-54`: the "not a verified sale" note used to be a permanent `<p className="ago-aside__note">`
+ * at the foot of this panel - `container.textContent` containing "not a sale" was enough to prove it
+ * rendered, because there was no other way for that text to reach the DOM. A hidden `Tooltip` bubble
+ * is real markup too, so that same assertion would now pass whether or not the relocation actually
+ * happened - it says nothing about *where* the text is. These two tests check the two halves of the
+ * item's own Done-when instead: no standing paragraph, and the text is reachable through the trigger.
+ */
 describe("the honesty framing", () => {
-  it("always shows the not-a-verified-sale note, for every operator who can see the panel at all", async () => {
+  it("no longer renders the not-a-verified-sale note as a permanent paragraph, only inside its own hidden tooltip", async () => {
     const container = await mount(["conversation:read"]);
 
-    expect(container.textContent).toContain("not a sale");
+    expect(container.querySelector(".ago-aside__note")).toBeNull();
+
+    const bubble = one<HTMLElement>(container, '[role="tooltip"]');
+    expect(bubble.textContent).toContain("not a sale");
+    expect(bubble.hidden).toBe(true);
+  });
+
+  it("reveals the not-a-verified-sale note when its tooltip trigger receives focus, and hides it again on blur", async () => {
+    const container = await mount(["conversation:read"]);
+
+    const trigger = one<HTMLButtonElement>(container, ".ago-tooltip__trigger");
+    const bubble = one<HTMLElement>(container, '[role="tooltip"]');
+
+    await interact(() => trigger.focus());
+    expect(bubble.hidden).toBe(false);
+
+    await interact(() => trigger.blur());
+    expect(bubble.hidden).toBe(true);
   });
 });
 

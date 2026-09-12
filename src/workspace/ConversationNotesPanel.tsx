@@ -6,6 +6,7 @@ import { Alert } from "../components/Alert.js";
 import { Button } from "../components/Button.js";
 import { Textarea } from "../components/Textarea.js";
 import { Skeleton } from "../components/Spinner.js";
+import { Tooltip } from "../components/Tooltip.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { formatAbsolute, parseInstant } from "../time/format.js";
 
@@ -99,10 +100,15 @@ export function ConversationNotesPanel({ conversationId, timeZone, accessToken }
 
   return (
     <section className="ago-aside__section" aria-labelledby="ago-notes-title">
-      <h3 className="ago-aside__subtitle" id="ago-notes-title">
-        {strings.notesTitle}
-      </h3>
-      <p className="ago-aside__note">{strings.notesVisitorCannotSeeNote}</p>
+      {/* `25-54`: "the visitor never sees these" used to render as its own paragraph under the
+          heading - it is now `Tooltip`'s content, a sibling of the `<h3>` this section's own
+          `aria-labelledby` points at (`Tooltip.tsx`'s own doc comment on why it stays a sibling). */}
+      <div className="ago-tooltip-row">
+        <h3 className="ago-aside__subtitle" id="ago-notes-title">
+          {strings.notesTitle}
+        </h3>
+        <Tooltip content={strings.notesVisitorCannotSeeNote} />
+      </div>
 
       {notes === null && !loadError ? (
         <Skeleton lines={2} label={strings.notesLoadingLabel} />

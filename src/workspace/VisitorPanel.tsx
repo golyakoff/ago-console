@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import type { ConversationSummaryDto, VisitorHistoryResponse } from "../realtime/protocol/types.js";
 import type { TagDto } from "../api/tagsApi.js";
 import { Badge } from "../components/Badge.js";
+import { Tooltip } from "../components/Tooltip.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
 import { VisitorHistoryPanel } from "./VisitorHistoryPanel.js";
@@ -73,6 +74,14 @@ export interface VisitorPanelProps {
  * `<dl>` (which used to render them in full, deliberately un-truncated, for copying into a ticket or
  * a log query) and move to a single `console.log` the effect below fires whenever the conversation
  * identity actually changes, reachable through the browser's own DevTools (F12) instead.
+ *
+ * `25-54`: **this panel's own explanatory paragraph moved from the foot of it to a tooltip on its own
+ * header.** It used to be the last thing rendered - after `VisitorHistoryPanel` and every aside
+ * section below - so an operator had to scroll past all of them to reach the one paragraph saying
+ * what this panel is and is not. The item's own scope names the header explicitly ("as a tooltip on
+ * the panel's own header/title, not inline body text"), and the header is also the honest place for
+ * it: the paragraph is about the *panel as a whole* (what the platform knows and does not, and where
+ * previous conversations come from), not about any one section inside it.
  */
 export function VisitorPanel({
   conversationId,
@@ -106,9 +115,17 @@ export function VisitorPanel({
 
   return (
     <aside className="ago-workspace__aside" aria-labelledby="ago-visitor-panel-title">
-      <h2 className="ago-aside__title" id="ago-visitor-panel-title">
-        {strings.visitorPanelTitle}
-      </h2>
+      {/* `25-54`: this panel's own explanatory note used to render at the very foot of it, after
+          every other panel below - so an operator had to scroll past all of them to reach the one
+          paragraph saying what the whole panel is and is not. It now sits as a tooltip on this panel's
+          own header, per the item's own explicit instruction, rather than on the section it happens
+          to trail. */}
+      <div className="ago-tooltip-row">
+        <h2 className="ago-aside__title" id="ago-visitor-panel-title">
+          {strings.visitorPanelTitle}
+        </h2>
+        <Tooltip content={strings.visitorPanelNote} />
+      </div>
 
       <div className="ago-aside__row">
         {visitorOnline === null ? (
@@ -156,8 +173,6 @@ export function VisitorPanel({
           ChannelIdentitiesPanel above, deliberately styled and worded to look like it, not merged into
           that panel - see ContactDetailsPanel's own doc comment. */}
       <ContactDetailsPanel conversationId={conversationId} accessToken={accessToken} />
-
-      <p className="ago-aside__note">{strings.visitorPanelNote}</p>
     </aside>
   );
 }

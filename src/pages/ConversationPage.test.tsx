@@ -197,6 +197,10 @@ interface HarnessOptions {
    * relies on, for the page's own fallback title) unless a test is specifically about something this
    * object carries, such as the header's emoji-pair prefix. */
   conversation?: ConversationSummaryDto | null;
+  /** `25-54`: `useOperatorConnection().connectionState` - `"connected"` everywhere else in this file,
+   * since every other test is about sending/closing/attachments, none of which needs the hub down.
+   * The one test that overrides this is `25-54`'s own, for the "waiting for the hub" note. */
+  connectionState?: OperatorConnectionState["connectionState"];
 }
 
 function Harness({
@@ -206,6 +210,7 @@ function Harness({
   refreshQueue = () => undefined,
   initialPath = `/conversations/${CONVERSATION_ID}`,
   conversation = null,
+  connectionState = "connected",
 }: HarnessOptions) {
   const auth = useMemo<AuthState>(
     () => ({
@@ -238,8 +243,8 @@ function Harness({
   );
 
   const realtime = useMemo<OperatorConnectionState>(
-    () => ({ connection, connectionState: "connected", serverDraining: false, isAway: false, setAway: () => Promise.resolve() }),
-    [connection],
+    () => ({ connection, connectionState, serverDraining: false, isAway: false, setAway: () => Promise.resolve() }),
+    [connection, connectionState],
   );
 
   const outlet = useMemo<WorkspaceOutletContext>(
@@ -792,5 +797,45 @@ describe("25-56: the visitor's own name in the open-dialog header", () => {
 
     const heading = one(container, ".ago-workspace__main-title");
     expect(heading.textContent?.replace(/\s+/g, " ").trim()).toBe(`Conversation with 🐔🍊 ${VISITOR_ID.slice(0, 8)}`);
+  });
+});
+
+/**
+ * `25-54`: "waiting for the operator hub" used to render as a plain sentence, visible in full the
+ * instant the connection drops - it now shows only a `(?)` trigger. `role="status"` still needs to
+ * announce the fact automatically, focus or no focus, so the sentence stays in the DOM twice - once
+ * visually hidden for that announcement, once inside the tooltip for a sighted operator who asks -
+ * see `ConversationPage.tsx`'s own comment on the two channels one string now travels through.
+ */
+describe("25-54: waiting for the hub becomes a tooltip, not a standing sentence", () => {
+  it("renders nothing at all - not even the visually-hidden status text - while the hub is connected", async () => {
+    const fake = fakeConnection();
+    const container = await render(<Harness connection={fake.connection} connectionState="connected" />);
+
+    expect(container.querySelector('[role="status"]')).toBeNull();
+  });
+
+  it("keeps the full sentence in a visually-hidden live region, and out of visible inline text, while the hub is not connected", async () => {
+    const fake = fakeConnection();
+    const container = await render(<Harness connection={fake.connection} connectionState="connecting" />);
+
+    const status = one<HTMLElement>(container, '[role="status"]');
+    const hiddenText = one<HTMLElement>(status, ".ago-visually-hidden");
+    expect(hiddenText.textContent).toContain("Waiting for the operator hub");
+
+    const bubble = one<HTMLElement>(status, '[role="tooltip"]');
+    expect(bubble.textContent).toContain("Waiting for the operator hub");
+    expect(bubble.hidden).toBe(true);
+  });
+
+  it("reveals the same sentence in the tooltip when its trigger receives focus", async () => {
+    const fake = fakeConnection();
+    const container = await render(<Harness connection={fake.connection} connectionState="connecting" />);
+
+    const trigger = one<HTMLButtonElement>(container, ".ago-tooltip__trigger");
+    const bubble = one<HTMLElement>(container, '[role="tooltip"]');
+
+    await interact(() => trigger.focus());
+    expect(bubble.hidden).toBe(false);
   });
 });
