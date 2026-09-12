@@ -23,11 +23,18 @@
   display: grid;
   gap: var(--ago-space-4);
   /* 21rem is the narrowest the rail can be while a visitor id badge, an unread badge and "Waiting
-     14m" still sit on two comfortable lines; 18rem is the aside's own equivalent for a full uuid at
-     12px mono. The middle takes what is left, and `minmax(0, 1fr)` rather than `1fr` because a grid
-     track's default `min-width: auto` would let a long unbroken message body push the whole layout
-     wider than the viewport. */
-  grid-template-columns: 21rem minmax(0, 1fr) 18rem;
+     14m" still sit on two comfortable lines. `25-55`: the aside dropped from 18rem to 14rem - its
+     own `.ago-aside__id` already renders a full uuid with `overflow-wrap: anywhere`, so narrowing it
+     costs an extra wrapped line at worst, never overflow - specifically to give the middle column
+     (the Диалог panel, `.ago-composer` inside it) real width to grow into: measured at the
+     project's own canonical 1280px desktop test viewport (`ux-gate`), the three columns share a
+     fixed 884px total - `.ago-shell__body`'s own `max-width: var(--ago-shell-max)` caps the whole
+     app shell at 1180px on every route, on any monitor, so this budget does not grow on a wider
+     screen and the only lever this panel's own layout has is how the fixed-width columns divide it.
+     The middle takes what is left, and `minmax(0, 1fr)` rather than `1fr` because a grid track's
+     default `min-width: auto` would let a long unbroken message body push the whole layout wider
+     than the viewport. */
+  grid-template-columns: 21rem minmax(0, 1fr) 14rem;
   grid-template-areas: "rail main aside";
 }
 
@@ -434,26 +441,45 @@ a.ago-list__row--active:hover {
   background: var(--ago-brand-tint);
 }
 
+/* `25-55`: the textarea and the action buttons stack (textarea on top, actions directly below)
+   rather than sitting side by side - this used to be a `<40rem` mobile-only override, but the same
+   crowding is real on desktop too, where the middle column has only ~228px to give (see
+   `.ago-workspace`'s own grid comment above), nowhere near enough to fit a readable textarea beside
+   three text-label buttons in one row. Stacking removes that competition for width entirely: the
+   textarea gets the row's full width, and the buttons get their own row below it, on every
+   viewport. */
 .ago-composer__row {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  align-items: stretch;
   gap: var(--ago-space-3);
 }
 
 .ago-composer__input {
   flex: 1;
   min-width: 0;
-  /* Height is set by `Composer`'s auto-grow effect from the element's own `scrollHeight`; `resize:
-     none` stops the manual grabber from fighting it, and `min-height` keeps a single-line draft the
-     same height as the Send button beside it. */
+  /* Height is set by `Composer`'s auto-grow effect from the element's own `scrollHeight` - `rows={5}`
+     on the element itself (`Composer.tsx`) is what that effect measures on an empty draft, so the
+     textarea opens at roughly five lines rather than the effect having to know that number too.
+     `resize: none` stops the manual grabber from fighting the auto-grow, and `min-height` is a floor
+     under both, for the same single-line case the old comment named. */
   resize: none;
   min-height: 2.75rem;
   max-height: 12.5rem;
 }
 
+/* `25-55`: Прикрепить / Предложить ответ / Отправить are text-label buttons, not icons
+   (`ago-console` has none of `25-46`'s icon retrofit - that item turned out to be `ago-widget`'s own
+   scope; every one of `strings.composerAttachButton`/`composerSuggestReplyButton`/`composerSendButton`
+   is plain text). A row of three text buttons is exactly what did not fit in the ~228px this column
+   gets on the project's own canonical desktop test viewport (`ux-gate`, 1280px) - three of them
+   stacked instead, one per line and right-aligned under the textarea they belong to, fits at any
+   width without wrapping mid-button-group, which a row can silently do the moment a label is one
+   character too long for what is left. */
 .ago-composer__actions {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-end;
   gap: var(--ago-space-2);
 }
 
@@ -735,24 +761,10 @@ a.ago-list__row--active:hover {
   }
 }
 
-/* Below 40rem (`shell.css`'s own narrow-phone threshold, reused rather than a second number for the
-   same class of screen): `.ago-composer__row`'s fixed-width actions column (Attach + Send, ~235px)
-   leaves the textarea too little room to be usable - measured 28.5px wide at a 375px viewport,
-   wrapping text one character per line. Stacking the row turns the actions into their own row below
-   the textarea, which gets the full width instead. 52.5rem's single-column switch is not narrow
-   enough on its own: the composer stays usable in a one-column *tablet* layout (294px wide at 640px,
-   407px at 768px, both measured directly against the live console) - this is a second, narrower
-   threshold for the one element that breaks earlier than the rest of the workspace does. */
-@media (max-width: 40rem) {
-  .ago-composer__row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .ago-composer__actions {
-    justify-content: flex-end;
-  }
-}
+/* `25-55` removed the `<40rem` override that used to live here: `.ago-composer__row` and
+   `.ago-composer__actions` now stack unconditionally (see both rules above), because the desktop
+   width this mobile-only fix left untouched turned out to be just as crowded - so the phone-width
+   special case became the only-case, and a media query duplicating the base rule is dead weight. */
 
 /* `18-05`: the rail's own two buttons, the shortcut list and the alert switches.
 
