@@ -26,13 +26,14 @@
  *   `"AGO Chat"` inline inside otherwise-Russian sentences (`analyticsTrafficSourceNote` - rendered on
  *   `/analytics`) - a name is not translated, the same reasoning `docs/backlog/11-16-*.md` gives for
  *   exempting it explicitly.
- * - **External channel/platform brand names** (`"SMS"`, `"MAX"`, `"Telegram"`, `"WhatsApp"`) -
+ * - **External channel/platform brand names** (`"SMS"`, `"MAX"`, `"Telegram"`, `"WhatsApp"`, `"VK"`) -
  *   `Ago.Chat.Domain.ChannelKind`'s own members. Nobody translates "WhatsApp"; `ru.ts` agrees -
  *   `analyticsChannelSms`/`Max`/`Telegram`/`WhatsApp` all keep the brand's own name verbatim (only
  *   `analyticsChannelWidget` - "Виджет" - names a generic concept this product itself owns, and that
  *   one *is* translated), and `visitorPanelNote` lists three of the same four inline
  *   (`"(MAX, Telegram или SMS)"`, rendered on `/conversations/:id`). The same "a name is not
- *   translated" reasoning as the product name, one level down.
+ *   translated" reasoning as the product name, one level down. `"VK"` joins the list with `25-15`'s
+ *   own `navChannelsVk` ("Сообщество VK", rendered on the console's left nav).
  * - **Keyboard key names** (`"Enter"`, `"Shift"`, `"Escape"`) - `strings.ts`'s own doc comment on the
  *   `shortcutsHint*` fields states the rule directly: these "never need translating". `composerHint`
  *   (rendered on `/conversations/:id`) is where it is actually exercised - `ru.ts`'s own value embeds
@@ -137,7 +138,7 @@ export function measureUntranslatedLatinText(): UntranslatedTextResult {
   // See this function's own file-level doc comment above for why each of these is here. Longer
   // phrases first, so "AGO Chat" is removed whole rather than leaving a stray "Chat" behind once
   // "AGO" has already matched inside it.
-  const EXEMPT_PHRASES = ["AGO Chat", "AGO", "WhatsApp", "Telegram", "Escape", "Shift", "Enter", "SMS", "MAX", "ID", "hex", "https", "</body>", "Europe/Moscow"];
+  const EXEMPT_PHRASES = ["AGO Chat", "AGO", "WhatsApp", "Telegram", "VK", "Escape", "Shift", "Enter", "SMS", "MAX", "ID", "hex", "https", "</body>", "Europe/Moscow"];
   const EXEMPT_ANCESTOR_SELECTOR = ".ago-mono, .ago-badge--mono";
   const LATIN_RUN = /[A-Za-z]{2,}/g;
 
