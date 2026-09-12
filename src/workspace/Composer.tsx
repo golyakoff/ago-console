@@ -324,7 +324,7 @@ export function Composer({
           ref={textareaRef}
           className="ago-composer__input"
           value={draft}
-          rows={1}
+          rows={5}
           onChange={(event) => onDraftChange(event.target.value)}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
