@@ -302,20 +302,22 @@ describe("the operator navigation", () => {
     expect(mutedItemLabels(container)).toEqual([]);
   });
 
-  it("adds the Calendar section, ordinary and unmuted, for an operator who also holds calendar:configure - four sections, the one named in the Done-when", async () => {
+  it("adds the Bookings section, ordinary and unmuted, for an operator who also holds calendar:configure - four sections, the one named in the Done-when", async () => {
     // `22-06`/`adr/0093`: `calendar:configure` is granted independently of every tenant-level
     // permission - a masseuse/hairdresser operator holds exactly this and nothing else. This is the
-    // scenario the item's own "an operator sees exactly four sections" line describes: Calendar
-    // is the fourth, not Team a second time.
+    // scenario the item's own "an operator sees exactly four sections" line describes: Bookings
+    // (`25-50`: renamed from Calendar) is the fourth, not Team a second time.
     grants(["calendar:configure"]);
 
     const container = await render(shellAt("/"));
 
-    expect(sectionLabels(container)).toEqual(["Conversations", "Analytics", "Calendar", "Team"]);
-    await openSection(container, "Calendar");
-    expect(itemLabels(container)).toEqual(["Waiting", "Bookings", "Contacts", "Masters", "Services", "Schedule", "Setup", "Merges"]);
-    // `23-34`: "Bookings" is a real link now (`/calendar/bookings`, `CalendarBookingsPage`) - it was
-    // `reserved` only until this item gave the confirmed-bookings screen an actual route.
+    expect(sectionLabels(container)).toEqual(["Conversations", "Bookings", "Analytics", "Team"]);
+    await openSection(container, "Bookings");
+    expect(itemLabels(container)).toEqual(["Waiting", "Confirmed", "Contacts", "Masters", "Services", "Schedule", "Setup", "Merges"]);
+    // `23-34`: this confirmed-bookings entry is a real link now (`/calendar/bookings`,
+    // `CalendarBookingsPage`) - it was `reserved` only until that item gave it an actual route.
+    // `25-50`: relabelled "Confirmed" (was "Bookings"), freed by the section label above taking
+    // that word for itself.
     expect(reservedItemLabels(container)).toEqual([]);
     expect(mutedItemLabels(container)).toEqual([]);
 
@@ -326,52 +328,53 @@ describe("the operator navigation", () => {
     expect(itemLabels(container)).toEqual(["My numbers", "Phone reveals"]);
   });
 
-  it("`23-34`/`23-57`: offers the Calendar section with Bookings and Contacts, to an operator who holds customer:read but neither calendar:configure nor site:configure", async () => {
+  it("`23-34`/`23-57`: offers the Bookings section with Confirmed and Contacts, to an operator who holds customer:read but neither calendar:configure nor site:configure", async () => {
     // The seeded "Operator" role's own permission set (`ago-chat`'s own
     // `RegisterSiteHandler.OperatorRolePermissions`) - `customer:read` without `calendar:configure` -
     // is exactly this scenario, not a hypothetical one. Before `23-34`, `buildCalendarItems` had no
-    // branch for it at all, so this identity saw no Calendar section whatsoever, the same shape the
-    // "offers no Calendar section" test above still proves for an operator holding neither.
-    // `23-57` adds Contacts (`/calendar/clients`) beside Bookings - both read the customer list
-    // `customer:read` guards server-side, so both are drawn from the identical permission check.
+    // branch for it at all, so this identity saw no Bookings section whatsoever, the same shape the
+    // "offers no Bookings section" test above still proves for an operator holding neither.
+    // `23-57` adds Contacts (`/calendar/clients`) beside the confirmed-bookings entry - both read
+    // the customer list `customer:read` guards server-side, so both are drawn from the identical
+    // permission check.
     grants(["customer:read"]);
 
     const container = await render(shellAt("/"));
 
-    expect(sectionLabels(container)).toEqual(["Conversations", "Analytics", "Calendar", "Team"]);
-    await openSection(container, "Calendar");
-    expect(itemLabels(container)).toEqual(["Bookings", "Contacts"]);
+    expect(sectionLabels(container)).toEqual(["Conversations", "Bookings", "Analytics", "Team"]);
+    await openSection(container, "Bookings");
+    expect(itemLabels(container)).toEqual(["Confirmed", "Contacts"]);
     expect(reservedItemLabels(container)).toEqual([]);
     expect(mutedItemLabels(container)).toEqual([]);
   });
 
-  it("`23-57`: offers the Calendar section with the Waiting entry, ordinary and unmuted, to an operator who holds the booking permissions but neither calendar:configure nor site:configure", async () => {
+  it("`23-57`: offers the Bookings section with the Waiting entry, ordinary and unmuted, to an operator who holds the booking permissions but neither calendar:configure nor site:configure", async () => {
     // The seeded "Operator" role's own permission set (`ago-chat`'s own
     // `RegisterSiteHandler.OperatorRolePermissions`) holds booking:confirm/booking:reject/
     // booking:cancel without calendar:configure - exactly this scenario, not a hypothetical one.
     // Before this item `buildCalendarItems` had no branch for it at all: an operator holding the
-    // right to confirm, reject and cancel a booking saw no Calendar section whatsoever, and so no
+    // right to confirm, reject and cancel a booking saw no Bookings section whatsoever, and so no
     // screen from which to reach the queue their own permissions already let them act on
     // (`docs/backlog/23-57-*.md`'s own finding).
     grants(["booking:confirm", "booking:reject", "booking:cancel"]);
 
     const container = await render(shellAt("/"));
 
-    expect(sectionLabels(container)).toEqual(["Conversations", "Analytics", "Calendar", "Team"]);
-    await openSection(container, "Calendar");
+    expect(sectionLabels(container)).toEqual(["Conversations", "Bookings", "Analytics", "Team"]);
+    await openSection(container, "Bookings");
     expect(itemLabels(container)).toEqual(["Waiting"]);
     expect(reservedItemLabels(container)).toEqual([]);
     expect(mutedItemLabels(container)).toEqual([]);
   });
 
-  it("`23-57`: offers Waiting, Bookings and Contacts together to an operator holding the seeded Operator role's full booking-and-customer set", async () => {
+  it("`23-57`: offers Waiting, Confirmed and Contacts together to an operator holding the seeded Operator role's full booking-and-customer set", async () => {
     grants(["booking:confirm", "booking:reject", "booking:cancel", "booking:mark_no_show", "customer:read", "customer:edit"]);
 
     const container = await render(shellAt("/"));
 
-    expect(sectionLabels(container)).toEqual(["Conversations", "Analytics", "Calendar", "Team"]);
-    await openSection(container, "Calendar");
-    expect(itemLabels(container)).toEqual(["Waiting", "Bookings", "Contacts"]);
+    expect(sectionLabels(container)).toEqual(["Conversations", "Bookings", "Analytics", "Team"]);
+    await openSection(container, "Bookings");
+    expect(itemLabels(container)).toEqual(["Waiting", "Confirmed", "Contacts"]);
     expect(mutedItemLabels(container)).toEqual([]);
     expect(reservedItemLabels(container)).toEqual([]);
   });
@@ -381,7 +384,7 @@ describe("the operator navigation", () => {
 
     const container = await render(shellAt("/"));
 
-    await openSection(container, "Calendar");
+    await openSection(container, "Bookings");
     expect(itemLabels(container)).toEqual(["Waiting"]);
   });
 
@@ -394,8 +397,8 @@ describe("the operator navigation", () => {
     // the tenant (`isAdmin`), even without `calendar:configure` itself.
     expect(sectionLabels(container)).toEqual([
       "Conversations",
+      "Bookings",
       "Analytics",
-      "Calendar",
       "Team",
       "Channels",
       "Automation",
@@ -411,7 +414,7 @@ describe("the operator navigation", () => {
     // `adr/0129`: this identity lacks `calendar:configure` itself but holds `site:configure`, so the
     // calendar is muted - "buy it yourself" - rather than hidden, regardless of `enabledModules`
     // (`grants` above passed none).
-    await openSection(container, "Calendar");
+    await openSection(container, "Bookings");
     expect(itemLabels(container)).toEqual(["Waiting"]);
     expect(mutedItemLabels(container)).toEqual(["Waiting"]);
 
@@ -454,8 +457,8 @@ describe("the operator navigation", () => {
 
     expect(sectionLabels(container)).toEqual([
       "Conversations",
+      "Bookings",
       "Analytics",
-      "Calendar",
       "Team",
       "Channels",
       "Automation",
@@ -463,8 +466,8 @@ describe("the operator navigation", () => {
     ]);
     expect(mutedItemLabels(container)).toEqual([]);
 
-    await openSection(container, "Calendar");
-    expect(itemLabels(container)).toEqual(["Waiting", "Bookings", "Contacts", "Masters", "Services", "Schedule", "Setup", "Merges"]);
+    await openSection(container, "Bookings");
+    expect(itemLabels(container)).toEqual(["Waiting", "Confirmed", "Contacts", "Masters", "Services", "Schedule", "Setup", "Merges"]);
     expect(mutedItemLabels(container)).toEqual([]);
 
     // `25-17`: "Phone reveals" lives under Analytics now, alongside the other four tenant-only
@@ -486,18 +489,18 @@ describe("the operator navigation", () => {
     // both things they can do without anyone else's help. Same result with the module enabled...
     grants(["site:configure"], ["calendar"]);
     const enabled = await render(shellAt("/"));
-    await openSection(enabled, "Calendar");
+    await openSection(enabled, "Bookings");
     expect(mutedItemLabels(enabled)).toEqual(["Waiting"]);
     await unmount();
 
     // ...and with it never switched on at all.
     grants(["site:configure"], []);
     const neverEnabled = await render(shellAt("/"));
-    await openSection(neverEnabled, "Calendar");
+    await openSection(neverEnabled, "Bookings");
     expect(mutedItemLabels(neverEnabled)).toEqual(["Waiting"]);
   });
 
-  it("offers no Calendar section at all to an operator who lacks calendar:configure and is not the tenant - the accepted cost adr/0129 records", async () => {
+  it("offers no Bookings section at all to an operator who lacks calendar:configure and is not the tenant - the accepted cost adr/0129 records", async () => {
     // `23-21`'s own fix left one muted entry here so an operator without the module could still
     // learn it exists. `adr/0129` withdraws that concession for a plain operator: "an operator sees
     // nothing muted at all", so this section is not drawn, whether or not the tenant has bought it.
@@ -505,7 +508,7 @@ describe("the operator navigation", () => {
 
     const container = await render(shellAt("/"));
 
-    expect(sectionLabels(container)).not.toContain("Calendar");
+    expect(sectionLabels(container)).not.toContain("Bookings");
   });
 
   it("offers only three sections, and nothing gated, while the permissions answer is still in flight", async () => {
@@ -571,8 +574,8 @@ describe("the operator navigation", () => {
 
     expect(sectionLabels(container)).toEqual([
       "Conversations",
+      "Bookings",
       "Analytics",
-      "Calendar",
       "Team",
       "Channels",
       "Automation",
@@ -608,7 +611,7 @@ describe("the buyable badge on the calendar's muted entry", () => {
     const ordinaryLink = byText<HTMLAnchorElement>(container, ".ago-shell__rail-link", "Analytics");
     expect(ordinaryLink?.querySelector(".ago-badge")).toBeNull();
 
-    await openSection(container, "Calendar");
+    await openSection(container, "Bookings");
     const mutedLink = one<HTMLAnchorElement>(container, ".ago-shell__rail-link.ago-shell__rail-link--muted");
     expect(mutedLink.querySelector(".ago-shell__nav-link-label")?.textContent).toBe("Waiting");
     expect(mutedLink.querySelector(".ago-badge")?.textContent).toBe("Add-on");
@@ -620,7 +623,7 @@ describe("the buyable badge on the calendar's muted entry", () => {
     grants(["site:configure"]);
 
     const container = await render(shellAt("/"));
-    await openSection(container, "Calendar");
+    await openSection(container, "Bookings");
 
     const mutedLink = all(container, ".ago-shell__rail-link").find(
       (a) => a.querySelector(".ago-shell__nav-link-label")?.textContent?.trim() === "Waiting",
@@ -684,7 +687,7 @@ describe("the mobile navigation drawer", () => {
     expect(sectionLabels(container, "rail")).toEqual(sectionLabels(container, "drawer"));
 
     await openDrawer(container);
-    await openSection(container, "Calendar", "drawer");
+    await openSection(container, "Bookings", "drawer");
     expect(itemLabels(container, "drawer")).toEqual(["Waiting"]);
     expect(mutedItemLabels(container, "drawer")).toEqual(["Waiting"]);
   });

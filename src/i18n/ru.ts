@@ -21,13 +21,19 @@ export const ru: ConsoleStrings = {
   navDeleteAccount: "Удалить аккаунт",
   navBilling: "Оплата",
   navOperatorsTeam: "Сотрудники",
-  navSectionCalendar: "Календарь",
+  // `25-50`: was "Календарь" - the section is not a calendar view, it is the tenant's own bookings
+  // (waiting queue, confirmed list, contacts, setup); "Записи" names what a reader actually finds
+  // inside it. Confirmed against the author's own literal wording, not a typo to fix back.
+  navSectionCalendar: "Записи",
   navSectionTeam: "Команда",
   navSectionChannels: "Каналы",
   navSectionAutomation: "Автоматизация",
   navSectionAdmin: "Администрирование",
   navCalendarServices: "Услуги",
-  navCalendarBookings: "Записи",
+  // `25-50`: was "Записи" - freed by the section label above taking that word, and a more accurate
+  // name for what this screen actually is: the confirmed-bookings list, next to "В ожидании"
+  // (navCalendarQueue) rather than a synonym for it.
+  navCalendarBookings: "Утверждённые",
   navTeamChat: "Общение",
   navChannelsMax: "Бот MAX",
   navChannelsTelegram: "Бот Telegram",

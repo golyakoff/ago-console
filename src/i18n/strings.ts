@@ -71,7 +71,9 @@ export interface ConsoleStrings {
   // --- `23-31`: the seven accordion section headers. Three reuse an existing label unchanged
   // (`navConversations`, `navAnalytics`, both already the exact section name) - only the four with no
   // existing flat-nav equivalent get a new key here. ---
-  /** The "Календарь" section header - distinct from any one calendar screen's own title. */
+  /** The section header - "Записи"/"Bookings" as of `25-50` (was "Календарь"/"Calendar"; the section
+   * is not a calendar view, it is the tenant's own bookings) - distinct from any one calendar
+   * screen's own title. */
   navSectionCalendar: string;
   /** The "Команда" section header - distinct from `navOperatorsTeam` (one item inside it). */
   navSectionTeam: string;
@@ -84,8 +86,10 @@ export interface ConsoleStrings {
   /** `23-31`: the services dictionary, carved out of `/calendar/setup` onto its own screen
    * (`/calendar/services`) - `CalendarSetupPage`'s own doc comment on the split. */
   navCalendarServices: string;
-  /** `23-31`: a reserved place - confirmed bookings have no screen yet (`CalendarQueuePage` only
-   * lists the *unconfirmed* ones). Drawn unavailable, never a link (`AppShellNavItem.reserved`). */
+  /** `23-34` gave this a real screen (`CalendarBookingsPage`, `/calendar/bookings`) - the
+   * confirmed-bookings list, next to `navCalendarQueue`'s own unconfirmed one. `25-50`: relabelled
+   * "Утверждённые"/"Confirmed" (was "Записи"/"Bookings"), freed by `navSectionCalendar` taking that
+   * word for the section itself. */
   navCalendarBookings: string;
   /** `23-31`: a reserved place - one chat for the whole tenant's team, no screen yet. */
   navTeamChat: string;

@@ -576,17 +576,6 @@
   overflow-y: auto;
 }
 
-.ago-dialog--drawer .ago-dialog__title {
-  font-size: var(--ago-text-base);
-  color: var(--ago-ink-soft);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  /* `25-52`: the base rule now centres `.ago-dialog__title`; this drawer is a left-edge slide-in
-     panel whose title already reads as an uppercase section label, not a modal headline, so it keeps
-     its pre-existing left alignment deliberately rather than inheriting the new centring. */
-  text-align: left;
-}
-
 /* ============================================================================ States
 
    Loading, empty and error, as the item asks - first-class and named, rather than an ad-hoc

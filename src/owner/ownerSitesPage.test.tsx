@@ -98,12 +98,13 @@ describe("the platform-sites page's own navigation", () => {
     const container = await render(shellAt());
 
     // `23-31`: the identical seven-section structure `OperatorShell` builds for the same permission
-    // set (`permissionGating.test.tsx`'s own "offers every section ordinary..." case) - Calendar
+    // set (`permissionGating.test.tsx`'s own "offers every section ordinary..." case) - Bookings
     // present-and-muted since this identity holds `site:configure` but not `calendar:configure`.
+    // `25-50`: Bookings (was Calendar) is second, ahead of Analytics.
     expect(sectionLabels(container)).toEqual([
       "Conversations",
+      "Bookings",
       "Analytics",
-      "Calendar",
       "Team",
       "Channels",
       "Automation",

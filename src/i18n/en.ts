@@ -23,13 +23,18 @@ export const en: ConsoleStrings = {
   navDeleteAccount: "Delete account",
   navBilling: "Billing",
   navOperatorsTeam: "Employees",
-  navSectionCalendar: "Calendar",
+  // `25-50`: was "Calendar" - matches `ru.ts`'s "Записи" ("Bookings"), because the section is not a
+  // calendar view, it is the tenant's own bookings (waiting queue, confirmed list, contacts, setup).
+  navSectionCalendar: "Bookings",
   navSectionTeam: "Team",
   navSectionChannels: "Channels",
   navSectionAutomation: "Automation",
   navSectionAdmin: "Administration",
   navCalendarServices: "Services",
-  navCalendarBookings: "Bookings",
+  // `25-50`: was "Bookings" - freed by the section label above taking that word, and matches
+  // `ru.ts`'s "Утверждённые": the confirmed-bookings list, next to "Waiting" (navCalendarQueue)
+  // rather than a synonym for it.
+  navCalendarBookings: "Confirmed",
   navTeamChat: "Team chat",
   navChannelsMax: "MAX bot",
   navChannelsTelegram: "Telegram bot",

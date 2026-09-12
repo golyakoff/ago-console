@@ -255,7 +255,11 @@
   padding: var(--ago-space-2) var(--ago-space-3);
   border-radius: var(--ago-radius-sm);
   color: var(--ago-ink-soft);
-  font-size: var(--ago-text-sm);
+  /* `25-50`: matches `.ago-shell__rail-section`/`.ago-shell__drawer-section` above
+     (`--ago-text-base`) - a child item used to read a size smaller than the top-level section
+     label it sits under, with nothing about the hierarchy communicated by size alone (indentation
+     and the left border on `.ago-shell__rail-items` already carry that). */
+  font-size: var(--ago-text-base);
   font-weight: 600;
   text-decoration: none;
   transition: background var(--ago-transition), color var(--ago-transition);
