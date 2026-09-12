@@ -178,3 +178,29 @@ describe("switching conversations (23-100)", () => {
     expect(notesApi.fetchConversationNotes).toHaveBeenLastCalledWith("token", OTHER_CONVERSATION_ID);
   });
 });
+
+/**
+ * `25-54`: "the visitor never sees these" used to be a standing paragraph right under the "Заметки"
+ * heading, ahead of the notes list itself. It now lives beside that heading, in its own `Tooltip`.
+ */
+describe("25-54: the visitor-cannot-see note becomes a tooltip", () => {
+  it("does not render the note as permanent inline text, only inside its own hidden tooltip", async () => {
+    const container = await mount(["conversation:read"]);
+
+    expect(container.querySelector(".ago-aside__note")).toBeNull();
+
+    const bubble = one<HTMLElement>(container, '[role="tooltip"]');
+    expect(bubble.textContent).toContain("never sees");
+    expect(bubble.hidden).toBe(true);
+  });
+
+  it("reveals the note when its tooltip trigger receives focus", async () => {
+    const container = await mount(["conversation:read"]);
+
+    const trigger = one<HTMLButtonElement>(container, ".ago-tooltip__trigger");
+    const bubble = one<HTMLElement>(container, '[role="tooltip"]');
+
+    await interact(() => trigger.focus());
+    expect(bubble.hidden).toBe(false);
+  });
+});

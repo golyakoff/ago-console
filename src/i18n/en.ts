@@ -4,6 +4,7 @@ import type { ConsoleStrings } from "./strings.js";
  * with no locale set (every existing tenant) renders identically to before `11-11`. */
 export const en: ConsoleStrings = {
   skipToContent: "Skip to content",
+  tooltipTriggerLabel: "What does this mean?",
   navSectionsAriaLabel: "Console sections",
   navOpenMenu: "Open navigation menu",
   renderErrorTitle: "This didn't load",

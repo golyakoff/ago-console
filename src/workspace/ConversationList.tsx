@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import type { ConversationSummaryDto } from "../realtime/protocol/types.js";
 import { Badge } from "../components/Badge.js";
 import { Skeleton } from "../components/Spinner.js";
+import { Tooltip } from "../components/Tooltip.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { formatAbsolute, formatElapsed, formatElapsedWords, parseInstant } from "../time/format.js";
 import { isNewlyAssigned, oldestFirst, unreadCountFor, type ReadStateMap } from "./attention.js";
@@ -58,13 +59,18 @@ export function ConversationList({ queue, attention, now, timeZone, waitingRefre
     <>
       <section className="ago-list-group" aria-labelledby="ago-list-assigned">
         <header className="ago-list-group__head">
-          <h2 className="ago-list-group__title" id="ago-list-assigned">
-            {strings.queueAssignedTitle}
-            {queue && queue.assignedToMe.length > 0 && (
-              <span className="ago-list-group__count">{queue.assignedToMe.length}</span>
-            )}
-          </h2>
-          <p className="ago-list-group__note">{strings.queueAssignedNote}</p>
+          {/* `25-54`: the standing "live, no refresh needed" note used to render as a permanent
+              paragraph under this heading - it now lives in `Tooltip`, a sibling of the `<h2>`
+              rather than a child of it (`Tooltip.tsx`'s own doc comment on why). */}
+          <div className="ago-tooltip-row">
+            <h2 className="ago-list-group__title" id="ago-list-assigned">
+              {strings.queueAssignedTitle}
+              {queue && queue.assignedToMe.length > 0 && (
+                <span className="ago-list-group__count">{queue.assignedToMe.length}</span>
+              )}
+            </h2>
+            <Tooltip content={strings.queueAssignedNote} />
+          </div>
         </header>
 
         {queue === null ? (
@@ -136,13 +142,17 @@ export function ConversationList({ queue, attention, now, timeZone, waitingRefre
 
       <section className="ago-list-group" aria-labelledby="ago-list-waiting">
         <header className="ago-list-group__head">
-          <h2 className="ago-list-group__title" id="ago-list-waiting">
-            {strings.queueWaitingTitle}
-            {queue && queue.waiting.length > 0 && <span className="ago-list-group__count">{queue.waiting.length}</span>}
-          </h2>
-          <p className="ago-list-group__note">
-            {strings.queueWaitingNotePrefix} {waitingRefreshSeconds} {strings.queueWaitingNoteSuffix}
-          </p>
+          {/* `25-54`: same relocation as the assigned section above - the auto-assignment/poll-cadence
+              note moves into a tooltip beside the heading rather than rendering under it always. */}
+          <div className="ago-tooltip-row">
+            <h2 className="ago-list-group__title" id="ago-list-waiting">
+              {strings.queueWaitingTitle}
+              {queue && queue.waiting.length > 0 && <span className="ago-list-group__count">{queue.waiting.length}</span>}
+            </h2>
+            <Tooltip
+              content={`${strings.queueWaitingNotePrefix} ${waitingRefreshSeconds} ${strings.queueWaitingNoteSuffix}`}
+            />
+          </div>
         </header>
 
         {queue === null ? (

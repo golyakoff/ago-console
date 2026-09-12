@@ -4,6 +4,7 @@ import type { ChannelDeliveryDto } from "../api/channelDeliveriesApi.js";
 import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
 import { Spinner } from "../components/Spinner.js";
+import { Tooltip } from "../components/Tooltip.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
 import { formatAbsolute, formatClockTime, formatDayLabel } from "../time/format.js";
@@ -162,10 +163,16 @@ export function Thread({
         </div>
       )}
 
-      {/* `23-19`: shown for every conversation, not only channel ones - `flows.md` 4.5's own "the
-          screen says which conversations this covers and which it does not", so a widget
-          conversation's silence never reads as a failure. */}
-      <p className="ago-thread__delivery-note">{strings.threadDeliveryScopeNote}</p>
+      {/* `23-19`: what this explains is shown for every conversation, not only channel ones -
+          `flows.md` 4.5's own "the screen says which conversations this covers and which it does
+          not", so a widget conversation's silence never reads as a failure.
+
+          `25-54`: no longer a standing paragraph - it has no one heading to sit beside (it is about
+          the delivery badges scattered through the whole thread below, not one control), so this is
+          the one relocation in this item that is a lone `Tooltip`, not a heading/`Tooltip` pair. */}
+      <div className="ago-thread__delivery-tooltip">
+        <Tooltip content={strings.threadDeliveryScopeNote} />
+      </div>
 
       <ol className="ago-thread" aria-label={strings.threadAriaLabel}>
         {items.map((item) => {

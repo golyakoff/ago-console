@@ -2,6 +2,7 @@ import type { ConsoleStrings } from "./strings.js";
 
 export const ru: ConsoleStrings = {
   skipToContent: "Перейти к содержимому",
+  tooltipTriggerLabel: "Что это значит?",
   navSectionsAriaLabel: "Разделы консоли",
   navOpenMenu: "Открыть меню навигации",
   renderErrorTitle: "Не удалось отобразить",

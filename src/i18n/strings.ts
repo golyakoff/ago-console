@@ -12,6 +12,11 @@
  */
 export interface ConsoleStrings {
   skipToContent: string;
+  /** `25-54`: `Tooltip`'s own accessible name for every "(?)" trigger this item adds - one generic
+   * label rather than one per call site, because the trigger's place in the DOM (right beside the
+   * heading or control it explains) already gives a screen-reader user the context; the label only
+   * has to say what pressing/focusing it does, not repeat which section it is in. */
+  tooltipTriggerLabel: string;
   navSectionsAriaLabel: string;
   /** `11-14`: the accessible name of `AppShell`'s hamburger control - visible only below the
    * mobile breakpoint, and icon-only even there (`.ago-shell__menu-icon` carries no text), so this

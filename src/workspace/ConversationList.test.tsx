@@ -2,7 +2,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
 import { ConversationList } from "./ConversationList.js";
 import type { ConversationSummaryDto } from "../realtime/protocol/types.js";
-import { one, render, unmount } from "../testing/dom.js";
+import { all, interact, one, render, unmount } from "../testing/dom.js";
 
 const ASSIGNED_ID = "11111111-1111-1111-1111-111111111111";
 const ASSIGNED_VISITOR_ID = "88888888-8888-8888-8888-888888888888";
@@ -120,5 +120,44 @@ describe("25-56: the visitor's own name beside the short code", () => {
     const assignedBadge = one(container, ".ago-badge--brand");
     expect(assignedBadge.textContent?.trim()).toBe(`🐔🍊 ${ASSIGNED_VISITOR_ID.slice(0, 8)}`);
     expect(assignedBadge.textContent).not.toMatch(/ {2}/);
+  });
+});
+
+/**
+ * `25-54`: both section headings used to carry a standing paragraph underneath explaining what "live"
+ * and "assigned automatically" mean - each now moves into its own `Tooltip`, beside the heading it
+ * explains rather than under it. No queue data is needed for either check, so both mount an empty
+ * queue - the note renders (or does not) purely off the heading, not off any row.
+ */
+describe("25-54: the section notes become tooltips", () => {
+  it("does not render either section's note as permanent inline text - only two hidden tooltip bubbles", async () => {
+    const container = await mount({ assignedToMe: [], waiting: [] });
+
+    const bubbles = all(container, '[role="tooltip"]') as HTMLElement[];
+    expect(bubbles).toHaveLength(2);
+    expect(bubbles.every((bubble) => bubble.hidden)).toBe(true);
+    expect(bubbles[0].textContent).toContain("Live");
+    expect(bubbles[1].textContent).toContain("assigned automatically");
+  });
+
+  it("reveals the assigned-section note when its own tooltip trigger receives focus", async () => {
+    const container = await mount({ assignedToMe: [], waiting: [] });
+
+    const [assignedTrigger] = all(container, ".ago-tooltip__trigger") as HTMLButtonElement[];
+    const [assignedBubble] = all(container, '[role="tooltip"]') as HTMLElement[];
+
+    await interact(() => assignedTrigger.focus());
+    expect(assignedBubble.hidden).toBe(false);
+  });
+
+  it("reveals the waiting-section note, poll cadence included, when its own tooltip trigger receives focus", async () => {
+    const container = await mount({ assignedToMe: [], waiting: [] });
+
+    const triggers = all(container, ".ago-tooltip__trigger") as HTMLButtonElement[];
+    const bubbles = all(container, '[role="tooltip"]') as HTMLElement[];
+
+    await interact(() => triggers[1].focus());
+    expect(bubbles[1].hidden).toBe(false);
+    expect(bubbles[1].textContent).toContain("15");
   });
 });

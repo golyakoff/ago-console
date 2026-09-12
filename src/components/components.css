@@ -1,6 +1,7 @@
 /* Styling for the closed component set (`11-05`: Button, Input, Textarea, Select, Field, Table,
-   Badge, Panel, Alert, Spinner/Skeleton, Dialog) plus the three shared *state* styles - loading,
-   empty and error - that the item asks to make first-class.
+   Badge, Panel, Alert, Spinner/Skeleton, Dialog; `25-54` adds a twelfth, Tooltip - see that
+   component's own doc comment for why `adr/0030`'s closed list reopens for it specifically) plus the
+   three shared *state* styles - loading, empty and error - that the item asks to make first-class.
 
    One stylesheet rather than eleven co-located ones: the set is closed by design, so there is no
    growth curve to plan for, and having every control's dimensions visible in one file is what keeps
@@ -651,4 +652,74 @@
 .ago-owner-detail-facts dd {
   margin: var(--ago-space-1) 0 0;
   font-size: var(--ago-text-base);
+}
+
+/* ============================================================================ Tooltip (`25-54`) */
+
+/* Pairs a heading (an `<h2>`/`<h3>` section title, never itself wrapped in this) with its own
+   `Tooltip` trigger, laid out beside it rather than inside it - see `Tooltip.tsx`'s own doc comment
+   for why the trigger must stay a *sibling* of whatever element an `aria-labelledby` elsewhere points
+   at, not a descendant, so the section's accessible name never picks up the trigger's own label. */
+.ago-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-2);
+}
+
+.ago-tooltip {
+  position: relative;
+  display: inline-flex;
+}
+
+.ago-tooltip__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 24px - the WCAG 2.5.8 floor `index.css`'s own `.ago-row` comment already measures this console
+     against, not a value invented for this one control. */
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 1px solid var(--ago-line-strong);
+  border-radius: var(--ago-radius-pill);
+  background: var(--ago-surface);
+  color: var(--ago-ink-soft);
+  font-family: var(--ago-font-sans);
+  font-size: var(--ago-text-xs);
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  transition:
+    background var(--ago-transition),
+    border-color var(--ago-transition),
+    color var(--ago-transition);
+}
+
+.ago-tooltip__trigger:hover {
+  background: var(--ago-brand-tint);
+  border-color: var(--ago-brand);
+  color: var(--ago-brand-deep);
+}
+
+.ago-tooltip__bubble {
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + var(--ago-space-2));
+  left: 0;
+  width: max-content;
+  /* No viewport-collision detection - `Tooltip.tsx`'s own doc comment says why that is an accepted
+     gap for this item's own call sites, all inside the workspace's bounded columns. */
+  max-width: 18rem;
+  padding: var(--ago-space-2) var(--ago-space-3);
+  border: 1px solid var(--ago-line-strong);
+  border-radius: var(--ago-radius-sm);
+  background: var(--ago-surface-raised);
+  color: var(--ago-ink);
+  font-family: var(--ago-font-sans);
+  font-size: var(--ago-text-sm);
+  font-weight: 400;
+  line-height: var(--ago-leading-base);
+  text-transform: none;
+  letter-spacing: normal;
+  box-shadow: var(--ago-shadow-md);
 }
