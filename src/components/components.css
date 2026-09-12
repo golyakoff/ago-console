@@ -627,11 +627,12 @@
   font-weight: 600;
 }
 
-/* `23-14`: the owner's per-tenant detail read - eight facts in a responsive grid, the main-content
-   counterpart of `ago-aside__facts` (which is sized for the narrow VisitorPanel column). A `<dl>`,
-   not a `Table`: these are eight distinct fields about one site, not rows of a repeating shape, the
-   same "the honest shape for the data" reasoning `ago-booking-flow-stats` gives for its own two
-   numbers. */
+/* `23-14`: the owner's per-tenant detail read - eight facts in a responsive grid. A `<dl>`, not a
+   `Table`: these are eight distinct fields about one site, not rows of a repeating shape, the same
+   "the honest shape for the data" reasoning `ago-booking-flow-stats` gives for its own two numbers.
+   `25-57` removed this rule's own former sibling, `ago-aside__facts` (VisitorPanel's narrow-column
+   version) - unrelated to this rule, since VisitorPanel's four facts moved to the console rather than
+   staying visible in a `<dl>` at all. */
 .ago-owner-detail-facts {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
