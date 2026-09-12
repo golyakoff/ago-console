@@ -520,6 +520,10 @@
 
 .ago-dialog__title {
   font-size: var(--ago-text-lg);
+  /* `25-52`: the title only - `.ago-dialog__inner` is a column flex container, so this rule cannot
+     bleed into `.ago-dialog__body`/children or `.ago-dialog__footer`'s own `justify-content:
+     flex-end`, which stay exactly as they were. */
+  text-align: center;
 }
 
 .ago-dialog__footer {
@@ -577,6 +581,10 @@
   color: var(--ago-ink-soft);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  /* `25-52`: the base rule now centres `.ago-dialog__title`; this drawer is a left-edge slide-in
+     panel whose title already reads as an uppercase section label, not a modal headline, so it keeps
+     its pre-existing left alignment deliberately rather than inheriting the new centring. */
+  text-align: left;
 }
 
 /* ============================================================================ States
