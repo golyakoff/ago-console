@@ -39,6 +39,7 @@ export const en: ConsoleStrings = {
   navTeamChat: "Team chat",
   navChannelsMax: "MAX bot",
   navChannelsTelegram: "Telegram bot",
+  navChannelsVk: "VK community",
   navChannelsOther: "Other channels",
   navAutomationAiSuggestions: "AI suggestions",
   navAutomationAiAutoReply: "AI auto-reply",
@@ -889,6 +890,35 @@ export const en: ConsoleStrings = {
     "Your bot will stop delivering messages immediately. You can reconnect it, or a different bot, at any time.",
   maxChannelDisconnectConfirmButton: "Disconnect",
   maxChannelDisconnectError: "Could not disconnect that bot. Try again.",
+
+  vkChannelTitle: "VK community",
+  vkChannelDescription: "Connect your own VK community so visitors can message it and your team replies from here.",
+  vkChannelForbidden: "You do not have permission to manage this site's channels.",
+  vkChannelPanelTitle: "VK community",
+  vkChannelNotConnectedBody:
+    "Paste your community's access token (Управление → Работа с API → Ключи доступа, with Messages access). AGO checks it with VK before saving it.",
+  vkChannelTokenFieldLabel: "Community access token",
+  vkChannelTokenFieldDescription: "Never shown again once saved.",
+  vkChannelConnectButton: "Connect",
+  vkChannelConnectingButton: "Connecting…",
+  vkChannelConnectError: "Could not connect that community. Try again.",
+  vkChannelAlreadyConnectedHint:
+    "This site already has a VK community connected. To connect a different one, the existing connection has to be revoked first.",
+  vkChannelConnectedSinceLabel: "Connected since",
+  vkChannelConnectedBadge: "Connected",
+  vkChannelSetupTitle: "Finish setup in VK",
+  vkChannelSetupBody:
+    "Paste these into your community's own Callback API settings (Управление → Работа с API → Callback API) to start receiving messages.",
+  vkChannelCopyCallbackUrlButton: "Copy callback URL",
+  vkChannelCallbackUrlCopiedLabel: "Callback URL copied.",
+  vkChannelCopyWebhookSecretButton: "Copy secret key",
+  vkChannelWebhookSecretCopiedLabel: "Secret key copied.",
+  vkChannelDisconnectButton: "Disconnect",
+  vkChannelDisconnectDialogTitle: "Disconnect this community?",
+  vkChannelDisconnectDialogBody:
+    "Your community will stop delivering messages immediately. You can reconnect it, or a different community, at any time.",
+  vkChannelDisconnectConfirmButton: "Disconnect",
+  vkChannelDisconnectError: "Could not disconnect that community. Try again.",
 
   navAnalytics: "Analytics",
   analyticsPageDescription:
