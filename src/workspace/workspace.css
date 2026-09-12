@@ -847,6 +847,38 @@ a.ago-list__row--active:hover {
   font-size: var(--ago-text-sm);
 }
 
+/* `25-59`: `TagFilter` - a bare `<fieldset>` reset to nothing (no native border/padding: the rail
+   around it already draws its own card, and a second nested box here would be the identical
+   "extra white container" `AdminConversationsPage`'s own doc comment found and removed elsewhere in
+   this console), grouped under a `.ago-list-group__note`-weight legend rather than a full
+   `.ago-workspace__rail-title` - this is a control inside the rail, not a region of it. */
+.ago-tag-filter {
+  display: grid;
+  gap: var(--ago-space-2);
+  margin: 0;
+  border: none;
+  padding: 0;
+}
+
+/* A grid item stretches to the track's full width by default - fine for the legend and the option
+   list, wrong for "Clear": a secondary reset action reading as a full-width call to action overstates
+   it next to the buttons in `.ago-workspace__rail-tools` right above, none of which stretch either. */
+.ago-tag-filter > .ago-btn {
+  justify-self: start;
+}
+
+.ago-tag-filter__legend {
+  padding: 0;
+  font-size: var(--ago-text-xs);
+  color: var(--ago-ink-soft);
+}
+
+.ago-tag-filter__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-1);
+}
+
 /* `18-04`: the small "×" that removes a tag from `ConversationTagsPanel`'s own applied-tag badges -
    inline with the badge text, not a full `Button`, since a full button's padding would visually break
    the badge shape a whole row of these is meant to keep compact. */

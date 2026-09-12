@@ -566,6 +566,7 @@ export const ru: ConsoleStrings = {
 
   workspaceTagFilterLabel: "Фильтр по метке",
   workspaceTagFilterAll: "Все метки",
+  workspaceTagFilterClearButton: "Сбросить",
 
   channelIdentitiesSectionTitle: "Связанные каналы",
   channelIdentitiesLoadingLabel: "Загрузка связанных каналов…",

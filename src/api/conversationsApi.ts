@@ -31,13 +31,19 @@ export interface MarkConversationReadResult {
  * high-frequency or connection-scoped, so REST is the right shape (api-design.md), matching how
  * `AuthEndpoints`/`AttachmentEndpoints` are called rather than routed through a hub method.
  */
-/** `18-04`: `tagId` narrows both `assignedToMe` and `waiting` to conversations carrying that tag -
- * `GetOperatorQueueHandler`'s own in-memory filter over its two already-small, unpaginated lists.
- * Omitted or `undefined` means unfiltered. */
-export async function fetchOperatorQueue(accessToken: string, tagId?: string): Promise<OperatorQueueResponse> {
+/** `18-04`: `tagIds` narrows both `assignedToMe` and `waiting` to conversations carrying every one of
+ * them - `GetOperatorQueueHandler`'s own in-memory intersection over its two already-small,
+ * unpaginated lists (`25-59` widened this from one tag to several, AND rather than OR). Omitted or
+ * empty means unfiltered. Sent as a repeated `tag` query parameter (`?tag=a&tag=b`), which the
+ * endpoint's own `Guid[]?` binding turns back into a list - no different from the single-value case
+ * `18-04` shipped, just more of the same key. */
+export async function fetchOperatorQueue(
+  accessToken: string,
+  tagIds?: readonly string[],
+): Promise<OperatorQueueResponse> {
   const url = new URL(`${config.apiBaseUrl}/api/v1/conversations/queue`);
-  if (tagId) {
-    url.searchParams.set("tag", tagId);
+  for (const tagId of tagIds ?? []) {
+    url.searchParams.append("tag", tagId);
   }
 
   const response = await fetch(url, {
