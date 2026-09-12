@@ -79,6 +79,16 @@ const signalr = vi.hoisted(() => {
     startRejectsWith: Error | null = null;
 
     start(): Promise<void> {
+      // `25-60`: the real `@microsoft/signalr` guard (`HubConnection._startWithStateTransitions`,
+      // verified against the published `10.0.11` source) - a `start()` call while the connection is
+      // not `Disconnected` is rejected synchronously, with no negotiate attempted at all. Faked here
+      // rather than left to always succeed: without it, this fake could not tell a provider that
+      // calls `start()` exactly once from one that calls it again on every re-render, which is
+      // precisely the distinction this file's own `25-60` case exists to prove.
+      if (this.state !== HubConnectionState.Disconnected) {
+        return Promise.reject(new Error("Cannot start a HubConnection that is not in the 'Disconnected' state."));
+      }
+
       if (this.startRejectsWith !== null) {
         this.state = HubConnectionState.Disconnected;
         return Promise.reject(this.startRejectsWith);
@@ -191,6 +201,15 @@ function signedInAs(accessToken: string): User {
   // Only the two fields this provider reads. A real `User` carries a great deal more, none of which
   // any code under test touches.
   return { access_token: accessToken, profile: { sub: "operator-sub" } } as unknown as User;
+}
+
+/** `25-60`: reports every `connectionState` this render sees, the same value `linkStatusOf` turns
+ * into the badge's "Офлайн"/`linkDisconnectedDetail` text - a test asserting on the badge's own
+ * cause rather than only on the fake hub's internal `state`. */
+function StateProbe({ onState }: { onState: (state: string) => void }) {
+  const { connectionState } = useOperatorConnection();
+  onState(connectionState);
+  return null;
 }
 
 /**
@@ -464,6 +483,62 @@ describe("the hub waits for tenancy resolution before connecting", () => {
 
     expect(signalr.hubs).toHaveLength(1);
     expect(signalr.hubs[0].state).toBe(signalr.HubConnectionState.Connected);
+  });
+
+  /**
+   * `25-60`: an online operator's badge flipping to the generic "Офлайн"/"no connection to the
+   * operator server" a few seconds after it had already shown Online - with nothing wrong at the
+   * network or server level to find. The cause was this effect's own dependency on `tenancies`
+   * (`OperatorConnectionProvider`'s own remarks): it exists only to *delay* the first `start()` call
+   * until tenancies is known, but before this item it also re-ran the same `start()` call on every
+   * *later* change to `tenancies` - and `tenancies` does change again, every time `PermissionsProvider`
+   * re-fetches it, which its own effect does on every access-token renewal (`[accessToken]`), handing
+   * back a brand-new array each time regardless of whether a single site name in it actually changed.
+   *
+   * Reproduced directly at the level this file already tests this provider - a second `tenancies`
+   * array, identical in content, is exactly what `usePermissions()` was always allowed to hand back
+   * and this component never noticed the difference between "the very first resolution" and "resolved
+   * again" until now.
+   */
+  it("does not call start() again when tenancies resolves to a new array reference on a later render", async () => {
+    const auth: AuthState = {
+      user: signedInAs("token-1"),
+      isLoading: false,
+      isSigningOut: false,
+      login: () => Promise.resolve(),
+      logout: () => Promise.resolve(),
+    };
+
+    const states: string[] = [];
+    const withTenancies = (tenancies: PermissionsState["tenancies"]): ReactNode => (
+      <AuthContext.Provider value={auth}>
+        <PermissionsContext.Provider value={{ ...SINGLE_TENANCY, tenancies }}>
+          <OperatorConnectionProvider>
+            <Subscriber conversationId={CONVERSATION_ID} onMessage={() => undefined} />
+            <StateProbe onState={(state) => states.push(state)} />
+          </OperatorConnectionProvider>
+        </PermissionsContext.Provider>
+      </AuthContext.Provider>
+    );
+
+    await render(withTenancies(SINGLE_TENANCY.tenancies));
+    expect(signalr.hubs).toHaveLength(1);
+    expect(signalr.hubs[0].state).toBe(signalr.HubConnectionState.Connected);
+    expect(states.at(-1)).toBe("connected");
+
+    // A fresh array, same site - the shape a real renewal's re-fetch produces, not a hand-picked edge
+    // case.
+    await render(
+      withTenancies([{ siteId: "33333333-3333-3333-3333-333333333333", siteName: "Test Site" }]),
+    );
+
+    // Fails before this item: the fake's own `start()` guard (mirroring the real
+    // `@microsoft/signalr` one) rejects the second call, and the provider's `.catch` turns that into
+    // "disconnected" - the exact badge the operator actually saw - over a connection that never
+    // actually dropped (still `Connected` on the fake hub itself, asserted below).
+    expect(signalr.hubs).toHaveLength(1);
+    expect(signalr.hubs[0].state).toBe(signalr.HubConnectionState.Connected);
+    expect(states.at(-1)).toBe("connected");
   });
 });
 
