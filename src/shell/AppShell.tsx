@@ -4,7 +4,6 @@ import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
 import { Dialog } from "../components/Dialog.js";
 import { config } from "../config.js";
-import { ThemeToggle } from "../design/ThemeToggle.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { RenderErrorAlert, RenderErrorBoundary } from "./RenderErrorBoundary.js";
 
@@ -627,6 +626,14 @@ export interface ShellIdentityProps {
  *
  * Before `11-05` this was a `<button>` inside a `<p>` at the top of two page bodies, which is why
  * signing out looked like a sentence.
+ *
+ * `25-48`: no longer renders `ThemeToggle`. `adr/0030` point 4 put the theme picker here as a
+ * per-operator preference that belonged with the rest of this identity cluster rather than inside
+ * `site:configure`-gated tenant settings - still the right call for a control reached for once a
+ * shift, but the author's own follow-up (`25-48`'s own Verified note) decided that more appearance
+ * settings are coming, so the picker gets a standalone home (`/appearance`,
+ * `AppearanceSettingsPage`) now rather than a second placement migration later. Moved, not
+ * duplicated - `ThemeToggle`/`useTheme()` are unchanged, only this call site is gone.
  */
 export function ShellIdentity({ operator, siteId, tenancySwitcher, onSignOut }: ShellIdentityProps) {
   const strings = useStrings();
@@ -646,11 +653,6 @@ export function ShellIdentity({ operator, siteId, tenancySwitcher, onSignOut }: 
           </span>
         )}
       </span>
-      {/* Dark-theme reversal of `adr/0030` point 4: a per-operator preference, so it sits with the
-          rest of this identity cluster rather than inside `site:configure`-gated tenant settings -
-          renders for every operator, unlike `tenancySwitcher` above, which only appears for a
-          multi-tenant identity. */}
-      <ThemeToggle />
       <Button size="sm" variant="secondary" onClick={onSignOut}>
         {strings.signOut}
       </Button>

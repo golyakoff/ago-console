@@ -36,6 +36,7 @@ import { ProductsPage } from "./pages/ProductsPage.js";
 import { AccountDeletionPage } from "./pages/AccountDeletionPage.js";
 import { OperatorsTeamPage } from "./pages/OperatorsTeamPage.js";
 import { TeamChatPage } from "./pages/TeamChatPage.js";
+import { AppearanceSettingsPage } from "./pages/AppearanceSettingsPage.js";
 import { OwnerSitesPage } from "./owner/OwnerSitesPage.js";
 import { OwnerSiteDetailPage } from "./owner/OwnerSiteDetailPage.js";
 import { OwnerPricingPage } from "./owner/OwnerPricingPage.js";
@@ -373,6 +374,16 @@ export function App() {
             `OperatorConnectionProvider`), not `WorkspaceLayout` - a team room is not a conversation
             and needs none of that grid's three regions. */}
         <Route path="/team/chat" element={<TeamChatPage />} />
+        {/* `25-48`: `/appearance` - the theme picker's standalone home, moved here from the header
+            (`ShellIdentity`'s own `ThemeToggle`, `AppShell.tsx`) rather than duplicated. Flat and
+            top-level, the same shape as `/team/chat` right above it, not nested under any of
+            `consoleNav.ts`'s seven tenant-scoped sections and not `/settings/*` (`23-31` retired that
+            prefix for tenant-configuration screens; this is a personal, unconditional preference, the
+            identical "no permission gate" shape `/team/chat` and `/analytics/me` already have -
+            `AppearanceSettingsPage`'s own doc comment has the full reasoning). Not yet linked from any
+            nav - `25-47`'s future user menu is this page's real link, and this route exists on its own
+            regardless of when that item lands (`25-48`'s own Depends-on note). */}
+        <Route path="/appearance" element={<AppearanceSettingsPage />} />
         {/* `22-06`/`adr/0093`: AGO Calendar's screens, moved from `ago-calendar-console`. Under
             `/calendar`, not `/settings/*` - `consoleNav.ts`'s own remarks have the "why this prefix"
             reasoning. Same "route stays outside the workspace layout, page gates itself internally"
