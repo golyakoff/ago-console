@@ -45,11 +45,10 @@ export const ru: ConsoleStrings = {
   navComingSoonLabel: "Скоро",
   navBuyableLabel: "Докупить",
   signOut: "Выйти",
-  siteIdTooltip: "ID сайта",
   siteIdPrefix: "сайт",
   tenancySwitcherLabel: "Сайт",
-  activeSiteAriaLabel: "Активный сайт",
   unnamedSite: "Без названия",
+  userMenuAriaLabel: "Меню аккаунта",
   publicDemoNoticeSharedLogin:
     "Это публичная демо-консоль. Логин от неё опубликован на демо-страницах, так что войти сюда " +
     "может кто угодно — каждый разговор здесь написан незнакомцем, которому сказали, что вы можете " +

@@ -1,10 +1,12 @@
-import { useCallback, useId, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Link, NavLink, useLocation } from "react-router-dom";
+import type { TenancyDto } from "../api/tenanciesApi.js";
+import { operatorInitials } from "../auth/operatorInitials.js";
 import { Badge } from "../components/Badge.js";
-import { Button } from "../components/Button.js";
 import { Dialog } from "../components/Dialog.js";
 import { config } from "../config.js";
 import { useStrings } from "../i18n/StringsContext.js";
+import { AppearanceIcon, SignOutIcon, TenantIcon } from "./menuIcons.js";
 import { RenderErrorAlert, RenderErrorBoundary } from "./RenderErrorBoundary.js";
 
 /**
@@ -609,54 +611,218 @@ export interface ShellIdentityProps {
    * provider has one, falling back through `preferred_username`/`sub`. */
   operator: string;
   /** The operator's own site, when it is known. `null` on `/onboarding`, where the whole point is
-   * that there is not one yet. */
+   * that there is not one yet. Used only as a fallback label for the menu's header row (`site
+   * 12345678`, unchanged wording from before this item) when {@link ShellIdentityProps.tenancies} is
+   * not passed at all - a caller that does pass `tenancies` always has a real site *name* to show
+   * instead. */
   siteId?: string | null;
-  /** `13-07`/`adr/0068`: the tenancy switcher (`TenancySwitcher`), already gated by its caller
-   * (`OperatorShell`) to render only for a multi-tenant identity. `undefined` everywhere else, the
-   * same "renders nothing extra" default every other optional shell slot already has - a
-   * single-tenant operator's header is unchanged from before this item. */
-  tenancySwitcher?: ReactNode;
+  /**
+   * `13-07`/`adr/0068`/`25-47`: every tenancy this operator belongs to - the identical list
+   * `PermissionsContext.tenancies` already carries and the deleted `TenancySwitcher`'s own `<select>`
+   * used to consume. `undefined`/`null` for every caller of this component except `OperatorShell`
+   * (`OwnerPricingPage`, `OwnerSiteDetailPage`, `OwnerSitesPage`, `OnboardingPage`,
+   * `RedeemInvitePage`), which know at most a bare {@link ShellIdentityProps.siteId} and have never
+   * had a list to switch between. The menu's own tenant-switcher section renders only when this,
+   * minus the active tenancy, is non-empty - see `otherTenancies` below - the identical "renders
+   * nothing extra for a single-tenant identity" gate the old `<select>` had.
+   */
+  tenancies?: TenancyDto[] | null;
+  /** The tenancy `PermissionsProvider` resolved as active - `PermissionsContext.activeSiteId`,
+   * unchanged by this item. Read only to find the current tenancy's own name inside `tenancies` and
+   * to exclude it from the switch list. */
+  activeSiteId?: string | null;
+  /**
+   * `13-07`'s own `switchTenancy` (`PermissionsContext`) - reused here, not reinvented. This item
+   * changes how the switcher is *presented* (a row per other tenant inside this menu, replacing
+   * `TenancySwitcher`'s `<select>`) and never touches how a choice is carried out: persisted, then a
+   * full page reload, exactly as `PermissionsProvider`'s own doc comment on `switchTenancy` already
+   * argues for. Absent for a caller with no `tenancies` to switch between.
+   */
+  onSwitchTenancy?: (siteId: string) => void;
   onSignOut: () => void;
 }
 
 /**
- * The right-hand end of the header: who is signed in, which site they are working on, and the way
- * out. Frame furniture, not one of the eleven - it exists so the two shells that render it
- * (`OperatorShell` and `OnboardingPage`, which is outside the operator providers) cannot drift.
+ * The right-hand end of the header, collapsed behind one avatar (`25-47`). Frame furniture, not one
+ * of the eleven - it exists so the six shells that render it (`OperatorShell`, `OwnerPricingPage`,
+ * `OwnerSiteDetailPage`, `OwnerSitesPage`, `OnboardingPage`, `RedeemInvitePage` - the last three
+ * outside the operator providers entirely) cannot drift.
  *
- * Before `11-05` this was a `<button>` inside a `<p>` at the top of two page bodies, which is why
- * signing out looked like a sentence.
+ * Before `11-05` this was a `<button>` inside a `<p>` at the top of two page bodies. Before `25-47`
+ * it was the operator's name, an optional tenancy `<select>` and a visible "Sign out" button, all
+ * three sitting in the header row at once - the shape `docs/design/gaps.md` pile 3 item 8 named
+ * directly: "Badge is the product's only representation of a person - no avatar, no initial, no
+ * name." This item answers that and GitHub's own account menu is its named reference: one circular
+ * avatar showing the signed-in operator's initials (`operatorInitials`), everything else - identity,
+ * the tenant switch, Appearance, Sign out - behind a dropdown it opens.
  *
- * `25-48`: no longer renders `ThemeToggle`. `adr/0030` point 4 put the theme picker here as a
- * per-operator preference that belonged with the rest of this identity cluster rather than inside
- * `site:configure`-gated tenant settings - still the right call for a control reached for once a
- * shift, but the author's own follow-up (`25-48`'s own Verified note) decided that more appearance
- * settings are coming, so the picker gets a standalone home (`/appearance`,
- * `AppearanceSettingsPage`) now rather than a second placement migration later. Moved, not
- * duplicated - `ThemeToggle`/`useTheme()` are unchanged, only this call site is gone.
+ * **Why a hand-rolled disclosure, not `Dialog` and not `<details>`.** `Dialog` is this codebase's own
+ * answer to "the platform does the hard part" (`adr/0030` point 3), but its hard part is
+ * *modality* - `showModal()`'s inertness, its own top layer, focus trapped inside it - and this menu
+ * is deliberately not modal: the header, the nav rail and the page behind it all stay live and
+ * clickable while it is open, the same way GitHub's own does. A native `<details>`/`<summary>` gets
+ * open/close and keyboard activation for free, but neither outside-click nor Escape close it - which
+ * is exactly why GitHub's own markup pairs `<details>` with a second, JS-driven custom element
+ * (`<details-menu>`) to add both. Reaching for the identical two behaviours by hand here - one
+ * `useState`, one document-level `pointerdown` listener, one `keydown` listener - is not more code
+ * than wiring that pairing would be, and it is the one thing in this file with no native
+ * counterpart to delegate to either way.
+ *
+ * **Not a full ARIA `menu`/`menuitem` widget, deliberately.** That role pattern promises roving
+ * `tabindex` and arrow-key navigation (the WAI-ARIA Authoring Practices' own menu pattern), which
+ * this does not implement - claiming the role without the behaviour is worse than not claiming it.
+ * What is here instead is a disclosure (`aria-haspopup`/`aria-expanded`/`aria-controls` on the
+ * trigger) revealing a plain list of real, independently focusable controls - buttons and one
+ * `Link` - so Tab already reaches every row in the browser's own order with no extra wiring. The
+ * same "minimal but real, not the fully-general control" call `TenancySwitcher`'s own doc comment
+ * made for reaching for `Select` over a combobox.
+ *
+ * `25-48`: still does not render `ThemeToggle` - `adr/0030` point 4's theme picker has its own home
+ * at `/appearance` now, and this menu's own Appearance row is what links there, replacing the
+ * un-linked note `25-48`'s own doc comment left for this item to resolve.
  */
-export function ShellIdentity({ operator, siteId, tenancySwitcher, onSignOut }: ShellIdentityProps) {
+export function ShellIdentity({ operator, siteId, tenancies, activeSiteId, onSwitchTenancy, onSignOut }: ShellIdentityProps) {
   const strings = useStrings();
+  const [open, setOpen] = useState(false);
+  const menuId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const initials = operatorInitials(operator);
+
+  // Closes on the two routes a disclosure like this needs and `<details>` alone would not have
+  // given us either (this component's own doc comment) - a pointer down outside the whole menu, or
+  // Escape. Only attached while `open`, so a closed menu costs this component nothing. Escape also
+  // returns focus to the trigger, the same restoration `Dialog`'s native `close()` gives its own
+  // consumers for free.
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      if (rootRef.current && event.target instanceof Node && !rootRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  // `13-07`'s own order survives unchanged: `ListMyTenanciesHandler` (`ago-chat`) already returns
+  // tenancies sorted by name, and the deleted `TenancySwitcher` trusted that order rather than
+  // re-sorting - this does too, for the identical reason (that component's own doc comment). Only
+  // the active tenancy is removed, which is both this item's own "one row per *other* tenant"
+  // wording and what makes "more than one tenancy" and "something to switch to" the same condition.
+  const otherTenancies = useMemo(
+    () => (tenancies ?? []).filter((tenancy) => tenancy.siteId !== activeSiteId),
+    [tenancies, activeSiteId],
+  );
+
+  function tenancyLabel(tenancy: TenancyDto): string {
+    // The identical disambiguated fallback `TenancySwitcher` used for a site with a real, empty
+    // name (a seeded demo tenant predating `10-02`'s registration flow) - see that component's own
+    // remarks for why an empty string is a real value here, not a missing one.
+    return tenancy.siteName.trim().length > 0 ? tenancy.siteName : `${strings.unnamedSite} (${tenancy.siteId.slice(0, 8)})`;
+  }
+
+  // The menu header row's own second line - the active tenancy's real name when `tenancies` is
+  // known, falling back to the bare site-id badge text every caller with no tenancy list already
+  // showed before this item (`ShellIdentityProps.siteId`'s own doc comment). `null` renders no
+  // second line at all - `OnboardingPage`/`RedeemInvitePage` pass `siteId={null}` because there is
+  // truly no site yet, and a header row naming one would be false.
+  const activeTenancy = tenancies?.find((tenancy) => tenancy.siteId === activeSiteId) ?? null;
+  const currentTenantLabel = activeTenancy
+    ? tenancyLabel(activeTenancy)
+    : siteId
+      ? `${strings.siteIdPrefix} ${siteId.slice(0, 8)}`
+      : null;
+
+  const triggerLabel = `${strings.userMenuAriaLabel}: ${operator}`;
+
+  function closeAnd(action: () => void): () => void {
+    return () => {
+      setOpen(false);
+      action();
+    };
+  }
+
   return (
-    <>
-      {tenancySwitcher}
-      <span className="ago-shell__operator">
-        <span className="ago-shell__operator-name">{operator}</span>
-        {/* Found live, 2026-08-27: for an unnamed site the switcher's own selected option already
-            reads "Без названия (00000000)" - the identical string this badge would show right next
-            to it. The switcher only renders for a multi-tenant identity (`tenancySwitcher`'s own
-            doc comment), so a single-tenant operator's header has nothing else naming their site and
-            keeps the badge; a multi-tenant one already has the switcher for that job. */}
-        {siteId && !tenancySwitcher && (
-          <span className="ago-shell__operator-site" title={strings.siteIdTooltip}>
-            {strings.siteIdPrefix} {siteId.slice(0, 8)}
-          </span>
-        )}
-      </span>
-      <Button size="sm" variant="secondary" onClick={onSignOut}>
-        {strings.signOut}
-      </Button>
-    </>
+    <div className="ago-user-menu" ref={rootRef}>
+      <button
+        type="button"
+        ref={triggerRef}
+        className="ago-avatar ago-user-menu__trigger"
+        aria-haspopup="true"
+        aria-expanded={open}
+        aria-controls={menuId}
+        aria-label={triggerLabel}
+        onClick={() => setOpen((value) => !value)}
+      >
+        {initials}
+      </button>
+
+      {open && (
+        <div className="ago-user-menu__panel" id={menuId}>
+          {/* The header row - not clickable, an avatar-plus-caption restating who is signed in and
+              where, the same information the closed trigger's own `aria-label` already carries for
+              a screen reader, repeated here so a sighted reader who has just opened the menu does
+              not have to remember what the initials behind it meant. */}
+          <div className="ago-user-menu__header">
+            <span className="ago-avatar ago-user-menu__header-avatar" aria-hidden="true">
+              {initials}
+            </span>
+            <span className="ago-user-menu__header-text">
+              <span className="ago-user-menu__header-name">{operator}</span>
+              {currentTenantLabel && <span className="ago-user-menu__header-tenant">{currentTenantLabel}</span>}
+            </span>
+          </div>
+
+          {/* `13-07`/`adr/0068`: only when there is a real choice to offer - see `otherTenancies`
+              above for why this is the same condition the deleted `<select>` gated on. */}
+          {otherTenancies.length > 0 && (
+            <div className="ago-user-menu__section" role="group" aria-label={strings.tenancySwitcherLabel}>
+              {otherTenancies.map((tenancy) => (
+                <button
+                  key={tenancy.siteId}
+                  type="button"
+                  className="ago-user-menu__item"
+                  onClick={closeAnd(() => onSwitchTenancy?.(tenancy.siteId))}
+                >
+                  <TenantIcon className="ago-user-menu__item-icon" />
+                  <span>{tenancyLabel(tenancy)}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <hr className="ago-user-menu__separator" />
+
+          <Link to="/appearance" className="ago-user-menu__item" onClick={() => setOpen(false)}>
+            <AppearanceIcon className="ago-user-menu__item-icon" />
+            <span>{strings.appearanceSettingsTitle}</span>
+          </Link>
+
+          <hr className="ago-user-menu__separator" />
+
+          <button type="button" className="ago-user-menu__item" onClick={closeAnd(onSignOut)}>
+            <SignOutIcon className="ago-user-menu__item-icon" />
+            <span>{strings.signOut}</span>
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -6,15 +6,19 @@ import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { OperatorShell } from "../shell/OperatorShell.js";
 import { OwnerSitesPage } from "../owner/OwnerSitesPage.js";
-import { all, render, unmount } from "../testing/dom.js";
+import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
  * `11-11`'s own Done-when, read as a DOM test rather than asserted from the config value alone -
  * `ago-widget`'s `locale.test.ts` set exactly this bar for the widget side of this same feature
- * (`11-10`), and this is its console-side twin. Follows `tenancySwitcher.test.tsx`'s/
+ * (`11-10`), and this is its console-side twin. Follows `operatorShellUserMenu.test.tsx`'s/
  * `permissionGating.test.tsx`'s own established harness exactly: mock `config`, mock the three APIs
  * `PermissionsProvider` calls, mount the real `OperatorShell` inside `MemoryRouter` +
  * `PermissionsProvider`, read rendered text - never the config value in isolation.
+ *
+ * `25-47`: sign-out and the site-id fallback both moved behind the header's own avatar menu, so
+ * both assertions below now open it first (`openIdentityMenu`) rather than reading the header row
+ * directly.
  */
 vi.mock("../config.js", () => ({
   config: {
@@ -72,6 +76,13 @@ function sectionLabels(container: HTMLElement): string[] {
   );
 }
 
+/** `25-47`: sign-out and the site-id fallback both moved behind the avatar trigger's own dropdown -
+ * opens it the same way a real click would, so the assertions below read what a reader actually
+ * sees rather than markup that only exists once the menu is open. */
+async function openIdentityMenu(container: HTMLElement): Promise<void> {
+  await interact(() => one<HTMLButtonElement>(container, ".ago-shell__identity .ago-user-menu__trigger").click());
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [{ siteId: SITE_ID, siteName: "Демо-магазин" }] });
@@ -107,7 +118,8 @@ describe("the console shell for an active site with Locale = Ru", () => {
       "Автоматизация",
       "Администрирование",
     ]);
-    expect(container.querySelector(".ago-shell__identity button")?.textContent).toBe("Выйти");
+    await openIdentityMenu(container);
+    expect(byText<HTMLButtonElement>(container, ".ago-user-menu__item", "Выйти")).not.toBeNull();
   });
 
   it("renders the public-demo notice in Russian", async () => {
@@ -118,10 +130,16 @@ describe("the console shell for an active site with Locale = Ru", () => {
     );
   });
 
-  it("renders the site-id badge in Russian", async () => {
-    const container = await render(shellAt("/"));
+  it("renders the site-id fallback badge in Russian, for the pre-onboarding case with no named tenancy yet", async () => {
+    // The identity's own tenancy list is empty (`13-07`'s "pre-onboarding" case,
+    // `PermissionsProvider`'s own doc comment) - `beforeEach` above otherwise seeds a real, named
+    // tenancy, which is the ordinary case and would show that name instead of this fallback.
+    tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [] });
 
-    expect(container.querySelector(".ago-shell__operator-site")?.textContent).toBe(`сайт ${SITE_ID.slice(0, 8)}`);
+    const container = await render(shellAt("/"));
+    await openIdentityMenu(container);
+
+    expect(one(container, ".ago-user-menu__header-tenant").textContent).toBe(`сайт ${SITE_ID.slice(0, 8)}`);
   });
 });
 
@@ -147,7 +165,8 @@ describe("the console shell for an active site with no Locale set", () => {
       "Automation",
       "Administration",
     ]);
-    expect(container.querySelector(".ago-shell__identity button")?.textContent).toBe("Sign out");
+    await openIdentityMenu(container);
+    expect(byText<HTMLButtonElement>(container, ".ago-user-menu__item", "Sign out")).not.toBeNull();
     expect(container.querySelector(".ago-demo-notice__text")?.textContent).toContain("This is a public demo console");
   });
 });

@@ -46,11 +46,10 @@ export const en: ConsoleStrings = {
   navComingSoonLabel: "Coming soon",
   navBuyableLabel: "Add-on",
   signOut: "Sign out",
-  siteIdTooltip: "Site id",
   siteIdPrefix: "site",
   tenancySwitcherLabel: "Site",
-  activeSiteAriaLabel: "Active site",
   unnamedSite: "Unnamed",
+  userMenuAriaLabel: "Account menu",
   publicDemoNoticeSharedLogin:
     "This is a public demo console. Its login is published on the demo pages, so anyone can sign " +
     "in here - every conversation in it was typed by a stranger, who was told you can read it. Do " +

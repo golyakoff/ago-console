@@ -120,17 +120,20 @@ export interface ConsoleStrings {
    * in the new rule is ever muted for a reason a badge reading "locked" would describe honestly). */
   navBuyableLabel: string;
   signOut: string;
-  /** The `title` attribute on the operator's own site-id badge - "Site id", not the badge's visible
-   * text (`siteIdPrefix` below). */
-  siteIdTooltip: string;
-  /** The badge's visible text is `${siteIdPrefix} ${id.slice(0, 8)}` - "site 12345678"/
-   * "сайт 12345678". */
+  /** The fallback text is `${siteIdPrefix} ${id.slice(0, 8)}` - "site 12345678"/"сайт 12345678". */
   siteIdPrefix: string;
+  /** `25-47`: now the `aria-label` on the user menu's own tenant-switcher `role="group"`, not a
+   * `<label>` beside a `<select>` (`TenancySwitcher`, deleted by this item) - same string, same
+   * meaning ("this is the control for picking a tenancy"), new home. */
   tenancySwitcherLabel: string;
-  activeSiteAriaLabel: string;
   /** `${unnamedSite} (${id.slice(0, 8)})` - the same disambiguated fallback
-   * `TenancySwitcher`'s own remarks describe, one language at a time. */
+   * `ShellIdentity`'s own `tenancyLabel` describes, one language at a time (`TenancySwitcher`, which
+   * first needed this string, is deleted by `25-47` - the string outlived the component). */
   unnamedSite: string;
+  /** `25-47`: the user menu trigger's own `aria-label`, rendered as `${userMenuAriaLabel}:
+   * ${operator}` - a screen-reader user hears who they would be opening this for before opening it,
+   * since the closed trigger shows only two initials on screen. */
+  userMenuAriaLabel: string;
   publicDemoNoticeSharedLogin: string;
 
   // Dark-theme reversal of `adr/0030` point 4 - `ThemeToggle` (`src/design/ThemeToggle.tsx`),
