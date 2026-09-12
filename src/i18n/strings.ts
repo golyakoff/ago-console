@@ -827,8 +827,16 @@ export interface ConsoleStrings {
 
   // `18-04`: the workspace rail's own queue filter, and the identical control on
   // `AdminConversationsPage` - both reuse this pair rather than each declaring its own.
+  // `25-59` widened the rail's own control from a single-choice `<select>` to a checkbox group
+  // (`TagFilter.tsx`) - `workspaceTagFilterLabel` still fits unchanged as that group's own `<legend>`
+  // text, but `workspaceTagFilterAll` stays `AdminConversationsPage`-only: a checkbox group has no
+  // "all tags" option of its own, since unchecking every box already means unfiltered.
   workspaceTagFilterLabel: string;
   workspaceTagFilterAll: string;
+  /** `25-59`: `TagFilter`'s own "uncheck every box in one click" affordance - the same wording
+   * `channelIdentitiesClearPreferenceButton` already uses for an identical "reset this control"
+   * action elsewhere in the rail. */
+  workspaceTagFilterClearButton: string;
 
   // `14-12`/`adr/0079`: ChannelIdentitiesPanel - verified channel-identity linking/unlinking. See
   // that component's own doc comment for why the generated relay instruction itself is not one of

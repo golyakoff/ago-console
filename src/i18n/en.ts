@@ -565,6 +565,7 @@ export const en: ConsoleStrings = {
 
   workspaceTagFilterLabel: "Filter by tag",
   workspaceTagFilterAll: "All tags",
+  workspaceTagFilterClearButton: "Clear",
 
   channelIdentitiesSectionTitle: "Linked channels",
   channelIdentitiesLoadingLabel: "Loading linked channels…",

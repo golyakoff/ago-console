@@ -13,10 +13,10 @@ import type { OperatorQueueResponse } from "../realtime/protocol/types.js";
 import { Alert } from "../components/Alert.js";
 import { Button } from "../components/Button.js";
 import { Dialog } from "../components/Dialog.js";
-import { Select } from "../components/Select.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { resolveTimeZone } from "../time/format.js";
 import { ConversationList } from "./ConversationList.js";
+import { TagFilter } from "./TagFilter.js";
 import { applyAttentionEvent, documentTitleFor, oldestFirst, totalUnread, type ReadStateMap } from "./attention.js";
 import { AlertSettings } from "./AlertSettings.js";
 import { ShortcutsDialog } from "./ShortcutsDialog.js";
@@ -110,9 +110,10 @@ export function WorkspaceLayout() {
   // loaded yet" and "nothing configured" identically, since either way it has nothing to offer.
   const [cannedResponses, setCannedResponses] = useState<CannedResponseDto[]>([]);
   // `18-04`: the site's tag vocabulary, fetched once - see `workspaceContext.ts`'s own remarks on
-  // `tags`/`refreshTags`. `tagFilter` is this rail's own queue filter, `null` meaning unfiltered.
+  // `tags`/`refreshTags`. `tagFilters` is this rail's own queue filter - `25-59` widened it from one
+  // tag (`tagFilter: string | null`) to a set, empty meaning unfiltered exactly as `null` did before.
   const [tags, setTags] = useState<TagDto[]>([]);
-  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [tagFilters, setTagFilters] = useState<readonly string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [attention, setAttention] = useState<ReadStateMap>({});
   const [announcement, setAnnouncement] = useState<string | null>(null);
@@ -180,7 +181,7 @@ export function WorkspaceLayout() {
       return;
     }
 
-    fetchOperatorQueue(user.access_token, tagFilter ?? undefined)
+    fetchOperatorQueue(user.access_token, tagFilters)
       .then((next) => {
         setQueue(next);
         // `5-15`: the fresh snapshot already contains every arrival and every clear the overlay in
@@ -190,7 +191,7 @@ export function WorkspaceLayout() {
         setError(null);
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : strings.workspaceQueueLoadError));
-  }, [user?.access_token, strings, tagFilter]);
+  }, [user?.access_token, strings, tagFilters]);
 
   // `5-15`: the real server-side clear. Deliberately not followed by a `refreshQueue()` - the
   // `cleared` event above already tells the rail what the server just told us, and forcing a queue
@@ -444,25 +445,11 @@ export function WorkspaceLayout() {
           </Alert>
         )}
 
-        {/* `18-04`: the queue's own tag filter - narrows both "Assigned to me" and "Waiting" to
-            conversations carrying the chosen tag. Rendered only once a tag vocabulary exists; an
-            empty `<select>` with nothing to pick would be a control that does nothing. */}
-        {tags.length > 0 && (
-          <div className="ago-workspace__rail-tools">
-            <Select
-              aria-label={strings.workspaceTagFilterLabel}
-              value={tagFilter ?? ""}
-              onChange={(e) => setTagFilter(e.target.value === "" ? null : e.target.value)}
-            >
-              <option value="">{strings.workspaceTagFilterAll}</option>
-              {tags.map((tag) => (
-                <option key={tag.id} value={tag.id}>
-                  {tag.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-        )}
+        {/* `18-04`/`25-59`: the queue's own tag filter - narrows both "Assigned to me" and "Waiting"
+            to conversations carrying every selected tag (AND). Rendered only once a tag vocabulary
+            exists; an empty checkbox group with nothing to pick would be a control that does
+            nothing. */}
+        {tags.length > 0 && <TagFilter tags={tags} selected={tagFilters} onChange={setTagFilters} />}
 
         {error && <Alert tone="danger">{error}</Alert>}
 
