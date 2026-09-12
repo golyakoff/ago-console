@@ -8,7 +8,10 @@ import {
   getBookingReadiness,
   getConfiguration,
   setAllowedOrigins,
+  updateCalendar,
   type CalendarReadiness,
+  type ConfiguredCalendar,
+  type ConfiguredWorker,
   type TenantConfiguration,
 } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
@@ -23,6 +26,7 @@ import { Textarea } from "../components/Textarea.js";
 import { Select } from "../components/Select.js";
 import { Button } from "../components/Button.js";
 import { Alert } from "../components/Alert.js";
+import { Table, type TableColumn } from "../components/Table.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
@@ -43,6 +47,15 @@ import type { ConsoleStrings } from "../i18n/strings.js";
  * exactly the embed/calendars/working-hours forms - see `CalendarServicesPage`'s own doc comment for
  * the split's reasoning. `configuration.services` is still read by nothing here; the `<Panel>` that
  * once rendered it is gone, not merely hidden.
+ *
+ * <b>`25-53`: the calendars card is two blocks, not one.</b> The plain `<ul>` of existing calendars
+ * sat directly above the create form in one `<Panel>` - the same one-blended-card shape the item's
+ * own audit found here too, alongside its named example (`CalendarServicesPage`). Split into a
+ * "current calendars" table with an Edit action (`updateCalendar` already exists) and a separate
+ * "add calendar" card below, unchanged in substance. No delete action - `calendarApi.ts` exports no
+ * `deleteCalendar` - a real gap named here rather than built around. The origins form below is left
+ * alone: it replaces one whole-list string field in a single `PUT`, not individual objects with their
+ * own id, so it is not an instance of this item's pattern.
  */
 export function CalendarSetupPage() {
   const { user } = useAuth();
@@ -52,6 +65,7 @@ export function CalendarSetupPage() {
   const [readiness, setReadiness] = useState<CalendarReadiness[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [editingCalendar, setEditingCalendar] = useState<ConfiguredCalendar | null>(null);
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
@@ -133,6 +147,7 @@ export function CalendarSetupPage() {
     try {
       await action();
       await reload();
+      setEditingCalendar(null);
     } catch (reason) {
       setError(calendarErrorMessage(reason, strings));
     } finally {
@@ -170,22 +185,34 @@ export function CalendarSetupPage() {
       </Panel>
 
       <Panel title={strings.calendarSetupCalendarsTitle}>
-        <ul>
-          {configuration.calendars.map((calendar) => (
-            <li key={calendar.calendarId}>
-              <strong>{calendar.name}</strong> · {calendar.timeZone} ·{" "}
-              {calendar.isPublished ? strings.calendarPublishedLabel : strings.calendarNotPublishedLabel}
-              <ul>
-                {calendar.workingHours.map((rule) => (
-                  <li key={rule.ruleId}>
-                    {days[rule.dayOfWeek]} {rule.startsAt}–{rule.endsAt} ·{" "}
-                    {configuration.workers.find((worker) => worker.workerId === rule.workerId)?.displayName ?? rule.workerId}
-                  </li>
-                ))}
-              </ul>
-            </li>
-          ))}
-        </ul>
+        <CalendarsTable
+          calendars={configuration.calendars}
+          workers={configuration.workers}
+          days={days}
+          strings={strings}
+          onEdit={(calendar) => setEditingCalendar(calendar)}
+          editDisabled={busy}
+        />
+      </Panel>
+
+      {editingCalendar !== null && (
+        <Panel title={strings.calendarEditCalendarTitle}>
+          <CalendarForm
+            disabled={busy}
+            strings={strings}
+            initial={editingCalendar}
+            submitLabel={strings.siteConfigSaveButton}
+            onSubmit={(body) => void run(() => updateCalendar(accessToken, editingCalendar.calendarId, body))}
+          />
+          <div className="ago-row">
+            <Button disabled={busy} onClick={() => setEditingCalendar(null)}>
+              {strings.cancelButton}
+            </Button>
+          </div>
+        </Panel>
+      )}
+
+      <Panel title={strings.calendarNewCalendarTitle}>
         <CalendarForm disabled={busy} strings={strings} onSubmit={(body) => void run(() => createCalendar(accessToken, body))} />
       </Panel>
 
@@ -265,18 +292,98 @@ function OriginsForm({
   );
 }
 
+/** `25-53`: the current-calendars card's own table. `renderRowActions`-shaped inline (an Edit
+ * button only, `onEdit`) rather than a `renderRowActions` slot the way `calendar/WorkersTable.tsx`
+ * takes one - a single always-present action does not need that component's own generality, and
+ * `CalendarSetupPage.tsx`'s own doc comment names why there is no second (delete) action to make room
+ * for. */
+function CalendarsTable({
+  calendars,
+  workers,
+  days,
+  strings,
+  onEdit,
+  editDisabled,
+}: {
+  calendars: ConfiguredCalendar[];
+  workers: ConfiguredWorker[];
+  days: string[];
+  strings: ConsoleStrings;
+  onEdit: (calendar: ConfiguredCalendar) => void;
+  editDisabled: boolean;
+}) {
+  if (calendars.length === 0) {
+    return <p className="ago-meta">{strings.calendarCalendarsEmpty}</p>;
+  }
+
+  const columns: TableColumn<ConfiguredCalendar>[] = [
+    { key: "name", header: strings.calendarSetupCalendarNameLabel, render: (calendar) => calendar.name },
+    { key: "zone", header: strings.calendarSetupCalendarZoneLabel, render: (calendar) => calendar.timeZone },
+    {
+      key: "status",
+      header: strings.calendarSetupCalendarPublishedLabel,
+      render: (calendar) => (calendar.isPublished ? strings.calendarPublishedLabel : strings.calendarNotPublishedLabel),
+    },
+    {
+      key: "hours",
+      header: strings.calendarCalendarsColumnHours,
+      render: (calendar) =>
+        calendar.workingHours.length === 0 ? (
+          "—"
+        ) : (
+          <ul>
+            {calendar.workingHours.map((rule) => (
+              <li key={rule.ruleId}>
+                {days[rule.dayOfWeek]} {rule.startsAt}–{rule.endsAt} ·{" "}
+                {workers.find((worker) => worker.workerId === rule.workerId)?.displayName ?? rule.workerId}
+              </li>
+            ))}
+          </ul>
+        ),
+    },
+    {
+      key: "actions",
+      header: strings.calendarCalendarsColumnActions,
+      render: (calendar) => (
+        <Button size="sm" disabled={editDisabled} onClick={() => onEdit(calendar)}>
+          {strings.calendarEditButton}
+        </Button>
+      ),
+    },
+  ];
+
+  return (
+    <Table
+      caption={strings.calendarSetupCalendarsTitle}
+      columns={columns}
+      rows={calendars}
+      rowKey={(calendar) => calendar.calendarId}
+    />
+  );
+}
+
 function CalendarForm({
   disabled,
   strings,
+  initial,
+  submitLabel,
   onSubmit,
 }: {
   disabled: boolean;
   strings: ConsoleStrings;
+  /** `25-53`: present exactly when this form is editing an existing calendar rather than creating
+   * one - `CalendarSetupPage`'s own `editingCalendar` state. Prefills the three fields
+   * `updateCalendar` accepts; `calendarId` itself is never a field, only the closure over it in the
+   * caller's own `onSubmit`. */
+  initial?: ConfiguredCalendar;
+  /** Defaults to the create button's own label - the edit panel passes `siteConfigSaveButton`
+   * instead, the same "Save", not "Add", every other edit-in-place form in this console uses. */
+  submitLabel?: string;
   onSubmit: (body: { name: string; timeZone: string; publish: boolean }) => void;
 }) {
-  const [name, setName] = useState("");
-  const [timeZone, setTimeZone] = useState("Europe/Moscow");
-  const [publish, setPublish] = useState(true);
+  const [name, setName] = useState(initial?.name ?? "");
+  const [timeZone, setTimeZone] = useState(initial?.timeZone ?? "Europe/Moscow");
+  const [publish, setPublish] = useState(initial?.isPublished ?? true);
 
   return (
     <form
@@ -284,7 +391,9 @@ function CalendarForm({
       onSubmit={(event: FormEvent) => {
         event.preventDefault();
         onSubmit({ name, timeZone, publish });
-        setName("");
+        if (initial === undefined) {
+          setName("");
+        }
       }}
     >
       <Field label={strings.calendarSetupCalendarNameLabel}>
@@ -315,7 +424,7 @@ function CalendarForm({
 
       <div className="ago-row">
         <Button type="submit" variant="primary" disabled={disabled}>
-          {strings.calendarSetupAddCalendarButton}
+          {submitLabel ?? strings.calendarSetupAddCalendarButton}
         </Button>
       </div>
     </form>

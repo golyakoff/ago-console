@@ -553,6 +553,8 @@ export const ru: ConsoleStrings = {
   tagsNewNamePlaceholder: "например, VIP",
   tagsCreatingButton: "Создание…",
   tagsCreateButton: "Создать метку",
+  tagsColumnActions: "Действия",
+  tagsAddPanelTitle: "Добавить метку",
 
   tagsSectionTitle: "Метки",
   tagsNoneApplied: "Метки не применены.",
@@ -1154,6 +1156,11 @@ export const ru: ConsoleStrings = {
   calendarSetupCalendarZoneLabel: "Часовой пояс",
   calendarSetupCalendarPublishedLabel: "Опубликован",
   calendarSetupAddCalendarButton: "Добавить календарь",
+  calendarCalendarsColumnHours: "Часы работы",
+  calendarCalendarsColumnActions: "Действия",
+  calendarCalendarsEmpty: "Календарей пока нет.",
+  calendarEditCalendarTitle: "Изменить календарь",
+  calendarNewCalendarTitle: "Новый календарь",
   calendarSetupServicesTitle: "Услуги",
   calendarSetupServiceMinutesSuffix: " мин",
   calendarSetupServiceNameLabel: "Название услуги",
@@ -1163,6 +1170,12 @@ export const ru: ConsoleStrings = {
   calendarSetupServicePricePlaceholder: "Цена не указана",
   calendarSetupServicePriceFromLabel: "Цена «от» (зависит от мастера или объёма работы)",
   calendarSetupServiceDescriptionLabel: "Описание",
+  calendarServicesColumnName: "Название",
+  calendarServicesColumnDuration: "Длительность",
+  calendarServicesColumnPrice: "Цена",
+  calendarServicesColumnDescription: "Описание",
+  calendarServicesEmpty: "Услуг пока нет.",
+  calendarNewServiceTitle: "Новая услуга",
   calendarSetupWorkingHoursTitle: "Рабочие часы",
   calendarSetupWorkingHoursDescription: 
     "Настенные часы в собственном часовом поясе календаря - «мы открываемся в девять», а не момент " +

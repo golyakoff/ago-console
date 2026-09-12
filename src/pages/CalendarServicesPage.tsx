@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
-import { createService, getConfiguration, type TenantConfiguration } from "../api/calendarApi.js";
+import { createService, getConfiguration, type ConfiguredService, type TenantConfiguration } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
 import { PageHead } from "../shell/AppShell.js";
@@ -12,6 +12,7 @@ import { Input } from "../components/Input.js";
 import { Textarea } from "../components/Textarea.js";
 import { Button } from "../components/Button.js";
 import { Alert } from "../components/Alert.js";
+import { Table, type TableColumn } from "../components/Table.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
@@ -48,6 +49,16 @@ import type { ConsoleStrings } from "../i18n/strings.js";
  * shop states here is one a stranger sees before booking, the same way a real salon's own booking
  * page does. Never carried into the booking confirmation, which is deliberately silent about it -
  * see `Ago.Calendar.Contracts.BookingConfirmedResponse`'s own remarks.
+ *
+ * **`25-53`: two blocks, not one blended card.** This screen was the item's own named example of the
+ * one-card antipattern - a title, the existing services as a plain `<ul>`, then the create form,
+ * all in one `<Panel>`. Split into a "current services" card (a real `Table`, no per-row actions) and
+ * a separate "add service" card below, unchanged in substance. **No actions column, and that is a
+ * real gap, not an oversight**: `calendarApi.ts` still exports only `createService` for this object
+ * type - no `updateService`/`deleteService` exist yet, so there is nothing this table could wire an
+ * edit or delete button to without inventing backend capability `25-53`'s own scope forbids. Also no
+ * "hide inactive" filter: `ConfiguredService` carries no active/inactive concept at all (unlike
+ * `ConfiguredWorker.isActive`), so there is nothing here to hide.
  */
 export function CalendarServicesPage() {
   const { user } = useAuth();
@@ -157,22 +168,10 @@ export function CalendarServicesPage() {
       {error !== null && <Alert tone="danger">{error}</Alert>}
 
       <Panel title={strings.calendarSetupServicesTitle}>
-        <ul>
-          {configuration.services.map((service) => (
-            <li key={service.serviceId}>
-              {service.name} · {service.durationMinutes}
-              {strings.calendarSetupServiceMinutesSuffix}
-              {service.priceMinorUnits !== null && (
-                <> · {formatPrice(service.priceMinorUnits, service.priceIsFrom)}</>
-              )}
-              {service.description !== null && (
-                // `.ago-field__description`'s own small/secondary treatment, reused rather than a
-                // new class invented for one line - it already means exactly this.
-                <div className="ago-field__description">{service.description}</div>
-              )}
-            </li>
-          ))}
-        </ul>
+        <ServicesTable services={configuration.services} strings={strings} />
+      </Panel>
+
+      <Panel title={strings.calendarNewServiceTitle}>
         <ServiceForm
           disabled={busy}
           strings={strings}
@@ -180,6 +179,44 @@ export function CalendarServicesPage() {
         />
       </Panel>
     </>
+  );
+}
+
+/** `25-53`: the current-services card's own table - no `renderRowActions` slot the way
+ * `calendar/WorkersTable.tsx` takes one, because there is no row action this object type's API
+ * supports yet (see this file's own doc comment). */
+function ServicesTable({ services, strings }: { services: ConfiguredService[]; strings: ConsoleStrings }) {
+  if (services.length === 0) {
+    return <p className="ago-meta">{strings.calendarServicesEmpty}</p>;
+  }
+
+  const columns: TableColumn<ConfiguredService>[] = [
+    { key: "name", header: strings.calendarServicesColumnName, render: (service) => service.name },
+    {
+      key: "duration",
+      header: strings.calendarServicesColumnDuration,
+      render: (service) => `${service.durationMinutes}${strings.calendarSetupServiceMinutesSuffix}`,
+    },
+    {
+      key: "price",
+      header: strings.calendarServicesColumnPrice,
+      render: (service) =>
+        service.priceMinorUnits !== null ? formatPrice(service.priceMinorUnits, service.priceIsFrom) : "—",
+    },
+    {
+      key: "description",
+      header: strings.calendarServicesColumnDescription,
+      render: (service) => service.description ?? "—",
+    },
+  ];
+
+  return (
+    <Table
+      caption={strings.calendarSetupServicesTitle}
+      columns={columns}
+      rows={services}
+      rowKey={(service) => service.serviceId}
+    />
   );
 }
 

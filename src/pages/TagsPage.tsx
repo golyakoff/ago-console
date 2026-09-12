@@ -10,8 +10,10 @@ import { Field } from "../components/Field.js";
 import { Input } from "../components/Input.js";
 import { Button } from "../components/Button.js";
 import { Alert } from "../components/Alert.js";
+import { Table, type TableColumn } from "../components/Table.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
+import type { ConsoleStrings } from "../i18n/strings.js";
 
 /**
  * `18-04`: `/settings/tags` - the site's own tag vocabulary, editable by whoever holds
@@ -23,6 +25,13 @@ import { useStrings } from "../i18n/StringsContext.js";
  * Applying a tag to one conversation happens elsewhere (the conversation panel's own
  * `ConversationTagsPanel`) - this screen only manages the vocabulary itself, the same split
  * `CannedResponsesPage` (the library) and the composer's picker (using it) already draw.
+ *
+ * `25-53`: two blocks, not one. The vocabulary used to render as a plain `<ul>` with an inline
+ * rename/delete pair per row, the create form directly beneath it in the same `<Panel>` - the item's
+ * own audit pattern. Split into a "current tags" table and a separate "add a tag" card below; unlike
+ * `CalendarServicesPage`'s named example, this object type already had full CRUD
+ * (`createTag`/`renameTag`/`deleteTag`) so both row actions carry over unchanged, just onto real
+ * table columns instead of inline text.
  */
 export function TagsPage() {
   const { user } = useAuth();
@@ -133,64 +142,117 @@ export function TagsPage() {
           <Skeleton lines={3} label={strings.tagsLoadingLabel} />
         </Panel>
       ) : (
-        <Panel title={strings.tagsPanelTitle}>
-          {rowError && <Alert tone="danger">{rowError}</Alert>}
+        <>
+          <Panel title={strings.tagsPanelTitle}>
+            {rowError && <Alert tone="danger">{rowError}</Alert>}
 
-          {tags && tags.length === 0 ? (
-            <p className="ago-empty">{strings.tagsEmpty}</p>
-          ) : (
-            <ul className="ago-list">
-              {tags?.map((tag) => (
-                <li key={tag.id} className="ago-row ago-row--align-end">
-                  {renamingId === tag.id ? (
-                    <>
-                      <Field label={strings.tagsNameLabel}>
-                        {(controlProps) => (
-                          <Input {...controlProps} value={renameDraft} onChange={(e) => setRenameDraft(e.target.value)} />
-                        )}
-                      </Field>
-                      <Button type="button" variant="primary" onClick={() => void submitRename(tag.id)}>
-                        {strings.tagsSaveButton}
-                      </Button>
-                      <Button type="button" onClick={() => setRenamingId(null)}>
-                        {strings.tagsCancelButton}
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="ago-list__row-top">{tag.name}</span>
-                      <Button type="button" onClick={() => startRename(tag)}>
-                        {strings.tagsRenameButton}
-                      </Button>
-                      <Button type="button" variant="danger" onClick={() => void handleDelete(tag.id)}>
-                        {strings.tagsDeleteButton}
-                      </Button>
-                    </>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
+            {tags && tags.length === 0 ? (
+              <p className="ago-empty">{strings.tagsEmpty}</p>
+            ) : (
+              <TagsTable
+                tags={tags ?? []}
+                strings={strings}
+                renamingId={renamingId}
+                renameDraft={renameDraft}
+                onRenameDraftChange={setRenameDraft}
+                onStartRename={startRename}
+                onCancelRename={() => setRenamingId(null)}
+                onSubmitRename={(tagId) => void submitRename(tagId)}
+                onDelete={(tagId) => void handleDelete(tagId)}
+              />
+            )}
+          </Panel>
 
-          <form className="ago-row ago-row--align-end" onSubmit={(e) => void handleCreate(e)}>
-            <Field label={strings.tagsNewNameLabel}>
-              {(controlProps) => (
-                <Input
-                  {...controlProps}
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder={strings.tagsNewNamePlaceholder}
-                  disabled={creating}
-                />
-              )}
-            </Field>
-            <Button type="submit" variant="primary" disabled={creating || !newName.trim()}>
-              {creating ? strings.tagsCreatingButton : strings.tagsCreateButton}
-            </Button>
-          </form>
-          {createError && <Alert tone="danger">{createError}</Alert>}
-        </Panel>
+          <Panel title={strings.tagsAddPanelTitle}>
+            <form className="ago-row ago-row--align-end" onSubmit={(e) => void handleCreate(e)}>
+              <Field label={strings.tagsNewNameLabel}>
+                {(controlProps) => (
+                  <Input
+                    {...controlProps}
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder={strings.tagsNewNamePlaceholder}
+                    disabled={creating}
+                  />
+                )}
+              </Field>
+              <Button type="submit" variant="primary" disabled={creating || !newName.trim()}>
+                {creating ? strings.tagsCreatingButton : strings.tagsCreateButton}
+              </Button>
+            </form>
+            {createError && <Alert tone="danger">{createError}</Alert>}
+          </Panel>
+        </>
       )}
     </>
   );
+}
+
+/** `25-53`: the current-tags card's own table. Rename is edited in place (a row swaps its name cell
+ * for a text field plus Save/Cancel, exactly the interaction the old `<li>` already had) rather than
+ * navigating to a second screen - the same in-row-edit shape `TagsPage.tsx`'s pre-`25-53` version
+ * used, now on real table columns instead of one row of inline text and buttons. */
+function TagsTable({
+  tags,
+  strings,
+  renamingId,
+  renameDraft,
+  onRenameDraftChange,
+  onStartRename,
+  onCancelRename,
+  onSubmitRename,
+  onDelete,
+}: {
+  tags: TagDto[];
+  strings: ConsoleStrings;
+  renamingId: string | null;
+  renameDraft: string;
+  onRenameDraftChange: (value: string) => void;
+  onStartRename: (tag: TagDto) => void;
+  onCancelRename: () => void;
+  onSubmitRename: (tagId: string) => void;
+  onDelete: (tagId: string) => void;
+}) {
+  const columns: TableColumn<TagDto>[] = [
+    {
+      key: "name",
+      header: strings.tagsNameLabel,
+      render: (tag) =>
+        renamingId === tag.id ? (
+          <Field label={strings.tagsNameLabel}>
+            {(controlProps) => (
+              <Input {...controlProps} value={renameDraft} onChange={(e) => onRenameDraftChange(e.target.value)} />
+            )}
+          </Field>
+        ) : (
+          tag.name
+        ),
+    },
+    {
+      key: "actions",
+      header: strings.tagsColumnActions,
+      render: (tag) =>
+        renamingId === tag.id ? (
+          <div className="ago-row">
+            <Button type="button" variant="primary" onClick={() => void onSubmitRename(tag.id)}>
+              {strings.tagsSaveButton}
+            </Button>
+            <Button type="button" onClick={onCancelRename}>
+              {strings.tagsCancelButton}
+            </Button>
+          </div>
+        ) : (
+          <div className="ago-row">
+            <Button type="button" onClick={() => onStartRename(tag)}>
+              {strings.tagsRenameButton}
+            </Button>
+            <Button type="button" variant="danger" onClick={() => void onDelete(tag.id)}>
+              {strings.tagsDeleteButton}
+            </Button>
+          </div>
+        ),
+    },
+  ];
+
+  return <Table caption={strings.tagsPanelTitle} columns={columns} rows={tags} rowKey={(tag) => tag.id} />;
 }
