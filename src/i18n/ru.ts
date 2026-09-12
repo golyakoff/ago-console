@@ -38,6 +38,7 @@ export const ru: ConsoleStrings = {
   navTeamChat: "Общение",
   navChannelsMax: "Бот MAX",
   navChannelsTelegram: "Бот Telegram",
+  navChannelsVk: "Сообщество VK",
   navChannelsOther: "Другие каналы",
   navAutomationAiSuggestions: "ИИ-подсказки",
   navAutomationAiAutoReply: "ИИ-автоответ",
@@ -892,6 +893,35 @@ export const ru: ConsoleStrings = {
     "Бот сразу перестанет доставлять сообщения. Вы можете подключить его — или другого бота — снова в любой момент.",
   maxChannelDisconnectConfirmButton: "Отключить",
   maxChannelDisconnectError: "Не удалось отключить бота. Попробуйте ещё раз.",
+
+  vkChannelTitle: "Сообщество VK",
+  vkChannelDescription: "Подключите своё сообщество VK, чтобы посетители могли писать ему, а ваша команда отвечала отсюда.",
+  vkChannelForbidden: "У вас нет прав на управление каналами этого сайта.",
+  vkChannelPanelTitle: "Сообщество VK",
+  vkChannelNotConnectedBody:
+    "Вставьте ключ доступа сообщества (Управление → Работа с API → Ключи доступа, с доступом к сообщениям). AGO проверит его в VK, прежде чем сохранить.",
+  vkChannelTokenFieldLabel: "Ключ доступа сообщества",
+  vkChannelTokenFieldDescription: "После сохранения больше нигде не показывается.",
+  vkChannelConnectButton: "Подключить",
+  vkChannelConnectingButton: "Подключаем…",
+  vkChannelConnectError: "Не удалось подключить сообщество. Попробуйте ещё раз.",
+  vkChannelAlreadyConnectedHint:
+    "У этого сайта уже есть подключённое сообщество VK. Чтобы подключить другое, сначала нужно отключить текущее.",
+  vkChannelConnectedSinceLabel: "Подключено с",
+  vkChannelConnectedBadge: "Подключено",
+  vkChannelSetupTitle: "Завершите настройку в VK",
+  vkChannelSetupBody:
+    "Вставьте эти значения в настройки Callback API вашего сообщества (Управление → Работа с API → Callback API), чтобы начать получать сообщения.",
+  vkChannelCopyCallbackUrlButton: "Скопировать URL",
+  vkChannelCallbackUrlCopiedLabel: "URL скопирован.",
+  vkChannelCopyWebhookSecretButton: "Скопировать секретный ключ",
+  vkChannelWebhookSecretCopiedLabel: "Секретный ключ скопирован.",
+  vkChannelDisconnectButton: "Отключить",
+  vkChannelDisconnectDialogTitle: "Отключить это сообщество?",
+  vkChannelDisconnectDialogBody:
+    "Сообщество сразу перестанет доставлять сообщения. Вы можете подключить его — или другое сообщество — снова в любой момент.",
+  vkChannelDisconnectConfirmButton: "Отключить",
+  vkChannelDisconnectError: "Не удалось отключить сообщество. Попробуйте ещё раз.",
 
   navAnalytics: "Аналитика",
   analyticsPageDescription:

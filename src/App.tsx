@@ -26,6 +26,7 @@ import { WidgetConfigPage } from "./pages/WidgetConfigPage.js";
 import { InstallSnippetPage } from "./pages/InstallSnippetPage.js";
 import { TelegramChannelPage } from "./pages/TelegramChannelPage.js";
 import { MaxChannelPage } from "./pages/MaxChannelPage.js";
+import { VkChannelPage } from "./pages/VkChannelPage.js";
 import { FaqModulePage } from "./pages/FaqModulePage.js";
 import { OfflineAutoReplyPage } from "./pages/OfflineAutoReplyPage.js";
 import { CannedResponsesPage } from "./pages/CannedResponsesPage.js";
@@ -332,6 +333,12 @@ export function App() {
             is now real too (`25-09`), "Другие каналы" stays reserved (`consoleNav.ts`'s own remarks on
             why one channel end to end, not three half-built ones). */}
         <Route path="/channels/telegram" element={<TelegramChannelPage />} />
+        {/* `25-15`: same "route stays outside the workspace layout, page gates itself internally"
+            shape as the channel routes around it - `VkChannelPage` checks `channel:manage` itself.
+            The third of `23-31`'s three reserved channel places to become a real screen; "Другие
+            каналы" now covers only Email/WhatsApp/Avito (`consoleNav.ts`'s own remarks). Placed after
+            Telegram's own route, matching `consoleNav.ts`'s unchanged list order. */}
+        <Route path="/channels/vk" element={<VkChannelPage />} />
         {/* `19-03`: same "route stays outside the workspace layout, page gates itself internally"
             shape as the ones around it - `FaqModulePage` gates itself on `site:configure` internally,
             exactly like `WidgetConfigPage` above it. `23-31`: moved from `/settings/faq` into the

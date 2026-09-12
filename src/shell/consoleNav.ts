@@ -284,8 +284,9 @@ function buildTeamItems(
  * five, which is the "Каналы целиком требует прав арендатора" half of the item's own reasoning.
  * `10-06`: "Установка виджета" stays first, above the list - a task, not a channel (this section's
  * own naming rule, decided 2026-09-06: every *other* entry here is named for the channel it is, not
- * for an action). "Другие каналы" stays `reserved` - VK, Email, WhatsApp and Avito each have a
- * working adapter (`14-08`/`14-10`/`14-11`, Email's own `14-09`) but no console screen yet.
+ * for an action). "Другие каналы" stays `reserved` - Email, WhatsApp and Avito each have a working
+ * adapter (`14-09`/`14-10`/`14-11`) but no console screen yet; VK (`14-08`) is no longer among them
+ * (`25-15`).
  *
  * `23-36`: "Бот Telegram" is no longer `reserved` - `TelegramChannelPage` (`/channels/telegram`) is a
  * real screen, the first of these three places to become one (rule 15: one channel end to end, not
@@ -297,7 +298,11 @@ function buildTeamItems(
  *
  * `25-09`: "Бот MAX" is no longer `reserved` either - `MaxChannelPage` (`/channels/max`) is the second
  * of these three places to become a real screen, kept in its original position (before Telegram) so
- * this list's order does not shuffle as each reserved place is filled in. */
+ * this list's order does not shuffle as each reserved place is filled in.
+ *
+ * `25-15`: "Сообщество VK" is the third - `VkChannelPage` (`/channels/vk`) - placed after Telegram,
+ * before the now-narrower "Другие каналы" catch-all (Email/WhatsApp/Avito only), the same "kept in
+ * position, list does not shuffle" discipline `25-09` already established for MAX. */
 function buildChannelsItems(isAdmin: boolean, strings: ConsoleStrings): AppShellNavItem[] {
   if (!isAdmin) {
     return [];
@@ -307,6 +312,7 @@ function buildChannelsItems(isAdmin: boolean, strings: ConsoleStrings): AppShell
     { to: "/channels/widget", label: strings.navWidgetAppearance },
     { to: "/channels/max", label: strings.navChannelsMax },
     { to: "/channels/telegram", label: strings.navChannelsTelegram },
+    { to: "/channels/vk", label: strings.navChannelsVk },
     { label: strings.navChannelsOther, reserved: true },
   ];
 }

@@ -430,11 +430,18 @@ describe("the operator navigation", () => {
     await openSection(container, "Team");
     expect(itemLabels(container)).toEqual(["Team chat"]);
 
-    // `23-36`/`25-09`: "Telegram bot" and "MAX bot" are both real items now - still listed by
-    // `itemLabels` (which does not distinguish reserved from ordinary), but no longer by
-    // `reservedItemLabels`. Only "Other channels" (VK, Email, WhatsApp, Avito) is still reserved.
+    // `23-36`/`25-09`/`25-15`: "Telegram bot", "MAX bot" and "VK community" are all real items now -
+    // still listed by `itemLabels` (which does not distinguish reserved from ordinary), but no longer
+    // by `reservedItemLabels`. Only "Other channels" (Email, WhatsApp, Avito) is still reserved.
     await openSection(container, "Channels");
-    expect(itemLabels(container)).toEqual(["Install widget", "Website widget", "MAX bot", "Telegram bot", "Other channels"]);
+    expect(itemLabels(container)).toEqual([
+      "Install widget",
+      "Website widget",
+      "MAX bot",
+      "Telegram bot",
+      "VK community",
+      "Other channels",
+    ]);
     expect(reservedItemLabels(container)).toEqual(["Other channels"]);
 
     await openSection(container, "Automation");

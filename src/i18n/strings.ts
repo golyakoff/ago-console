@@ -98,13 +98,17 @@ export interface ConsoleStrings {
   navCalendarBookings: string;
   /** `23-31`: a reserved place - one chat for the whole tenant's team, no screen yet. */
   navTeamChat: string;
-  /** `23-31`: a reserved place - the MAX channel has an adapter since `14-02` but no console screen. */
+  /** `23-31`: a reserved place; `25-09` gives it a real screen (`MaxChannelPage`, `/channels/max`) -
+   * the section header label for that route in `consoleNav.ts`. */
   navChannelsMax: string;
   /** `23-31` drew this as a reserved place; `23-36` gives it a real screen (`TelegramChannelPage`,
    * `/channels/telegram`) - the section header label for that route in `consoleNav.ts`. */
   navChannelsTelegram: string;
-  /** `23-31`: a reserved place for VK/Avito/WhatsApp/email - four adapters, no screen for any of
-   * them. */
+  /** `23-31` drew this as a reserved place; `25-15` gives it a real screen (`VkChannelPage`,
+   * `/channels/vk`) - the section header label for that route in `consoleNav.ts`. */
+  navChannelsVk: string;
+  /** `23-31`: a reserved place for WhatsApp/Avito/Email - `25-15` gave VK its own real screen, so this
+   * label now covers the remaining three adapters with no screen yet, not four. */
   navChannelsOther: string;
   /** `23-31`: a reserved place - the AI-suggestion module has no screen yet. */
   navAutomationAiSuggestions: string;
@@ -1356,6 +1360,61 @@ export interface ConsoleStrings {
   maxChannelDisconnectDialogBody: string;
   maxChannelDisconnectConfirmButton: string;
   maxChannelDisconnectError: string;
+
+  // `25-15`: VkChannelPage (`/channels/vk`) - the third of `23-31`'s three reserved channel places to
+  // become a real screen, built on `TelegramChannelPage`'s/`MaxChannelPage`'s own shape above. Gated
+  // on `channel:manage` (`VK_CHANNEL_PERMISSION`), the identical dedicated-permission-screen shape.
+  // No loading/status strings here, unlike Telegram's/MAX's own blocks above - `VkChannelPage`'s own
+  // doc comment explains why: `VkChannelEndpoints` has no `GET` route to load a status from at all.
+  vkChannelTitle: string;
+  vkChannelDescription: string;
+  vkChannelForbidden: string;
+  vkChannelPanelTitle: string;
+  /** Always shown until a connect attempt succeeds this page visit - there is no status read to decide
+   * this from (`VkChannelPage`'s own doc comment). */
+  vkChannelNotConnectedBody: string;
+  vkChannelTokenFieldLabel: string;
+  vkChannelTokenFieldDescription: string;
+  vkChannelConnectButton: string;
+  vkChannelConnectingButton: string;
+  /** Fallback only - a real refusal (a bad token, VK unreachable, already connected) arrives as
+   * `ApiProblemError.message` from `VkChannelEndpoints.HandleConnectAsync`'s own `groups.getById`
+   * rejection or `RegisterChannelCredentialHandler`'s own conflict, per `telegramChannelConnectError`'s
+   * identical "show what the provider/handler said" discipline. */
+  vkChannelConnectError: string;
+  /** Shown underneath `vkChannelConnectError` only when the refusal was specifically
+   * `ChannelCredential.AlreadyConnected` - unlike a bad token, retrying with a different value in this
+   * same form cannot fix this one, and `VkChannelPage`'s own doc comment explains why this screen has
+   * no way to offer a disconnect button for a credential it never learned the id of. */
+  vkChannelAlreadyConnectedHint: string;
+  /** `${vkChannelConnectedSinceLabel} ${date}` - held in memory from the connect response for the rest
+   * of this page visit only (`VkChannelPage`'s own doc comment: nothing persists this across a
+   * reload). */
+  vkChannelConnectedSinceLabel: string;
+  /** The one badge this screen ever shows for a connected credential - "Connected" means VK's own
+   * `groups.getById` agreed at connect time (`VkChannelEndpoints.HandleConnectAsync`), the same
+   * "verified before ever written" fact Telegram's `getMe` and MAX's `POST /subscriptions` establish
+   * for their own connect calls. */
+  vkChannelConnectedBadge: string;
+  /** Title of the `Alert` explaining what the two values below it are for. */
+  vkChannelSetupTitle: string;
+  /** Tells the operator to paste `callbackUrl`/`webhookSecret` into VK's own community "Callback API"
+   * settings screen - the one manual step VK's own Callback API requires a human to do, unlike MAX's
+   * programmatic `POST /subscriptions` (`VkChannelEndpoints`'s own remarks). */
+  vkChannelSetupBody: string;
+  vkChannelCopyCallbackUrlButton: string;
+  vkChannelCallbackUrlCopiedLabel: string;
+  vkChannelCopyWebhookSecretButton: string;
+  vkChannelWebhookSecretCopiedLabel: string;
+  vkChannelDisconnectButton: string;
+  vkChannelDisconnectDialogTitle: string;
+  /** States the consequence directly, the same `telegramChannelDisconnectDialogBody`/
+   * `maxChannelDisconnectDialogBody` precedent - disconnecting stops delivery immediately, it does not
+   * just hide the row (and unlinks the channel identity rather than deleting any message history,
+   * `RevokeChannelCredentialHandler`'s own scope). */
+  vkChannelDisconnectDialogBody: string;
+  vkChannelDisconnectConfirmButton: string;
+  vkChannelDisconnectError: string;
 
   // `18-08`: OperatorAnalyticsPage (`/analytics`) - the site owner's own basic self-service report,
   // gated on `site:configure` the same way `SearchConversationsPage`/`AdminConversationsPage` already
