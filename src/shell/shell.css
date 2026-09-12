@@ -313,7 +313,12 @@
   padding-top: var(--ago-space-3);
 }
 
-/* --- Signed-in operator --------------------------------------------------------------------- */
+/* --- Signed-in operator (`25-47`) ------------------------------------------------------------
+
+   Before this item the header's right side laid out three things side by side: the operator's
+   name, an optional tenancy `<select>`, and a visible "Sign out" button. All three now live behind
+   one avatar - see `ShellIdentity`'s own doc comment (`AppShell.tsx`) for why this is a hand-rolled
+   disclosure rather than `Dialog` or `<details>`. */
 
 .ago-shell__identity {
   display: flex;
@@ -322,30 +327,10 @@
   flex-wrap: wrap;
 }
 
-/* `13-07`/`adr/0068`: the tenancy switcher - present only for a multi-tenant identity
-   (`OperatorShell`'s own gate), so a single-tenant operator's header is unchanged by this rule
-   existing at all. */
-.ago-shell__tenancy-switcher {
-  display: flex;
-  align-items: center;
-  gap: var(--ago-space-2);
-}
-
-.ago-shell__tenancy-switcher-label {
-  font-size: var(--ago-text-xs);
-  color: var(--ago-ink-soft);
-}
-
-.ago-shell__tenancy-switcher .ago-control--select {
-  min-height: 2rem;
-  padding-top: var(--ago-space-1);
-  padding-bottom: var(--ago-space-1);
-  font-size: var(--ago-text-sm);
-}
-
-/* Dark-theme reversal of `adr/0030` point 4 - same shape as the tenancy switcher immediately
-   above (it is the established precedent for "a small `Select`-backed control in this row"), minus
-   the conditional rendering: every operator has a theme choice to make, so this one always shows. */
+/* Dark-theme reversal of `adr/0030` point 4 - `ThemeToggle`'s own `<select>`, now the only other
+   `Select`-backed control left in the header row (the tenancy switcher moved into the menu below,
+   and no longer uses `Select` at all). Every operator has a theme choice to make, so this one
+   always shows, unconditionally - `ShellIdentity`'s own menu is the conditional one. */
 .ago-shell__theme-toggle {
   display: flex;
   align-items: center;
@@ -364,22 +349,128 @@
   font-size: var(--ago-text-sm);
 }
 
-.ago-shell__operator {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  line-height: 1.25;
+/* The circle itself - shared by the header's own closed trigger and the menu's repeated header-row
+   avatar, at two different sizes (a modifier class on top of this one sets `width`/`height`/
+   `font-size` together, since a circle's radius and its label both scale with the same number). No
+   image ever loads into this - initials are this console's *only* representation of a person
+   (`docs/design/gaps.md` pile 3 item 8), so there is no fallback state to design for. */
+.ago-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 50%;
+  background: var(--ago-brand);
+  color: #fff; /* on `--ago-brand`: 6.27:1, the identical measured pair `.ago-btn--primary` already spends */
+  font-family: var(--ago-font-sans);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
 }
 
-.ago-shell__operator-name {
+.ago-user-menu {
+  position: relative;
+}
+
+.ago-user-menu__trigger {
+  width: 2.25rem; /* 36px */
+  height: 2.25rem;
+  font-size: var(--ago-text-sm);
+  cursor: pointer;
+  transition: box-shadow var(--ago-transition);
+}
+
+.ago-user-menu__trigger:hover {
+  box-shadow: 0 0 0 3px var(--ago-brand-tint);
+}
+
+.ago-user-menu__panel {
+  position: absolute;
+  top: calc(100% + var(--ago-space-2));
+  right: 0;
+  z-index: var(--ago-z-dialog);
+  width: 16rem;
+  display: flex;
+  flex-direction: column;
+  padding: var(--ago-space-2) 0;
+  background: var(--ago-surface);
+  border: 1px solid var(--ago-line);
+  border-radius: var(--ago-radius-lg);
+  box-shadow: var(--ago-shadow-lg);
+}
+
+.ago-user-menu__header {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-3);
+  padding: var(--ago-space-2) var(--ago-space-4) var(--ago-space-3);
+}
+
+.ago-user-menu__header-avatar {
+  width: 2.5rem; /* 40px - a shade larger than the closed trigger, matching GitHub's own reference */
+  height: 2.5rem;
+  font-size: var(--ago-text-base);
+}
+
+.ago-user-menu__header-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.ago-user-menu__header-name {
   font-size: var(--ago-text-sm);
   font-weight: 700;
   color: var(--ago-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.ago-shell__operator-site {
-  font-family: var(--ago-font-mono);
+.ago-user-menu__header-tenant {
   font-size: var(--ago-text-xs);
+  color: var(--ago-ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ago-user-menu__section {
+  display: flex;
+  flex-direction: column;
+}
+
+.ago-user-menu__separator {
+  margin: var(--ago-space-2) 0;
+  border: none;
+  border-top: 1px solid var(--ago-line);
+}
+
+.ago-user-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-3);
+  width: 100%;
+  padding: var(--ago-space-2) var(--ago-space-4);
+  border: none;
+  background: transparent;
+  color: var(--ago-ink);
+  font-family: var(--ago-font-sans);
+  font-size: var(--ago-text-sm);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--ago-transition);
+}
+
+.ago-user-menu__item:hover {
+  background: var(--ago-surface-sunken);
+}
+
+.ago-user-menu__item-icon {
+  flex: 0 0 auto;
   color: var(--ago-ink-soft);
 }
 
@@ -524,10 +615,6 @@
 @media (max-width: 40rem) {
   .ago-shell__header-row {
     gap: var(--ago-space-3);
-  }
-
-  .ago-shell__operator {
-    align-items: flex-start;
   }
 
   .ago-shell__main {

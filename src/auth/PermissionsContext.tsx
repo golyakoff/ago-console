@@ -38,8 +38,9 @@ export interface PermissionsState {
    * `GET /api/v1/me/tenancies` - the new step `PermissionsProvider` takes before its existing
    * `operators/me` call. `null` while that call is still in flight, `[]` once it resolves for an
    * identity with none (the pre-onboarding case) - the same "not yet known is not the same as
-   * denied/empty" distinction `permissions` already draws. The switcher
-   * (`OperatorShell`/`TenancySwitcher`) renders only when this holds more than one entry. */
+   * denied/empty" distinction `permissions` already draws. The user menu's own tenant-switcher
+   * section (`OperatorShell`/`ShellIdentity`, `25-47` - replaced `TenancySwitcher`) renders only
+   * when this holds more than one entry. */
   tenancies: TenancyDto[] | null;
   /** The tenancy `PermissionsProvider` resolved as active for this session - the same value it
    * attaches as `X-Ago-Active-Site` on every subsequent API/hub call

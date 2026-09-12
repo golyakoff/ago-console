@@ -8,7 +8,6 @@ import { StringsProvider } from "../i18n/StringsProvider.js";
 import { AppShell, ShellIdentity, type AppShellNavSection } from "./AppShell.js";
 import { buildTenantNavSections } from "./consoleNav.js";
 import { RenderErrorAlert, RenderErrorBoundary } from "./RenderErrorBoundary.js";
-import { TenancySwitcher } from "./TenancySwitcher.js";
 
 /**
  * `11-05`. The layout route's element - the context-reading half of the shell, mounted inside
@@ -123,13 +122,17 @@ export function OperatorShell() {
           <ShellIdentity
             operator={operatorDisplayName(user)}
             siteId={siteId}
-            // `13-07`/`adr/0068`: only when there is a real choice to offer - a single-tenant
-            // operator's shell renders no switcher at all, exactly as it did before this item.
-            tenancySwitcher={
-              tenancies && tenancies.length > 1 ? (
-                <TenancySwitcher tenancies={tenancies} activeSiteId={activeSiteId} onSwitch={switchTenancy} />
-              ) : undefined
-            }
+            // `13-07`/`adr/0068`/`25-47`: the raw tenancy list and the active id, straight from
+            // `usePermissions()` - `ShellIdentity` itself now does the "only when there is a real
+            // choice to offer" gating the old `tenancies.length > 1` check here used to do, by
+            // excluding the active tenancy and rendering its switcher section only if anything is
+            // left (that component's own `otherTenancies` doc comment).
+            tenancies={tenancies}
+            activeSiteId={activeSiteId}
+            // `switchTenancy` itself, unwrapped - the real mechanism `PermissionsProvider` already
+            // owns (persist the choice, reload the page). `25-47` changes only how a tenancy is
+            // picked, never this function.
+            onSwitchTenancy={switchTenancy}
             onSignOut={() => void logout()}
           />
         }
