@@ -24,9 +24,8 @@ export interface ContactDetailsPanelProps {
 /** `Ago.Chat.Domain.VisitorContactDetailKind`'s own members, verbatim, mapped to the real Russian (or
  * English) words this pill actually means - never the raw wire value (`ChannelIdentitiesPanel`'s own
  * `LINKABLE_CHANNEL_KINDS` renders through `strings` the same way for its own closed enum).
- * `"Other"` deliberately does **not** read "Name" - checked against `Domain.VisitorContactDetailKind`'s
- * own remarks before choosing a label: it covers a second phone number labelled "work," a physical
- * address, or a preferred name, not only the last of those, so a name-only label would overclaim. */
+ * `"Name"` (`25-62`) reads "Имя"/"Name" - the visitor's own name, typed into the widget's own
+ * contact-capture form, `VisitorContactDetailKind.Name`'s one real writer. */
 function kindLabel(kind: string, strings: ConsoleStrings): string {
   switch (kind) {
     case "Phone":
@@ -34,7 +33,7 @@ function kindLabel(kind: string, strings: ConsoleStrings): string {
     case "Email":
       return strings.contactDetailsKindEmail;
     default:
-      return strings.contactDetailsKindOther;
+      return strings.contactDetailsKindName;
   }
 }
 
@@ -76,7 +75,7 @@ function assessable(kind: string): boolean {
  * removing the row outright (this item's own investigated conclusion, recorded in
  * `docs/architecture/personal-data.md`'s own updated row for this table). Phone/Email rows additionally
  * get a confirm/mark-invalid action (`assessable` above) - an operator's own assertion, never
- * `ChannelIdentitiesPanel`'s own proof-of-ownership mechanism; Name-shaped `Other` rows are taken on
+ * `ChannelIdentitiesPanel`'s own proof-of-ownership mechanism; `Name` rows are taken on
  * trust and stay edit-only, since a name has no channel to confirm or invalidate.
  *
  * The old per-row "Verified"/"Unverified" badge is gone too - every row was `Unverified` (nothing in

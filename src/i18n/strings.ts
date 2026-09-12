@@ -867,11 +867,11 @@ export interface ConsoleStrings {
   contactDetailsLoadingLabel: string;
   contactDetailsLoadError: string;
   contactDetailsEmpty: string;
-  // `25-58`: real Russian pill labels, not the raw wire kind - see `ContactDetailsPanel`'s own
-  // `kindLabel` for why `Other` reads "Другое"/"Other," never "Name."
+  // `25-58`/`25-62`: real Russian pill labels, not the raw wire kind - see `ContactDetailsPanel`'s own
+  // `kindLabel`. `Name` reads "Имя"/"Name" - the visitor's own name, this kind's one real writer.
   contactDetailsKindPhone: string;
   contactDetailsKindEmail: string;
-  contactDetailsKindOther: string;
+  contactDetailsKindName: string;
   contactDetailsValuePlaceholder: string;
   /** `23-09`: per-row badges - see `ContactDetailsPanel`'s own doc comment for why the caption alone
    * can no longer carry this distinction. */

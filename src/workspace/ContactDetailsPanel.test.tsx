@@ -138,27 +138,27 @@ describe("listing contact details", () => {
   });
 });
 
-/** `25-58`: real Russian/English pill labels, not the raw wire kind - and, specifically, `Other` never
- * reads as a name-only label (checked against `Domain.VisitorContactDetailKind.Other`'s own remarks
- * before choosing one - it covers a second phone number, a physical address, or a preferred name). */
+/** `25-58`/`25-62`: real Russian/English pill labels, not the raw wire kind - and, specifically,
+ * `Name` reads as exactly that (`Domain.VisitorContactDetailKind.Name`'s own remarks: the visitor's
+ * own name, typed into the widget's own contact-capture form - this kind's one real writer). */
 describe("kind pill labels (25-58)", () => {
-  it("renders a real label for Phone, Email and Other, never the raw wire value verbatim as an unlabelled string", async () => {
+  it("renders a real label for Phone, Email and Name, never the raw wire value verbatim as an unlabelled string", async () => {
     contactDetailsApi.fetchContactDetails.mockResolvedValue([
       detail({ id: "id-1", kind: "Phone", value: "+1 555 0100" }),
       detail({ id: "id-2", kind: "Email", value: "visitor@example.com", assessment: "Unset" }),
-      detail({ id: "id-3", kind: "Other", value: "prefers to be called Alex" }),
+      detail({ id: "id-3", kind: "Name", value: "prefers to be called Alex" }),
     ]);
 
     const container = await mount(["conversation:read"]);
 
     expect(container.textContent).toContain("Phone");
     expect(container.textContent).toContain("Email");
-    expect(container.textContent).toContain("Other");
+    expect(container.textContent).toContain("Name");
   });
 
-  it("never offers a confirm/mark-invalid action on an Other row, even with conversation:send", async () => {
+  it("never offers a confirm/mark-invalid action on a Name row, even with conversation:send", async () => {
     contactDetailsApi.fetchContactDetails.mockResolvedValue([
-      detail({ id: "id-3", kind: "Other", value: "prefers to be called Alex" }),
+      detail({ id: "id-3", kind: "Name", value: "prefers to be called Alex" }),
     ]);
 
     const container = await mount(["conversation:read", "conversation:send"]);

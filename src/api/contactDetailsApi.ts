@@ -7,7 +7,7 @@ import { problemDetailsFrom } from "./problemDetails.js";
  * `ContactDetailEndpoints`, backed by `ListVisitorContactDetailsHandler`/
  * `EditVisitorContactDetailHandler`/`SetVisitorContactDetailAssessmentHandler`/
  * `RevealVisitorContactDetailHandler`). `kind` is the `Domain.VisitorContactDetailKind` member name
- * verbatim (`"Phone"`, `"Email"`, `"Other"`) - never a display label, the same "technical value,
+ * verbatim (`"Phone"`, `"Email"`, `"Name"`) - never a display label, the same "technical value,
  * rendered by the console" split `ChannelIdentityDto.kind` already establishes for `ago-chat`'s other
  * closed-enum wire field. `source` is `Domain.VisitorContactDetailSource`'s member name the same way
  * (`"Operator"` | `"Visitor"`).
