@@ -108,13 +108,32 @@ export function OperatorConnectionProvider({ children }: { children: ReactNode }
   // for why `react-hooks/refs` (v7) required moving it there).
   const connection = useMemo(() => new OperatorConnection(accessTokenRef), []);
 
+  // `25-60`: whether this effect has already run its real body once. `tenancies` is this effect's
+  // dependency purely to *delay* that first run until the active-site signal is known (see the
+  // remarks on `usePermissions` above) - it was never meant to make the effect re-run every time
+  // `tenancies` changes again afterward. It does change again: `PermissionsProvider`'s own effect
+  // depends only on `accessToken` and calls `setTenancies(tenanciesResponse.tenancies)` with a
+  // brand-new array on every run, including every silent access-token renewal (`userManager.ts`'s
+  // own "renewal happens... roughly a minute before each access token expires" - and sooner still
+  // for a token that was already close to expiry when this provider mounted). Without this guard,
+  // that later, reference-only change re-ran this effect's body and called `connection.start()`
+  // again on a connection `@microsoft/signalr` already reports Connected - which the library rejects
+  // synchronously ("Cannot start a HubConnection that is not in the 'Disconnected' state.") with no
+  // network involved at all - and the `.catch` below turned that rejection into a permanent, false
+  // "disconnected" badge over a connection that had never actually dropped. A `useRef`, not a second
+  // `useState`: flipping it must not itself cause a re-render, since nothing renders differently
+  // once this has started - only later effect runs need to see it.
+  const hasStartedRef = useRef(false);
+
   useEffect(() => {
-    if (tenancies === null) {
-      // Not yet known - see this component's own remarks above. Nothing to clean up: no listener
-      // was attached and no connection was started, so returning here is a plain no-op, not a
-      // skipped teardown.
+    if (tenancies === null || hasStartedRef.current) {
+      // Not yet known, or already started - see this effect's own remarks above for the second
+      // half. Nothing to clean up either way: no listener was attached and no connection was
+      // started on this run, so returning here is a plain no-op, not a skipped teardown.
       return;
     }
+
+    hasStartedRef.current = true;
 
     connection.onStateChange((state) => {
       setConnectionState(state);
