@@ -230,9 +230,6 @@ export interface ConsoleStrings {
   threadAuthorVisitor: string;
   threadAuthorOperator: string;
   threadAuthorSystem: string;
-  /** `23-10`: the button that appears beside a message once the operator has selected text inside
-   * it - clicking it pre-fills `ContactDetailsPanel`'s own draft with exactly what was selected. */
-  threadPromoteToContactButton: string;
   /** `23-19`: a persistent caption above the thread, shown for every conversation - not only channel
    * ones - so the *absence* of a delivery badge on a widget conversation is never mistaken for a
    * failure (`flows.md` 4.5's own "must not be made to interpret a delivery status that means
@@ -861,31 +858,41 @@ export interface ConsoleStrings {
    * link request is generated. */
   channelIdentitiesCodeGeneratedPrefix: string;
 
-  // `14-14`/`23-09`/`adr/0079` section 6: ContactDetailsPanel - a phone/email/other fact an operator
-  // recorded, or a visitor submitted through the widget's own control, never verified today and never
-  // used for delivery. Deliberately its own heading and caption, distinct from ChannelIdentitiesPanel's
-  // own strings right above - see that component's own doc comment for why.
+  // `14-14`/`23-09`/`25-58`/`adr/0079` section 6: ContactDetailsPanel - a phone/email/other fact an
+  // operator recorded, or a visitor submitted through the widget's own control, never used for
+  // delivery. Deliberately its own heading and caption, distinct from ChannelIdentitiesPanel's own
+  // strings right above - see that component's own doc comment for why.
   contactDetailsSectionTitle: string;
   contactDetailsCaption: string;
   contactDetailsLoadingLabel: string;
   contactDetailsLoadError: string;
   contactDetailsEmpty: string;
-  contactDetailsKindLabel: string;
+  // `25-58`: real Russian pill labels, not the raw wire kind - see `ContactDetailsPanel`'s own
+  // `kindLabel` for why `Other` reads "Другое"/"Other," never "Name."
+  contactDetailsKindPhone: string;
+  contactDetailsKindEmail: string;
+  contactDetailsKindOther: string;
   contactDetailsValuePlaceholder: string;
-  contactDetailsRecordButton: string;
-  contactDetailsRecordingButton: string;
-  contactDetailsRecordError: string;
-  contactDetailsDeleteButton: string;
-  contactDetailsDeleteError: string;
   /** `23-09`: per-row badges - see `ContactDetailsPanel`'s own doc comment for why the caption alone
    * can no longer carry this distinction. */
   contactDetailsSourceOperator: string;
   contactDetailsSourceVisitor: string;
-  contactDetailsVerified: string;
-  contactDetailsUnverified: string;
   contactDetailsRevealButton: string;
   contactDetailsRevealingButton: string;
   contactDetailsRevealError: string;
+  // `25-58`: real inline editing - replaces the old record form and per-row delete entirely.
+  contactDetailsEditButton: string;
+  contactDetailsSaveButton: string;
+  contactDetailsSavingButton: string;
+  contactDetailsCancelButton: string;
+  contactDetailsEditError: string;
+  // `25-58`: the confirm/mark-invalid action, Phone/Email only - never `ChannelIdentitiesPanel`'s own
+  // verified-channel wording.
+  contactDetailsConfirmButton: string;
+  contactDetailsMarkInvalidButton: string;
+  contactDetailsAssessmentConfirmed: string;
+  contactDetailsAssessmentInvalid: string;
+  contactDetailsAssessmentError: string;
 
   // `18-04`: ConversationNotesPanel - internal, operator-only notes on a conversation. Never
   // reachable by a visitor, by construction (`ago-chat`'s `INoteRepository`'s own remarks) - this

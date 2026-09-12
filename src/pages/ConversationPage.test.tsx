@@ -70,13 +70,11 @@ const conversationsApi = vi.hoisted(() => ({
 
 vi.mock("../api/conversationsApi.js", () => conversationsApi);
 
-// `23-10`: `ContactDetailsPanel` (mounted inside `VisitorPanel`, exactly like the two APIs above)
+// `14-14`: `ContactDetailsPanel` (mounted inside `VisitorPanel`, exactly like the two APIs above)
 // calls this the moment it has `conversation:read` - not optional, for the identical reason
 // `fetchVisitorHistory` and the outcome pair above are not.
 const contactDetailsApi = vi.hoisted(() => ({
   fetchContactDetails: vi.fn(),
-  recordContactDetail: vi.fn(),
-  deleteContactDetail: vi.fn(),
 }));
 
 vi.mock("../api/contactDetailsApi.js", () => contactDetailsApi);
@@ -716,73 +714,3 @@ describe("suggesting a reply (19-01)", () => {
   });
 });
 
-/** Selects `substring` inside `body`'s own text node and fires the `mouseup` a real drag ends with -
- * `Thread.test.tsx`'s own `selectWithin`/`fireMouseUp`, inlined here rather than imported: this file
- * proves the *wiring* end to end (a real `ConversationPage` mounting a real `Thread` next to a real
- * `VisitorPanel`), not the selection mechanics themselves, which `Thread.test.tsx` already owns. */
-function selectAndPromote(container: HTMLElement, substring: string): Promise<void> {
-  return interact(() => {
-    const body = one(container, ".ago-message__body");
-    const textNode = body.firstChild;
-    if (!textNode) {
-      throw new Error("expected a text node inside .ago-message__body");
-    }
-    const text = textNode.textContent ?? "";
-    const start = text.indexOf(substring);
-    const range = document.createRange();
-    range.setStart(textNode, start);
-    range.setEnd(textNode, start + substring.length);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-    one(container, ".ago-thread-scroll").dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
-  });
-}
-
-describe("promoting a transcript selection into the contact panel (23-10)", () => {
-  it("pre-fills the contact panel's kind and value, focused, and records nothing until Record is clicked", async () => {
-    const fake = fakeConnection();
-    fake.joinReturns([message("m1", 11, { body: "call me on +7 000 000-00-01 please" })]);
-
-    const container = await render(
-      <Harness connection={fake.connection} permissions={["conversation:read", "conversation:send"]} />,
-    );
-
-    await selectAndPromote(container, "+7 000 000-00-01");
-    await interact(() => byText<HTMLButtonElement>(container, "button", "Add to contact details").click());
-
-    const contactInput = one<HTMLInputElement>(container, 'input[aria-label="Phone number, email, or other detail"]');
-    expect(contactInput.value).toBe("+7 000 000-00-01");
-    expect(document.activeElement).toBe(contactInput);
-    expect(contactDetailsApi.recordContactDetail).not.toHaveBeenCalled();
-
-    contactDetailsApi.recordContactDetail.mockResolvedValue({
-      id: "id-1",
-      kind: "Phone",
-      value: "+7 000 000-00-01",
-      recordedByOperatorId: "op-1",
-      recordedAt: "2026-08-25T09:06:00Z",
-    });
-
-    await interact(() => byText<HTMLButtonElement>(container, "button", "Record").click());
-
-    expect(contactDetailsApi.recordContactDetail).toHaveBeenCalledTimes(1);
-    expect(contactDetailsApi.recordContactDetail).toHaveBeenCalledWith(
-      "token",
-      CONVERSATION_ID,
-      "Phone",
-      "+7 000 000-00-01",
-    );
-  });
-
-  it("offers no promote affordance at all to an operator without conversation:send", async () => {
-    const fake = fakeConnection();
-    fake.joinReturns([message("m1", 11, { body: "call me on +7 000 000-00-01 please" })]);
-
-    const container = await render(<Harness connection={fake.connection} permissions={["conversation:read"]} />);
-
-    await selectAndPromote(container, "+7 000 000-00-01");
-
-    expect(byText(container, "button", "Add to contact details")).toBeNull();
-  });
-});

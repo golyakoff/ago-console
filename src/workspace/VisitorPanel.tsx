@@ -6,7 +6,7 @@ import type { ConsoleStrings } from "../i18n/strings.js";
 import { formatAbsolute, formatElapsed, formatElapsedWords, parseInstant } from "../time/format.js";
 import { VisitorHistoryPanel } from "./VisitorHistoryPanel.js";
 import { ChannelIdentitiesPanel } from "./ChannelIdentitiesPanel.js";
-import { ContactDetailsPanel, type PromotedContactDraft } from "./ContactDetailsPanel.js";
+import { ContactDetailsPanel } from "./ContactDetailsPanel.js";
 import { ConversationNotesPanel } from "./ConversationNotesPanel.js";
 import { ConversationOutcomePanel } from "./ConversationOutcomePanel.js";
 import { ConversationTagsPanel } from "./ConversationTagsPanel.js";
@@ -45,9 +45,6 @@ export interface VisitorPanelProps {
   siteTags: readonly TagDto[];
   /** `14-12`: `ChannelIdentitiesPanel`'s own composer quick-insert - see that component's doc comment. */
   onInsertIntoComposer: (text: string) => void;
-  /** `23-10`: a message selection the operator just promoted, from `Thread` via `ConversationPage` -
-   * see `ContactDetailsPanel`'s own doc comment for what it does with it. `null` most of the time. */
-  contactDraft?: PromotedContactDraft | null;
 }
 
 /**
@@ -87,7 +84,6 @@ export function VisitorPanel({
   accessToken,
   siteTags,
   onInsertIntoComposer,
-  contactDraft = null,
 }: VisitorPanelProps) {
   const strings = useStrings();
   const started = parseInstant(conversation?.createdAt);
@@ -170,13 +166,11 @@ export function VisitorPanel({
         accessToken={accessToken}
         onInsertIntoComposer={onInsertIntoComposer}
       />
-      {/* `14-14`/`adr/0079` section 6: unverified contact details - a materially different trust level
-          than ChannelIdentitiesPanel above, deliberately styled and worded to look like it, not merged
-          into that panel - see ContactDetailsPanel's own doc comment. `23-10` adds `contactDraft`,
-          threaded straight through from this component's own prop - `VisitorPanel` does not read or
-          transform it, the same "thread it through, do not own it" posture `conversation`/`visitorOnline`
-          above already have. */}
-      <ContactDetailsPanel conversationId={conversationId} accessToken={accessToken} contactDraft={contactDraft} />
+      {/* `14-14`/`adr/0079` section 6/`25-58`: unverified contact details, editable and
+          confirmable/markable-invalid in place - a materially different trust level than
+          ChannelIdentitiesPanel above, deliberately styled and worded to look like it, not merged into
+          that panel - see ContactDetailsPanel's own doc comment. */}
+      <ContactDetailsPanel conversationId={conversationId} accessToken={accessToken} />
 
       <p className="ago-aside__note">{strings.visitorPanelNote}</p>
     </aside>

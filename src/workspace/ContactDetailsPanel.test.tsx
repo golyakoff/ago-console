@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ContactDetailsPanel, type PromotedContactDraft } from "./ContactDetailsPanel.js";
+import { ContactDetailsPanel } from "./ContactDetailsPanel.js";
 import { ApiProblemError } from "../api/problemDetails.js";
 import { PermissionsContext, type PermissionsState } from "../auth/PermissionsContext.js";
 import { all, byText, flush, interact, one, render, renderSync, unmount } from "../testing/dom.js";
@@ -9,8 +9,8 @@ import { all, byText, flush, interact, one, render, renderSync, unmount } from "
  * `ConversationTagsPanel.test.tsx` already establish. */
 const contactDetailsApi = vi.hoisted(() => ({
   fetchContactDetails: vi.fn(),
-  recordContactDetail: vi.fn(),
-  deleteContactDetail: vi.fn(),
+  editContactDetail: vi.fn(),
+  setContactDetailAssessment: vi.fn(),
   revealContactDetail: vi.fn(),
 }));
 
@@ -47,16 +47,31 @@ function setTextValue(element: HTMLInputElement, value: string): void {
   element.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-function panel(conversationId: string, permissions: string[], contactDraft?: PromotedContactDraft | null) {
+function panel(conversationId: string, permissions: string[]) {
   return (
     <Permitted permissions={permissions}>
-      <ContactDetailsPanel conversationId={conversationId} accessToken="token" contactDraft={contactDraft} />
+      <ContactDetailsPanel conversationId={conversationId} accessToken="token" />
     </Permitted>
   );
 }
 
-async function mount(permissions: string[], contactDraft?: PromotedContactDraft | null) {
-  return render(panel(CONVERSATION_ID, permissions, contactDraft));
+async function mount(permissions: string[]) {
+  return render(panel(CONVERSATION_ID, permissions));
+}
+
+function detail(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    id: "id-1",
+    kind: "Phone",
+    value: "+1 555 0100",
+    recordedByOperatorId: "op-1",
+    source: "Operator",
+    verified: false,
+    recordedAt: "x",
+    masked: false,
+    assessment: "Unset",
+    ...overrides,
+  };
 }
 
 beforeEach(() => {
@@ -76,28 +91,34 @@ describe("who is offered the panel", () => {
     expect(contactDetailsApi.fetchContactDetails).not.toHaveBeenCalled();
   });
 
-  it("lists details but offers no record/delete controls to a read-only operator", async () => {
-    contactDetailsApi.fetchContactDetails.mockResolvedValue([
-      { id: "id-1", kind: "Phone", value: "+1 555 0100", recordedByOperatorId: "op-1", source: "Operator", verified: false, recordedAt: "x" },
-    ]);
+  it("lists details but offers no edit/confirm/invalid controls to a read-only operator", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([detail()]);
 
     const container = await mount(["conversation:read"]);
 
     expect(container.textContent).toContain("Phone");
     expect(container.textContent).toContain("+1 555 0100");
     expect(all(container, "button")).toHaveLength(0);
-    expect(all(container, "form")).toHaveLength(0);
   });
 
-  it("offers the record form and a delete button per row to an operator holding conversation:send", async () => {
-    contactDetailsApi.fetchContactDetails.mockResolvedValue([
-      { id: "id-1", kind: "Phone", value: "+1 555 0100", recordedByOperatorId: "op-1", source: "Operator", verified: false, recordedAt: "x" },
-    ]);
+  it("offers Edit and Confirm/Mark invalid to an operator holding conversation:send", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([detail()]);
 
     const container = await mount(["conversation:read", "conversation:send"]);
 
-    expect(byText(container, "button", "Record")).not.toBeNull();
-    expect(byText(container, "button", "Delete")).not.toBeNull();
+    expect(byText(container, "button", "Edit")).not.toBeNull();
+    expect(byText(container, "button", "Confirm")).not.toBeNull();
+    expect(byText(container, "button", "Mark invalid")).not.toBeNull();
+  });
+
+  it("never offers a Delete action or a record form - both are gone (25-58)", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([detail()]);
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+
+    expect(byText(container, "button", "Delete")).toBeNull();
+    expect(all(container, "form")).toHaveLength(0);
+    expect(all(container, "select")).toHaveLength(0);
   });
 });
 
@@ -117,122 +138,184 @@ describe("listing contact details", () => {
   });
 });
 
-describe("recording a contact detail", () => {
-  it("appends the recorded detail to the list and clears the draft", async () => {
-    contactDetailsApi.recordContactDetail.mockResolvedValue({
-      id: "id-2",
-      kind: "Phone",
-      value: "+1 555 0199",
-      recordedByOperatorId: "op-1",
-      source: "Operator",
-      verified: false,
-      recordedAt: "2026-08-30T12:00:00Z",
-    });
-
-    const container = await mount(["conversation:read", "conversation:send"]);
-    const input = one<HTMLInputElement>(container, "input");
-
-    await interact(() => setTextValue(input, "+1 555 0199"));
-    await interact(() => byText<HTMLButtonElement>(container, "button", "Record").click());
-
-    expect(contactDetailsApi.recordContactDetail).toHaveBeenCalledWith("token", CONVERSATION_ID, "Phone", "+1 555 0199");
-    expect(container.textContent).toContain("+1 555 0199");
-    expect(input.value).toBe("");
-  });
-
-  it("shows an error, and leaves the list unchanged, when recording fails", async () => {
-    contactDetailsApi.recordContactDetail.mockRejectedValue(
-      new ApiProblemError("VisitorContactDetail.Invalid", "server wording", 400),
-    );
-
-    const container = await mount(["conversation:read", "conversation:send"]);
-    const input = one<HTMLInputElement>(container, "input");
-    await interact(() => setTextValue(input, "not empty"));
-
-    await interact(() => byText<HTMLButtonElement>(container, "button", "Record").click());
-
-    expect(one(container, '[role="alert"]').textContent).toContain("server wording");
-    expect(container.textContent).toContain("No contact details recorded yet.");
-  });
-});
-
-describe("deleting a contact detail", () => {
-  it("removes the detail from the list on a successful delete", async () => {
+/** `25-58`: real Russian/English pill labels, not the raw wire kind - and, specifically, `Other` never
+ * reads as a name-only label (checked against `Domain.VisitorContactDetailKind.Other`'s own remarks
+ * before choosing one - it covers a second phone number, a physical address, or a preferred name). */
+describe("kind pill labels (25-58)", () => {
+  it("renders a real label for Phone, Email and Other, never the raw wire value verbatim as an unlabelled string", async () => {
     contactDetailsApi.fetchContactDetails.mockResolvedValue([
-      { id: "id-1", kind: "Phone", value: "+1 555 0100", recordedByOperatorId: "op-1", source: "Operator", verified: false, recordedAt: "x" },
-    ]);
-    contactDetailsApi.deleteContactDetail.mockResolvedValue(undefined);
-
-    const container = await mount(["conversation:read", "conversation:send"]);
-
-    await interact(() => byText<HTMLButtonElement>(container, "button", "Delete").click());
-
-    expect(contactDetailsApi.deleteContactDetail).toHaveBeenCalledWith("token", CONVERSATION_ID, "id-1");
-    expect(container.textContent).not.toContain("+1 555 0100");
-    expect(container.textContent).toContain("No contact details recorded yet.");
-  });
-
-  it("shows an error, and keeps the detail listed, when the delete fails", async () => {
-    contactDetailsApi.fetchContactDetails.mockResolvedValue([
-      { id: "id-1", kind: "Phone", value: "+1 555 0100", recordedByOperatorId: "op-1", source: "Operator", verified: false, recordedAt: "x" },
-    ]);
-    contactDetailsApi.deleteContactDetail.mockRejectedValue(
-      new ApiProblemError("VisitorContactDetail.NotFound", "server wording", 404),
-    );
-
-    const container = await mount(["conversation:read", "conversation:send"]);
-
-    await interact(() => byText<HTMLButtonElement>(container, "button", "Delete").click());
-
-    expect(one(container, '[role="alert"]').textContent).toContain("server wording");
-    expect(container.textContent).toContain("+1 555 0100");
-  });
-});
-
-/**
- * `23-09`: the panel's whole reason for reading `source`/`verified` at all - see this component's
- * own doc comment for why the caption alone can no longer carry the distinction. A null
- * `recordedByOperatorId` on the visitor-sourced row is deliberate (`ContactDetailDto`'s own remarks)
- * and is never rendered as an empty cell or a fabricated name - these tests prove that by never
- * asserting anything about the id at all, only about the human-readable badges.
- */
-describe("distinguishing who supplied a contact detail (23-09)", () => {
-  it("badges an operator-recorded row as Operator and Unverified", async () => {
-    contactDetailsApi.fetchContactDetails.mockResolvedValue([
-      {
-        id: "id-1",
-        kind: "Phone",
-        value: "+1 555 0100",
-        recordedByOperatorId: "op-1",
-        source: "Operator",
-        verified: false,
-        recordedAt: "x",
-      },
+      detail({ id: "id-1", kind: "Phone", value: "+1 555 0100" }),
+      detail({ id: "id-2", kind: "Email", value: "visitor@example.com", assessment: "Unset" }),
+      detail({ id: "id-3", kind: "Other", value: "prefers to be called Alex" }),
     ]);
 
     const container = await mount(["conversation:read"]);
 
+    expect(container.textContent).toContain("Phone");
+    expect(container.textContent).toContain("Email");
+    expect(container.textContent).toContain("Other");
+  });
+
+  it("never offers a confirm/mark-invalid action on an Other row, even with conversation:send", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([
+      detail({ id: "id-3", kind: "Other", value: "prefers to be called Alex" }),
+    ]);
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+
+    expect(byText(container, "button", "Confirm")).toBeNull();
+    expect(byText(container, "button", "Mark invalid")).toBeNull();
+    // Edit is still offered - a name is taken on trust, but is still correctable.
+    expect(byText(container, "button", "Edit")).not.toBeNull();
+  });
+});
+
+describe("editing a contact detail (25-58)", () => {
+  it("shows an input pre-filled with the current value, and Save/Cancel, once Edit is clicked", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([detail()]);
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Edit").click());
+
+    const input = one<HTMLInputElement>(container, "input");
+    expect(input.value).toBe("+1 555 0100");
+    expect(byText(container, "button", "Save")).not.toBeNull();
+    expect(byText(container, "button", "Cancel")).not.toBeNull();
+  });
+
+  it("saves the corrected value in place and leaves edit mode", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([detail()]);
+    contactDetailsApi.editContactDetail.mockResolvedValue(detail({ value: "+1 555 0199" }));
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Edit").click());
+    const input = one<HTMLInputElement>(container, "input");
+    await interact(() => setTextValue(input, "+1 555 0199"));
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Save").click());
+
+    expect(contactDetailsApi.editContactDetail).toHaveBeenCalledWith("token", CONVERSATION_ID, "id-1", "+1 555 0199");
+    expect(container.textContent).toContain("+1 555 0199");
+    expect(all(container, "input")).toHaveLength(0);
+  });
+
+  it("cancels without calling the API, restoring the original value", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([detail()]);
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Edit").click());
+    const input = one<HTMLInputElement>(container, "input");
+    await interact(() => setTextValue(input, "garbage"));
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Cancel").click());
+
+    expect(contactDetailsApi.editContactDetail).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("+1 555 0100");
+    expect(all(container, "input")).toHaveLength(0);
+  });
+
+  it("shows an error and stays in edit mode when saving fails", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([detail()]);
+    contactDetailsApi.editContactDetail.mockRejectedValue(
+      new ApiProblemError("VisitorContactDetail.Invalid", "server wording", 400),
+    );
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Edit").click());
+    const input = one<HTMLInputElement>(container, "input");
+    await interact(() => setTextValue(input, "not empty"));
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Save").click());
+
+    expect(one(container, '[role="alert"]').textContent).toContain("server wording");
+    expect(one<HTMLInputElement>(container, "input").value).toBe("not empty");
+  });
+
+  /** The backlog item's own explicit warning: editing changes the existing row, not the source - a
+   * visitor-submitted entry corrected by an operator must stay attributed to the visitor. */
+  it("never changes the Source badge when an operator edits a visitor-submitted row", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([
+      detail({ recordedByOperatorId: null, source: "Visitor" }),
+    ]);
+    contactDetailsApi.editContactDetail.mockResolvedValue(
+      detail({ recordedByOperatorId: null, source: "Visitor", value: "+1 555 0188" }),
+    );
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Edit").click());
+    const input = one<HTMLInputElement>(container, "input");
+    await interact(() => setTextValue(input, "+1 555 0188"));
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Save").click());
+
+    expect(container.textContent).toContain("Visitor");
+    expect(container.textContent).not.toContain("Operator");
+  });
+});
+
+describe("confirming or marking a contact detail invalid (25-58)", () => {
+  it("confirms a Phone row, replacing the action with a Confirmed badge and only Mark invalid remains", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([detail()]);
+    contactDetailsApi.setContactDetailAssessment.mockResolvedValue(detail({ assessment: "Confirmed" }));
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Confirm").click());
+
+    expect(contactDetailsApi.setContactDetailAssessment).toHaveBeenCalledWith("token", CONVERSATION_ID, "id-1", "Confirmed");
+    expect(container.textContent).toContain("Confirmed");
+    expect(byText(container, "button", "Confirm")).toBeNull();
+    expect(byText(container, "button", "Mark invalid")).not.toBeNull();
+  });
+
+  it("marks an Email row invalid, replacing the action with an Invalid badge and only Confirm remains", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([detail({ kind: "Email", value: "visitor@example.com" })]);
+    contactDetailsApi.setContactDetailAssessment.mockResolvedValue(
+      detail({ kind: "Email", value: "visitor@example.com", assessment: "Invalid" }),
+    );
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Mark invalid").click());
+
+    expect(contactDetailsApi.setContactDetailAssessment).toHaveBeenCalledWith("token", CONVERSATION_ID, "id-1", "Invalid");
+    expect(container.textContent).toContain("Invalid");
+    expect(byText(container, "button", "Mark invalid")).toBeNull();
+    expect(byText(container, "button", "Confirm")).not.toBeNull();
+  });
+
+  it("shows an error, and leaves the assessment unset, when the write fails", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([detail()]);
+    contactDetailsApi.setContactDetailAssessment.mockRejectedValue(
+      new ApiProblemError("VisitorContactDetail.NotFound", "server wording", 404),
+    );
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Confirm").click());
+
+    expect(one(container, '[role="alert"]').textContent).toContain("server wording");
+    expect(container.textContent).not.toContain("Confirmed");
+  });
+});
+
+/**
+ * `23-09`: the panel's whole reason for reading `source` at all - see this component's own doc
+ * comment for why the caption alone can no longer carry the distinction. A null `recordedByOperatorId`
+ * on the visitor-sourced row is deliberate (`ContactDetailDto`'s own remarks) and is never rendered as
+ * an empty cell or a fabricated name - these tests prove that by never asserting anything about the id
+ * at all, only about the human-readable badges.
+ */
+describe("distinguishing who supplied a contact detail (23-09)", () => {
+  it("badges an operator-recorded row as Operator", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([detail()]);
+
+    const container = await mount(["conversation:read"]);
+
     expect(container.textContent).toContain("Operator");
-    expect(container.textContent).toContain("Unverified");
   });
 
   it("badges a visitor-submitted row as Visitor, with no operator id anywhere in the rendered text", async () => {
     contactDetailsApi.fetchContactDetails.mockResolvedValue([
-      {
-        id: "id-2",
-        kind: "Phone",
-        value: "+1 555 0177",
-        recordedByOperatorId: null,
-        source: "Visitor",
-        verified: false,
-        recordedAt: "x",
-      },
+      detail({ id: "id-2", value: "+1 555 0177", recordedByOperatorId: null, source: "Visitor" }),
     ]);
 
     const container = await mount(["conversation:read"]);
 
     expect(container.textContent).toContain("Visitor");
-    expect(container.textContent).toContain("Unverified");
     // The strongest form of "never rendered as an empty cell or a fabricated name": nothing here
     // even attempts to render the id, so there is nothing for a null value to break.
     expect(container.textContent).not.toContain("null");
@@ -241,24 +324,8 @@ describe("distinguishing who supplied a contact detail (23-09)", () => {
 
   it("distinguishes both rows at once when a visitor and an operator each recorded one", async () => {
     contactDetailsApi.fetchContactDetails.mockResolvedValue([
-      {
-        id: "id-1",
-        kind: "Phone",
-        value: "+1 555 0100",
-        recordedByOperatorId: "op-1",
-        source: "Operator",
-        verified: false,
-        recordedAt: "x",
-      },
-      {
-        id: "id-2",
-        kind: "Phone",
-        value: "+1 555 0177",
-        recordedByOperatorId: null,
-        source: "Visitor",
-        verified: false,
-        recordedAt: "y",
-      },
+      detail({ id: "id-1", value: "+1 555 0100" }),
+      detail({ id: "id-2", value: "+1 555 0177", recordedByOperatorId: null, source: "Visitor" }),
     ]);
 
     const container = await mount(["conversation:read"]);
@@ -270,23 +337,10 @@ describe("distinguishing who supplied a contact detail (23-09)", () => {
   });
 });
 
-function setSelectValue(element: HTMLSelectElement, value: string): void {
-  Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(element, value);
-  element.dispatchEvent(new Event("change", { bubbles: true }));
-}
-
-/**
- * `23-10`: `Thread`'s "Add to contact details" act, arriving here as `contactDraft` - `Thread.test.tsx`
- * covers the selection itself; this file covers what this panel does once a promoted value reaches it.
- * The one fact these tests exist to pin down is the backlog item's own: **the operator confirms,
- * nothing is written by the act of selecting** - so every test that only mounts or updates
- * `contactDraft` asserts `recordContactDetail` was never called, and the one test that does expect a
- * write is the one that also clicks **Record**.
- */
 describe("revealing a masked contact detail (23-11)", () => {
   it("offers a Reveal button, not the real value, when the site's rung masks the list read", async () => {
     contactDetailsApi.fetchContactDetails.mockResolvedValue([
-      { id: "id-1", kind: "Phone", value: "+1••••••00", recordedByOperatorId: "op-1", recordedAt: "x", masked: true },
+      detail({ value: "+1••••••00", masked: true }),
     ]);
 
     const container = await mount(["conversation:read"]);
@@ -297,27 +351,27 @@ describe("revealing a masked contact detail (23-11)", () => {
   });
 
   it("does not offer a Reveal button when the row already carries the real value", async () => {
-    contactDetailsApi.fetchContactDetails.mockResolvedValue([
-      { id: "id-1", kind: "Phone", value: "+1 555 0100", recordedByOperatorId: "op-1", recordedAt: "x", masked: false },
-    ]);
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([detail({ masked: false })]);
 
     const container = await mount(["conversation:read"]);
 
     expect(all(container, "button")).toHaveLength(0);
   });
 
+  it("does not offer Edit while a row is masked - an operator cannot correct a value they cannot read", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([detail({ value: "+1••••••00", masked: true })]);
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+
+    expect(byText(container, "button", "Edit")).toBeNull();
+    expect(byText(container, "button", "Reveal")).not.toBeNull();
+  });
+
   it("replaces the masked row with the server's own unmasked response on Reveal", async () => {
     contactDetailsApi.fetchContactDetails.mockResolvedValue([
-      { id: "id-1", kind: "Phone", value: "+1••••••00", recordedByOperatorId: "op-1", recordedAt: "x", masked: true },
+      detail({ value: "+1••••••00", masked: true }),
     ]);
-    contactDetailsApi.revealContactDetail.mockResolvedValue({
-      id: "id-1",
-      kind: "Phone",
-      value: "+1 555 0100",
-      recordedByOperatorId: "op-1",
-      recordedAt: "x",
-      masked: false,
-    });
+    contactDetailsApi.revealContactDetail.mockResolvedValue(detail({ value: "+1 555 0100", masked: false }));
 
     const container = await mount(["conversation:read"]);
     await interact(() => byText<HTMLButtonElement>(container, "button", "Reveal").click());
@@ -330,7 +384,7 @@ describe("revealing a masked contact detail (23-11)", () => {
 
   it("shows an error, and keeps the row masked, when the reveal fails", async () => {
     contactDetailsApi.fetchContactDetails.mockResolvedValue([
-      { id: "id-1", kind: "Phone", value: "+1••••••00", recordedByOperatorId: "op-1", recordedAt: "x", masked: true },
+      detail({ value: "+1••••••00", masked: true }),
     ]);
     contactDetailsApi.revealContactDetail.mockRejectedValue(
       new ApiProblemError("VisitorContactDetail.NotFound", "server wording", 404),
@@ -351,82 +405,6 @@ describe("revealing a masked contact detail (23-11)", () => {
   });
 });
 
-
-describe("a promoted selection (23-10)", () => {
-  it("pre-fills the kind as Phone and the value verbatim, and focuses the value field", async () => {
-    const container = await mount(["conversation:read", "conversation:send"]);
-    const select = one<HTMLSelectElement>(container, "select");
-
-    // Proves the effect actually *sets* the kind rather than merely leaving the default alone -
-    // without this the test would pass even if `contactDraft` were never read at all, since "Phone"
-    // is also `CONTACT_DETAIL_KINDS[0]`.
-    await interact(() => setSelectValue(select, "Other"));
-    expect(select.value).toBe("Other");
-
-    await mount(["conversation:read", "conversation:send"], { value: "+7 000 000-00-01", token: 1 });
-
-    const input = one<HTMLInputElement>(container, "input");
-    expect(select.value).toBe("Phone");
-    expect(input.value).toBe("+7 000 000-00-01");
-    expect(document.activeElement).toBe(input);
-    expect(contactDetailsApi.recordContactDetail).not.toHaveBeenCalled();
-  });
-
-  it("re-applies on a second promotion even if the operator had cleared the field in between", async () => {
-    const container = await mount(["conversation:read", "conversation:send"], {
-      value: "+7 000 000-00-01",
-      token: 1,
-    });
-    const input = one<HTMLInputElement>(container, "input");
-    expect(input.value).toBe("+7 000 000-00-01");
-
-    await interact(() => setTextValue(input, ""));
-    expect(input.value).toBe("");
-
-    // Same text, a new token - `PromotedContactDraft`'s own doc comment explains why the token, not
-    // the text, is what the effect keys on.
-    await mount(["conversation:read", "conversation:send"], { value: "+7 000 000-00-01", token: 2 });
-
-    expect(input.value).toBe("+7 000 000-00-01");
-  });
-
-  it("confirming records exactly one row, with the promoted kind and value", async () => {
-    contactDetailsApi.recordContactDetail.mockResolvedValue({
-      id: "id-3",
-      kind: "Phone",
-      value: "+7 000 000-00-01",
-      recordedByOperatorId: "op-1",
-      source: "Operator",
-      verified: false,
-      recordedAt: "2026-09-04T12:00:00Z",
-    });
-
-    const container = await mount(["conversation:read", "conversation:send"], {
-      value: "+7 000 000-00-01",
-      token: 1,
-    });
-
-    await interact(() => byText<HTMLButtonElement>(container, "button", "Record").click());
-
-    expect(contactDetailsApi.recordContactDetail).toHaveBeenCalledTimes(1);
-    expect(contactDetailsApi.recordContactDetail).toHaveBeenCalledWith(
-      "token",
-      CONVERSATION_ID,
-      "Phone",
-      "+7 000 000-00-01",
-    );
-    expect(container.textContent).toContain("+7 000 000-00-01");
-  });
-
-  it("does not pre-fill anything, and does not record, for an operator without conversation:send", async () => {
-    const container = await mount(["conversation:read"], { value: "+7 000 000-00-01", token: 1 });
-
-    expect(all(container, "input")).toHaveLength(0);
-    expect(all(container, "form")).toHaveLength(0);
-    expect(contactDetailsApi.recordContactDetail).not.toHaveBeenCalled();
-  });
-});
-
 /**
  * `23-100`: `VisitorPanel` renders this panel with no `key={conversationId}` - see
  * `ChannelIdentitiesPanel.test.tsx`'s identical describe block for why `renderSync` (commits without
@@ -437,9 +415,7 @@ describe("a promoted selection (23-10)", () => {
  */
 describe("switching conversations (23-100)", () => {
   it("clears the previous conversation's contact details before the fetch effect could have run", async () => {
-    contactDetailsApi.fetchContactDetails.mockResolvedValue([
-      { id: "id-1", kind: "Phone", value: "+1 555 0100", recordedByOperatorId: "op-1", source: "Operator", verified: false, recordedAt: "x" },
-    ]);
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([detail()]);
 
     const container = await mount(["conversation:read"]);
     expect(container.textContent).toContain("+1 555 0100");
