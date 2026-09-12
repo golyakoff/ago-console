@@ -589,7 +589,7 @@ export const ru: ConsoleStrings = {
   contactDetailsEmpty: "Контактные данные ещё не записаны.",
   contactDetailsKindPhone: "Телефон",
   contactDetailsKindEmail: "Электронная почта",
-  contactDetailsKindOther: "Другое",
+  contactDetailsKindName: "Имя",
   contactDetailsValuePlaceholder: "Номер телефона, email или другие данные",
   contactDetailsSourceOperator: "Оператор",
   contactDetailsSourceVisitor: "Посетитель",

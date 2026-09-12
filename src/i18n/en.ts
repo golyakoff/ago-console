@@ -588,7 +588,7 @@ export const en: ConsoleStrings = {
   contactDetailsEmpty: "No contact details recorded yet.",
   contactDetailsKindPhone: "Phone",
   contactDetailsKindEmail: "Email",
-  contactDetailsKindOther: "Other",
+  contactDetailsKindName: "Name",
   contactDetailsValuePlaceholder: "Phone number, email, or other detail",
   contactDetailsSourceOperator: "Operator",
   contactDetailsSourceVisitor: "Visitor",
