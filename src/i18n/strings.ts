@@ -22,6 +22,14 @@ export interface ConsoleStrings {
    * mobile breakpoint, and icon-only even there (`.ago-shell__menu-icon` carries no text), so this
    * is the one thing a screen-reader user is told about it beyond its role. */
   navOpenMenu: string;
+  /** `25-51`: the visually-hidden suffix folded into `navOpenMenu`'s own `aria-label` (never rendered
+   * on screen - the visible overlay badge is `aria-hidden`, see `AppShell.tsx`'s own remarks) when the
+   * mobile menu's own collapsed-sum badge is nonzero - `${count} ${navMenuBadgeOne|Other}`, the same
+   * binary singular/plural convention `queueUnreadMessageOne`/`Other` below already uses. Describes
+   * the *sum* generically ("needs attention"), never naming Диалоги or Записи by name - this string is
+   * read whether the sum came from one of them or both, and `AppShell.tsx` itself never learns which. */
+  navMenuBadgeOne: string;
+  navMenuBadgeOther: string;
   /** `23-41`: `RenderErrorBoundary.tsx`'s own `RenderErrorAlert` - the one fallback rendered at every
    * one of its three mount points (`main.tsx`, `AppShell`/`CenteredShell`, `OperatorShell`'s
    * `<Outlet />`) when a descendant throws during render instead of blanking the whole console. */
@@ -1810,6 +1818,14 @@ export interface ConsoleStrings {
   // *console*, and a person providing a service is a different person), `navCalendarAvailability`
   // ("Availability"/"Доступность" -> "Schedule"/"Расписание", the item's own table wording). ---
   navCalendarQueue: string;
+  /** `25-51`: the visually-hidden suffix on "В ожидании"'s own nav badge - `${count}
+   * ${navCalendarPendingOne|Other}`, `queueUnreadMessageOne`/`Other`'s own binary singular/plural
+   * convention (`strings.ts`'s doc comment on that pair). Counts bookings still awaiting confirmation,
+   * tenant-wide (`usePendingBookingsBadge.ts`'s own doc comment) - never drawn on the muted
+   * "buy the module" entry in `buildCalendarItems`, only on the two branches where "В ожидании" is a
+   * real link. */
+  navCalendarPendingOne: string;
+  navCalendarPendingOther: string;
   navCalendarSetup: string;
   navCalendarWorkers: string;
   navCalendarAvailability: string;

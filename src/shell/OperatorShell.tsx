@@ -3,8 +3,10 @@ import { useAuth } from "../auth/AuthContext.js";
 import { operatorDisplayName } from "../auth/operatorDisplayName.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { useOwnerEligibility } from "../auth/useOwnerEligibility.js";
+import { usePendingBookingsBadge } from "../calendar/usePendingBookingsBadge.js";
 import { getStrings, parseConsoleLocale } from "../i18n/resolve.js";
 import { StringsProvider } from "../i18n/StringsProvider.js";
+import { useConversationsAttention } from "../workspace/ConversationsAttentionContext.js";
 import { AppShell, ShellIdentity, type AppShellNavSection } from "./AppShell.js";
 import { buildTenantNavSections } from "./consoleNav.js";
 import { RenderErrorAlert, RenderErrorBoundary } from "./RenderErrorBoundary.js";
@@ -40,6 +42,15 @@ export function OperatorShell() {
   const { siteId, locale, hasPermission, permissions, enabledModules, credentialsArePublished, tenancies, activeSiteId, switchTenancy } =
     usePermissions();
   const ownerEligibility = useOwnerEligibility();
+  // `25-51`: the two left-nav badge totals - Диалоги's unread sum and Записи's pending sum. Both
+  // hooks tolerate being called with no real provider mounted above them (returning `0`), which is
+  // what lets this line run unconditionally on every render of this shell, including the several
+  // unit-test harnesses that mount `OperatorShell` without `ConversationsAttentionProvider`/
+  // `CalendarOperatorConnectionProvider` (`ConversationsAttentionContext.tsx`'s and
+  // `usePendingBookingsBadge.ts`'s own doc comments explain why that is a real answer - "no data
+  // source configured" - rather than a masked wiring bug).
+  const { unreadTotal } = useConversationsAttention();
+  const { pendingTotal } = usePendingBookingsBadge();
   // `11-11`: the one place a specific tenant's locale is ever known - resolved from the active
   // site's own `Locale` (`usePermissions()`'s `locale`, the same "not yet known" `null` state
   // `siteId` already has, which `parseConsoleLocale` treats identically to an unrecognised value:
@@ -90,6 +101,8 @@ export function OperatorShell() {
     strings,
     enabledModules ?? [],
     permissions !== null,
+    unreadTotal,
+    pendingTotal,
   );
 
   // `12-03`: the platform owner's own route, for the one identity on the deployment that holds it.

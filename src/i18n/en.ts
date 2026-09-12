@@ -7,6 +7,8 @@ export const en: ConsoleStrings = {
   tooltipTriggerLabel: "What does this mean?",
   navSectionsAriaLabel: "Console sections",
   navOpenMenu: "Open navigation menu",
+  navMenuBadgeOne: "item needs attention",
+  navMenuBadgeOther: "items need attention",
   renderErrorTitle: "This didn't load",
   renderErrorMessage:
     "Something did not arrive in the shape this screen expected, so it could not be shown. Try " +
@@ -1123,6 +1125,8 @@ export const en: ConsoleStrings = {
 
   // --- `22-06`: AGO Calendar’s console screens - see `strings.ts` for the full note. ---
   navCalendarQueue: "Waiting",
+  navCalendarPendingOne: "booking awaiting confirmation",
+  navCalendarPendingOther: "bookings awaiting confirmation",
   navCalendarSetup: "Setup",
   navCalendarWorkers: "Masters",
   navCalendarAvailability: "Schedule",

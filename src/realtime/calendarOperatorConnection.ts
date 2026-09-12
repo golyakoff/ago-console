@@ -56,7 +56,10 @@ export class CalendarOperatorConnection {
   private connection: signalR.HubConnection | null = null;
   private readonly accessTokenFactory: () => string;
   private stateListener: ((state: CalendarConnectionState) => void) | null = null;
-  private pendingBookingsChangedListener: ((dto: PendingBookingsChangedDto) => void) | null = null;
+  // `25-51`: a `Set`, not a single slot - see `onPendingBookingsChanged`'s own doc comment for why
+  // this connection now needs more than one simultaneous listener, and why that is a real second
+  // consumer rather than a reason to route the second one through the first.
+  private pendingBookingsChangedListeners = new Set<(dto: PendingBookingsChangedDto) => void>();
 
   /** `accessTokenFactory` (the field) is a factory, not a token, for the identical `5-16` reason
    * `OperatorConnection`'s own constructor states - it is called on every connect and reconnect
@@ -118,9 +121,11 @@ export class CalendarOperatorConnection {
       })
       .build();
 
-    connection.on("PendingBookingsChanged", (dto: PendingBookingsChangedDto) =>
-      this.pendingBookingsChangedListener?.(dto),
-    );
+    connection.on("PendingBookingsChanged", (dto: PendingBookingsChangedDto) => {
+      for (const listener of this.pendingBookingsChangedListeners) {
+        listener(dto);
+      }
+    });
     connection.onreconnecting(() => this.stateListener?.("reconnecting"));
     connection.onreconnected(() => this.stateListener?.("connected"));
     connection.onclose(() => this.stateListener?.("disconnected"));
@@ -136,9 +141,23 @@ export class CalendarOperatorConnection {
   /** The one push this hub ever sends - see this class's own doc comment for why there is no
    * per-message dedup or replay-on-reconnect the way `operatorConnection.ts` needs for a
    * conversation's own message stream: a caller may act on this any number of times, including a
-   * spurious extra one after a reconnect, with the identical correct result (re-read the queue). */
-  onPendingBookingsChanged(listener: (dto: PendingBookingsChangedDto) => void): void {
-    this.pendingBookingsChangedListener = listener;
+   * spurious extra one after a reconnect, with the identical correct result (re-read the queue).
+   *
+   * `25-51`: **multiple simultaneous listeners**, not one - `CalendarQueuePage` (its own row table,
+   * mounted only while that route is active) and the shell's own pending-bookings nav badge
+   * (`usePendingBookingsBadge`, mounted for the operator's whole session, permanently) are two real,
+   * independent consumers of this identical push, and neither is the other's replacement. Before this
+   * item there was exactly one caller, so a single `... | null` slot (the shape `onStateChange`/every
+   * other listener on this class still uses) was never wrong - it would have been silently wrong the
+   * moment a second caller registered, each mount overwriting whichever listener registered first
+   * with no error and no warning. Returns an unsubscribe function, which every caller must invoke on
+   * its own unmount/cleanup (`Set.add` is not idempotent the way the old assignment was on a
+   * re-running effect - a caller that never unsubscribes leaks one listener per remount). */
+  onPendingBookingsChanged(listener: (dto: PendingBookingsChangedDto) => void): () => void {
+    this.pendingBookingsChangedListeners.add(listener);
+    return () => {
+      this.pendingBookingsChangedListeners.delete(listener);
+    };
   }
 
   get state(): CalendarConnectionState {

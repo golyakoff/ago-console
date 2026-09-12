@@ -5,6 +5,7 @@ import { PermissionsProvider } from "./auth/PermissionsProvider.js";
 import { OperatorConnectionProvider } from "./realtime/OperatorConnectionProvider.js";
 import { CalendarOperatorConnectionProvider } from "./realtime/CalendarOperatorConnectionProvider.js";
 import { PreSessionStringsProvider } from "./i18n/PreSessionStringsProvider.js";
+import { ConversationsAttentionProvider } from "./workspace/ConversationsAttentionProvider.js";
 import { OperatorShell } from "./shell/OperatorShell.js";
 import { CallbackPage } from "./pages/CallbackPage.js";
 import { SignupPage } from "./pages/SignupPage.js";
@@ -258,7 +259,14 @@ export function App() {
                     whether to ever open a real connection (config.calendarApiBaseUrl configured, and
                     this operator holds a calendar permission) - see its own doc comment. */}
                 <CalendarOperatorConnectionProvider>
-                  <OperatorShell />
+                  {/* `25-51`: innermost, closest to its one real consumer (`OperatorShell`'s own
+                      Диалоги nav badge, forwarded live updates by `WorkspaceLayout`) - it needs only
+                      `useAuth()`, not either connection above it, so nesting order relative to them
+                      carries no functional weight (`App.tsx`'s own remarks on `PermissionsProvider`
+                      make the identical point for an unrelated pair). */}
+                  <ConversationsAttentionProvider>
+                    <OperatorShell />
+                  </ConversationsAttentionProvider>
                 </CalendarOperatorConnectionProvider>
               </OperatorConnectionProvider>
             </PermissionsProvider>

@@ -275,6 +275,68 @@ describe("CalendarOperatorConnectionProvider", () => {
     expect(received).toEqual([dto]);
   });
 
+  it("delivers a real PendingBookingsChanged push to two independently-registered listeners", async () => {
+    // `25-51`: this connection now has a real second consumer beside `CalendarQueuePage`'s own row
+    // table - the shell's pending-bookings nav badge, mounted for the whole session. Before this
+    // item `onPendingBookingsChanged` was a single `... | null` slot (`this.pendingBookingsChangedListener
+    // = listener`), so the second caller to register would have silently replaced the first rather
+    // than joining it - this is the test that fails against that shape and passes against the `Set`.
+    let connection: { onPendingBookingsChanged: (listener: (dto: unknown) => void) => () => void } | null = null;
+    const root = mountApp(["calendar:configure"], (state) => {
+      connection = state.connection as typeof connection;
+    });
+    roots.push(root);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const firstReceived: unknown[] = [];
+    const secondReceived: unknown[] = [];
+    connection.onPendingBookingsChanged((dto) => firstReceived.push(dto));
+    connection.onPendingBookingsChanged((dto) => secondReceived.push(dto));
+
+    const dto = {
+      eventId: "44444444-4444-4444-4444-444444444444",
+      tenantId: "55555555-5555-5555-5555-555555555555",
+      status: "Booked",
+      occurredAt: "2026-09-12T10:00:00+00:00",
+      correlationId: "66666666-6666-6666-6666-666666666666",
+    };
+    act(() => signalr.hubs[0].push("PendingBookingsChanged", dto));
+
+    expect(firstReceived).toEqual([dto]);
+    expect(secondReceived).toEqual([dto]);
+  });
+
+  it("stops delivering to a listener once its own unsubscribe function is called", async () => {
+    let connection: { onPendingBookingsChanged: (listener: (dto: unknown) => void) => () => void } | null = null;
+    const root = mountApp(["calendar:configure"], (state) => {
+      connection = state.connection as typeof connection;
+    });
+    roots.push(root);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const received: unknown[] = [];
+    const unsubscribe = connection.onPendingBookingsChanged((dto) => received.push(dto));
+    unsubscribe();
+
+    act(() =>
+      signalr.hubs[0].push("PendingBookingsChanged", {
+        eventId: "77777777-7777-7777-7777-777777777777",
+        tenantId: "88888888-8888-8888-8888-888888888888",
+        status: "Cancelled",
+        occurredAt: "2026-09-12T11:00:00+00:00",
+        correlationId: "99999999-9999-9999-9999-999999999999",
+      }),
+    );
+
+    expect(received).toEqual([]);
+  });
+
   it("reports 'reconnecting' then 'connected' again across a real SignalR reconnect cycle", async () => {
     let latest: { connection: unknown; connectionState: string } | null = null;
     const root = mountApp(["calendar:configure"], (state) => {

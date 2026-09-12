@@ -128,6 +128,17 @@ export interface AppShellNavItem {
    * 404s. `consoleNav.ts` is the only place that sets this.
    */
   reserved?: boolean;
+  /**
+   * `25-51`: a numeric count this item wants drawn beside its label - Диалоги's "Мои" (unread
+   * messages) and Записи's "В ожидании" (pending bookings) today, `consoleNav.ts`'s own `badgeFor`
+   * the only place that builds one. Fully resolved by the caller, the same "label arrives as text,
+   * not a key" split `label` itself already has: `count` is the visible number, `label` is the
+   * already-pluralized, already-translated text a screen reader hears after it (`queueUnreadMessageOne`/
+   * `Other`'s own convention, reused here). `AppShell`/`NavSections` render this mechanically and
+   * never decide what a badge means - see `NavSections`'s own remarks for where the number goes when
+   * this item's own section is collapsed.
+   */
+  badge?: { count: number; label: string };
 }
 
 /**
@@ -239,6 +250,14 @@ function NavSections({
       {sections.map((section) => {
         const isOpen = section.id === openId;
         const panelId = `${variant}-${section.id}-items`;
+        // `25-51`: every item in this section that currently carries a nonzero badge, summed for the
+        // section header's own collapsed-state total and joined for its accessible text. In practice
+        // exactly one item per section ever carries a real badge today (`consoleNav.ts`'s own remarks
+        // on Мои/В ожидании) - this sums/joins rather than assuming that, so a second badge-carrying
+        // item in the same section later needs no change here.
+        const badgedItems = section.items.filter((item) => (item.badge?.count ?? 0) > 0);
+        const sectionBadgeCount = badgedItems.reduce((sum, item) => sum + (item.badge?.count ?? 0), 0);
+        const sectionBadgeLabel = badgedItems.map((item) => item.badge?.label).join(", ");
 
         return (
           <div key={section.id} className={groupClass}>
@@ -250,7 +269,19 @@ function NavSections({
               onClick={() => onOpenSection(section.id)}
             >
               <span className="ago-shell__nav-link-label">{section.label}</span>
-              <span className="ago-shell__rail-chevron" aria-hidden="true" />
+              <span className="ago-shell__section-trailing">
+                {/* `25-51`: "the badge moves to the section itself when collapsed" (the item's own
+                    Scope) - drawn only while `!isOpen`, since once the section opens the item
+                    carrying this same count renders its own badge below and showing both would
+                    double-count the same number on screen. */}
+                {!isOpen && sectionBadgeCount > 0 && (
+                  <Badge tone="danger">
+                    {sectionBadgeCount}
+                    <span className="ago-visually-hidden"> {sectionBadgeLabel}</span>
+                  </Badge>
+                )}
+                <span className="ago-shell__rail-chevron" aria-hidden="true" />
+              </span>
             </button>
             {isOpen && (
               <div className={itemsClass} id={panelId}>
@@ -278,6 +309,12 @@ function NavSections({
                     >
                       <span className="ago-shell__nav-link-label">{item.label}</span>
                       {item.muted && <Badge tone="accent">{strings.navBuyableLabel}</Badge>}
+                      {item.badge && item.badge.count > 0 && (
+                        <Badge tone="danger">
+                          {item.badge.count}
+                          <span className="ago-visually-hidden"> {item.badge.label}</span>
+                        </Badge>
+                      )}
                     </NavLink>
                   ),
                 )}
@@ -449,6 +486,18 @@ export function AppShell({
   // page exists for.
   const hasNav = navSections.length > 0 || pinnedItem !== undefined;
 
+  // `25-51`: the mobile hamburger's own overlay badge - summed here from the identical `sections`
+  // array the rail/drawer already render from, **never** a third, independently-tracked count (the
+  // item's own "Where this is likely to go wrong" is explicit about this). Диалоги's unread total and
+  // Записи's pending total are the only two numbers that ever reach this component at all (through
+  // whichever items in `sections` carry a `badge`), so summing every item's badge is summing exactly
+  // those two - this component does not know or care that there happen to be two of them, or what
+  // either one means.
+  const totalBadgeCount = useMemo(
+    () => navSections.reduce((sum, section) => sum + section.items.reduce((s, item) => s + (item.badge?.count ?? 0), 0), 0),
+    [navSections],
+  );
+
   // `23-31`: which section the route itself belongs to - computed by `RouteSectionSync` below, never
   // by calling `useLocation()` directly in this component. `AppShell` renders on `/signup` and
   // `/callback` with `sections` empty (this component's own doc comment on why it reads no context),
@@ -495,12 +544,30 @@ export function AppShell({
                 <button
                   type="button"
                   className="ago-shell__menu-button"
-                  aria-label={strings.navOpenMenu}
+                  // `25-51`: extended, not replaced, when the collapsed sum has something to say -
+                  // the visible overlay badge below is `aria-hidden` (its number is already folded in
+                  // here), so a screen-reader user learns the same fact a sighted one sees on the
+                  // button itself, rather than nothing at all.
+                  aria-label={
+                    totalBadgeCount > 0
+                      ? `${strings.navOpenMenu} — ${totalBadgeCount} ${totalBadgeCount === 1 ? strings.navMenuBadgeOne : strings.navMenuBadgeOther}`
+                      : strings.navOpenMenu
+                  }
                   aria-expanded={drawerOpen}
                   aria-controls={drawerId}
                   onClick={() => setDrawerOpen(true)}
                 >
                   <span className="ago-shell__menu-icon" aria-hidden="true" />
+                  {/* `25-51`: the mobile "app-icon notification badge" (the item's own wording) - a
+                      child of a button `shell.css` already hides above the mobile breakpoint, so it
+                      needs no media query of its own to stay mobile-only. Expanding the drawer shows
+                      each count back on its own item/section (`NavSections` above) - this is the one
+                      place both are shown summed. */}
+                  {totalBadgeCount > 0 && (
+                    <span className="ago-shell__menu-badge" aria-hidden="true">
+                      {totalBadgeCount}
+                    </span>
+                  )}
                 </button>
               )}
               {/* `23-31`: the header says "AGO Офис" and nothing else - the old two-line "AGO" wordmark
