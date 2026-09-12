@@ -124,6 +124,13 @@ export interface ConversationSummaryDto {
    * nothing extra when either is missing rather than half a pair. */
   emojiCreature?: string | null;
   emojiFood?: string | null;
+  /** `25-56`'s own second half: the visitor's own name, from a `VisitorContactDetailKind.Name` row
+   * (`25-62`'s rename of what was `Other`) - the widget's own contact-capture form is that row's one
+   * real writer. Nullable/absent the identical way `emojiCreature`/`emojiFood` above already are - most
+   * visitors never give one, and a row from a server that predates this field looks the same as a
+   * visitor who hasn't answered. Renders between the emoji pair and the short code
+   * (`visitorDisplayPrefix`), never in place of either. */
+  visitorName?: string | null;
 }
 
 /** `5-07`: `Ago.Chat.Contracts.OperatorQueueResponse` - `GET /api/v1/conversations/queue`'s body. */

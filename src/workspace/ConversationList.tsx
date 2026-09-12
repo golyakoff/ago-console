@@ -5,7 +5,7 @@ import { Skeleton } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { formatAbsolute, formatElapsed, formatElapsedWords, parseInstant } from "../time/format.js";
 import { isNewlyAssigned, oldestFirst, unreadCountFor, type ReadStateMap } from "./attention.js";
-import { visitorEmojiPrefix } from "./visitorEmoji.js";
+import { visitorDisplayPrefix } from "./visitorEmoji.js";
 
 export interface ConversationListProps {
   /** `null` while the first queue fetch is in flight - "not yet known", never "empty". */
@@ -100,7 +100,7 @@ export function ConversationList({ queue, attention, now, timeZone, waitingRefre
                   >
                     <span className="ago-list__row-top">
                       <Badge tone="brand" mono>
-                        {visitorEmojiPrefix(c)}
+                        {visitorDisplayPrefix(c)}
                         {c.visitorId.slice(0, 8)}
                       </Badge>
                       {isNewlyAssigned(c, attention) && <Badge tone="accent">{strings.queueNewBadge}</Badge>}
@@ -166,7 +166,7 @@ export function ConversationList({ queue, attention, now, timeZone, waitingRefre
                   >
                     <span className="ago-list__row-top">
                       <Badge tone="neutral" mono>
-                        {visitorEmojiPrefix(c)}
+                        {visitorDisplayPrefix(c)}
                         {c.visitorId.slice(0, 8)}
                       </Badge>
                     </span>

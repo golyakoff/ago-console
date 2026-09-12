@@ -761,3 +761,36 @@ describe("25-56: the visitor emoji pair in the open-dialog header", () => {
     expect(heading.textContent?.replace(/\s+/g, " ").trim()).toBe(`Conversation with ${VISITOR_ID.slice(0, 8)}`);
   });
 });
+
+/**
+ * `25-56`'s own second half: the visitor's own name, in the same header, between the emoji pair and
+ * the short code - `ConversationList.test.tsx` covers the other of the item's exactly-two render
+ * locations.
+ */
+describe("25-56: the visitor's own name in the open-dialog header", () => {
+  it("renders the pair, the name, and the short code, in that order", async () => {
+    const fake = fakeConnection();
+    const container = await render(
+      <Harness
+        connection={fake.connection}
+        conversation={conversationSummary({ emojiCreature: "🐔", emojiFood: "🍊", visitorName: "Иван Иванов" })}
+      />,
+    );
+
+    const heading = one(container, ".ago-workspace__main-title");
+    expect(heading.textContent?.replace(/\s+/g, " ").trim()).toBe(
+      `Conversation with 🐔🍊 Иван Иванов ${VISITOR_ID.slice(0, 8)}`,
+    );
+  });
+
+  // The item's own Done-when: "no name yet" must still render exactly as it did before this item.
+  it("renders exactly the pair and the short code, no stray space, when no name is known yet", async () => {
+    const fake = fakeConnection();
+    const container = await render(
+      <Harness connection={fake.connection} conversation={conversationSummary({ emojiCreature: "🐔", emojiFood: "🍊" })} />,
+    );
+
+    const heading = one(container, ".ago-workspace__main-title");
+    expect(heading.textContent?.replace(/\s+/g, " ").trim()).toBe(`Conversation with 🐔🍊 ${VISITOR_ID.slice(0, 8)}`);
+  });
+});

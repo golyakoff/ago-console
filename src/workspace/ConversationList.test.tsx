@@ -89,3 +89,36 @@ describe("25-56: the visitor emoji pair beside the short code", () => {
     expect(assignedBadge.textContent?.trim()).toBe(ASSIGNED_VISITOR_ID.slice(0, 8));
   });
 });
+
+/**
+ * `25-56`'s own second half: the visitor's own name, rendered between the emoji pair and the short
+ * code (the item's own Scope section: `{emoji}{emoji} {name} {shortCode}`). Same two rows, same
+ * "goes through the real DTO shape" discipline as the emoji-only tests above.
+ */
+describe("25-56: the visitor's own name beside the short code", () => {
+  it("renders the pair, the name, and the short code, in that order, in both rows", async () => {
+    const container = await mount({
+      assignedToMe: [assignedSummary({ emojiCreature: "🐔", emojiFood: "🍊", visitorName: "Иван Иванов" })],
+      waiting: [waitingSummary({ emojiCreature: "🐠", emojiFood: "🥝", visitorName: "Мария" })],
+    });
+
+    const assignedBadge = one(container, ".ago-badge--brand");
+    expect(assignedBadge.textContent?.trim()).toBe(`🐔🍊 Иван Иванов ${ASSIGNED_VISITOR_ID.slice(0, 8)}`);
+
+    const waitingBadge = one(container, ".ago-badge--neutral");
+    expect(waitingBadge.textContent?.trim()).toBe(`🐠🥝 Мария ${WAITING_VISITOR_ID.slice(0, 8)}`);
+  });
+
+  // The item's own Done-when: "no name yet" must still render exactly as it did before this item -
+  // just the pair and the short code, no stray space, no placeholder.
+  it("renders exactly the pair and the short code, no stray space, when no name is known yet", async () => {
+    const container = await mount({
+      assignedToMe: [assignedSummary({ emojiCreature: "🐔", emojiFood: "🍊", visitorName: null })],
+      waiting: [],
+    });
+
+    const assignedBadge = one(container, ".ago-badge--brand");
+    expect(assignedBadge.textContent?.trim()).toBe(`🐔🍊 ${ASSIGNED_VISITOR_ID.slice(0, 8)}`);
+    expect(assignedBadge.textContent).not.toMatch(/ {2}/);
+  });
+});
