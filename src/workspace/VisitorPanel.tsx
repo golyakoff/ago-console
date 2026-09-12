@@ -1,9 +1,9 @@
+import { useEffect } from "react";
 import type { ConversationSummaryDto, VisitorHistoryResponse } from "../realtime/protocol/types.js";
 import type { TagDto } from "../api/tagsApi.js";
 import { Badge } from "../components/Badge.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
-import { formatAbsolute, formatElapsed, formatElapsedWords, parseInstant } from "../time/format.js";
 import { VisitorHistoryPanel } from "./VisitorHistoryPanel.js";
 import { ChannelIdentitiesPanel } from "./ChannelIdentitiesPanel.js";
 import { ContactDetailsPanel } from "./ContactDetailsPanel.js";
@@ -67,10 +67,12 @@ export interface VisitorPanelProps {
  * widget visitor (no channel identity, `14-01`'s model), that section renders nothing at all rather
  * than an empty state - see `VisitorHistoryPanel`'s own doc comment for why.
  *
- * The identifiers are rendered in full rather than truncated to eight characters the way the list
- * rows are: this is the one place an operator goes to *copy* an id into a support ticket or a log
- * query, and a truncated id cannot be copied. `--ago-font-mono` is reserved for exactly this in
- * `tokens.css` - values that are literally identifiers.
+ * `25-57`: **the visitor id, the "conversation started" fact, the site id and the conversation id no
+ * longer paint.** The author's own call: none of the four has operational use to an operator's own
+ * day-to-day work, only occasional use in a support/debugging session - so they leave the visible
+ * `<dl>` (which used to render them in full, deliberately un-truncated, for copying into a ticket or
+ * a log query) and move to a single `console.log` the effect below fires whenever the conversation
+ * identity actually changes, reachable through the browser's own DevTools (F12) instead.
  */
 export function VisitorPanel({
   conversationId,
@@ -86,7 +88,21 @@ export function VisitorPanel({
   onInsertIntoComposer,
 }: VisitorPanelProps) {
   const strings = useStrings();
-  const started = parseInstant(conversation?.createdAt);
+  const visitorId = conversation?.visitorId ?? null;
+  const conversationStartedAt = conversation?.createdAt ?? null;
+
+  // `25-57`: the four fields removed from the `<dl>` below, still reachable via DevTools (F12) for a
+  // support/debugging session - per the author's own instruction. Keyed on the primitive values
+  // rather than on `conversation` itself, so a poll that refetches the same row does not re-log; see
+  // this component's own doc comment for why the fields left the visible UI at all.
+  useEffect(() => {
+    console.log("[VisitorPanel] visitor/conversation identity", {
+      visitorId,
+      conversationStartedAt,
+      siteId,
+      conversationId,
+    });
+  }, [visitorId, conversationStartedAt, siteId, conversationId]);
 
   return (
     <aside className="ago-workspace__aside" aria-labelledby="ago-visitor-panel-title">
@@ -112,37 +128,6 @@ export function VisitorPanel({
           </Badge>
         )}
       </div>
-
-      <dl className="ago-aside__facts">
-        <dt>{strings.visitorIdLabel}</dt>
-        <dd className="ago-mono ago-aside__id">{conversation?.visitorId ?? strings.visitorNotInQueue}</dd>
-
-        <dt>{strings.queueConversationStartedTitle}</dt>
-        <dd>
-          {started ? (
-            <>
-              <span title={formatAbsolute(started, timeZone, strings)}>{formatAbsolute(started, timeZone, strings)}</span>
-              <span className="ago-meta">
-                {" "}
-                ({formatElapsed(started, now, strings)} {strings.agoSuffix})
-              </span>
-              <span className="ago-visually-hidden">
-                {formatElapsedWords(started, now, strings)} {strings.agoSuffix}
-              </span>
-            </>
-          ) : (
-            <span className="ago-meta">{strings.visitorConversationStartedUnknown}</span>
-          )}
-        </dd>
-
-        <dt>{strings.visitorSiteLabel}</dt>
-        <dd className="ago-mono ago-aside__id">
-          {siteId ?? <span className="ago-meta">{strings.visitorSiteNotKnown}</span>}
-        </dd>
-
-        <dt>{strings.visitorConversationLabel}</dt>
-        <dd className="ago-mono ago-aside__id">{conversationId}</dd>
-      </dl>
 
       <VisitorHistoryPanel
         conversationId={conversationId}

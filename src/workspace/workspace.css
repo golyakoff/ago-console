@@ -564,34 +564,6 @@ a.ago-list__row--active:hover {
   flex-wrap: wrap;
 }
 
-.ago-aside__facts {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ago-space-1);
-  margin: 0;
-  font-size: var(--ago-text-sm);
-}
-
-.ago-aside__facts dt {
-  font-size: var(--ago-text-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ago-ink-faint);
-  margin-top: var(--ago-space-3);
-}
-
-.ago-aside__facts dd {
-  margin: 0;
-}
-
-/* A full identifier, wrapped rather than truncated - the panel exists partly so an id can be copied
-   whole into a ticket or a log query. */
-.ago-aside__id {
-  font-size: var(--ago-text-xs);
-  overflow-wrap: anywhere;
-}
-
 .ago-aside__note {
   margin-top: auto;
   padding-top: var(--ago-space-4);
@@ -693,16 +665,6 @@ a.ago-list__row--active:hover {
 
   .ago-workspace__aside {
     overflow-y: visible;
-  }
-
-  .ago-aside__facts {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-    column-gap: var(--ago-space-4);
-  }
-
-  .ago-aside__facts dt {
-    margin-top: 0;
   }
 
   .ago-aside__note {
