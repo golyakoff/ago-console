@@ -95,3 +95,74 @@ describe("buildTenantNavSections - analytics section", () => {
     expect(routes).toEqual(["/analytics/me", "/analytics/site", "/analytics/conversion", "/analytics/tags", "/analytics/booking-flow"]);
   });
 });
+
+/**
+ * `25-51`: the two nav badge totals `OperatorShell` reads from live connections and passes here as
+ * `unreadCount`/`pendingCount` - proved at this pure-function level rather than through a live
+ * connection, matching `consoleNav.test.ts`'s own existing style. Three claims:
+ *
+ * - Диалоги's badge lands on "Мои" (`navMyConversations`) alone, never on the admin-only "Все
+ *   диалоги"/"Поиск" entries beside it;
+ * - Записи's badge lands on "В ожидании" (`navCalendarQueue`) in the two branches where it is a real
+ *   link, and never on the muted "buy the module" entry, nor on "Утверждённые"
+ *   (`navCalendarBookings`) - the item's own "Where this is likely to go wrong" names both of those
+ *   as the ways to get this wrong;
+ * - a count of `0` (the default every existing call site already gets) renders no badge at all,
+ *   which is what keeps every pre-`25-51` call site's own expectations true unchanged.
+ */
+describe("buildTenantNavSections - nav badges", () => {
+  function talkItems(hasPermission: (permission: string) => boolean, unreadCount: number) {
+    const sections = buildTenantNavSections(hasPermission, en, [], true, unreadCount);
+    return sections.find((section) => section.id === "talk")?.items ?? [];
+  }
+
+  function calendarItems(hasPermission: (permission: string) => boolean, pendingCount: number) {
+    const sections = buildTenantNavSections(hasPermission, en, [], true, 0, pendingCount);
+    return sections.find((section) => section.id === "calendar")?.items ?? [];
+  }
+
+  it("draws the unread badge on Мои alone, with the singular label at exactly one", () => {
+    const items = talkItems((permission) => permission === "site:configure", 1);
+    const mine = items.find((item) => item.to === "/");
+    const all = items.find((item) => item.to === "/conversations/all");
+
+    expect(mine?.badge).toEqual({ count: 1, label: en.queueUnreadMessageOne });
+    expect(all?.badge).toBeUndefined();
+  });
+
+  it("uses the plural label once the unread count is more than one", () => {
+    const items = talkItems(() => false, 5);
+    expect(items.find((item) => item.to === "/")?.badge).toEqual({ count: 5, label: en.queueUnreadMessageOther });
+  });
+
+  it("draws no unread badge at all when the count is zero - every pre-25-51 call site's own default", () => {
+    const items = talkItems(() => false, 0);
+    expect(items.find((item) => item.to === "/")?.badge).toBeUndefined();
+  });
+
+  it("draws the pending badge on В ожидании for the full-access (calendar:configure) branch", () => {
+    const items = calendarItems((permission) => permission === "calendar:configure", 3);
+    const waiting = items.find((item) => item.to === "/calendar/waiting");
+    const bookings = items.find((item) => item.to === "/calendar/bookings");
+
+    expect(waiting?.badge).toEqual({ count: 3, label: en.navCalendarPendingOther });
+    // "Утверждённые" is a different, already-resolved list - this count says nothing about it.
+    expect(bookings?.badge).toBeUndefined();
+  });
+
+  it("draws the pending badge on В ожидании for the operator (booking-permission) branch too", () => {
+    const items = calendarItems((permission) => permission === "booking:confirm", 2);
+    expect(items.find((item) => item.to === "/calendar/waiting")?.badge).toEqual({
+      count: 2,
+      label: en.navCalendarPendingOther,
+    });
+  });
+
+  it("never draws the pending badge on the muted 'buy the module' entry", () => {
+    const items = calendarItems((permission) => permission === "site:configure", 7);
+    const waiting = items.find((item) => item.to === "/calendar/waiting");
+
+    expect(waiting?.muted).toBe(true);
+    expect(waiting?.badge).toBeUndefined();
+  });
+});

@@ -78,6 +78,9 @@
   background: transparent;
   color: var(--ago-ink);
   cursor: pointer;
+  /* `25-51`: anchors `.ago-shell__menu-badge` below - the button's own square is the positioning
+     context the badge's `position: absolute` offsets are measured from. */
+  position: relative;
 }
 
 .ago-shell__menu-button:hover {
@@ -114,6 +117,33 @@
 
 .ago-shell__menu-icon::after {
   top: 6px;
+}
+
+/* `25-51`: the mobile-collapsed "app-icon notification badge" - a child of `.ago-shell__menu-button`,
+   which is itself `display: none` above the mobile breakpoint (this file's own remarks right above),
+   so this needs no media query of its own to disappear on desktop along with the button it sits on.
+   Colours are the identical `.ago-badge--danger` pair (`components.css`), not a new pairing invented
+   for this one spot - reusing an already-contrast-checked pair rather than asking the ux-gate's own
+   WCAG AA assertion to prove a new one from scratch. */
+.ago-shell__menu-badge {
+  position: absolute;
+  top: -0.3rem;
+  right: -0.3rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: var(--ago-radius-pill);
+  background: var(--ago-danger-tint);
+  color: var(--ago-danger);
+  font-size: var(--ago-text-xs);
+  font-weight: 700;
+  line-height: 1.15rem;
+  text-align: center;
+  /* Separates the badge from the button's own square, the same "distinct from what it sits on" role
+     a phone home-screen badge's own ring plays - `--ago-paper` rather than a fixed colour so it
+     matches whichever theme (light/dark) is currently painting the header behind it. */
+  border: 2px solid var(--ago-paper);
+  box-sizing: content-box;
 }
 
 /* `23-31`: the drawer's own list - now a two-level accordion, the identical shape (and identical
@@ -221,8 +251,21 @@
   background: var(--ago-brand-tint);
 }
 
-.ago-shell__rail-chevron {
+/* `25-51`: wraps the (optional) collapsed-section badge and the chevron together, and is what now
+   carries `margin-left: auto` (the chevron no longer does, see its own rule below) - a single
+   auto-margin on the *first* element of this trailing cluster pushes it and everything after it (the
+   chevron) to the section header's right edge as one group. Putting the auto-margin on the badge
+   itself instead, conditionally, would have split the free space between two independent auto-margins
+   whenever both are present, leaving the badge stranded mid-row rather than flush against the
+   chevron - this wrapper is what a single, unconditional owner of that margin buys back. */
+.ago-shell__section-trailing {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ago-space-2);
+}
+
+.ago-shell__rail-chevron {
   width: 0.5rem;
   height: 0.5rem;
   flex: none;

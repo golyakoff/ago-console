@@ -17,7 +17,8 @@ import { useStrings } from "../i18n/StringsContext.js";
 import { resolveTimeZone } from "../time/format.js";
 import { ConversationList } from "./ConversationList.js";
 import { TagFilter } from "./TagFilter.js";
-import { applyAttentionEvent, documentTitleFor, oldestFirst, totalUnread, type ReadStateMap } from "./attention.js";
+import { applyAttentionEvent, documentTitleFor, oldestFirst, totalUnread, type AttentionEvent, type ReadStateMap } from "./attention.js";
+import { useConversationsAttention } from "./ConversationsAttentionContext.js";
 import { AlertSettings } from "./AlertSettings.js";
 import { ShortcutsDialog } from "./ShortcutsDialog.js";
 import { conversationAfter } from "./shortcuts.js";
@@ -116,6 +117,13 @@ export function WorkspaceLayout() {
   const [tagFilters, setTagFilters] = useState<readonly string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [attention, setAttention] = useState<ReadStateMap>({});
+  // `25-51`: the shell's own nav badge (Диалоги) needs this identical "unread" reducer, but the shell
+  // (`OperatorShell`) is a *parent* of this layout, not a sibling it can read local state from - see
+  // `ConversationsAttentionContext.tsx`'s own doc comment for why the fix is a provider this component
+  // forwards events into, rather than lifting `attention` itself out of this file. `reportAttentionEvent`
+  // below is the one added call at every existing `setAttention` site; nothing else about this
+  // component's own local attention tracking changes.
+  const { applyEvent: reportAttentionEvent } = useConversationsAttention();
   const [announcement, setAnnouncement] = useState<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
@@ -187,6 +195,13 @@ export function WorkspaceLayout() {
         // `5-15`: the fresh snapshot already contains every arrival and every clear the overlay in
         // `attention.ts` was standing in for, so those adjustments retire here rather than being
         // added on top of a number that has caught up.
+        //
+        // `25-51`: **not** forwarded to `ConversationsAttentionContext` - this fetch can be narrowed by
+        // `tagFilters`, so the snapshot it just got may not cover every conversation the shared,
+        // always-unfiltered nav total is tracking. Applying a `"refetched"` reset here would wipe that
+        // provider's own freshness overlay for conversations this fetch never actually re-read. The nav
+        // badge's own `"refetched"` reset comes only from that provider's own, separate, unfiltered poll
+        // (`ConversationsAttentionContext.tsx`'s own doc comment).
         setAttention((prev) => applyAttentionEvent(prev, { kind: "refetched" }));
         setError(null);
       })
@@ -203,14 +218,21 @@ export function WorkspaceLayout() {
       }
 
       markConversationRead(user.access_token, conversationId, upToSequence)
-        .then(() => setAttention((prev) => applyAttentionEvent(prev, { kind: "cleared", conversationId })))
+        .then(() => {
+          const event: AttentionEvent = { kind: "cleared", conversationId };
+          setAttention((prev) => applyAttentionEvent(prev, event));
+          // `25-51`: the Диалоги nav badge's own immediate clear - see this file's own remarks beside
+          // `reportAttentionEvent` for why this is an additional call, not a replacement for the line
+          // above.
+          reportAttentionEvent(event);
+        })
         .catch((err: unknown) => {
           // Never surfaced to the operator: a badge that failed to clear is a cosmetic staleness the
           // next open fixes, and an error banner for it would be worse than the defect.
           console.warn("Failed to mark the conversation read", err);
         });
     },
-    [user?.access_token],
+    [user?.access_token, reportAttentionEvent],
   );
 
   useEffect(() => {
@@ -271,7 +293,13 @@ export function WorkspaceLayout() {
       // looking at it. Checked here rather than inside the reducer (`5-15`) so `attention.ts` stays a
       // pure function of the events it is given and does not need to track what is open.
       if (dto.conversationId !== openConversationIdRef.current) {
-        setAttention((prev) => applyAttentionEvent(prev, { kind: "assigned", conversationId: dto.conversationId }));
+        const event: AttentionEvent = { kind: "assigned", conversationId: dto.conversationId };
+        setAttention((prev) => applyAttentionEvent(prev, event));
+        // `25-51`: forwarded for the same reason every other real (non-`"refetched"`) event here is -
+        // see `reportAttentionEvent`'s own remarks. Harmless no-op for the nav badge's own arithmetic
+        // (`"assigned"` only ever sets `newlyAssigned`, which `totalUnread` never reads), kept for one
+        // simple rule rather than a second one carving this event out.
+        reportAttentionEvent(event);
       }
 
       setAnnouncement(strings.workspaceNewAssignmentAnnouncement);
@@ -288,7 +316,7 @@ export function WorkspaceLayout() {
 
       refreshQueue();
     });
-  }, [connection, refreshQueue, fire, strings]);
+  }, [connection, refreshQueue, fire, strings, reportAttentionEvent]);
 
   // `11-06`'s addition to `OperatorConnection`: every message push, for every conversation this
   // operator is assigned - not only the one on screen. Without it the console cannot know that a
@@ -307,7 +335,10 @@ export function WorkspaceLayout() {
         return;
       }
 
-      setAttention((prev) => applyAttentionEvent(prev, { kind: "incoming", conversationId }));
+      const event: AttentionEvent = { kind: "incoming", conversationId };
+      setAttention((prev) => applyAttentionEvent(prev, event));
+      // `25-51`: the Диалоги nav badge's own live increment - see `reportAttentionEvent`'s own remarks.
+      reportAttentionEvent(event);
 
       // `18-05`, and a deliberate widening of what the item literally asked for. Its Scope names
       // "desktop notifications for a newly assigned conversation"; its Goal is that an operator
@@ -323,7 +354,7 @@ export function WorkspaceLayout() {
         queueRef.current?.assignedToMe.find((c) => c.conversationId === conversationId)?.visitorId ?? null;
       fire("message", conversationId, visitorId);
     });
-  }, [connection, fire]);
+  }, [connection, fire, reportAttentionEvent]);
 
   // `18-05`: the keyboard. Every handler here is one line of navigation or one line of state - the
   // decisions (which key, whether the target is a text field, where J and K land) are `shortcuts.ts`
@@ -380,6 +411,20 @@ export function WorkspaceLayout() {
       setAnnouncement(null);
     }
   }
+
+  // `25-51`: the identical "opened" forward, in its own `useEffect` rather than folded into the
+  // render-time adjustment right above. That block's own `23-96` comment explains why *this
+  // component's own* `setAttention` is safe to call synchronously during render (React's "adjusting
+  // state when a prop changes" pattern, for a component updating its own state) - `reportAttentionEvent`
+  // is a different case: it calls a *different* component's (`ConversationsAttentionProvider`) own
+  // `setState` indirectly, and doing that synchronously while this component is rendering is not the
+  // same safe pattern, so it goes through an ordinary effect instead, keyed on the identical
+  // `openConversationId` change.
+  useEffect(() => {
+    if (openConversationId !== null) {
+      reportAttentionEvent({ kind: "opened", conversationId: openConversationId });
+    }
+  }, [openConversationId, reportAttentionEvent]);
 
   const unread = queue === null ? 0 : totalUnread(queue.assignedToMe, attention);
 

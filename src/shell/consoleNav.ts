@@ -70,6 +70,13 @@ export function buildTenantNavSections(
   strings: ConsoleStrings,
   enabledModules: string[] = [],
   permissionsKnown = true,
+  // `25-51`: the two left-nav badge totals - defaulted to `0` (which `badgeFor` below renders as "no
+  // badge at all") so every existing call site that does not know about either count
+  // (`consoleNav.test.ts`, `OwnerSitesPage`/`OwnerSiteDetailPage` - neither has a live connection to
+  // read a real total from) keeps building the identical, badge-less sections it always has, without
+  // being made to pass two new arguments it has no answer for.
+  unreadCount = 0,
+  pendingCount = 0,
 ): AppShellNavSection[] {
   // `ProductsPage.PRODUCTS_PERMISSION`: the same gate that screen already uses for "may this identity
   // see what the tenant could buy at all" - reused here rather than a second constant, so a change to
@@ -81,8 +88,12 @@ export function buildTenantNavSections(
   // moving `calendar` up to second place is the only reorder; nothing else's relative position
   // changes.
   const sections: (AppShellNavSection | null)[] = [
-    buildSection("talk", strings.navConversations, buildTalkItems(isAdmin, strings)),
-    buildSection("calendar", strings.navSectionCalendar, buildCalendarItems(hasPermission, isAdmin, strings)),
+    buildSection("talk", strings.navConversations, buildTalkItems(isAdmin, strings, unreadCount)),
+    buildSection(
+      "calendar",
+      strings.navSectionCalendar,
+      buildCalendarItems(hasPermission, isAdmin, strings, pendingCount),
+    ),
     buildSection("analytics", strings.navAnalytics, buildAnalyticsItems(hasPermission, isAdmin, strings)),
     buildSection("team", strings.navSectionTeam, buildTeamItems(permissionsKnown, hasPermission, strings)),
     buildSection("channels", strings.navSectionChannels, buildChannelsItems(isAdmin, strings)),
@@ -104,11 +115,41 @@ function buildSection(id: string, label: string, items: AppShellNavItem[]): AppS
   return items.length === 0 ? null : { id, label, items };
 }
 
+/**
+ * `25-51`: resolves a raw count into the shape `AppShellNavItem.badge` wants - `undefined` for `0`
+ * (nothing to render, `AppShell.tsx`'s own rendering treats an absent badge and a zero-count one
+ * identically, so this is the one place that decision is made rather than repeated at both call
+ * sites below), otherwise the count plus the already-localized, already-pluralized accessible suffix
+ * (`one`/`other`, the same binary singular/plural convention `queueUnreadMessageOne`/`Other` already
+ * uses - `strings.ts`'s own doc comment on that pair). `AppShell`/`NavSections` render this
+ * mechanically; they never call `useStrings()` for an item's own badge text, matching how `label`
+ * itself already arrives here fully resolved rather than as a key `AppShell` would have to look up.
+ */
+function badgeFor(count: number, one: string, other: string): AppShellNavItem["badge"] {
+  return count > 0 ? { count, label: count === 1 ? one : other } : undefined;
+}
+
 /** `23-31`: "Мои" replaces "Conversations" as this *item's* own label - `navConversations` now names
  * the section itself. `18-01`: "Все диалоги"/"Поиск" are the same `site:configure`-gated
- * supervisor-oversight capability as before, only hidden rather than muted when lacking it now. */
-function buildTalkItems(isAdmin: boolean, strings: ConsoleStrings): AppShellNavItem[] {
-  const items: AppShellNavItem[] = [{ to: "/", label: strings.navMyConversations, end: true }];
+ * supervisor-oversight capability as before, only hidden rather than muted when lacking it now.
+ *
+ * `25-51`: `unreadCount` lands on "Мои" alone, never on "Все диалоги"/"Поиск" - it is this operator's
+ * own assigned-conversation total (`ConversationsAttentionContext`'s own doc comment), which is
+ * exactly what "Мои" already means and neither of the other two do. When this section is collapsed in
+ * the accordion (its own "Мои" not on screen), `AppShell.tsx`'s `NavSections` sums every item's badge
+ * in the section and draws the total on "Диалоги" itself instead - see that file's own remarks - which
+ * is what makes "the badge moves to Диалоги when collapsed" (the item's own Scope) true without this
+ * function needing to know anything about accordion state at all.
+ */
+function buildTalkItems(isAdmin: boolean, strings: ConsoleStrings, unreadCount: number): AppShellNavItem[] {
+  const items: AppShellNavItem[] = [
+    {
+      to: "/",
+      label: strings.navMyConversations,
+      end: true,
+      badge: badgeFor(unreadCount, strings.queueUnreadMessageOne, strings.queueUnreadMessageOther),
+    },
+  ];
   if (isAdmin) {
     items.push({ to: "/conversations/all", label: strings.navAllConversations });
     items.push({ to: "/conversations/search", label: strings.navSearch });
@@ -205,14 +246,28 @@ function buildAnalyticsItems(hasPermission: (permission: string) => boolean, isA
  * pre-`23-31` `23-24` rule) for being two facts wearing one visual treatment. Nothing here reopens
  * that question; it extends the settled answer to the entries `23-57` found it had not yet reached.
  */
+/** `25-51`: `pendingCount` is `usePendingBookingsBadge`'s own total - see that hook's doc comment for
+ * why it counts every calendar the tenant has, not "mine", matching this section's own "one queue,
+ * spanning every calendar" rule (`CalendarQueuePage`'s own doc comment). It lands on "В ожидании"
+ * (`navCalendarQueue`) in the two branches below that draw it as a real link - **never** on the
+ * `muted` entry in the `isAdmin`-without-`calendar:configure` branch, which is a "buy this" prompt
+ * pointing at a queue this identity cannot actually read yet (`usePendingBookingsBadge`'s own gate
+ * already returns `0` there in practice, since holding neither `calendar:configure` nor a booking
+ * permission never opens the calendar hub connection the count is read through - but the branch below
+ * omits it explicitly rather than relying on that to stay true), and never on "Утверждённые"
+ * (`navCalendarBookings`, confirmed-bookings) - a different, already-resolved list this count says
+ * nothing about. */
 function buildCalendarItems(
   hasPermission: (permission: string) => boolean,
   isAdmin: boolean,
   strings: ConsoleStrings,
+  pendingCount: number,
 ): AppShellNavItem[] {
+  const pendingBadge = badgeFor(pendingCount, strings.navCalendarPendingOne, strings.navCalendarPendingOther);
+
   if (hasPermission("calendar:configure")) {
     return [
-      { to: "/calendar/waiting", label: strings.navCalendarQueue, end: true },
+      { to: "/calendar/waiting", label: strings.navCalendarQueue, end: true, badge: pendingBadge },
       { to: "/calendar/bookings", label: strings.navCalendarBookings },
       // `25-12`: Клиенты moved up here, ahead of the setup dictionaries below - the tenant's own
       // customer base is consulted routinely once the calendar runs, not a one-time setup step, so it
@@ -245,7 +300,7 @@ function buildCalendarItems(
   // below can ever be muted (see this function's own doc comment), only drawn when genuinely held.
   const items: AppShellNavItem[] = [];
   if (hasAnyBookingActionPermission(hasPermission)) {
-    items.push({ to: "/calendar/waiting", label: strings.navCalendarQueue, end: true });
+    items.push({ to: "/calendar/waiting", label: strings.navCalendarQueue, end: true, badge: pendingBadge });
   }
   if (hasPermission("customer:read")) {
     // `23-34`'s own branch, kept - `Bookings` before `Clients`, matching the full-access ordering

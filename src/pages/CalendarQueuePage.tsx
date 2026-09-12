@@ -122,12 +122,18 @@ export function CalendarQueuePage() {
   // (CalendarOperatorConnectionProvider's own guard) - the effect is then simply a no-op, the same
   // "no live update, the initial fetch and the manual button still work" degradation as any other
   // dropped realtime channel in this console.
+  //
+  // `25-51`: returns the unsubscribe `onPendingBookingsChanged` now hands back, and actually calls it
+  // on cleanup - this screen is no longer the only listener this connection ever carries (the shell's
+  // own pending-bookings nav badge, `usePendingBookingsBadge`, registers its own, independent one for
+  // the whole session), so a stale registration left behind by a re-running effect would now pile up
+  // beside that one rather than simply being overwritten the way a single-slot listener used to be.
   useEffect(() => {
     if (calendarConnection === null || !canViewQueue) {
       return;
     }
 
-    calendarConnection.onPendingBookingsChanged(() => void reload());
+    return calendarConnection.onPendingBookingsChanged(() => void reload());
   }, [calendarConnection, canViewQueue, reload]);
 
   if (permissions === null) {

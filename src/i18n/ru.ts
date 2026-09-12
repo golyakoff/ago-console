@@ -5,6 +5,8 @@ export const ru: ConsoleStrings = {
   tooltipTriggerLabel: "Что это значит?",
   navSectionsAriaLabel: "Разделы консоли",
   navOpenMenu: "Открыть меню навигации",
+  navMenuBadgeOne: "пункт, требующий внимания",
+  navMenuBadgeOther: "пунктов, требующих внимания",
   renderErrorTitle: "Не удалось отобразить",
   renderErrorMessage:
     "Данные пришли не в том виде, которого ожидал этот экран, поэтому показать его не удалось. " +
@@ -1127,6 +1129,8 @@ export const ru: ConsoleStrings = {
 
   // --- `22-06`: AGO Calendar’s console screens - see `strings.ts` for the full note. ---
   navCalendarQueue: "В ожидании",
+  navCalendarPendingOne: "запись, ожидающая подтверждения",
+  navCalendarPendingOther: "записей, ожидающих подтверждения",
   navCalendarSetup: "Настройка",
   navCalendarWorkers: "Мастера",
   navCalendarAvailability: "Расписание",
