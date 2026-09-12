@@ -142,6 +142,21 @@ describe("the services dictionary screen", () => {
     expect(container.textContent).toContain("45");
   });
 
+  // `25-53`: two blocks (a current-services table, a separate add-service card), split from the
+  // one blended card this screen used to be - the item's own named example. No edit/delete button
+  // anywhere on the table: `calendarApi.ts` exports no `updateService`/`deleteService` yet, and this
+  // item's own scope forbids inventing backend capability to fill the gap.
+  it("splits into a current-services table and a separate add-service card, with no edit or delete action", async () => {
+    const container = await render(page());
+
+    const headings = Array.from(container.querySelectorAll("h2")).map((h) => h.textContent);
+    expect(headings).toContain("Services");
+    expect(headings).toContain("New service");
+    expect(container.querySelector("table")).not.toBeNull();
+    expect(byText<HTMLButtonElement>(container, "button", "Edit")).toBeNull();
+    expect(byText<HTMLButtonElement>(container, "button", "Delete")).toBeNull();
+  });
+
   it("adds a service with no price or description and re-reads the configuration", async () => {
     calendarApi.getConfiguration.mockResolvedValueOnce(configuration).mockResolvedValueOnce({
       ...configuration,

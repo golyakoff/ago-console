@@ -31,6 +31,7 @@ const calendarApi = vi.hoisted(() => ({
   getBookingReadiness: vi.fn(),
   setAllowedOrigins: vi.fn(),
   createCalendar: vi.fn(),
+  updateCalendar: vi.fn(),
   addWorkingHoursRule: vi.fn(),
 }));
 
@@ -117,6 +118,7 @@ beforeEach(() => {
   calendarApi.getBookingReadiness.mockResolvedValue([]);
   calendarApi.setAllowedOrigins.mockResolvedValue(undefined);
   calendarApi.createCalendar.mockResolvedValue({ calendarId: "cal-2" });
+  calendarApi.updateCalendar.mockResolvedValue(undefined);
   calendarApi.addWorkingHoursRule.mockResolvedValue({ ruleId: "r1" });
 });
 
@@ -150,6 +152,40 @@ describe("the tenant setup screen", () => {
 
     expect(calendarApi.createCalendar).toHaveBeenCalledWith("token", {
       name: "Second chair",
+      timeZone: "Europe/Moscow",
+      publish: true,
+    });
+  });
+
+  // `25-53`: two blocks (a current-calendars table, a separate add-calendar card), split from the
+  // one blended `<ul>`-plus-form card this section used to be.
+  it("splits the calendars section into a current-calendars table and a separate add-calendar card", async () => {
+    const container = await render(page());
+
+    const headings = Array.from(container.querySelectorAll("h2")).map((h) => h.textContent);
+    expect(headings).toContain("Calendars");
+    expect(headings).toContain("New calendar");
+    expect(container.querySelector("table")).not.toBeNull();
+    expect(container.textContent).toContain("Main");
+  });
+
+  // `25-53`: `updateCalendar` already existed (`calendarApi.ts`) but had no console UI before this
+  // item - the table's own Edit action is new UI wired to an already-existing write, not new backend
+  // capability. No delete action anywhere: `calendarApi.ts` exports no `deleteCalendar` - a real gap,
+  // not an omission.
+  it("edits a calendar from the table's own Edit action, and has no delete action at all", async () => {
+    const container = await render(page());
+
+    expect(byText<HTMLButtonElement>(container, "button", "Delete")).toBeNull();
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Edit")?.click());
+    expect(Array.from(container.querySelectorAll("h2")).map((h) => h.textContent)).toContain("Edit calendar");
+
+    await interact(() => setTextValue(fieldByLabel(container, "Calendar name"), "Main (renamed)"));
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Save")?.click());
+
+    expect(calendarApi.updateCalendar).toHaveBeenCalledWith("token", "cal-1", {
+      name: "Main (renamed)",
       timeZone: "Europe/Moscow",
       publish: true,
     });

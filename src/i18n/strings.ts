@@ -808,6 +808,11 @@ export interface ConsoleStrings {
   tagsNewNamePlaceholder: string;
   tagsCreatingButton: string;
   tagsCreateButton: string;
+  /** `25-53`: split the tag vocabulary's own one blended `<ul>`-plus-form card into a table (name,
+   * rename/delete actions - both already backed by `renameTag`/`deleteTag`) and a separate "add tag"
+   * card below - see `TagsPage.tsx`'s own doc comment. */
+  tagsColumnActions: string;
+  tagsAddPanelTitle: string;
 
   // `18-04`: ConversationTagsPanel - the per-conversation half (applying an existing tag, not
   // managing the vocabulary above).
@@ -1816,6 +1821,15 @@ export interface ConsoleStrings {
   calendarSetupCalendarZoneLabel: string;
   calendarSetupCalendarPublishedLabel: string;
   calendarSetupAddCalendarButton: string;
+  /** `25-53`: the calendars list card's own table, split from the single blended card
+   * `CalendarSetupPage.tsx`'s own doc comment describes. `updateCalendar` already exists, so this
+   * table's own actions column carries an Edit button; there is no `deleteCalendar` endpoint yet - a
+   * real gap, not an omission - so no delete button. */
+  calendarCalendarsColumnHours: string;
+  calendarCalendarsColumnActions: string;
+  calendarCalendarsEmpty: string;
+  calendarEditCalendarTitle: string;
+  calendarNewCalendarTitle: string;
   calendarSetupServicesTitle: string;
   calendarSetupServiceMinutesSuffix: string;
   calendarSetupServiceNameLabel: string;
@@ -1826,6 +1840,16 @@ export interface ConsoleStrings {
   calendarSetupServicePricePlaceholder: string;
   calendarSetupServicePriceFromLabel: string;
   calendarSetupServiceDescriptionLabel: string;
+  /** `25-53`: the services list card's own table, split from the single blended card the item's own
+   * example (Записи › Услуги) named - see `CalendarServicesPage.tsx`'s own doc comment. `createService`
+   * is still the only write this object type has (`calendarApi.ts`'s own remarks); there is no edit or
+   * delete endpoint yet, so this table carries no actions column - a real gap, not an omission. */
+  calendarServicesColumnName: string;
+  calendarServicesColumnDuration: string;
+  calendarServicesColumnPrice: string;
+  calendarServicesColumnDescription: string;
+  calendarServicesEmpty: string;
+  calendarNewServiceTitle: string;
   calendarSetupWorkingHoursTitle: string;
   calendarSetupWorkingHoursDescription: string;
   calendarSetupNoWorkersNote: string;

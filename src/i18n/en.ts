@@ -552,6 +552,8 @@ export const en: ConsoleStrings = {
   tagsNewNamePlaceholder: "e.g. VIP",
   tagsCreatingButton: "Creating…",
   tagsCreateButton: "Create tag",
+  tagsColumnActions: "Actions",
+  tagsAddPanelTitle: "Add a tag",
 
   tagsSectionTitle: "Tags",
   tagsNoneApplied: "No tags applied.",
@@ -1150,6 +1152,11 @@ export const en: ConsoleStrings = {
   calendarSetupCalendarZoneLabel: "Time zone",
   calendarSetupCalendarPublishedLabel: "Published",
   calendarSetupAddCalendarButton: "Add calendar",
+  calendarCalendarsColumnHours: "Working hours",
+  calendarCalendarsColumnActions: "Actions",
+  calendarCalendarsEmpty: "No calendars yet.",
+  calendarEditCalendarTitle: "Edit calendar",
+  calendarNewCalendarTitle: "New calendar",
   calendarSetupServicesTitle: "Services",
   calendarSetupServiceMinutesSuffix: " min",
   calendarSetupServiceNameLabel: "Service name",
@@ -1159,6 +1166,12 @@ export const en: ConsoleStrings = {
   calendarSetupServicePricePlaceholder: "No stated price",
   calendarSetupServicePriceFromLabel: "“From” price (varies by master or job)",
   calendarSetupServiceDescriptionLabel: "Description",
+  calendarServicesColumnName: "Name",
+  calendarServicesColumnDuration: "Duration",
+  calendarServicesColumnPrice: "Price",
+  calendarServicesColumnDescription: "Description",
+  calendarServicesEmpty: "No services yet.",
+  calendarNewServiceTitle: "New service",
   calendarSetupWorkingHoursTitle: "Working hours",
   calendarSetupWorkingHoursDescription: 
     "Wall clock in the calendar’s own time zone - “we open at nine”, not an instant. A shift " +
