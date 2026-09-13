@@ -23,6 +23,7 @@ export const en: ConsoleStrings = {
   navCannedResponses: "Canned responses",
   navTags: "Tags",
   navPlatformSites: "Platform sites",
+  navSiteExport: "Download data",
   navDeleteAccount: "Delete account",
   navBilling: "Billing",
   navOperatorsTeam: "Employees",
@@ -652,6 +653,24 @@ export const en: ConsoleStrings = {
   accountDeletionInProgressBody:
     "The account is being deleted. This can take a while - do not close this page. You will be " +
     "signed out automatically once it is done.",
+
+  siteExportForbidden: "You do not have permission to download this site's data.",
+  siteExportDescription: "Prepare an archive of this site's data and download it before it is removed.",
+  siteExportLoadingLabel: "Loading export requests…",
+  siteExportLoadError: "Failed to load the list of export requests.",
+  siteExportEmpty: "No data exports have been requested yet.",
+  siteExportTableCaption: "Data export requests for this site",
+  siteExportColumnRequestedAt: "Requested",
+  siteExportColumnLink: "Link",
+  siteExportColumnExpiresAt: "Auto-deletes on",
+  siteExportDownloadLink: "Download",
+  siteExportStatusPending: "Preparing",
+  siteExportStatusReady: "Ready",
+  siteExportStatusFailed: "Failed",
+  siteExportStatusExpired: "Deleted (retention expired)",
+  siteExportRequestButton: "Prepare data for download",
+  siteExportRequestingButton: "Preparing…",
+  siteExportRequestError: "Failed to request a data export.",
 
   navSearch: "Search",
   searchPageDescription:
