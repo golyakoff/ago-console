@@ -665,6 +665,7 @@ export const ru: ConsoleStrings = {
   siteExportColumnExpiresAt: "Дата автоматического удаления",
   siteExportDownloadLink: "Скачать",
   siteExportStatusPending: "Готовится",
+  siteExportStatusProcessing: "В обработке",
   siteExportStatusReady: "Готово",
   siteExportStatusFailed: "Не удалось",
   siteExportStatusExpired: "Удалено по истечении срока",

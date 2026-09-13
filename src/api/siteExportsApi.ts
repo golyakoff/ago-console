@@ -25,7 +25,12 @@ import { problemDetailsFrom } from "./problemDetails.js";
  * not part of this change).
  */
 
-export type SiteExportStatus = "Pending" | "Ready" | "Failed" | "Expired";
+/** `25-72`: adds `"Processing"` - a request a `Worker` replica has atomically claimed and is
+ * currently building/uploading, between `"Pending"` (not yet claimed) and `"Ready"`/`"Failed"` (done).
+ * `Ago.Chat.Domain.ExportStatus`'s own remarks on that state explain why it exists; this union just
+ * mirrors its member names, the same "server names the state, client spells it the same way" contract
+ * the other four values already establish. */
+export type SiteExportStatus = "Pending" | "Processing" | "Ready" | "Failed" | "Expired";
 
 /** Wire shape of `Ago.Chat.Api.Sites.SitesEndpoints.SiteExportHistoryItemResponse`, one row per past
  * export request, newest first - `GetSiteExportHistoryHandler`'s own remarks on why `expiresAt` is
