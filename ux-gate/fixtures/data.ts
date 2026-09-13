@@ -256,6 +256,35 @@ export function seededOperatorTeam() {
   };
 }
 
+/** `25-73`: the same screen's invite-list panel - `GET .../operator-invites`. Two rows, not one:
+ * `Sent` (the ordinary case) and `SendFailed` (so the SMTP-failure row's own error-code text is part
+ * of the gate's rendered content, not only reachable behind an interaction this gate never drives) -
+ * `status` itself is a fixed enum member the client's own `strings.ts` translates, so only the
+ * free-text `email` needs `seededOperatorTeam`'s own Cyrillic-domain discipline above to keep this
+ * screen's "no untranslated interface text" run clean. */
+export function seededOperatorInvites() {
+  return {
+    invites: [
+      {
+        operatorInviteId: "66666666-6666-4666-8666-666666666666",
+        email: "олег@кофейня.рф",
+        createdAt: "2026-09-10T09:00:00.000Z",
+        expiresAt: "2026-09-17T09:00:00.000Z",
+        status: "Sent",
+        smtpErrorCode: null,
+      },
+      {
+        operatorInviteId: "77777777-7777-4777-8777-777777777777",
+        email: "светлана@кофейня.рф",
+        createdAt: "2026-09-11T09:00:00.000Z",
+        expiresAt: "2026-09-18T09:00:00.000Z",
+        status: "SendFailed",
+        smtpErrorCode: "550",
+      },
+    ],
+  };
+}
+
 /** `23-22`: the same screen's other call - `GET .../operators/seat-assignment-summary`
  * (`GetSeatAssignmentSummaryHandler`, unchanged by this item). `seatLimit: 1` against the two held
  * seats `seededOperatorTeam` above seeds makes `overSeats: true`, so the default gate run exercises

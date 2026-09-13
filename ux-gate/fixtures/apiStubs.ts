@@ -13,6 +13,7 @@ import {
   seededCalendarPendingBookings,
   seededCalendarWorkers,
   seededCalendarWorkerSlots,
+  seededOperatorInvites,
   seededOperatorTeam,
   seededOwnerSitesPage,
   seededPermissions,
@@ -162,6 +163,13 @@ export async function installApiStubs(
 
     if (path === `/api/v1/sites/${SITE_ID}/operators/seat-assignment-summary` && method === "GET") {
       return json(seededSeatAssignmentSummary());
+    }
+
+    // `25-73`: the invite-list panel's own read, on the identical route family (`.../operators` above)
+    // this file's own comment on that handler already flags for exact-string matching, so `.../operator-
+    // invites` never risks colliding with either of the two calls above it.
+    if (path === `/api/v1/sites/${SITE_ID}/operator-invites` && method === "GET") {
+      return json(seededOperatorInvites());
     }
 
     // `22-06`/`adr/0093`: `Ago.Calendar.Api`'s own `/api/v1/console/*` shape
