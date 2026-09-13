@@ -153,6 +153,9 @@ function buildTalkItems(isAdmin: boolean, strings: ConsoleStrings, unreadCount: 
   if (isAdmin) {
     items.push({ to: "/conversations/all", label: strings.navAllConversations });
     items.push({ to: "/conversations/search", label: strings.navSearch });
+    // `23-69`/`23-77`: the shared visitor-restriction mechanism's own screen - `site:configure`-gated
+    // like the two entries right above it (RestrictedVisitorsPage's own remarks).
+    items.push({ to: "/conversations/restricted", label: strings.navRestrictedVisitors });
   }
   return items;
 }

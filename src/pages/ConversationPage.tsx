@@ -21,10 +21,19 @@ import { Spinner } from "../components/Spinner.js";
 import { Tooltip } from "../components/Tooltip.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { fetchChannelDeliveries, type ChannelDeliveryDto } from "../api/channelDeliveriesApi.js";
-import { closeConversation, fetchVisitorHistory, grantAttachmentUpload, revokeAttachmentUpload } from "../api/conversationsApi.js";
+import {
+  blockVisitor,
+  closeConversation,
+  closeConversationAsSpam,
+  fetchVisitorHistory,
+  grantAttachmentUpload,
+  revokeAttachmentUpload,
+} from "../api/conversationsApi.js";
 import { generateReplyDraft, ReplyDraftError } from "../api/replyDraftApi.js";
 import type { VisitorHistoryResponse } from "../realtime/protocol/types.js";
 import { AttachmentUploadGrantToggle } from "../workspace/AttachmentUploadGrantToggle.js";
+import { BlockVisitorButton } from "../workspace/BlockVisitorButton.js";
+import { CloseAsSpamButton } from "../workspace/CloseAsSpamButton.js";
 import { CloseConversationButton } from "../workspace/CloseConversationButton.js";
 import { Composer } from "../workspace/Composer.js";
 import { Thread } from "../workspace/Thread.js";
@@ -715,6 +724,42 @@ export function ConversationPage() {
               onStaleQueue={refreshQueue}
             />
           )}
+
+          {/* `23-69`: absent once this tab has closed the conversation, the identical reason
+              `CloseConversationButton` right above it is absent then - a second act of closing
+              something already closed has nothing left to act on. Absent entirely for an operator
+              without `conversation:mark_spam`, which the component itself decides. */}
+          {!closed && (
+            <CloseAsSpamButton
+              onCloseAsSpam={async () => {
+                if (!user?.access_token || !conversationId) {
+                  throw new Error("Not ready");
+                }
+
+                return closeConversationAsSpam(user.access_token, conversationId);
+              }}
+              onClosed={() => {
+                setClosed(true);
+                refreshQueue();
+              }}
+              onStaleQueue={refreshQueue}
+            />
+          )}
+
+          {/* `23-77`: unlike the two close actions above, blocking does not end the conversation -
+              still offered once closed, since an operator reviewing an already-closed nuisance
+              conversation may only now decide the visitor should be blocked. Absent entirely for an
+              operator without `conversation:block`, which the component itself decides. */}
+          <BlockVisitorButton
+            onBlock={async () => {
+              if (!user?.access_token || !conversationId) {
+                return;
+              }
+
+              await blockVisitor(user.access_token, conversationId);
+            }}
+            onBlocked={() => {}}
+          />
 
           {/* `23-78`: absent once this tab has closed the conversation, the identical reason
               `CloseConversationButton` right above it is - granting or revoking an upload permission
