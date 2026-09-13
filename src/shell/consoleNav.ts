@@ -411,6 +411,13 @@ function buildAdminItems(
     items.push({ to: "/account/device-storage", label: strings.navDeviceStorage });
     items.push({ to: "/account/documents", label: strings.navAccountDocuments });
   }
+  // `16-03`: gated on its own `site:export`, immediately before "Удалить аккаунт" - the author's own
+  // placement (`SiteExportPage`'s own doc comment). Hidden rather than muted when lacking it, matching
+  // `site:erase`/`site:manage_operators` right around it rather than the five `isAdmin`-only entries
+  // above, which stay unconditional once `isAdmin` and mute nothing at the per-item level.
+  if (permissionsKnown && hasPermission("site:export")) {
+    items.push({ to: "/account/export", label: strings.navSiteExport });
+  }
   if (permissionsKnown && hasPermission("site:erase")) {
     items.push({ to: "/account/delete", label: strings.navDeleteAccount });
   }

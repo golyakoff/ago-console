@@ -21,6 +21,7 @@ export const ru: ConsoleStrings = {
   navCannedResponses: "Готовые ответы",
   navTags: "Метки",
   navPlatformSites: "Сайты платформы",
+  navSiteExport: "Скачать данные",
   navDeleteAccount: "Удалить аккаунт",
   navBilling: "Оплата",
   navOperatorsTeam: "Сотрудники",
@@ -652,6 +653,24 @@ export const ru: ConsoleStrings = {
   accountDeletionInProgressBody:
     "Аккаунт удаляется. Это может занять некоторое время — не закрывайте эту страницу. Как только " +
     "удаление завершится, вы будете автоматически выведены из системы.",
+
+  siteExportForbidden: "У вас нет права скачивать данные этого сайта.",
+  siteExportDescription: "Подготовьте архив с данными этого сайта и скачайте его, пока он не удалён.",
+  siteExportLoadingLabel: "Загрузка запросов на выгрузку…",
+  siteExportLoadError: "Не удалось загрузить список запросов на выгрузку.",
+  siteExportEmpty: "Запросов на выгрузку данных ещё не было.",
+  siteExportTableCaption: "Запросы на выгрузку данных этого сайта",
+  siteExportColumnRequestedAt: "Дата запроса",
+  siteExportColumnLink: "Ссылка",
+  siteExportColumnExpiresAt: "Дата автоматического удаления",
+  siteExportDownloadLink: "Скачать",
+  siteExportStatusPending: "Готовится",
+  siteExportStatusReady: "Готово",
+  siteExportStatusFailed: "Не удалось",
+  siteExportStatusExpired: "Удалено по истечении срока",
+  siteExportRequestButton: "Подготовить данные для скачивания",
+  siteExportRequestingButton: "Подготовка…",
+  siteExportRequestError: "Не удалось запросить выгрузку данных.",
 
   navSearch: "Поиск",
   searchPageDescription:

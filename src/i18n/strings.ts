@@ -66,6 +66,11 @@ export interface ConsoleStrings {
    * vocabulary's own management surface (`/automation/tags`, `TagsPage`). */
   navTags: string;
   navPlatformSites: string;
+  /** `16-03`: gated on its own `site:export`, deliberately separate from the `site:configure` block
+   * above - the same "a dedicated action deserves its own permission" reasoning `navDeleteAccount`
+   * right below already states for its own `site:erase`. Placed immediately before it in
+   * `consoleNav.ts`'s `buildAdminItems` (the author's own placement). */
+  navSiteExport: string;
   /** `16-02`: gated on `site:erase`, deliberately separate from the `site:configure` block above -
    * the backlog item's own scope note ("a single boolean that destroys a business is a plausible case
    * for its own [permission]"). */
@@ -973,6 +978,30 @@ export interface ConsoleStrings {
    * sitting beside a now-meaningless "Delete this account" button. */
   accountDeletionInProgressTitle: string;
   accountDeletionInProgressBody: string;
+
+  // `16-03`: SiteExportPage - `/account/export`, "Скачать данные". Gated on `site:export`, not
+  // `site:erase`/`site:configure` (`navSiteExport`'s own remarks). A table of past export requests
+  // plus one button that starts a new one - see that page's own doc comment for why no poll exists.
+  siteExportForbidden: string;
+  siteExportDescription: string;
+  siteExportLoadingLabel: string;
+  siteExportLoadError: string;
+  siteExportEmpty: string;
+  siteExportTableCaption: string;
+  siteExportColumnRequestedAt: string;
+  siteExportColumnLink: string;
+  siteExportColumnExpiresAt: string;
+  siteExportDownloadLink: string;
+  /** The four `ExportStatus` values (`Ago.Chat.Domain.ExportStatus`), rendered in "ссылка" when a row
+   * has no working download link (only a `"Ready"` row with a `downloadUrl` renders the link itself -
+   * `SiteExportPage`'s own `statusLabel`). */
+  siteExportStatusPending: string;
+  siteExportStatusReady: string;
+  siteExportStatusFailed: string;
+  siteExportStatusExpired: string;
+  siteExportRequestButton: string;
+  siteExportRequestingButton: string;
+  siteExportRequestError: string;
 
   // `18-01`: SearchConversationsPage (`/search`) - site-wide full-text search, gated on
   // `site:configure` the same way `AdminConversationsPage`/`WidgetConfigPage` already are, so it reuses
