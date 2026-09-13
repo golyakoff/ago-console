@@ -285,9 +285,17 @@ export function OwnerSitesPage() {
             // touch-target sizing - a bare `Link` here failed the UX gate's own minimum-interactive-
             // size check live in CI (63x22px against the enforced minimum).
             aside={
-              <Link to="/owner/pricing" className="ago-btn ago-btn--secondary ago-btn--md">
-                Price list
-              </Link>
+              <div className="ago-row">
+                {/* `22-08`: the console's own "who is currently suspended" screen - reached from
+                    here, not from a second pinned nav entry, the identical precedent this page's
+                    own "Price list" link already sets for `OwnerPricingPage`. */}
+                <Link to="/owner/suspensions" className="ago-btn ago-btn--secondary ago-btn--md">
+                  Suspended accounts
+                </Link>
+                <Link to="/owner/pricing" className="ago-btn ago-btn--secondary ago-btn--md">
+                  Price list
+                </Link>
+              </div>
             }
             // Found live, 2026-08-28: the table below used to sit in its own titled `Panel` ("Sites"),
             // whose description carried the one fact `PageHead` did not already say - the time window

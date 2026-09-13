@@ -191,6 +191,9 @@ export interface OwnerSiteDetail {
   /** `23-68`: every non-removed operator this site currently has - added so the owner's detail screen
    * can name a locked-out operator to restore a seat for without a second round trip. */
   operators: OwnerSiteOperator[];
+  /** `22-08`: the account-wide freeze - `null` means "not suspended", never rendered as a blank. The
+   * one place this can be set, extended or lifted is this same detail screen. */
+  suspendedUntil: string | null;
 }
 
 /**
@@ -826,4 +829,178 @@ export async function probeOwnerEligibility(accessToken: string): Promise<OwnerE
   }
 
   return "unknown";
+}
+
+/**
+ * `22-08`/`adr/0166`: the platform owner's own account-wide freeze - a suspected violation, never a
+ * commercial lever (`docs/backlog/22-08-*.md`'s own *Answered* section). The three outcome shapes
+ * below (suspend/extend/lift) share the identical vocabulary: `"conflict"` is a real conflict with
+ * the account's own current suspension state (already suspended, or not suspended at all), resolved
+ * by a different action rather than by fixing the request body - the same shape
+ * `RevokeOwnerModuleOutcome`'s own `"requires-force"` remarks describe for an analogous case.
+ */
+export type SuspendTenantOutcome =
+  | { status: "ok"; suspendedUntil: string }
+  | { status: "not-authorized" }
+  | { status: "not-found" }
+  | { status: "conflict"; message: string }
+  | { status: "invalid"; message: string };
+
+/** `POST /api/v1/owner/sites/{siteId}/suspend` - the owner's own initial freeze. `durationMinutes`
+ * is the owner's own chosen length, in minutes, from the moment this call lands - `adr/0166`'s own
+ * "not a fixed system number at all". */
+export async function suspendOwnerSite(
+  accessToken: string,
+  siteId: string,
+  durationMinutes: number,
+  reason: string,
+): Promise<SuspendTenantOutcome> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/owner/sites/${siteId}/suspend`);
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: withActiveSiteHeader({
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify({ durationMinutes, reason }),
+  });
+
+  return parseSuspensionWriteResponse(response, "suspend this account");
+}
+
+/** `POST /api/v1/owner/sites/{siteId}/suspension/extend` - pushes an already-suspended account's own
+ * deadline further out by `additionalMinutes`, added to its *current* deadline, not to "now". */
+export async function extendOwnerSuspension(
+  accessToken: string,
+  siteId: string,
+  additionalMinutes: number,
+  reason: string,
+): Promise<SuspendTenantOutcome> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/owner/sites/${siteId}/suspension/extend`);
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: withActiveSiteHeader({
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify({ additionalMinutes, reason }),
+  });
+
+  return parseSuspensionWriteResponse(response, "extend this suspension");
+}
+
+/** The outcome of lifting a suspension early - no `suspendedUntil` to report back, since the whole
+ * point is that there is none any more. */
+export type LiftSuspensionOutcome =
+  | { status: "ok" }
+  | { status: "not-authorized" }
+  | { status: "not-found" }
+  | { status: "conflict"; message: string }
+  | { status: "invalid"; message: string };
+
+/** `POST /api/v1/owner/sites/{siteId}/suspension/lift` - the console's own "unblock", restoring
+ * bookings and the widget with no re-provisioning and no new credential. */
+export async function unblockOwnerSuspension(
+  accessToken: string,
+  siteId: string,
+  reason: string,
+): Promise<LiftSuspensionOutcome> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/owner/sites/${siteId}/suspension/lift`);
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: withActiveSiteHeader({
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify({ reason }),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    return { status: "not-authorized" };
+  }
+
+  if (response.status === 404) {
+    return { status: "not-found" };
+  }
+
+  if (response.status === 409) {
+    const problem = (await response.json()) as { detail?: string };
+    return { status: "conflict", message: problem.detail ?? "This account is not currently suspended." };
+  }
+
+  if (response.status === 400) {
+    const problem = (await response.json()) as { detail?: string };
+    return { status: "invalid", message: problem.detail ?? "A reason is required." };
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to lift the suspension: ${response.status}`);
+  }
+
+  return { status: "ok" };
+}
+
+async function parseSuspensionWriteResponse(response: Response, action: string): Promise<SuspendTenantOutcome> {
+  if (response.status === 401 || response.status === 403) {
+    return { status: "not-authorized" };
+  }
+
+  if (response.status === 404) {
+    return { status: "not-found" };
+  }
+
+  if (response.status === 409) {
+    const problem = (await response.json()) as { detail?: string };
+    return { status: "conflict", message: problem.detail ?? `Could not ${action} - its current state disagrees.` };
+  }
+
+  if (response.status === 400) {
+    const problem = (await response.json()) as { detail?: string };
+    return { status: "invalid", message: problem.detail ?? "A valid duration and a reason are required." };
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to ${action}: ${response.status}`);
+  }
+
+  const body = (await response.json()) as { suspendedUntil: string };
+  return { status: "ok", suspendedUntil: body.suspendedUntil };
+}
+
+/** `22-08`: one currently-suspended account, as the owner's own list screen needs it - "since when,
+ * until when, and what to do about it", restated for the owner rather than the tenant. */
+export interface OwnerSuspension {
+  siteId: string;
+  siteName: string;
+  suspendedUntil: string;
+  lastActionBy: string;
+  lastActionReason: string;
+  lastActionAt: string;
+}
+
+export type OwnerSuspensionsOutcome =
+  | { status: "ok"; suspensions: OwnerSuspension[] }
+  | { status: "not-authorized" };
+
+/** `GET /api/v1/owner/suspensions` - the console's own "who is currently suspended" screen. */
+export async function fetchOwnerSuspensions(accessToken: string): Promise<OwnerSuspensionsOutcome> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/owner/suspensions`);
+
+  const response = await fetch(url, {
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    return { status: "not-authorized" };
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to load suspended accounts: ${response.status}`);
+  }
+
+  const body = (await response.json()) as { suspensions: OwnerSuspension[] };
+  return { status: "ok", suspensions: body.suspensions };
 }
