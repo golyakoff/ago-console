@@ -5,7 +5,7 @@ import type { User } from "oidc-client-ts";
 import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { RegisterSiteError } from "../api/sitesApi.js";
 import { OnboardingPage } from "./OnboardingPage.js";
-import { byText, interact, one, render, unmount } from "../testing/dom.js";
+import { byText, flush, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
  * `10-03`: the one-time detour a self-registered identity takes before joining the same queue every
@@ -39,9 +39,14 @@ const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn(), fetchOwnerS
 // (`documentsApi.ts`'s own "fails open" remarks) - explicit here so every existing test in this file
 // keeps its own "nothing beyond contract necessity today" default without a real network attempt.
 const documentsApi = vi.hoisted(() => ({ getRequiredDocuments: vi.fn() }));
+// `25-73`: OnboardingPage's own registration-collision steer - resolved to "no pending invite" by
+// default so every existing test below (none of which are about this new probe) sees the ordinary
+// form with no extra alert.
+const operatorInvitesApi = vi.hoisted(() => ({ hasPendingOperatorInvite: vi.fn().mockResolvedValue({ hasPendingInvite: false }) }));
 
 vi.mock("../api/ownerApi.js", () => ownerApi);
 vi.mock("../api/documentsApi.js", () => documentsApi);
+vi.mock("../api/operatorInvitesApi.js", () => operatorInvitesApi);
 
 vi.mock("../api/sitesApi.js", async () => {
   // `RegisterSiteError` is a real class the page does `instanceof` against, so the module keeps its
@@ -223,6 +228,47 @@ describe("the invite-code alternative", () => {
     const link = byText<HTMLAnchorElement>(container, "a", "Redeem it here");
     expect(link).not.toBeNull();
     expect(link?.getAttribute("href")).toBe("/redeem-invite");
+  });
+});
+
+/** `25-73`'s own registration-collision steer - the console-reachable half (see this item's own
+ * worker report for why the *other* half, catching Keycloak's own hosted registration duplicate-email
+ * error, is not achievable in console code alone). `tone="info"`, the form stays usable either way -
+ * the identical "explain, don't refuse" shape `12-05`'s own platform-owner alert above already
+ * establishes. */
+describe("25-73: the pending-invite steer", () => {
+  it("shows nothing extra when the identity has no pending invite - the ordinary case", async () => {
+    operatorInvitesApi.hasPendingOperatorInvite.mockResolvedValue({ hasPendingInvite: false });
+
+    const container = await render(app());
+    await flush();
+
+    expect(container.textContent).not.toContain("You have an invite");
+  });
+
+  /** Fails-before: reverting the `hasPendingInvite &&` guard (or the effect that sets it) makes this
+   * fail - the alert simply never appears no matter what the probe answers. */
+  it("shows the alert, with a link straight to redemption, when the identity has one", async () => {
+    operatorInvitesApi.hasPendingOperatorInvite.mockResolvedValue({ hasPendingInvite: true });
+
+    const container = await render(app());
+    await flush();
+
+    expect(container.textContent).toContain("You have an invite");
+    const link = byText<HTMLAnchorElement>(container, "a", "redeem it here instead");
+    expect(link?.getAttribute("href")).toBe("/redeem-invite");
+    // The form is still usable - `12-05`'s own precedent, restated: explain, don't refuse.
+    expect(container.querySelector("form")).not.toBeNull();
+  });
+
+  it("fails open - a probe error still renders the ordinary form, no extra alert", async () => {
+    operatorInvitesApi.hasPendingOperatorInvite.mockRejectedValue(new TypeError("Failed to fetch"));
+
+    const container = await render(app());
+    await flush();
+
+    expect(container.textContent).not.toContain("You have an invite");
+    expect(container.querySelector("form")).not.toBeNull();
   });
 });
 

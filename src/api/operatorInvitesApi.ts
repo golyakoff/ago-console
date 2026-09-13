@@ -88,3 +88,25 @@ export async function previewOperatorInvite(code: string): Promise<OperatorInvit
 
   return (await response.json()) as OperatorInvitePreviewResponse;
 }
+
+/**
+ * `25-73`: `OnboardingPage`'s own registration-collision steer - `GET /api/v1/operator-invites/pending-for-me`,
+ * `RequireKeycloakIdentity` (this caller may resolve to no `operators` row yet, the identical policy
+ * `redeemOperatorInvite` above already uses). The server reads the email off the *token*, never a
+ * value this call supplies - there is nothing here for a caller to name an arbitrary address with.
+ */
+export interface HasPendingOperatorInviteResponse {
+  hasPendingInvite: boolean;
+}
+
+export async function hasPendingOperatorInvite(accessToken: string): Promise<HasPendingOperatorInviteResponse> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/operator-invites/pending-for-me`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!response.ok) {
+    throw await problemDetailsFrom(response);
+  }
+
+  return (await response.json()) as HasPendingOperatorInviteResponse;
+}

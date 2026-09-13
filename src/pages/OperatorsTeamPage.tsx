@@ -8,11 +8,14 @@ import {
   createOperatorInvite,
   fetchOperatorTeam,
   fetchSeatAssignmentSummary,
+  listOperatorInvites,
   removeOperator,
+  revokeOperatorInvite,
   toggleOperatorSeat,
   ROLE_ADMIN,
   ROLE_OPERATOR,
   type CreateOperatorInviteResponseDto,
+  type OperatorInviteListEntryDto,
   type OperatorTeamMemberDto,
   type SeatAssignmentSummaryDto,
 } from "../api/operatorTeamApi.js";
@@ -25,6 +28,8 @@ import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
 import { Dialog } from "../components/Dialog.js";
 import { Select } from "../components/Select.js";
+import { Field } from "../components/Field.js";
+import { Input } from "../components/Input.js";
 import { Alert } from "../components/Alert.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
@@ -106,6 +111,17 @@ export function OperatorsTeamPage() {
   // `23-72`: the invite dialog's own role choice - defaults to Operator, the console's original,
   // only offer before this item.
   const [inviteRoleName, setInviteRoleName] = useState(ROLE_OPERATOR);
+  // `25-73`: required on the form now - the address Keycloak's own invite email goes to.
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteEmailValidationError, setInviteEmailValidationError] = useState<string | null>(null);
+
+  // `25-73`: the invite-list table - "shown only when at least one invite exists for the site"
+  // (this item's own point 7), so `null` (not yet loaded) and `[]` (loaded, empty) are kept distinct.
+  const [invites, setInvites] = useState<OperatorInviteListEntryDto[] | null>(null);
+  const [invitesLoadError, setInvitesLoadError] = useState<string | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<OperatorInviteListEntryDto | null>(null);
+  const [revokeSubmitting, setRevokeSubmitting] = useState(false);
+  const [revokeError, setRevokeError] = useState<string | null>(null);
 
   const accessToken = user?.access_token;
 
@@ -123,12 +139,29 @@ export function OperatorsTeamPage() {
       .catch((err: unknown) => setLoadError(err instanceof ApiProblemError ? err.message : strings.operatorsTeamLoadError));
   }, [accessToken, siteId, strings]);
 
+  // `25-73`: its own load, separate from `load()` above - the invite list is a genuinely different
+  // read (a different endpoint, a different failure to report) from the operator table/seat summary,
+  // the same "one function per concern" split this page already draws between those two.
+  const loadInvites = useCallback(() => {
+    if (!accessToken || !siteId) {
+      return;
+    }
+
+    listOperatorInvites(accessToken, siteId)
+      .then((response) => {
+        setInvites(response.invites);
+        setInvitesLoadError(null);
+      })
+      .catch((err: unknown) => setInvitesLoadError(err instanceof ApiProblemError ? err.message : strings.operatorsTeamInviteListLoadError));
+  }, [accessToken, siteId, strings]);
+
   useEffect(() => {
     if (!hasPermission(OPERATORS_TEAM_PERMISSION)) {
       return;
     }
     load();
-  }, [load, hasPermission]);
+    loadInvites();
+  }, [load, loadInvites, hasPermission]);
 
   if (permissions === null) {
     return <Spinner label={strings.siteConfigCheckingPermissions} />;
@@ -159,6 +192,8 @@ export function OperatorsTeamPage() {
     setInviteResult(null);
     setInviteLinkCopied(false);
     setInviteRoleName(ROLE_OPERATOR);
+    setInviteEmail("");
+    setInviteEmailValidationError(null);
     setInviteDialogOpen(true);
   };
 
@@ -174,15 +209,61 @@ export function OperatorsTeamPage() {
       return;
     }
 
+    // `25-73`: refused by the API too (`OperatorInvite.InvalidEmail`) - this is only the same
+    // "catch an obvious mistake before a round trip" UX-only check `OnboardingPage.tsx`'s own
+    // `validate()` already uses for its origin field, never the real gate.
+    const trimmedEmail = inviteEmail.trim();
+    if (trimmedEmail.length === 0) {
+      setInviteEmailValidationError(strings.operatorsTeamInviteEmailValidationEmpty);
+      return;
+    }
+    setInviteEmailValidationError(null);
+
     setInviteSubmitting(true);
     setInviteError(null);
     try {
-      const created = await createOperatorInvite(accessToken, siteId, inviteRoleName);
+      const created = await createOperatorInvite(accessToken, siteId, inviteRoleName, trimmedEmail);
       setInviteResult(created);
+      // The invite list below should reflect this new row (and, if the send failed, its status) the
+      // moment the dialog is closed - reloaded now rather than only on the next full page visit.
+      loadInvites();
     } catch (err) {
       setInviteError(err instanceof ApiProblemError ? err.message : strings.operatorsTeamInviteSubmitError);
     } finally {
       setInviteSubmitting(false);
+    }
+  };
+
+  const attemptRevoke = async () => {
+    if (!accessToken || !siteId || !revokeTarget) {
+      return;
+    }
+
+    setRevokeSubmitting(true);
+    setRevokeError(null);
+    try {
+      await revokeOperatorInvite(accessToken, siteId, revokeTarget.operatorInviteId);
+      setRevokeTarget(null);
+      loadInvites();
+    } catch (err) {
+      setRevokeError(err instanceof ApiProblemError ? err.message : strings.operatorsTeamInviteRevokeError);
+    } finally {
+      setRevokeSubmitting(false);
+    }
+  };
+
+  const inviteStatusLabel = (entry: OperatorInviteListEntryDto): string => {
+    switch (entry.status) {
+      case "Sent":
+        return strings.operatorsTeamInviteStatusSent;
+      case "SendFailed":
+        return `${strings.operatorsTeamInviteStatusSendFailed} ${entry.smtpErrorCode ?? "?"}`;
+      case "Revoked":
+        return strings.operatorsTeamInviteStatusRevoked;
+      case "Redeemed":
+        return strings.operatorsTeamInviteStatusRedeemed;
+      case "Expired":
+        return strings.operatorsTeamInviteStatusExpired;
     }
   };
 
@@ -322,8 +403,87 @@ export function OperatorsTeamPage() {
               />
             </div>
           </Panel>
+
+          {/* `25-73`: shown only when at least one invite exists for the site - this item's own
+              point 7. `invites === null` (not yet loaded) and `invites.length === 0` (loaded, none
+              exist) are both "render nothing", the identical "no Panel at all" shape this page
+              already gives an empty state elsewhere rather than an empty table with a caption. */}
+          {invitesLoadError && <Alert tone="danger">{invitesLoadError}</Alert>}
+          {invites !== null && invites.length > 0 && (
+            <Panel title={strings.operatorsTeamInviteListPanelTitle}>
+              <Table<OperatorInviteListEntryDto>
+                caption={strings.operatorsTeamInviteListPanelTitle}
+                rowKey={(row) => row.operatorInviteId}
+                rows={invites}
+                columns={[
+                  {
+                    key: "email",
+                    header: strings.operatorsTeamInviteListEmailColumn,
+                    render: (row) => row.email,
+                  },
+                  {
+                    key: "sent",
+                    header: strings.operatorsTeamInviteListSentColumn,
+                    render: (row) => formatDateStamp(parseInstant(row.createdAt), timeZone, strings),
+                  },
+                  {
+                    key: "status",
+                    header: strings.operatorsTeamInviteListStatusColumn,
+                    render: (row) => (
+                      <Badge tone={row.status === "SendFailed" ? "danger" : row.status === "Revoked" ? "neutral" : "success"}>
+                        {inviteStatusLabel(row)}
+                      </Badge>
+                    ),
+                  },
+                  {
+                    key: "expiry",
+                    header: strings.operatorsTeamInviteListExpiryColumn,
+                    render: (row) => formatDateStamp(parseInstant(row.expiresAt), timeZone, strings),
+                  },
+                  {
+                    key: "actions",
+                    header: strings.operatorsTeamInviteListActionsColumn,
+                    render: (row) =>
+                      // Only an unredeemed, unrevoked, still-live invite can be revoked at all - the
+                      // button simply is not offered for a row already past that point, rather than
+                      // being offered and refused server-side (RevokeOperatorInviteHandler's own
+                      // AlreadyRedeemed/Revoked checks still exist as the real, load-bearing guard;
+                      // this is presentation only).
+                      row.status === "Sent" || row.status === "SendFailed" ? (
+                        <Button variant="ghost" onClick={() => setRevokeTarget(row)}>
+                          {strings.operatorsTeamInviteRevokeButton}
+                        </Button>
+                      ) : null,
+                  },
+                ]}
+              />
+            </Panel>
+          )}
         </div>
       )}
+
+      <Dialog
+        open={revokeTarget !== null}
+        title={strings.operatorsTeamInviteRevokeDialogTitle}
+        onClose={() => setRevokeTarget(null)}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setRevokeTarget(null)} disabled={revokeSubmitting}>
+              {strings.cancelButton}
+            </Button>
+            <Button variant="primary" onClick={() => void attemptRevoke()} disabled={revokeSubmitting}>
+              {strings.operatorsTeamInviteRevokeConfirmButton}
+            </Button>
+          </>
+        }
+      >
+        <div className="ago-stack">
+          <p>
+            {strings.operatorsTeamInviteRevokeDialogBody} {revokeTarget?.email}?
+          </p>
+          {revokeError && <Alert tone="danger">{revokeError}</Alert>}
+        </div>
+      </Dialog>
 
       <Dialog
         open={inviteDialogOpen}
@@ -352,9 +512,18 @@ export function OperatorsTeamPage() {
       >
         {inviteResult ? (
           <div className="ago-stack">
-            <Alert tone="success" title={strings.operatorsTeamInviteSuccessTitle}>
-              {strings.operatorsTeamInviteSuccessBody}
+            {/* `25-73`: Keycloak sends the email itself now - the success panel leads with that fact,
+                never only the copyable link `23-70` built for the admin to distribute by hand. That
+                link is kept below as a fallback (the invite's own code/link still works, e.g. for
+                sharing over a channel Keycloak's mail relay cannot reach), not removed outright. */}
+            <Alert tone={inviteResult.sendFailed ? "danger" : "success"} title={strings.operatorsTeamInviteSuccessTitle}>
+              {inviteResult.sendFailed ? strings.operatorsTeamInviteSendFailedWarning : (
+                <>
+                  {strings.operatorsTeamInviteSuccessBodyEmail} {inviteEmail}
+                </>
+              )}
             </Alert>
+            <p>{strings.operatorsTeamInviteSuccessBody}</p>
             <p>
               <strong>{strings.operatorsTeamInviteLinkLabel}:</strong>
             </p>
@@ -385,6 +554,21 @@ export function OperatorsTeamPage() {
           </Alert>
         ) : (
           <div className="ago-stack">
+            {/* `25-73`: required now - refused server-side (`OperatorInvite.InvalidEmail`) when
+                absent or malformed, this field only catches the empty case before a round trip. */}
+            <Field label={strings.operatorsTeamInviteEmailLabel} error={inviteEmailValidationError}>
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  disabled={inviteSubmitting}
+                  autoComplete="off"
+                />
+              )}
+            </Field>
+
             {/* `23-72`: the role picker - the API already took `roleName` at invite creation
                 (`13-01`), this dialog just never offered a choice before this item. */}
             <label>
