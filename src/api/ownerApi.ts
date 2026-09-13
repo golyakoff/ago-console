@@ -165,6 +165,22 @@ export interface OwnerSiteOperator {
   roleNames: string[];
 }
 
+/**
+ * `25-76`: one role this tenant has, with its own actual, current permission list - mirrors
+ * `Ago.Chat.Contracts.OwnerSiteRoleDto` field for field. Not a template: this is what a registration
+ * happened to write for this specific tenant, on whatever day it registered, and nothing since
+ * (`docs/backlog/25-76-*.md`'s own "Found": seven live tenants queried, seven different `Admin`
+ * permission sets).
+ */
+export interface OwnerSiteRole {
+  /** `"Operator"` or `"Admin"` today - the two fixed role names this codebase has always had. This
+   * screen builds no way to name a third one. */
+  name: string;
+  /** This role's own actual permission list, read fresh from `roles.permissions` - never assumed
+   * from what a brand-new registration would grant today. */
+  permissions: string[];
+}
+
 /** `23-14`: `GET /api/v1/owner/sites/{siteId}`'s response body - mirrors
  * `Ago.Chat.Contracts.OwnerSiteDetailResponse`. The same eight aggregate fields `OwnerSiteSummary`
  * carries, for exactly one tenant, plus `modules`. */
@@ -194,6 +210,15 @@ export interface OwnerSiteDetail {
   /** `22-08`: the account-wide freeze - `null` means "not suspended", never rendered as a blank. The
    * one place this can be set, extended or lifted is this same detail screen. */
   suspendedUntil: string | null;
+  /** `25-76`: every role this site has, with its own actual, current permission list - added so the
+   * owner's detail screen can show what a role really carries and add what it is missing, without a
+   * second round trip. */
+  roles: OwnerSiteRole[];
+  /** `25-76`: every permission this deployment's code knows about
+   * (`Ago.Chat.Domain.Permission.AllKnownValues`) - carried alongside `roles` so the "add a
+   * permission" picker has a closed vocabulary to offer without keeping its own copy that could drift
+   * from the server's. */
+  allKnownPermissions: string[];
 }
 
 /**
@@ -1003,4 +1028,73 @@ export async function fetchOwnerSuspensions(accessToken: string): Promise<OwnerS
 
   const body = (await response.json()) as { suspensions: OwnerSuspension[] };
   return { status: "ok", suspensions: body.suspensions };
+}
+
+/**
+ * `25-76`: the body `PUT /api/v1/owner/sites/{siteId}/roles/{roleName}/permissions` takes - mirrors
+ * `Ago.Chat.Api.Owner.OwnerRolesEndpoints.AddRolePermissionsRequest`. ADD only - there is no removal
+ * counterpart anywhere in this codebase yet (the item's own scope decision), so `permissions` is
+ * always a set of values to add to whatever the role already holds, never a replacement list.
+ */
+export interface AddOwnerRolePermissionsDraft {
+  permissions: string[];
+}
+
+/**
+ * `25-76`: the outcome of adding a permission to a tenant's role as the platform owner - the same
+ * `"invalid"` shape `UpdateOwnerSiteAllowedOriginsOutcome`'s own remarks describe: the server names
+ * what was wrong (an unknown permission string, an empty list, or a role name that does not exist on
+ * this site - `Role.PermissionUnknown`/`Role.PermissionsRequired`/`Operator.RoleNotFound`, all `400`),
+ * one shape because the field this console shows an error next to is the same regardless of which.
+ */
+export type AddOwnerRolePermissionsOutcome =
+  | { status: "ok" }
+  | { status: "not-authorized" }
+  | { status: "not-found" }
+  | { status: "invalid"; message: string };
+
+/**
+ * `25-76`: `PUT /api/v1/owner/sites/{siteId}/roles/{roleName}/permissions` - the platform owner's own
+ * write for "this role is missing a permission, add it", reached from `/owner`'s tenant detail screen.
+ * Returns only a bare `"ok"` on success, deliberately - the caller re-reads the site's own roles
+ * through `fetchOwnerSiteDetail` afterward rather than splice a locally-built permission list in, the
+ * identical "the server's own read is the only source for this table" reasoning
+ * `handleRestoreSeat`'s own remarks give for the operator roster right below this one on the same
+ * screen.
+ */
+export async function addOwnerRolePermissions(
+  accessToken: string,
+  siteId: string,
+  roleName: string,
+  draft: AddOwnerRolePermissionsDraft,
+): Promise<AddOwnerRolePermissionsOutcome> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/owner/sites/${siteId}/roles/${roleName}/permissions`);
+
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: withActiveSiteHeader({
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify(draft),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    return { status: "not-authorized" };
+  }
+
+  if (response.status === 404) {
+    return { status: "not-found" };
+  }
+
+  if (response.status === 400) {
+    const problem = (await response.json()) as { detail?: string };
+    return { status: "invalid", message: problem.detail ?? "This permission could not be added." };
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to add the permission: ${response.status}`);
+  }
+
+  return { status: "ok" };
 }

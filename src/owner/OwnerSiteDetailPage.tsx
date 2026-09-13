@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthContext.js";
 import { operatorDisplayName } from "../auth/operatorDisplayName.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import {
+  addOwnerRolePermissions,
   extendOwnerSuspension,
   fetchOwnerSiteDetail,
   grantOwnerModule,
@@ -16,6 +17,7 @@ import {
   type OwnerSiteDetail,
   type OwnerSiteModule,
   type OwnerSiteOperator,
+  type OwnerSiteRole,
 } from "../api/ownerApi.js";
 import { en } from "../i18n/en.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
@@ -189,6 +191,18 @@ export function OwnerSiteDetailPage() {
   const [forceReason, setForceReason] = useState("");
   const [forceError, setForceError] = useState<string | null>(null);
   const [forceSubmitting, setForceSubmitting] = useState(false);
+
+  // `25-76`: the role-permission tool's own state. `permissionSelections` is keyed by role name
+  // rather than a single value, because more than one role's own picker is on screen at once
+  // (`"Operator"` and `"Admin"`, `site.roles`) and choosing one must not clear the other.
+  // `addingPermissionForRole` is which row's own button shows a busy state, the identical
+  // `restoringOperatorId` shape above - no dialog at all, since adding a permission is a safe,
+  // additive act with nothing to confirm (this item's own scope: ADD only, and there is no
+  // consequential override here the way a seat-limit or a revoke has).
+  const [permissionSelections, setPermissionSelections] = useState<Record<string, string>>({});
+  const [addingPermissionForRole, setAddingPermissionForRole] = useState<string | null>(null);
+  const [addPermissionError, setAddPermissionError] = useState<string | null>(null);
+  const [addPermissionSaved, setAddPermissionSaved] = useState<{ roleName: string; permission: string } | null>(null);
 
   // `22-08`/`adr/0166`: the account-wide freeze's own dialog state - `suspendDialogOpen` doubles as
   // the dialog's own open flag, the same shape `revokingModule`/`forceDialogOperator` already
@@ -659,6 +673,52 @@ export function OwnerSiteDetailPage() {
       });
   };
 
+  // `25-76`: the role-permission tool's own submit - one permission at a time, the picker's own
+  // current selection for this role. No client-side vocabulary check: `site.allKnownPermissions` is
+  // exactly what populates the picker's own options (`buildMissingPermissionOptions` below), so a
+  // value this form could even submit is already real by construction; the server's own
+  // `Role.PermissionUnknown` refusal stays the real gate, the same "the server is still the real
+  // gate on everything else" split `handleGrantSubmit`'s own remarks state for its own form.
+  const handleAddPermission = (role: OwnerSiteRole) => {
+    const accessToken = user?.access_token;
+    const permission = permissionSelections[role.name];
+    if (!accessToken || !siteId || !permission) {
+      return;
+    }
+
+    setAddingPermissionForRole(role.name);
+    setAddPermissionError(null);
+    setAddPermissionSaved(null);
+
+    addOwnerRolePermissions(accessToken, siteId, role.name, { permissions: [permission] })
+      .then((outcome) => {
+        if (outcome.status === "ok") {
+          setAddPermissionSaved({ roleName: role.name, permission });
+          setPermissionSelections((current) => ({ ...current, [role.name]: "" }));
+          // Re-read rather than splice a locally-built permission list in - the same "the server's
+          // own read is the only source for this table" reasoning `handleRestoreSeat`'s own remarks
+          // give for the operator roster on this same screen.
+          loadSiteDetail();
+          return;
+        }
+
+        if (outcome.status === "invalid") {
+          setAddPermissionError(outcome.message);
+          return;
+        }
+
+        // `not-authorized`/`not-found` mid-session - the same genuinely-unexpected-here handling
+        // every other write on this page gives its own equivalent outcomes.
+        setError("This site could no longer be reached. Reload the page and try again.");
+      })
+      .catch((err: unknown) => {
+        setAddPermissionError(err instanceof Error ? err.message : "Failed to add the permission.");
+      })
+      .finally(() => {
+        setAddingPermissionForRole(null);
+      });
+  };
+
   // `22-08`/`adr/0166`: the account-wide freeze's own single confirm handler, shared by all three
   // acts (suspend/extend/lift) - `suspendDialogMode` decides which call to make, the same "one
   // dialog, one confirm, the mode decides the request" shape this page keeps small rather than three
@@ -972,6 +1032,84 @@ export function OwnerSiteDetailPage() {
               rows={site.operators}
               rowKey={(operator) => operator.operatorId}
             />
+          )}
+
+          {/* `25-76`: "the owner can see and fix a tenant's actual role permissions" - `RegisterSiteHandler`/
+              `MintDemoTenantHandler` write a site's roles once, at registration, with whatever
+              permission list that handler's own source happened to name that day; nothing since ever
+              revisits an already-created row. This section shows what a role actually holds right now,
+              never a template, and lets the owner add whatever it is missing - ADD only, there is no
+              removal path anywhere in this codebase yet. */}
+          <h2>Role permissions</h2>
+
+          <Alert tone="info">
+            Each tenant&apos;s Operator and Admin roles were seeded once, at registration, with
+            whatever permission list this codebase named that day - a permission added to the product
+            later never reaches an already-registered tenant on its own. Add whatever a role is
+            missing below; there is no way to remove a permission from this screen.
+          </Alert>
+
+          {addPermissionSaved && !addPermissionError && (
+            <Alert tone="success">
+              Added <code>{addPermissionSaved.permission}</code> to {addPermissionSaved.roleName}.
+            </Alert>
+          )}
+          {addPermissionError && <Alert tone="danger">{addPermissionError}</Alert>}
+
+          {site.roles.length === 0 ? (
+            <p className="ago-empty">This tenant has no roles.</p>
+          ) : (
+            site.roles.map((role) => {
+              const missingPermissions = site.allKnownPermissions
+                .filter((permission) => !role.permissions.includes(permission))
+                .sort();
+              const selected = permissionSelections[role.name] ?? "";
+              const busy = addingPermissionForRole === role.name;
+
+              return (
+                <Panel key={role.name} title={role.name} quiet>
+                  {role.permissions.length === 0 ? (
+                    <p className="ago-empty">No permissions.</p>
+                  ) : (
+                    <p className="ago-row">
+                      {role.permissions
+                        .slice()
+                        .sort()
+                        .map((permission) => (
+                          <Badge key={permission} tone="neutral" mono>
+                            {permission}
+                          </Badge>
+                        ))}
+                    </p>
+                  )}
+
+                  {missingPermissions.length === 0 ? (
+                    <p className="ago-empty">Already holds every known permission.</p>
+                  ) : (
+                    <p className="ago-row">
+                      <Select
+                        aria-label={`Permission to add to ${role.name}`}
+                        value={selected}
+                        onChange={(event) =>
+                          setPermissionSelections((current) => ({ ...current, [role.name]: event.target.value }))
+                        }
+                        disabled={busy}
+                      >
+                        <option value="">Choose a permission to add…</option>
+                        {missingPermissions.map((permission) => (
+                          <option key={permission} value={permission}>
+                            {permission}
+                          </option>
+                        ))}
+                      </Select>
+                      <Button onClick={() => handleAddPermission(role)} disabled={!selected || busy}>
+                        {busy ? "Adding…" : "Add permission"}
+                      </Button>
+                    </p>
+                  )}
+                </Panel>
+              );
+            })
           )}
 
           <h2>Entitlements</h2>

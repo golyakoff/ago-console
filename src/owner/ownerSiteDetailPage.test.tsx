@@ -5,7 +5,7 @@ import type { User } from "oidc-client-ts";
 import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { OwnerSiteDetailPage } from "./OwnerSiteDetailPage.js";
-import type { OwnerSiteDetail, OwnerSiteModule, OwnerSiteOperator } from "../api/ownerApi.js";
+import type { OwnerSiteDetail, OwnerSiteModule, OwnerSiteOperator, OwnerSiteRole } from "../api/ownerApi.js";
 import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
@@ -35,6 +35,8 @@ const ownerApi = vi.hoisted(() => ({
   grantOwnerModuleQuantity: vi.fn(),
   // `23-68`: the operator roster's own restore-seat write, mocked the same way.
   restoreOwnerOperatorSeat: vi.fn(),
+  // `25-76`: the role-permission tool's own write, mocked the same way.
+  addOwnerRolePermissions: vi.fn(),
   // `22-08`: the account-wide suspension trio, mocked the same way.
   suspendOwnerSite: vi.fn(),
   extendOwnerSuspension: vi.fn(),
@@ -110,6 +112,11 @@ function detail(overrides: Partial<OwnerSiteDetail> = {}): OwnerSiteDetail {
     allowedOrigins: ["https://shop.example"],
     operators: [],
     suspendedUntil: null,
+    // `25-76`: an empty roster by default, the same "opt in per test" shape `modules`/`operators`
+    // above already use - a test that does not care about roles sees none, rather than a stand-in
+    // list every unrelated test would have to reason about.
+    roles: [],
+    allKnownPermissions: [],
     ...overrides,
   };
 }
@@ -121,6 +128,14 @@ function oneOperator(overrides: Partial<OwnerSiteOperator> = {}): OwnerSiteOpera
     email: "jamie@shop.example",
     holdsSeat: false,
     roleNames: ["Operator"],
+    ...overrides,
+  };
+}
+
+function oneRole(overrides: Partial<OwnerSiteRole> = {}): OwnerSiteRole {
+  return {
+    name: "Admin",
+    permissions: ["site:configure", "site:manage_operators", "attachment:delete"],
     ...overrides,
   };
 }
@@ -531,6 +546,134 @@ describe("the site detail page's own operator roster", () => {
       { force: true, reason: "Tenant locked itself out during a live demo; overriding to restore access." },
     );
     expect(container.textContent).toMatch(/put the site over its own seat limit/i);
+  });
+});
+
+// `25-76`: "the owner can see and fix a tenant's actual role permissions" - the role-permission
+// tool's own behaviour tests.
+describe("the site detail page's own role permissions section", () => {
+  it("shows an empty-roles note rather than nothing when the tenant holds no roles", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail({ roles: [] }) });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).toContain("no roles");
+  });
+
+  it("shows each role's own actual permissions, not a template", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({
+        roles: [
+          oneRole({ name: "Admin", permissions: ["site:configure", "attachment:delete"] }),
+          oneRole({ name: "Operator", permissions: ["conversation:read"] }),
+        ],
+        allKnownPermissions: ["site:configure", "attachment:delete", "conversation:read", "channel:manage"],
+      }),
+    });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).toContain("site:configure");
+    expect(container.textContent).toContain("attachment:delete");
+    expect(container.textContent).toContain("conversation:read");
+  });
+
+  /** The item's own headline scenario, made visible: a role missing `channel:manage` offers it as a
+   * pickable option, never a permission the role already holds (which would read as "add it again"
+   * for no reason). */
+  it("offers only the permissions a role is actually missing, not ones it already holds", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({
+        roles: [oneRole({ name: "Admin", permissions: ["site:configure"] })],
+        allKnownPermissions: ["site:configure", "channel:manage", "conversation:close"],
+      }),
+    });
+
+    const container = await render(shellAt());
+    const options = all(container, 'select[aria-label="Permission to add to Admin"] option')
+      .map((option) => (option as HTMLOptionElement).value)
+      .filter((value) => value.length > 0);
+
+    expect(options).toEqual(["channel:manage", "conversation:close"]);
+  });
+
+  it("says a role already holds every known permission, rather than showing an empty picker", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({
+        roles: [oneRole({ name: "Admin", permissions: ["site:configure"] })],
+        allKnownPermissions: ["site:configure"],
+      }),
+    });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).toMatch(/already holds every known permission/i);
+  });
+
+  it("adds the chosen permission, and reloads the tenant's own detail", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({
+        roles: [oneRole({ name: "Admin", permissions: ["site:configure"] })],
+        allKnownPermissions: ["site:configure", "channel:manage"],
+      }),
+    });
+    ownerApi.addOwnerRolePermissions.mockResolvedValue({ status: "ok" });
+
+    const container = await render(shellAt());
+    await setSelect(
+      one<HTMLSelectElement>(container, 'select[aria-label="Permission to add to Admin"]'), "channel:manage",
+    );
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Add permission").click());
+
+    expect(ownerApi.addOwnerRolePermissions).toHaveBeenCalledWith(
+      "token", SITE_ID, "Admin", { permissions: ["channel:manage"] },
+    );
+    expect(container.textContent).toContain("channel:manage");
+    expect(container.textContent).toMatch(/added/i);
+    // Re-read, the same "the server's own read is the only source for this table" reasoning the
+    // operator roster's own restore-seat test proves for its sibling section.
+    expect(ownerApi.fetchOwnerSiteDetail).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows the server's own refusal text inline for an unknown permission, without reloading", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({
+        roles: [oneRole({ name: "Admin", permissions: ["site:configure"] })],
+        allKnownPermissions: ["site:configure", "channel:manage"],
+      }),
+    });
+    ownerApi.addOwnerRolePermissions.mockResolvedValue({
+      status: "invalid",
+      message: "Not a real permission: not:a-real-permission.",
+    });
+
+    const container = await render(shellAt());
+    await setSelect(
+      one<HTMLSelectElement>(container, 'select[aria-label="Permission to add to Admin"]'), "channel:manage",
+    );
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Add permission").click());
+
+    expect(container.textContent).toContain("Not a real permission");
+    expect(ownerApi.fetchOwnerSiteDetail).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables the Add permission button until a permission is actually chosen", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({
+        roles: [oneRole({ name: "Admin", permissions: [] })],
+        allKnownPermissions: ["channel:manage"],
+      }),
+    });
+
+    const container = await render(shellAt());
+
+    expect(byText<HTMLButtonElement>(container, "button", "Add permission")?.disabled).toBe(true);
   });
 });
 
