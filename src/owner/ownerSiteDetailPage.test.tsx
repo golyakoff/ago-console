@@ -37,6 +37,8 @@ const ownerApi = vi.hoisted(() => ({
   restoreOwnerOperatorSeat: vi.fn(),
   // `25-76`: the role-permission tool's own write, mocked the same way.
   addOwnerRolePermissions: vi.fn(),
+  // `25-77`: the removal mirror, mocked the same way.
+  removeOwnerRolePermissions: vi.fn(),
   // `22-08`: the account-wide suspension trio, mocked the same way.
   suspendOwnerSite: vi.fn(),
   extendOwnerSuspension: vi.fn(),
@@ -675,6 +677,95 @@ describe("the site detail page's own role permissions section", () => {
 
     expect(byText<HTMLButtonElement>(container, "button", "Add permission")?.disabled).toBe(true);
   });
+
+  // `25-77`: "no magic roles" - the removal direction's own tests.
+  describe("removing a permission", () => {
+    /** The item's own headline answer, made visible: a Remove action is offered for every permission
+     * a role currently holds, `Admin`'s own defining `site:configure`/`site:manage_operators`
+     * included - no carve-out anywhere in this UI either. */
+    it("offers a Remove action for every permission a role holds, Admin's own defining ones included", async () => {
+      ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+        status: "ok",
+        site: detail({
+          roles: [oneRole({ name: "Admin", permissions: ["site:configure", "site:manage_operators"] })],
+          allKnownPermissions: ["site:configure", "site:manage_operators"],
+        }),
+      });
+
+      const container = await render(shellAt());
+
+      expect(one(container, 'button[aria-label="Remove site:configure from Admin"]')).not.toBeNull();
+      expect(one(container, 'button[aria-label="Remove site:manage_operators from Admin"]')).not.toBeNull();
+    });
+
+    it("opens the removal dialog naming the role and the permission, and refuses a blank reason", async () => {
+      ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+        status: "ok",
+        site: detail({
+          roles: [oneRole({ name: "Admin", permissions: ["channel:manage"] })],
+          allKnownPermissions: ["channel:manage"],
+        }),
+      });
+
+      const container = await render(shellAt());
+      const dialog = await openRemovePermissionDialog(container, "channel:manage", "Admin");
+
+      expect(dialog.textContent).toContain("channel:manage");
+      expect(dialog.textContent).toContain("Admin");
+
+      await interact(() => byText<HTMLButtonElement>(dialog, "button", "Remove permission").click());
+
+      expect(dialog.textContent).toMatch(/write the reason/i);
+      expect(ownerApi.removeOwnerRolePermissions).not.toHaveBeenCalled();
+    });
+
+    it("removes the permission with the typed reason, and reloads the tenant's own detail", async () => {
+      ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+        status: "ok",
+        site: detail({
+          roles: [oneRole({ name: "Admin", permissions: ["site:manage_operators", "site:configure"] })],
+          allKnownPermissions: ["site:manage_operators", "site:configure"],
+        }),
+      });
+      ownerApi.removeOwnerRolePermissions.mockResolvedValue({ status: "ok" });
+
+      const container = await render(shellAt());
+      const dialog = await openRemovePermissionDialog(container, "site:manage_operators", "Admin");
+      await setTextarea(dialog, "The tenant asked for a narrower Admin role after a staffing change.");
+      await interact(() => byText<HTMLButtonElement>(dialog, "button", "Remove permission").click());
+
+      expect(ownerApi.removeOwnerRolePermissions).toHaveBeenCalledWith("token", SITE_ID, "Admin", {
+        permissions: ["site:manage_operators"],
+        reason: "The tenant asked for a narrower Admin role after a staffing change.",
+      });
+      expect(container.textContent).toMatch(/removed/i);
+      // Re-read, the same "the server's own read is the only source for this table" reasoning the
+      // add-picker's own equivalent test proves a few tests up.
+      expect(ownerApi.fetchOwnerSiteDetail).toHaveBeenCalledTimes(2);
+    });
+
+    it("shows the server's own refusal text inline for an invalid removal, without closing the dialog", async () => {
+      ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+        status: "ok",
+        site: detail({
+          roles: [oneRole({ name: "Admin", permissions: ["site:configure"] })],
+          allKnownPermissions: ["site:configure"],
+        }),
+      });
+      ownerApi.removeOwnerRolePermissions.mockResolvedValue({
+        status: "invalid",
+        message: "A permission-removal reason cannot exceed 2000 characters.",
+      });
+
+      const container = await render(shellAt());
+      const dialog = await openRemovePermissionDialog(container, "site:configure", "Admin");
+      await setTextarea(dialog, "A real reason, but the server refused it anyway for this test.");
+      await interact(() => byText<HTMLButtonElement>(dialog, "button", "Remove permission").click());
+
+      expect(dialog.textContent).toContain("A permission-removal reason cannot exceed 2000 characters.");
+      expect(ownerApi.fetchOwnerSiteDetail).toHaveBeenCalledTimes(1);
+    });
+  });
 });
 
 // `23-65`/`adr/0150`: the grant form's own behaviour tests. The provisioning secret never appears
@@ -1087,6 +1178,17 @@ async function openQuantityDialog(container: HTMLElement): Promise<HTMLElement> 
  * order. */
 async function openRevokeDialog(container: HTMLElement): Promise<HTMLElement> {
   await interact(() => byText<HTMLButtonElement>(container, "button", "Revoke").click());
+  return one<HTMLElement>(container, "dialog[open]");
+}
+
+/** `25-77`: the removal dialog's own opener - targeted by `aria-label` rather than visible text,
+ * since more than one "Remove" button can be on screen at once (one per permission per role). */
+async function openRemovePermissionDialog(
+  container: HTMLElement, permission: string, roleName: string,
+): Promise<HTMLElement> {
+  await interact(() =>
+    one<HTMLButtonElement>(container, `button[aria-label="Remove ${permission} from ${roleName}"]`).click(),
+  );
   return one<HTMLElement>(container, "dialog[open]");
 }
 

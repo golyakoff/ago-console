@@ -1098,3 +1098,73 @@ export async function addOwnerRolePermissions(
 
   return { status: "ok" };
 }
+
+/**
+ * `25-77`: the body `DELETE /api/v1/owner/sites/{siteId}/roles/{roleName}/permissions` takes - mirrors
+ * `Ago.Chat.Api.Owner.OwnerRolesEndpoints.RemoveRolePermissionsRequest`. "No magic roles"
+ * (`docs/backlog/25-77-*.md`'s own "Answered"): any permission, `Admin`'s own defining ones included,
+ * may be removed - this draft carries no allow/deny list of its own, unlike `AddOwnerRolePermissionsDraft`
+ * `reason` is required here, not because the shape is otherwise different, but because taking something
+ * away is exactly the kind of act `adr/0118`'s forced-revoke and `23-86`'s unconditional-grant flag
+ * already require a stated reason for.
+ */
+export interface RemoveOwnerRolePermissionsDraft {
+  permissions: string[];
+  reason: string;
+}
+
+/**
+ * `25-77`: the outcome of removing a permission from a tenant's role as the platform owner - the
+ * identical `"invalid"` shape `AddOwnerRolePermissionsOutcome`'s own remarks describe, now also
+ * covering a blank/missing/over-length reason (`Role.PermissionRemovalReasonRequired`, `400`) alongside
+ * the unknown-permission and role-not-found cases the add direction already has.
+ */
+export type RemoveOwnerRolePermissionsOutcome =
+  | { status: "ok" }
+  | { status: "not-authorized" }
+  | { status: "not-found" }
+  | { status: "invalid"; message: string };
+
+/**
+ * `25-77`: `DELETE /api/v1/owner/sites/{siteId}/roles/{roleName}/permissions` - the platform owner's
+ * own write for "the owner may take a permission away, no magic roles", reached from the identical
+ * `/owner` tenant detail screen `addOwnerRolePermissions` already is. Returns only a bare `"ok"` on
+ * success, the identical "re-read rather than splice a locally-built list in" reasoning that
+ * function's own remarks give.
+ */
+export async function removeOwnerRolePermissions(
+  accessToken: string,
+  siteId: string,
+  roleName: string,
+  draft: RemoveOwnerRolePermissionsDraft,
+): Promise<RemoveOwnerRolePermissionsOutcome> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/owner/sites/${siteId}/roles/${roleName}/permissions`);
+
+  const response = await fetch(url, {
+    method: "DELETE",
+    headers: withActiveSiteHeader({
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify(draft),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    return { status: "not-authorized" };
+  }
+
+  if (response.status === 404) {
+    return { status: "not-found" };
+  }
+
+  if (response.status === 400) {
+    const problem = (await response.json()) as { detail?: string };
+    return { status: "invalid", message: problem.detail ?? "This permission could not be removed." };
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to remove the permission: ${response.status}`);
+  }
+
+  return { status: "ok" };
+}
