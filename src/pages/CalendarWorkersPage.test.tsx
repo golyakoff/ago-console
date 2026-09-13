@@ -5,7 +5,7 @@ import type { User } from "oidc-client-ts";
 import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { CalendarWorkersPage } from "./CalendarWorkersPage.js";
-import { byText, interact, one, render, unmount } from "../testing/dom.js";
+import { byText, interact, render, unmount } from "../testing/dom.js";
 import type { TenantConfiguration, WorkerDetail } from "../api/calendarApi.js";
 
 /**
@@ -108,6 +108,9 @@ const alex: WorkerDetail = {
   isActive: true,
   createdAt: "2026-03-02T09:00:00Z",
   updatedAt: "2026-03-02T09:00:00Z",
+  // `25-74`: offers exactly one service already - the fixture the edit-mode "add a second service"
+  // test below needs, to prove the checkbox set actually starts pre-checked with this and grows.
+  serviceIds: ["s1"],
 };
 
 const configuration: TenantConfiguration = {
@@ -115,12 +118,23 @@ const configuration: TenantConfiguration = {
   publicKey: "demo-barbershop",
   allowedOrigins: [],
   calendars: [{ calendarId: "cal-1", name: "Main", timeZone: "Europe/Moscow", isPublished: true, workerIds: ["w1"], workingHours: [] }],
-  workers: [{ workerId: "w1", displayName: "Alex Doe", isActive: true, serviceIds: [] }],
+  workers: [{ workerId: "w1", displayName: "Alex Doe", isActive: true, serviceIds: ["s1"] }],
   services: [
     {
       serviceId: "s1",
       name: "Haircut",
       durationMinutes: 45,
+      priceMinorUnits: null,
+      priceCurrencyCode: null,
+      priceIsFrom: false,
+      description: null,
+    },
+    // `25-74`: a second service, for the edit-mode "add a service to an already-created worker" test
+    // below - the whole point of this item is that this list is no longer frozen at creation.
+    {
+      serviceId: "s2",
+      name: "Manicure",
+      durationMinutes: 30,
       priceMinorUnits: null,
       priceCurrencyCode: null,
       priceIsFrom: false,
@@ -217,12 +231,39 @@ describe("the workers screen", () => {
     expect(container.textContent).toContain("Alex Doe");
 
     await interact(() => byText<HTMLButtonElement>(container, "button", "Edit")?.click());
-    const activeCheckbox = one<HTMLInputElement>(container, "input[type=checkbox]");
-    await interact(() => activeCheckbox.click());
+    // `25-74`: the edit card now also renders the services fieldset's own checkboxes, so
+    // `input[type=checkbox]` alone is no longer unique - found by its own label instead, the same
+    // way the create test above finds "Haircut".
+    const activeCheckbox = byText<HTMLLabelElement>(container, "label", "Active")?.querySelector("input");
+    await interact(() => activeCheckbox?.click());
     const saveButton = byText<HTMLButtonElement>(container, "button[type=submit]", "Save");
     await interact(() => saveButton?.click());
 
     expect(calendarApi.updateWorker).toHaveBeenCalledWith("token", "w1", expect.objectContaining({ isActive: false }));
+  });
+
+  /** `25-74`'s own Done-when, at the console level: before this item `WorkerCard`'s service
+   * checkboxes were wrapped in `mode === "create"` and `updateWorker`'s own request type had no
+   * `serviceIds` field at all, so a worker's services could be set once, at creation, and never
+   * again. This proves both halves of the fix - the checkbox set renders (and is pre-checked) in
+   * edit mode, and adding one sends the worker's whole new set, not a delta. */
+  it("adds a second service to an already-created worker and saves", async () => {
+    const container = await render(page());
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Edit")?.click());
+
+    const haircutCheckbox = byText<HTMLLabelElement>(container, "fieldset label", "Haircut")?.querySelector("input");
+    expect(haircutCheckbox?.checked).toBe(true);
+
+    const manicureCheckbox = byText<HTMLLabelElement>(container, "fieldset label", "Manicure")?.querySelector("input");
+    expect(manicureCheckbox?.checked).toBe(false);
+    await interact(() => manicureCheckbox?.click());
+
+    await interact(() => byText<HTMLButtonElement>(container, "button[type=submit]", "Save")?.click());
+
+    expect(calendarApi.updateWorker).toHaveBeenCalledWith(
+      "token", "w1", expect.objectContaining({ serviceIds: ["s1", "s2"] }),
+    );
   });
 
   /** `25-13`: `WorkerScheduleSection` renders as a child of `WorkerCard`'s own `<form>`

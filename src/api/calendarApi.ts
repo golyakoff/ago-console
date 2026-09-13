@@ -74,6 +74,9 @@ export interface WorkerDetail {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  /** `25-74`: what this worker offers today - `WorkerCard`'s edit-mode checkbox set pre-checks
+   * exactly these before a human touches anything. */
+  serviceIds: string[];
 }
 
 /**
@@ -585,6 +588,10 @@ export function updateWorker(
     middleName: string | null;
     displayName: string | null;
     isActive: boolean;
+    /** `25-74`: the worker's complete, desired set of services - replace semantics, matching
+     * `createWorker`'s own `serviceIds`. Before this, editing a worker had no way to reach the
+     * service list at all - it could only be set once, at creation. */
+    serviceIds: string[];
   },
 ): Promise<void> {
   return requestVoid(token, "PUT", `/workers/${encodeURIComponent(workerId)}`, body);
