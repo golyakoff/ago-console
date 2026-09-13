@@ -9,6 +9,7 @@ import {
   fetchOwnerSiteDetail,
   grantOwnerModule,
   grantOwnerModuleQuantity,
+  removeOwnerRolePermissions,
   restoreOwnerOperatorSeat,
   revokeOwnerModule,
   suspendOwnerSite,
@@ -203,6 +204,18 @@ export function OwnerSiteDetailPage() {
   const [addingPermissionForRole, setAddingPermissionForRole] = useState<string | null>(null);
   const [addPermissionError, setAddPermissionError] = useState<string | null>(null);
   const [addPermissionSaved, setAddPermissionSaved] = useState<{ roleName: string; permission: string } | null>(null);
+
+  // `25-77`: the removal mirror - "no magic roles" (docs/backlog/25-77-*.md's own "Answered": any
+  // permission, Admin's own defining ones included, may be removed). Unlike adding, removing always
+  // opens a dialog - `removingPermission` doubles as the dialog's own open flag, the same shape
+  // `revokingModule`/`forceDialogOperator` already establish above - because a reason is required on
+  // every removal (`adr/0118`'s own forced-revoke discipline, restated for this act), so there is
+  // always something to collect before the request can even be sent.
+  const [removingPermission, setRemovingPermission] = useState<{ roleName: string; permission: string } | null>(null);
+  const [removePermissionReason, setRemovePermissionReason] = useState("");
+  const [removePermissionError, setRemovePermissionError] = useState<string | null>(null);
+  const [removePermissionSaved, setRemovePermissionSaved] = useState<{ roleName: string; permission: string } | null>(null);
+  const [removePermissionSubmitting, setRemovePermissionSubmitting] = useState(false);
 
   // `22-08`/`adr/0166`: the account-wide freeze's own dialog state - `suspendDialogOpen` doubles as
   // the dialog's own open flag, the same shape `revokingModule`/`forceDialogOperator` already
@@ -719,6 +732,67 @@ export function OwnerSiteDetailPage() {
       });
   };
 
+  // `25-77`: opens the removal dialog for one (role, permission) pair - "no magic roles", so this is
+  // offered for every permission a role currently holds, `Admin`'s own defining ones included, with no
+  // carve-out on this screen either.
+  const openRemovePermissionDialog = (roleName: string, permission: string) => {
+    setRemovingPermission({ roleName, permission });
+    setRemovePermissionReason("");
+    setRemovePermissionError(null);
+  };
+
+  // `25-77`: the removal dialog's own confirm - a reason is required every time (never optional the
+  // way the module-revoke dialog's own reason only applies to a tenant's own purchase), so this is the
+  // one place the request can be refused client-side before it is even sent, the identical "write the
+  // reason you would be willing to show this tenant" wording `handleForceConfirm`'s own guard already
+  // uses for a different override.
+  const handleRemovePermissionConfirm = () => {
+    const accessToken = user?.access_token;
+    if (!accessToken || !siteId || !removingPermission) {
+      return;
+    }
+
+    const trimmedReason = removePermissionReason.trim();
+    if (trimmedReason.length === 0) {
+      setRemovePermissionError("Write the reason you would be willing to show this tenant.");
+      return;
+    }
+
+    setRemovePermissionSubmitting(true);
+    setRemovePermissionError(null);
+
+    removeOwnerRolePermissions(accessToken, siteId, removingPermission.roleName, {
+      permissions: [removingPermission.permission],
+      reason: trimmedReason,
+    })
+      .then((outcome) => {
+        if (outcome.status === "ok") {
+          setRemovePermissionSaved({ roleName: removingPermission.roleName, permission: removingPermission.permission });
+          setRemovingPermission(null);
+          setRemovePermissionReason("");
+          // Re-read rather than splice a locally-built permission list out - the same "the server's
+          // own read is the only source for this table" reasoning `handleAddPermission`'s own remarks
+          // give a few lines up, for the identical reason.
+          loadSiteDetail();
+          return;
+        }
+
+        if (outcome.status === "invalid") {
+          setRemovePermissionError(outcome.message);
+          return;
+        }
+
+        setRemovingPermission(null);
+        setError("This site could no longer be reached. Reload the page and try again.");
+      })
+      .catch((err: unknown) => {
+        setRemovePermissionError(err instanceof Error ? err.message : "Failed to remove the permission.");
+      })
+      .finally(() => {
+        setRemovePermissionSubmitting(false);
+      });
+  };
+
   // `22-08`/`adr/0166`: the account-wide freeze's own single confirm handler, shared by all three
   // acts (suspend/extend/lift) - `suspendDialogMode` decides which call to make, the same "one
   // dialog, one confirm, the mode decides the request" shape this page keeps small rather than three
@@ -1034,19 +1108,22 @@ export function OwnerSiteDetailPage() {
             />
           )}
 
-          {/* `25-76`: "the owner can see and fix a tenant's actual role permissions" - `RegisterSiteHandler`/
-              `MintDemoTenantHandler` write a site's roles once, at registration, with whatever
-              permission list that handler's own source happened to name that day; nothing since ever
-              revisits an already-created row. This section shows what a role actually holds right now,
-              never a template, and lets the owner add whatever it is missing - ADD only, there is no
-              removal path anywhere in this codebase yet. */}
+          {/* `25-76`/`25-77`: "the owner can see and fix a tenant's actual role permissions" -
+              `RegisterSiteHandler`/`MintDemoTenantHandler` write a site's roles once, at registration,
+              with whatever permission list that handler's own source happened to name that day;
+              nothing since ever revisits an already-created row. This section shows what a role
+              actually holds right now, never a template, and lets the owner add whatever it is
+              missing or remove whatever it should not have - "no magic roles"
+              (`docs/backlog/25-77-*.md`'s own "Answered"): any permission, `Admin`'s own defining ones
+              included, may be removed, no carve-out on this screen either. */}
           <h2>Role permissions</h2>
 
           <Alert tone="info">
             Each tenant&apos;s Operator and Admin roles were seeded once, at registration, with
             whatever permission list this codebase named that day - a permission added to the product
             later never reaches an already-registered tenant on its own. Add whatever a role is
-            missing below; there is no way to remove a permission from this screen.
+            missing, or remove whatever it should not have - any permission may be removed, including
+            one that makes a role recognisably Admin. A reason is required for every removal.
           </Alert>
 
           {addPermissionSaved && !addPermissionError && (
@@ -1055,6 +1132,11 @@ export function OwnerSiteDetailPage() {
             </Alert>
           )}
           {addPermissionError && <Alert tone="danger">{addPermissionError}</Alert>}
+          {removePermissionSaved && !removePermissionError && (
+            <Alert tone="success">
+              Removed <code>{removePermissionSaved.permission}</code> from {removePermissionSaved.roleName}.
+            </Alert>
+          )}
 
           {site.roles.length === 0 ? (
             <p className="ago-empty">This tenant has no roles.</p>
@@ -1076,9 +1158,19 @@ export function OwnerSiteDetailPage() {
                         .slice()
                         .sort()
                         .map((permission) => (
-                          <Badge key={permission} tone="neutral" mono>
-                            {permission}
-                          </Badge>
+                          <span key={permission} className="ago-row">
+                            <Badge tone="neutral" mono>
+                              {permission}
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              aria-label={`Remove ${permission} from ${role.name}`}
+                              onClick={() => openRemovePermissionDialog(role.name, permission)}
+                            >
+                              Remove
+                            </Button>
+                          </span>
                         ))}
                     </p>
                   )}
@@ -1343,6 +1435,58 @@ export function OwnerSiteDetailPage() {
               </>
             )}
             {revokingModule.grantedByOwner && revokeError && <Alert tone="danger">{revokeError}</Alert>}
+          </>
+        )}
+      </Dialog>
+
+      {/* `25-77`: "no magic roles" - this dialog offers the exact same removal for `Admin`'s own
+          defining permissions as for any other; nothing here narrows what may be removed. A reason is
+          required unconditionally (`adr/0118`'s own forced-revoke discipline), unlike the module-revoke
+          dialog above where a reason only applies to a tenant's own purchase - so this dialog always
+          shows the reason field, never conditionally. */}
+      <Dialog
+        open={removingPermission !== null}
+        title={removingPermission ? `Remove ${removingPermission.permission}` : "Remove permission"}
+        onClose={() => {
+          if (!removePermissionSubmitting) {
+            setRemovingPermission(null);
+          }
+        }}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setRemovingPermission(null)} disabled={removePermissionSubmitting}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleRemovePermissionConfirm} disabled={removePermissionSubmitting}>
+              {removePermissionSubmitting ? "Removing…" : "Remove permission"}
+            </Button>
+          </>
+        }
+      >
+        {removingPermission && (
+          <>
+            <p>
+              Removing <code>{removingPermission.permission}</code> from the{" "}
+              <strong>{removingPermission.roleName}</strong> role takes effect immediately for every
+              operator holding it, even one with an open session right now - there is no confirmation
+              beyond this dialog and no way to undo it from this screen except adding the permission
+              back.
+            </p>
+            <Field
+              label="Reason"
+              description='Write the reason you would be willing to show this tenant. "Cleanup" or "asked to" are not reasons.'
+              error={removePermissionError}
+            >
+              {(controlProps) => (
+                <Textarea
+                  {...controlProps}
+                  rows={3}
+                  value={removePermissionReason}
+                  onChange={(event) => setRemovePermissionReason(event.target.value)}
+                  disabled={removePermissionSubmitting}
+                />
+              )}
+            </Field>
           </>
         )}
       </Dialog>
