@@ -4,11 +4,14 @@ import { useAuth } from "../auth/AuthContext.js";
 import { operatorDisplayName } from "../auth/operatorDisplayName.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import {
+  extendOwnerSuspension,
   fetchOwnerSiteDetail,
   grantOwnerModule,
   grantOwnerModuleQuantity,
   restoreOwnerOperatorSeat,
   revokeOwnerModule,
+  suspendOwnerSite,
+  unblockOwnerSuspension,
   updateOwnerSiteAllowedOrigins,
   type OwnerSiteDetail,
   type OwnerSiteModule,
@@ -186,6 +189,17 @@ export function OwnerSiteDetailPage() {
   const [forceReason, setForceReason] = useState("");
   const [forceError, setForceError] = useState<string | null>(null);
   const [forceSubmitting, setForceSubmitting] = useState(false);
+
+  // `22-08`/`adr/0166`: the account-wide freeze's own dialog state - `suspendDialogOpen` doubles as
+  // the dialog's own open flag, the same shape `revokingModule`/`forceDialogOperator` already
+  // establish above. One shared `minutesInput`/`reasonInput` pair for all three acts (suspend,
+  // extend, lift) - `suspendDialogMode` is what tells `handleSuspensionConfirm` which call to make
+  // and what `minutesInput` even means (a fresh duration, or an addition to the existing one).
+  const [suspendDialogMode, setSuspendDialogMode] = useState<"suspend" | "extend" | "lift" | null>(null);
+  const [suspendMinutesInput, setSuspendMinutesInput] = useState("60");
+  const [suspendReasonInput, setSuspendReasonInput] = useState("");
+  const [suspendError, setSuspendError] = useState<string | null>(null);
+  const [suspendSubmitting, setSuspendSubmitting] = useState(false);
 
   const timeZone = useMemo(() => resolveTimeZone(), []);
 
@@ -645,6 +659,81 @@ export function OwnerSiteDetailPage() {
       });
   };
 
+  // `22-08`/`adr/0166`: the account-wide freeze's own single confirm handler, shared by all three
+  // acts (suspend/extend/lift) - `suspendDialogMode` decides which call to make, the same "one
+  // dialog, one confirm, the mode decides the request" shape this page keeps small rather than three
+  // near-identical handlers.
+  const handleSuspensionConfirm = () => {
+    const accessToken = user?.access_token;
+    if (!accessToken || !siteId || !suspendDialogMode) {
+      return;
+    }
+
+    const trimmedReason = suspendReasonInput.trim();
+    if (trimmedReason.length === 0) {
+      setSuspendError("A reason is required - state why this account is being frozen, extended, or unblocked.");
+      return;
+    }
+
+    let minutes = 0;
+    if (suspendDialogMode !== "lift") {
+      minutes = Number.parseInt(suspendMinutesInput, 10);
+      if (!Number.isFinite(minutes) || minutes <= 0) {
+        setSuspendError("Enter a whole number of minutes, greater than zero.");
+        return;
+      }
+    }
+
+    setSuspendSubmitting(true);
+    setSuspendError(null);
+
+    const onSettled = (ok: boolean, message?: string) => {
+      if (ok) {
+        setSuspendDialogMode(null);
+        setSuspendReasonInput("");
+        setSuspendMinutesInput("60");
+        loadSiteDetail();
+        return;
+      }
+
+      if (message) {
+        setSuspendError(message);
+        return;
+      }
+
+      setSuspendDialogMode(null);
+      setError("This site could no longer be reached. Reload the page and try again.");
+    };
+
+    const request =
+      suspendDialogMode === "suspend"
+        ? suspendOwnerSite(accessToken, siteId, minutes, trimmedReason)
+        : suspendDialogMode === "extend"
+          ? extendOwnerSuspension(accessToken, siteId, minutes, trimmedReason)
+          : unblockOwnerSuspension(accessToken, siteId, trimmedReason);
+
+    request
+      .then((outcome) => {
+        if (outcome.status === "ok") {
+          onSettled(true);
+          return;
+        }
+
+        if (outcome.status === "conflict" || outcome.status === "invalid") {
+          onSettled(false, outcome.message);
+          return;
+        }
+
+        onSettled(false);
+      })
+      .catch((err: unknown) => {
+        setSuspendError(err instanceof Error ? err.message : "Failed to update this account's suspension.");
+      })
+      .finally(() => {
+        setSuspendSubmitting(false);
+      });
+  };
+
   return (
     <AppShell
       // The identical sections `OwnerSitesPage` builds - "Platform sites" stays present as
@@ -792,6 +881,64 @@ export function OwnerSiteDetailPage() {
             </p>
             {originsSaved && !originsError && (
               <Alert tone="success">Saved. The widget honours this on its very next request - no restart needed.</Alert>
+            )}
+          </Panel>
+
+          {/* `22-08`/`adr/0166`: the account-wide enforcement freeze - a suspected violation, never
+              a commercial lever. Account-wide: suspending here stops the calendar accepting a new
+              booking and stops the widget being served for a new chat session alike; a conversation
+              already open is untouched and a booking already made stands. */}
+          <Panel
+            title="Account suspension"
+            description="An enforcement freeze for a suspected violation - never for non-payment, which billing already handles on its own. A visitor already mid-conversation sees no error and a booking already made stands; only a new session or a new booking is refused."
+          >
+            {isCurrentlySuspended(site) ? (
+              <>
+                <Alert tone="danger" title="Currently suspended">
+                  Suspended until {formatAbsolute(parseInstant(site.suspendedUntil), timeZone)}. New chat
+                  sessions and new bookings are refused for this account; nothing already open or
+                  already made is affected.
+                </Alert>
+                <p className="ago-row">
+                  <Button
+                    onClick={() => {
+                      setSuspendDialogMode("extend");
+                      setSuspendMinutesInput("60");
+                      setSuspendReasonInput("");
+                      setSuspendError(null);
+                    }}
+                  >
+                    Extend
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setSuspendDialogMode("lift");
+                      setSuspendReasonInput("");
+                      setSuspendError(null);
+                    }}
+                  >
+                    Unblock now
+                  </Button>
+                </p>
+              </>
+            ) : (
+              <>
+                <Alert tone="info">Not currently suspended.</Alert>
+                <p>
+                  <Button
+                    variant="danger"
+                    onClick={() => {
+                      setSuspendDialogMode("suspend");
+                      setSuspendMinutesInput("60");
+                      setSuspendReasonInput("");
+                      setSuspendError(null);
+                    }}
+                  >
+                    Suspend this account
+                  </Button>
+                </p>
+              </>
             )}
           </Panel>
 
@@ -1179,8 +1326,103 @@ export function OwnerSiteDetailPage() {
           </>
         )}
       </Dialog>
+
+      {/* `22-08`/`adr/0166`: one dialog, shared by suspend/extend/lift - `suspendDialogMode` decides
+          the title, whether the minutes field is shown at all (lift needs none), and which call
+          `handleSuspensionConfirm` makes. */}
+      <Dialog
+        open={suspendDialogMode !== null}
+        title={
+          suspendDialogMode === "suspend"
+            ? "Suspend this account"
+            : suspendDialogMode === "extend"
+              ? "Extend this suspension"
+              : "Unblock this account"
+        }
+        onClose={() => {
+          if (!suspendSubmitting) {
+            setSuspendDialogMode(null);
+          }
+        }}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setSuspendDialogMode(null)} disabled={suspendSubmitting}>
+              Cancel
+            </Button>
+            <Button
+              variant={suspendDialogMode === "lift" ? "secondary" : "danger"}
+              onClick={handleSuspensionConfirm}
+              disabled={suspendSubmitting}
+            >
+              {suspendSubmitting
+                ? "Saving…"
+                : suspendDialogMode === "suspend"
+                  ? "Suspend"
+                  : suspendDialogMode === "extend"
+                    ? "Extend"
+                    : "Unblock"}
+            </Button>
+          </>
+        }
+      >
+        {suspendDialogMode !== null && (
+          <>
+            {suspendDialogMode !== "lift" && (
+              <Field
+                label={suspendDialogMode === "suspend" ? "Duration, in minutes" : "Additional minutes"}
+                description={
+                  suspendDialogMode === "suspend"
+                    ? "From the moment this is confirmed. There is no fixed system duration - choose whatever the situation calls for."
+                    : "Added to the account's current suspended-until instant, not to now - this pushes the deadline further out."
+                }
+              >
+                {(controlProps) => (
+                  <Input
+                    {...controlProps}
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={suspendMinutesInput}
+                    onChange={(event) => setSuspendMinutesInput(event.target.value)}
+                    disabled={suspendSubmitting}
+                  />
+                )}
+              </Field>
+            )}
+            <Field
+              label="Reason"
+              description='Write the reason you would be willing to show this tenant. "Cleanup" or "asked to" are not reasons.'
+              error={suspendError}
+            >
+              {(controlProps) => (
+                <Textarea
+                  {...controlProps}
+                  rows={3}
+                  value={suspendReasonInput}
+                  onChange={(event) => setSuspendReasonInput(event.target.value)}
+                  disabled={suspendSubmitting}
+                />
+              )}
+            </Field>
+          </>
+        )}
+      </Dialog>
     </AppShell>
   );
+}
+
+/** `22-08`: whether this screen should show "currently suspended" - a plain client-side comparison
+ * against the browser's own clock, for display only. The actual enforcement is entirely server-side
+ * (`Ago.Chat.Application.Abstractions.ISiteSuspensionReadStore`'s own live comparison); this only
+ * decides which of the two panels above to draw, so a few seconds of client clock skew costs nothing
+ * more than a stale-looking button for a moment. */
+function isCurrentlySuspended(site: OwnerSiteDetail): boolean {
+  if (site.suspendedUntil === null) {
+    return false;
+  }
+
+  const until = new Date(site.suspendedUntil).getTime();
+  return Number.isFinite(until) && until > Date.now();
 }
 
 /** `createdAt`/`lastMessageAt` share the identical "null means something specific, say what" shape

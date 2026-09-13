@@ -43,6 +43,7 @@ import { AppearanceSettingsPage } from "./pages/AppearanceSettingsPage.js";
 import { OwnerSitesPage } from "./owner/OwnerSitesPage.js";
 import { OwnerSiteDetailPage } from "./owner/OwnerSiteDetailPage.js";
 import { OwnerPricingPage } from "./owner/OwnerPricingPage.js";
+import { OwnerSuspensionsPage } from "./owner/OwnerSuspensionsPage.js";
 import { CalendarQueuePage } from "./pages/CalendarQueuePage.js";
 import { CalendarSetupPage } from "./pages/CalendarSetupPage.js";
 import { CalendarServicesPage } from "./pages/CalendarServicesPage.js";
@@ -243,6 +244,21 @@ export function App() {
           <RequireAuth>
             <PermissionsProvider>
               <OwnerPricingPage />
+            </PermissionsProvider>
+          </RequireAuth>
+        }
+      />
+      {/* `22-08`: the console's own "who is currently suspended" screen - the identical gate and
+          "outside the operator layout" reasoning as `/owner`/`/owner/pricing` above, since it is the
+          same actor and the same policy (`RequirePlatformOwner` on `GET /api/v1/owner/suspensions`).
+          Reached from `OwnerSitesPage`'s own "Suspended accounts" link, not from a second pinned nav
+          entry - `OwnerPricingPage`'s own precedent. */}
+      <Route
+        path="/owner/suspensions"
+        element={
+          <RequireAuth>
+            <PermissionsProvider>
+              <OwnerSuspensionsPage />
             </PermissionsProvider>
           </RequireAuth>
         }

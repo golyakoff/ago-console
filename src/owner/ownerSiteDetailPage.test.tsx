@@ -35,6 +35,10 @@ const ownerApi = vi.hoisted(() => ({
   grantOwnerModuleQuantity: vi.fn(),
   // `23-68`: the operator roster's own restore-seat write, mocked the same way.
   restoreOwnerOperatorSeat: vi.fn(),
+  // `22-08`: the account-wide suspension trio, mocked the same way.
+  suspendOwnerSite: vi.fn(),
+  extendOwnerSuspension: vi.fn(),
+  unblockOwnerSuspension: vi.fn(),
 }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
 
@@ -105,6 +109,7 @@ function detail(overrides: Partial<OwnerSiteDetail> = {}): OwnerSiteDetail {
     modules: [],
     allowedOrigins: ["https://shop.example"],
     operators: [],
+    suspendedUntil: null,
     ...overrides,
   };
 }
@@ -1008,3 +1013,118 @@ async function fillGrantForm(
     await interact(() => one<HTMLInputElement>(label, 'input[type="radio"]').click());
   }
 }
+
+// `22-08`/`adr/0166`: the account-wide suspension section - suspend/extend/unblock, sharing one
+// dialog the same way the revoke dialog above shares one confirm across two provenance cases.
+describe("the site detail page's own suspension section", () => {
+  it("offers Suspend for an account not currently suspended", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail({ suspendedUntil: null }) });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).toMatch(/not currently suspended/i);
+    expect(byText<HTMLButtonElement>(container, "button", "Suspend this account")).not.toBeNull();
+  });
+
+  it("suspends with the typed minutes and reason, and reloads the tenant's own detail", async () => {
+    ownerApi.fetchOwnerSiteDetail
+      .mockResolvedValueOnce({ status: "ok", site: detail({ suspendedUntil: null }) })
+      .mockResolvedValueOnce({ status: "ok", site: detail({ suspendedUntil: "2026-09-13T13:00:00Z" }) });
+    ownerApi.suspendOwnerSite.mockResolvedValue({ status: "ok", suspendedUntil: "2026-09-13T13:00:00Z" });
+
+    const container = await render(shellAt());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Suspend this account").click());
+    const dialog = one<HTMLElement>(container, "dialog[open]");
+
+    await setInput(one<HTMLInputElement>(dialog, 'input[type="number"]'), "45");
+    await setTextarea(dialog, "Suspected chargeback fraud, ticket 918.");
+    await interact(() => byText<HTMLButtonElement>(dialog, "button", "Suspend").click());
+
+    expect(ownerApi.suspendOwnerSite).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      45,
+      "Suspected chargeback fraud, ticket 918.",
+    );
+    expect(ownerApi.fetchOwnerSiteDetail).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses to submit a suspend with a blank reason, without sending a request", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail({ suspendedUntil: null }) });
+
+    const container = await render(shellAt());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Suspend this account").click());
+    const dialog = one<HTMLElement>(container, "dialog[open]");
+
+    await interact(() => byText<HTMLButtonElement>(dialog, "button", "Suspend").click());
+
+    expect(dialog.textContent).toMatch(/reason is required/i);
+    expect(ownerApi.suspendOwnerSite).not.toHaveBeenCalled();
+  });
+
+  it("shows Extend/Unblock, not Suspend, for an account currently suspended", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ suspendedUntil: "2099-01-01T00:00:00Z" }),
+    });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).toMatch(/currently suspended/i);
+    expect(byText<HTMLButtonElement>(container, "button", "Extend")).not.toBeNull();
+    expect(byText<HTMLButtonElement>(container, "button", "Unblock now")).not.toBeNull();
+    expect(byText<HTMLButtonElement>(container, "button", "Suspend this account")).toBeNull();
+  });
+
+  it("extends by the additional minutes typed, added to the current deadline server-side", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ suspendedUntil: "2099-01-01T00:00:00Z" }),
+    });
+    ownerApi.extendOwnerSuspension.mockResolvedValue({ status: "ok", suspendedUntil: "2099-01-01T01:00:00Z" });
+
+    const container = await render(shellAt());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Extend").click());
+    const dialog = one<HTMLElement>(container, "dialog[open]");
+
+    await setInput(one<HTMLInputElement>(dialog, 'input[type="number"]'), "30");
+    await setTextarea(dialog, "Still under review.");
+    await interact(() => byText<HTMLButtonElement>(dialog, "button", "Extend").click());
+
+    expect(ownerApi.extendOwnerSuspension).toHaveBeenCalledWith("token", SITE_ID, 30, "Still under review.");
+  });
+
+  it("unblocks with the typed reason, no minutes field shown at all", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ suspendedUntil: "2099-01-01T00:00:00Z" }),
+    });
+    ownerApi.unblockOwnerSuspension.mockResolvedValue({ status: "ok" });
+
+    const container = await render(shellAt());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Unblock now").click());
+    const dialog = one<HTMLElement>(container, "dialog[open]");
+
+    expect(dialog.querySelector('input[type="number"]')).toBeNull();
+    await setTextarea(dialog, "False alarm, resolved.");
+    await interact(() => byText<HTMLButtonElement>(dialog, "button", "Unblock").click());
+
+    expect(ownerApi.unblockOwnerSuspension).toHaveBeenCalledWith("token", SITE_ID, "False alarm, resolved.");
+  });
+
+  it("shows the server's own conflict text without closing the dialog", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail({ suspendedUntil: null }) });
+    ownerApi.suspendOwnerSite.mockResolvedValue({
+      status: "conflict",
+      message: "Site is already suspended - extend or lift it instead of suspending again.",
+    });
+
+    const container = await render(shellAt());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Suspend this account").click());
+    const dialog = one<HTMLElement>(container, "dialog[open]");
+    await setTextarea(dialog, "Some reason.");
+    await interact(() => byText<HTMLButtonElement>(dialog, "button", "Suspend").click());
+
+    expect(dialog.textContent).toContain("extend or lift it instead of suspending again");
+  });
+});
