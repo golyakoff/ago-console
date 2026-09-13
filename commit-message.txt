@@ -1,6 +1,0 @@
-fix(console): a worker's services are editable, not only settable at creation (25-74)
-
-WorkerCard's service checkboxes were wrapped in `mode === "create"`, and updateWorker's own request
-type carried no serviceIds - the edit form had no way to reach the service list at all. The checkbox
-set now renders (pre-checked from WorkerDetail.serviceIds) and is sent on both create and edit, paired
-with ago-calendar's UpdateWorkerHandler gaining the same ability server-side.
