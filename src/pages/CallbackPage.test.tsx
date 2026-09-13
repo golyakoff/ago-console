@@ -1,4 +1,4 @@
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useSearchParams } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ErrorResponse, type User } from "oidc-client-ts";
 import { CallbackPage } from "./CallbackPage.js";
@@ -62,9 +62,17 @@ function app() {
         <Route path="/" element={<p>the queue</p>} />
         <Route path="/onboarding" element={<p>set up your site</p>} />
         <Route path="/owner" element={<p>platform sites</p>} />
+        <Route path="/redeem-invite" element={<RedeemInviteProbe />} />
       </Routes>
     </MemoryRouter>
   );
+}
+
+/** `25-73`: renders the search string `CallbackPage` navigated with, so a test can assert `?code=`
+ * was actually forwarded rather than only that some navigation to `/redeem-invite` happened. */
+function RedeemInviteProbe() {
+  const [searchParams] = useSearchParams();
+  return <p>redeem invite page, code={searchParams.get("code")}</p>;
 }
 
 beforeEach(() => {
@@ -77,6 +85,11 @@ beforeEach(() => {
 
 afterEach(async () => {
   await unmount();
+  // `25-73`: some tests below set `window.location` via `history.pushState` (MemoryRouter itself
+  // never touches it, so that is the only way to make `CallbackPage`'s own `window.location.search`
+  // read see an `inviteCode` at all) - reset so a later test file's own jsdom instance does not
+  // inherit a query string this one left behind.
+  window.history.pushState({}, "", "/");
 });
 
 describe("landing back from Keycloak", () => {
@@ -94,6 +107,23 @@ describe("landing back from Keycloak", () => {
     const container = await render(app());
 
     expect(container.textContent).toContain("set up your site");
+  });
+
+  /** `25-73`'s own Done-when: "an invitee who opens the email link ends up as an operator on the
+   * inviting site with no branch point where a new tenant could be created instead." An identity
+   * that just completed Keycloak's `execute-actions-email` required actions resolves to state (b)
+   * exactly like an ordinary fresh registrant - the same server answer, `"keycloak-identity-only"` -
+   * so what actually has to change is this page's own routing decision, not anything the server
+   * reports. Fails-before: reverting the `inviteCode` branch this item adds makes this test fail,
+   * landing on "set up your site" (state (b)'s own ordinary destination) instead. */
+  it("takes an invitee straight to redeem-invite, never the site setup form, when the email link carried a code", async () => {
+    operatorsApi.resolveOperatorState.mockResolvedValue("keycloak-identity-only");
+    window.history.pushState({}, "", "/callback?inviteCode=emailed-code-123");
+
+    const container = await render(app());
+
+    expect(container.textContent).toContain("redeem invite page, code=emailed-code-123");
+    expect(container.textContent).not.toContain("set up your site");
   });
 
   it("routes on the server's answer, using the token it was handed and nothing in it", async () => {

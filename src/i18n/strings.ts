@@ -1199,6 +1199,9 @@ export interface ConsoleStrings {
   operatorsTeamRemoveConfirmButton: string;
   operatorsTeamRemoveError: string;
 
+  /** `25-73`: required on the invite form now - the address Keycloak's own invite email goes to. */
+  operatorsTeamInviteEmailLabel: string;
+  operatorsTeamInviteEmailValidationEmpty: string;
   operatorsTeamInviteButton: string;
   operatorsTeamInviteDialogTitle: string;
   /**
@@ -1248,6 +1251,39 @@ export interface ConsoleStrings {
   /** `${operatorsTeamInviteExpiresLabel} ${date}` - the invite's own `expiresAt`. */
   operatorsTeamInviteExpiresLabel: string;
   operatorsTeamInviteCloseButton: string;
+  /** `25-73`: the invite is now sent by email automatically - the success panel names the address
+   * rather than only handing over a copyable link. `${operatorsTeamInviteSuccessBodyEmail}
+   * ${email}`. */
+  operatorsTeamInviteSuccessBodyEmail: string;
+  /** Shown instead of/alongside the success panel when `CreateOperatorInviteResponse.sendFailed` is
+   * true - Keycloak accepted the request but its own SMTP relay failed; the invite still exists (it
+   * will show up in the list below with its own status), so this is a warning, not a hard failure. */
+  operatorsTeamInviteSendFailedWarning: string;
+
+  /** `25-73`: the invite-list table - "email / date sent / status / expiry / revoke" - shown only when
+   * at least one invite exists for the site. */
+  operatorsTeamInviteListPanelTitle: string;
+  operatorsTeamInviteListLoadError: string;
+  operatorsTeamInviteListEmailColumn: string;
+  operatorsTeamInviteListSentColumn: string;
+  operatorsTeamInviteListStatusColumn: string;
+  operatorsTeamInviteListExpiryColumn: string;
+  operatorsTeamInviteListActionsColumn: string;
+  /** The five `OperatorInviteListStatus` members, rendered as a badge - `Sent`/`SendFailed`/`Revoked`/
+   * `Redeemed`/`Expired` (`ago-chat`'s own `ListOperatorInvitesHandler`). */
+  operatorsTeamInviteStatusSent: string;
+  /** `${operatorsTeamInviteStatusSendFailed} ${smtpErrorCode}` - this item's own stated wording:
+   * "ошибка отправки приглашения, код ошибки smtp-сервера: {code}". */
+  operatorsTeamInviteStatusSendFailed: string;
+  operatorsTeamInviteStatusRevoked: string;
+  operatorsTeamInviteStatusRedeemed: string;
+  operatorsTeamInviteStatusExpired: string;
+  operatorsTeamInviteRevokeButton: string;
+  operatorsTeamInviteRevokeDialogTitle: string;
+  /** `${operatorsTeamInviteRevokeDialogBody} ${email}?` */
+  operatorsTeamInviteRevokeDialogBody: string;
+  operatorsTeamInviteRevokeConfirmButton: string;
+  operatorsTeamInviteRevokeError: string;
 
   // `23-72`: "a tenant can appoint another administrator" - the role column, the invite dialog's role
   // picker, and the per-row change-role action.
@@ -2294,9 +2330,22 @@ export interface ConsoleStrings {
   redeemInviteErrorSeatLimitReached: string;
   /** Anything else - a network failure, or a status this screen does not otherwise name. */
   redeemInviteErrorGeneric: string;
+  /** `25-73`: `OperatorInvite.Revoked` (`409`) - an admin withdrew this invite before it was
+   * redeemed. This item's own stated wording: "извините, ваше приглашение было отозвано". */
+  redeemInviteErrorRevoked: string;
+  /** `25-73`: `OperatorInvite.EmailMismatch` (`403`) - the code is real, but this signed-in
+   * identity's own email does not match the address the invite was sent to. */
+  redeemInviteErrorEmailMismatch: string;
   /** This screen's own link back to `/onboarding`, for a reader who followed that page's own
    * "Have an invite code instead?" link (`onboardingRedeemInviteLinkLabel`, below) here by mistake. */
   redeemInviteSetupOwnSiteLink: string;
+  /** `25-73`: shown on `/onboarding` in place of the plain registration form when this signed-in
+   * identity's own email already has a live, unredeemed invite waiting - steering an invitee away
+   * from creating their own tenant by accident. This item's own stated wording: "у вас есть
+   * приглашение, проверьте почту". */
+  onboardingHasPendingInviteTitle: string;
+  onboardingHasPendingInviteBody: string;
+  onboardingHasPendingInviteLink: string;
 
   // --- `23-70`: `/invite/:code` (`InvitePreviewPage`) - the landing page a colleague reaches by
   // opening the link `/team/people` now hands out, before they have signed in at all

@@ -87,6 +87,30 @@ function app() {
   );
 }
 
+/** `25-73`: the email-link arrival shape - `?code=...` on this page's own URL, the identical route
+ * `CallbackPage`'s own `inviteCode` handling navigates to. A separate helper from `app()` above
+ * (rather than a parameter every other test would have to pass `undefined` for) since this is the one
+ * describe block that cares about it at all. */
+function appWithCodeInUrl(code: string) {
+  return (
+    <MemoryRouter initialEntries={[`/redeem-invite?code=${code}`]}>
+      <Signed>
+        <Routes>
+          <Route path="/redeem-invite" element={<RedeemInvitePage />} />
+          <Route
+            path="/"
+            element={
+              <PermissionsProvider>
+                <QueueProbe />
+              </PermissionsProvider>
+            }
+          />
+        </Routes>
+      </Signed>
+    </MemoryRouter>
+  );
+}
+
 function fillCode(container: HTMLElement, code: string): Promise<void> {
   return interact(() => {
     const input = one<HTMLInputElement>(container, "input");
@@ -257,6 +281,40 @@ describe("the four outcomes the backlog names, plus the two the handler actually
     expect(container.textContent).not.toContain("already been used");
   });
 
+  /** `25-73`'s own Done-when: "revoking before acceptance is proven to actually block a later
+   * redemption attempt with the stated message" - this is the console-side half of that proof (the
+   * server-side half, that a revoked invite's own redemption attempt actually returns this code, is
+   * `RedeemOperatorInviteHandlerTests`/`OperatorInviteTests`/`Ago.Chat.Integration.Tests` in
+   * `ago-chat`). Distinct from every other outcome, the same bar every test in this describe block
+   * already holds itself to. */
+  it("says the invite was revoked, distinctly from an already-used code", async () => {
+    operatorInvitesApi.redeemOperatorInvite.mockRejectedValue(
+      new ApiProblemError("OperatorInvite.Revoked", "This operator invite was revoked.", 409),
+    );
+    const container = await render(app());
+
+    await fillCode(container, "revoked-code");
+    await submit(container);
+
+    expect(container.textContent).toContain("Sorry, this invite has been revoked.");
+    expect(container.textContent).not.toContain("already been used");
+  });
+
+  /** `25-73`'s own real security boundary: the code names a real invite, but the signed-in identity's
+   * own email does not match the address it was sent to. */
+  it("says this invite was sent to a different email, distinctly from every other outcome", async () => {
+    operatorInvitesApi.redeemOperatorInvite.mockRejectedValue(
+      new ApiProblemError("OperatorInvite.EmailMismatch", "This operator invite was issued to a different email address.", 403),
+    );
+    const container = await render(app());
+
+    await fillCode(container, "someone-elses-code");
+    await submit(container);
+
+    expect(container.textContent).toContain("different email address");
+    expect(container.textContent).not.toContain("already been used");
+  });
+
   it("says something usable when the failure is not the server's own problem+json", async () => {
     operatorInvitesApi.redeemOperatorInvite.mockRejectedValue(new TypeError("Failed to fetch"));
     const container = await render(app());
@@ -301,6 +359,44 @@ describe("23-70: prefilling from /invite/:code's own 'Continue' button", () => {
     const container = await render(app());
 
     expect(one<HTMLInputElement>(container, "input").value).toBe("");
+  });
+});
+
+/** `25-73`'s own Done-when: "the invited user's flow never surfaces the create-your-own-company
+ * form... no branch point where a new tenant could be created instead." Someone who opened the email
+ * link has no reason to know what a "code" is or to click a second button to spend one - this is the
+ * fails-before proof for the auto-submit effect added to close that gap: reverting it back to a
+ * manual-only `handleSubmit` makes this test fail because `redeemOperatorInvite` is never called
+ * without the click this test deliberately never performs.
+ *
+ * `fails-before`: reverting `RedeemInvitePage`'s `useEffect(() => { queueMicrotask(() =>
+ * void submitCode(codeFromUrl)); }, [])` to a no-op (or removing `codeFromUrl` entirely) makes this
+ * test fail - `redeemOperatorInvite` is asserted called with no click anywhere in the test body. */
+describe("25-73: redemption fires automatically when the code arrives via ?code=", () => {
+  it("redeems without any click, using the code from the URL", async () => {
+    operatorInvitesApi.redeemOperatorInvite.mockResolvedValue({
+      operatorId: "22222222-2222-2222-2222-222222222222",
+      siteId: "11111111-1111-1111-1111-111111111111",
+    });
+
+    const container = await render(appWithCodeInUrl("emailed-invite-code"));
+    await interact(() => undefined);
+
+    expect(operatorInvitesApi.redeemOperatorInvite).toHaveBeenCalledWith("keycloak-token", {
+      code: "emailed-invite-code",
+    });
+    expect(container.textContent).toContain("You're in.");
+  });
+
+  it("still shows the invite's own distinct error message when the auto-submitted code is refused", async () => {
+    operatorInvitesApi.redeemOperatorInvite.mockRejectedValue(
+      new ApiProblemError("OperatorInvite.Revoked", "This operator invite was revoked.", 409),
+    );
+
+    const container = await render(appWithCodeInUrl("revoked-emailed-code"));
+    await interact(() => undefined);
+
+    expect(container.textContent).toContain("Sorry, this invite has been revoked.");
   });
 });
 

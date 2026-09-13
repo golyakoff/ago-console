@@ -36,11 +36,32 @@ export interface SeatAssignmentSummaryDto {
 
 /** `CreateOperatorInviteEndpoints.CreateOperatorInviteResponse`'s own wire shape - `code` is the
  * plaintext invite code, present in this one response only (`OperatorInviteEndpoints`'s own remarks:
- * "shown exactly once"). */
+ * "shown exactly once"). `25-73`: `sendFailed` - `true` when Keycloak's own realm relay failed to
+ * deliver the invite email at the SMTP layer; the invite still exists either way (it shows up in
+ * `listOperatorInvites` below with its own status), so this is a warning the dialog can show
+ * immediately, not a reason the create call itself failed. */
 export interface CreateOperatorInviteResponseDto {
   operatorInviteId: string;
   code: string;
   expiresAt: string;
+  sendFailed: boolean;
+}
+
+/** `25-73`: the console's own invite-list screen - `GET /api/v1/sites/{siteId}/operator-invites`.
+ * `status` is one of `ListOperatorInvitesHandler`'s own five `OperatorInviteListStatus` members, sent
+ * as its enum member name (`api-design.md`: "clients branch on `type`, never on the message").
+ * `smtpErrorCode` is present only when `status === "SendFailed"`. */
+export interface OperatorInviteListEntryDto {
+  operatorInviteId: string;
+  email: string;
+  createdAt: string;
+  expiresAt: string;
+  status: "Sent" | "SendFailed" | "Revoked" | "Redeemed" | "Expired";
+  smtpErrorCode: string | null;
+}
+
+export interface ListOperatorInvitesResponseDto {
+  invites: OperatorInviteListEntryDto[];
 }
 
 function operatorTeamHeaders(accessToken: string, init?: RequestInit): HeadersInit {
@@ -91,15 +112,33 @@ export function fetchSeatAssignmentSummary(accessToken: string, siteId: string):
 export const ROLE_OPERATOR = "Operator";
 export const ROLE_ADMIN = "Admin";
 
+/** `25-73`: `email` is now required by the server itself - a missing/malformed value comes back as
+ * `OperatorInvite.InvalidEmail` (`400`), thrown as an `ApiProblemError` the same way every other
+ * validation failure in this file already is. */
 export function createOperatorInvite(
   accessToken: string,
   siteId: string,
   roleName: string,
+  email: string,
 ): Promise<CreateOperatorInviteResponseDto> {
   return operatorTeamFetch<CreateOperatorInviteResponseDto>(accessToken, `/api/v1/sites/${siteId}/operator-invites`, {
     method: "POST",
-    body: JSON.stringify({ roleName }),
+    body: JSON.stringify({ roleName, email }),
   });
+}
+
+/** `25-73`: the invite-list table's own read - refetched by the caller (`OperatorsTeamPage`'s own
+ * `load()`) after every create/revoke, the same "no separate cache, just reload" shape this file's
+ * `fetchOperatorTeam` already uses for the operator table itself. */
+export function listOperatorInvites(accessToken: string, siteId: string): Promise<ListOperatorInvitesResponseDto> {
+  return operatorTeamFetch<ListOperatorInvitesResponseDto>(accessToken, `/api/v1/sites/${siteId}/operator-invites`);
+}
+
+/** `25-73`: the "отозвать" button's own call - `204 No Content` on success, the same
+ * `operatorTeamVoidFetch` shape `toggleOperatorSeat`/`removeOperator` already use for their own
+ * body-less writes. */
+export function revokeOperatorInvite(accessToken: string, siteId: string, operatorInviteId: string): Promise<void> {
+  return operatorTeamVoidFetch(accessToken, `/api/v1/sites/${siteId}/operator-invites/${operatorInviteId}/revoke`, { method: "POST" });
 }
 
 /** `23-72`: "an administrator can change an existing colleague's role, both directions" - the console's

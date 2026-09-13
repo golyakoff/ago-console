@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthContext.js";
 import { operatorDisplayName } from "../auth/operatorDisplayName.js";
 import { useOwnerEligibility } from "../auth/useOwnerEligibility.js";
 import { registerSite, RegisterSiteError } from "../api/sitesApi.js";
+import { hasPendingOperatorInvite } from "../api/operatorInvitesApi.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { getRequiredDocuments, type RequiredDocumentSummary } from "../api/documentsApi.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
@@ -97,6 +98,11 @@ export function OnboardingPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [requiredDocuments, setRequiredDocuments] = useState<RequiredDocumentSummary[]>([]);
+  // `25-73`: the registration-collision steer - `false` until (if ever) the probe below answers
+  // otherwise, so the common case (no pending invite) renders the ordinary form immediately, the same
+  // "the form renders until the probe says otherwise" precedent this page's own `12-05` paragraph
+  // already established for `ownerEligibility`.
+  const [hasPendingInvite, setHasPendingInvite] = useState(false);
 
   // Fire-and-forget, not part of the submit path: `getRequiredDocuments` already fails open to `[]`
   // on any error (`documentsApi.ts`'s own remarks), and `RegisterSiteHandler` is the actual authority
@@ -112,6 +118,34 @@ export function OnboardingPage() {
       cancelled = true;
     };
   }, []);
+
+  // `25-73`: steers an invitee away from creating their own tenant by accident - the console-reachable
+  // half of this item's own "registration collision gets a real message" requirement (see this item's
+  // own worker report for why the *other* half, catching Keycloak's own hosted self-registration
+  // duplicate-email error, is not achievable in console code alone). Fails open to `false` on any
+  // error, the identical "this read only decides what the form shows beforehand" shape the
+  // `requiredDocuments` probe right above already follows - an unanswerable probe must not block
+  // registration, only fail to mention an invite that may or may not exist.
+  useEffect(() => {
+    const accessToken = user?.access_token;
+    if (!accessToken) {
+      return;
+    }
+
+    let cancelled = false;
+    void hasPendingOperatorInvite(accessToken)
+      .then((response) => {
+        if (!cancelled) {
+          setHasPendingInvite(response.hasPendingInvite);
+        }
+      })
+      .catch(() => {
+        // Fail open - see this effect's own doc comment.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.access_token]);
 
   // UX-only - `10-02`'s `RegisterSiteHandler`/`OriginValidator` are the real gate (server-side,
   // authoritative) and reject anything this check would have let through incorrectly. This mirrors
@@ -219,6 +253,19 @@ export function OnboardingPage() {
           action={<Link to="/owner">{strings.onboardingPlatformOwnerAlertLinkLabel}</Link>}
         >
           {strings.onboardingPlatformOwnerAlertBody}
+        </Alert>
+      )}
+
+      {hasPendingInvite && (
+        // `25-73`: the identical "info, not danger - explain, don't refuse" shape the platform-owner
+        // alert right above already establishes - the form below stays usable for a reader who really
+        // does want their own tenant, this is only pointing out the more likely reason they are here.
+        <Alert
+          tone="info"
+          title={strings.onboardingHasPendingInviteTitle}
+          action={<Link to="/redeem-invite">{strings.onboardingHasPendingInviteLink}</Link>}
+        >
+          {strings.onboardingHasPendingInviteBody}
         </Alert>
       )}
 

@@ -41,7 +41,12 @@ const userManager = vi.hoisted(() => ({
 const operatorsApi = vi.hoisted(() => ({ resolveOperatorState: vi.fn(), fetchMyPermissions: vi.fn() }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn(), fetchOwnerSites: vi.fn() }));
 const sitesApi = vi.hoisted(() => ({ registerSite: vi.fn() }));
-const operatorInvitesApi = vi.hoisted(() => ({ redeemOperatorInvite: vi.fn() }));
+// `25-73`: OnboardingPage now also calls hasPendingOperatorInvite on mount - resolved to "no pending
+// invite" by default so the existing onboarding-render assertions below are not affected by it.
+const operatorInvitesApi = vi.hoisted(() => ({
+  redeemOperatorInvite: vi.fn(),
+  hasPendingOperatorInvite: vi.fn().mockResolvedValue({ hasPendingInvite: false }),
+}));
 
 vi.mock("../auth/userManager.js", () => userManager);
 vi.mock("../api/operatorsApi.js", () => operatorsApi);

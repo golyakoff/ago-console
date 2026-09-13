@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { operatorDisplayName } from "../auth/operatorDisplayName.js";
 import { consumePendingInviteCode } from "../auth/pendingInviteCode.js";
@@ -41,14 +41,15 @@ import { Alert } from "../components/Alert.js";
  * identity does today, and follows the link instead of filling in the form. `OnboardingPage.tsx`
  * itself is otherwise unchanged by this item - the single link is the entire surface touched there.
  *
- * <b>The four (in practice five) outcomes, matched to `RedeemOperatorInviteHandler`'s own
+ * <b>The four (in practice seven) outcomes, matched to `RedeemOperatorInviteHandler`'s own
  * `OperatorInviteRedemptionResult` cases.</b> The backlog names four - wrong code, already used,
- * expired, happy path - but the handler actually distinguishes five failure shapes plus success
- * (`ConversationErrors`'s own five `OperatorInvite.*` codes: `NotFound`, `Expired`, `AlreadyRedeemed`,
- * `AlreadyOperatorOnSite`, `SeatLimitReached`). Collapsing the last two into "already used" would be
- * exactly the failure the backlog warns against - `AlreadyOperatorOnSite` is not a used-up code at
+ * expired, happy path - but the handler actually distinguishes seven failure shapes plus success
+ * (`ConversationErrors`'s own seven `OperatorInvite.*` codes: `NotFound`, `Expired`, `AlreadyRedeemed`,
+ * `AlreadyOperatorOnSite`, `SeatLimitReached`, and - `25-73` - `Revoked`/`EmailMismatch`). Collapsing
+ * the last two of the original five into "already used" would be exactly the failure the backlog
+ * warns against - `AlreadyOperatorOnSite` is not a used-up code at
  * all (the code might still be perfectly redeemable by somebody else) and `SeatLimitReached` is a
- * billing fact about the site, not anything wrong with the code - so this screen keeps all five
+ * billing fact about the site, not anything wrong with the code - so this screen keeps all seven
  * distinct, branching on `ApiProblemError#code` (`api-design.md`: "clients branch on `type`, never on
  * the message"), never on the server's prose.
  *
@@ -102,13 +103,26 @@ export function RedeemInvitePage() {
   const { user, logout } = useAuth();
   const strings = useStrings();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // `25-73`: `?code=` on this page's own URL - Keycloak's `execute-actions-email` redirect_uri carries
+  // the invite code this way (`redirect_uri=.../callback?inviteCode=...`, forwarded on by
+  // `CallbackPage`'s own redirect to `/redeem-invite?code=...`), because the sessionStorage
+  // `consumePendingInviteCode()` right below relies on cannot survive being the very first thing this
+  // browser ever loads from this console - which is exactly the case for someone who opened the email
+  // link on a device or browser that never visited `/invite/{code}` first. Read once, on this page's
+  // very first render, the same lazy-initializer shape `consumePendingInviteCode()` already uses for
+  // the identical "read exactly once" reason.
+  const [codeFromUrl] = useState(() => searchParams.get("code"));
   // `23-70`: prefilled from `/invite/:code`'s own "Continue" button when this page is reached that
   // way - `consumePendingInviteCode`'s own doc comment has the full reasoning for why sessionStorage,
   // not a route param, is what survives the sign-in redirect this route sits behind. The lazy
   // initializer form (not a bare `useState("")` plus an effect) reads it exactly once, on this page's
   // very first render - `consumePendingInviteCode` already clears the key as it reads it, so a second
   // read (a remount, a second tab) correctly finds nothing rather than replaying a stale value.
-  const [code, setCode] = useState(() => consumePendingInviteCode() ?? "");
+  // `25-73`: `codeFromUrl` wins when both are present - an email-link arrival is never also a
+  // sessionStorage-carried one (they are two different entry points into this same page), but if it
+  // somehow were, the URL's own value is the one this exact page load was actually opened with.
+  const [code, setCode] = useState(() => codeFromUrl ?? consumePendingInviteCode() ?? "");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -125,19 +139,17 @@ export function RedeemInvitePage() {
     };
   }, []);
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-
-    // The same "the disabled button is a presentation of the rule, not the rule" reasoning
-    // `OnboardingPage.tsx` states for its own single-field form - Enter still submits, and a second
-    // submit mid-flight must not fire a second request.
+  // `25-73`: pulled out of `handleSubmit` below so an arrival via `?code=` (the email link) can drive
+  // the identical redemption path automatically, without inventing a second, parallel implementation
+  // that could drift from the one the manual form already uses.
+  const submitCode = async (candidate: string) => {
     if (submitting || redeemed) {
       return;
     }
 
     setSubmitError(null);
 
-    const trimmed = code.trim();
+    const trimmed = candidate.trim();
     if (trimmed.length === 0) {
       setValidationError(strings.redeemInviteValidationEmpty);
       return;
@@ -167,6 +179,36 @@ export function RedeemInvitePage() {
     }
   };
 
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    void submitCode(code);
+  };
+
+  // `25-73`'s own Done-when: "the invited user's flow never surfaces the create-your-own-company
+  // form... no branch point where a new tenant could be created instead." An invitee who followed the
+  // email link has no reason to know what a "code" is or to click a second button to spend one - so
+  // when the code arrived via `?code=` (as opposed to being manually typed, or prefilled from `/invite/
+  // :code` and confirmed with a deliberate click), redemption fires automatically, once, on mount.
+  useEffect(() => {
+    if (!codeFromUrl) {
+      return;
+    }
+    // `queueMicrotask`, not a bare call: `submitCode`'s own first statement is a synchronous
+    // `setSubmitError(null)`, and React's own eslint rule (react-hooks/set-state-in-effect) refuses a
+    // state update that synchronous within an effect body, on the "cascading renders" grounds its own
+    // message states - deferring by one microtask is the same fix that rule's own documentation
+    // recommends for "the effect's real job is triggering an external action, not computing state
+    // itself."
+    queueMicrotask(() => {
+      void submitCode(codeFromUrl);
+    });
+    // Fire once, on mount, for the code this page was opened with; submitCode's own identity changes
+    // every render (it closes over `code`/`submitting`/`redeemed`), and re-running this effect on
+    // every one of those changes would either resubmit or do nothing depending on timing - neither is
+    // the "once" this effect exists to be.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <AppShell
       identity={
@@ -184,7 +226,7 @@ export function RedeemInvitePage() {
         {redeemed ? (
           <Alert tone="success">{strings.redeemInviteSuccessMessage}</Alert>
         ) : (
-          <form className="ago-stack" onSubmit={(e) => void handleSubmit(e)}>
+          <form className="ago-stack" onSubmit={handleSubmit}>
             <Field label={strings.redeemInviteCodeLabel} error={validationError}>
               {(controlProps) => (
                 <Input
@@ -225,9 +267,9 @@ export function RedeemInvitePage() {
 }
 
 /**
- * `ConversationErrors`'s own five `OperatorInvite.*` codes (`ago-chat`), matched one-for-one so the
+ * `ConversationErrors`'s own seven `OperatorInvite.*` codes (`ago-chat`), matched one-for-one so the
  * screen never collapses two server-distinguished outcomes into one sentence - this function's own
- * doc comment on the component above has the full reasoning for why all five, not the backlog's own
+ * doc comment on the component above has the full reasoning for why all seven, not the backlog's own
  * headline four, are kept apart. Anything else - a network failure the fetch itself threw, or a
  * status this screen does not otherwise recognise - falls through to the generic message, the same
  * "say something usable" floor `OnboardingPage.tsx`'s own catch block already sets.
@@ -245,6 +287,13 @@ function messageFor(err: unknown, strings: ReturnType<typeof useStrings>): strin
         return strings.redeemInviteErrorAlreadyOperator;
       case "OperatorInvite.SeatLimitReached":
         return strings.redeemInviteErrorSeatLimitReached;
+      // `25-73`: revoked before acceptance - this item's own Done-when, and its own stated wording.
+      case "OperatorInvite.Revoked":
+        return strings.redeemInviteErrorRevoked;
+      // `25-73`'s own real security boundary: the code is real, but this signed-in identity's own
+      // email does not match the address the invite was sent to.
+      case "OperatorInvite.EmailMismatch":
+        return strings.redeemInviteErrorEmailMismatch;
       default:
         return strings.redeemInviteErrorGeneric;
     }

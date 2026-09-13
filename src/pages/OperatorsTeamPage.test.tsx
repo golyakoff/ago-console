@@ -33,6 +33,11 @@ const operatorTeamApi = vi.hoisted(() => ({
   toggleOperatorSeat: vi.fn(),
   removeOperator: vi.fn(),
   changeOperatorRole: vi.fn(),
+  // `25-73`: the invite-list panel's own read, fetched alongside the team/summary on every mount and
+  // reload - resolved to "no invites" by default so the existing assertions below, none of which are
+  // about this new panel, see it render nothing extra.
+  listOperatorInvites: vi.fn().mockResolvedValue({ invites: [] }),
+  revokeOperatorInvite: vi.fn(),
 }));
 
 vi.mock("../api/operatorsApi.js", async () => {
@@ -77,6 +82,21 @@ function page(): ReactNode {
       </Signed>
     </MemoryRouter>
   );
+}
+
+/** `25-73`: React tracks the DOM value it last wrote, so assigning `.value` directly is swallowed as
+ * "no change" and no `onChange` fires - going through the *prototype's* setter is what makes the
+ * synthetic change real, the identical workaround `BillingPage.test.tsx`'s own `setInputValue`
+ * already establishes for the same reason. */
+const INPUT_VALUE_DESCRIPTOR = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+
+function fillInviteEmail(container: HTMLElement, email: string): void {
+  const input = container.querySelector<HTMLInputElement>('input[type="email"]');
+  if (!input) {
+    throw new Error("no email input found in the invite dialog");
+  }
+  INPUT_VALUE_DESCRIPTOR?.set?.call(input, email);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 function twoOperatorsAndASummary(seatLimit: number) {
@@ -206,6 +226,7 @@ describe("the pre-invite seat check", () => {
       operatorInviteId: "invite-1",
       code: "abc123",
       expiresAt: "2026-09-10T00:00:00Z",
+      sendFailed: false,
     });
 
     const container = await render(page());
@@ -213,11 +234,15 @@ describe("the pre-invite seat check", () => {
     // `25-18`: the dialog opens on the Operator default, so the cost line names that seat specifically.
     expect(container.textContent).toContain("This will use one more Operator seat");
 
+    // `25-73`: required on the form now - filled before submitting, the same way the role picker
+    // below is exercised in its own describe block.
+    await interact(() => fillInviteEmail(container, "colleague@example.com"));
     await interact(() => byText<HTMLButtonElement>(container, "button", "Send invite").click());
 
     // `23-72`: the invite dialog defaults to Operator, so an ordinary invite (no role picked)
     // still asks the server for that role explicitly - there is no "no role" state on the wire.
-    expect(operatorTeamApi.createOperatorInvite).toHaveBeenCalledWith("token", SITE_ID, "Operator");
+    // `25-73`: and now also the email this invite is addressed to.
+    expect(operatorTeamApi.createOperatorInvite).toHaveBeenCalledWith("token", SITE_ID, "Operator", "colleague@example.com");
     // `23-70`: a URL the colleague can be sent, not a bare token - "the invitation is a URL... that
     // can be pasted into whatever the tenant already uses" (this item's own backlog text).
     expect(container.textContent).toContain("/invite/abc123");
@@ -231,14 +256,18 @@ describe("the pre-invite seat check", () => {
       operatorInviteId: "invite-1",
       code: "abc123",
       expiresAt: "2026-09-10T00:00:00Z",
+      sendFailed: false,
     });
 
     const container = await render(page());
     await interact(() => byText<HTMLButtonElement>(container, "button", "Invite a colleague").click());
+    await interact(() => fillInviteEmail(container, "colleague@example.com"));
     await interact(() => byText<HTMLButtonElement>(container, "button", "Send invite").click());
 
     // `23-70`'s own Done-when: "the screen says what to do with it and that it will not be shown
-    // again" - before the copy button is even clicked.
+    // again" - before the copy button is even clicked. `25-73`: the panel now leads with "sent to
+    // <email>" - this is the fallback-link caveat right underneath it, not the whole message.
+    expect(container.textContent).toContain("colleague@example.com");
     expect(container.textContent).toContain("shown here only once");
 
     await interact(() => byText<HTMLButtonElement>(container, "button", "Copy link").click());
@@ -271,10 +300,12 @@ describe("the invite dialog's role picker", () => {
       operatorInviteId: "invite-2",
       code: "def456",
       expiresAt: "2026-09-10T00:00:00Z",
+      sendFailed: false,
     });
 
     const container = await render(page());
     await interact(() => byText<HTMLButtonElement>(container, "button", "Invite a colleague").click());
+    await interact(() => fillInviteEmail(container, "admin-invite@example.com"));
 
     const roleSelect = container.querySelector("select");
     await interact(() => {
@@ -285,7 +316,7 @@ describe("the invite dialog's role picker", () => {
     });
 
     await interact(() => byText<HTMLButtonElement>(container, "button", "Send invite").click());
-    expect(operatorTeamApi.createOperatorInvite).toHaveBeenCalledWith("token", SITE_ID, "Admin");
+    expect(operatorTeamApi.createOperatorInvite).toHaveBeenCalledWith("token", SITE_ID, "Admin", "admin-invite@example.com");
   });
 
   /**
@@ -380,5 +411,108 @@ describe("row actions (seat and removal)", () => {
 
     expect(operatorTeamApi.removeOperator).toHaveBeenCalledWith("token", SITE_ID, NAMED_ID);
     expect(operatorTeamApi.fetchOperatorTeam).toHaveBeenCalledTimes(2);
+  });
+});
+
+/** `25-73`'s own point 7 and its own Done-when: "the invite list... renders under the operator table
+ * only when at least one invite exists for the site, and revoking before acceptance is proven to
+ * actually block a later redemption attempt with the stated message." This describe block is the
+ * console-side half of that proof - that the panel renders (or does not) correctly, and that the
+ * revoke button calls the real API and reloads the list; the server-side half (that a revoked
+ * invite's own redemption attempt genuinely returns `OperatorInvite.Revoked`) is proven in `ago-chat`
+ * (`RedeemOperatorInviteHandlerTests`/`OperatorInviteTests`/`Ago.Chat.Integration.Tests`), and the
+ * message itself rendering is `RedeemInvitePage.test.tsx`'s own new test above. */
+describe("the invite list", () => {
+  it("renders nothing when no invite exists for the site", async () => {
+    twoOperatorsAndASummary(5);
+    operatorTeamApi.listOperatorInvites.mockResolvedValue({ invites: [] });
+
+    const container = await render(page());
+
+    expect(container.textContent).not.toContain("Invites");
+  });
+
+  /** Fails-before: rendering the panel unconditionally (dropping the `invites.length > 0` guard)
+   * makes the test right above this one fail - "Invites" would appear even with an empty list. */
+  it("renders every column, with the SMTP error code for a failed send, once an invite exists", async () => {
+    twoOperatorsAndASummary(5);
+    operatorTeamApi.listOperatorInvites.mockResolvedValue({
+      invites: [
+        {
+          operatorInviteId: "invite-a",
+          email: "sent@example.com",
+          createdAt: "2026-09-10T00:00:00Z",
+          expiresAt: "2026-09-17T00:00:00Z",
+          status: "Sent",
+          smtpErrorCode: null,
+        },
+        {
+          operatorInviteId: "invite-b",
+          email: "failed@example.com",
+          createdAt: "2026-09-11T00:00:00Z",
+          expiresAt: "2026-09-18T00:00:00Z",
+          status: "SendFailed",
+          smtpErrorCode: "550",
+        },
+        {
+          operatorInviteId: "invite-c",
+          email: "gone@example.com",
+          createdAt: "2026-09-08T00:00:00Z",
+          expiresAt: "2026-09-15T00:00:00Z",
+          status: "Revoked",
+          smtpErrorCode: null,
+        },
+      ],
+    });
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Invites");
+    expect(container.textContent).toContain("sent@example.com");
+    expect(container.textContent).toContain("failed@example.com");
+    // This item's own stated wording for the failure case, minus the Russian-only literal text (that
+    // exact string is asserted in `preSessionLocale.test.tsx`/`ru.ts`'s own review, not here - this
+    // file mounts the English strings, `OperatorsTeamPage.test.tsx`'s own established shape).
+    expect(container.textContent).toContain("550");
+    expect(container.textContent).toContain("gone@example.com");
+
+    // Only the still-live "Sent"/"SendFailed" rows offer "Revoke" - not the already-revoked one, and
+    // not the (always-rendered, initially closed) confirmation dialog's own same-labelled button.
+    const revokeButtons = all(container, "button:not(dialog button)").filter((b) => b.textContent === "Revoke");
+    expect(revokeButtons).toHaveLength(2); // "Sent" and "SendFailed" rows, not "Revoked"
+  });
+
+  it("revokes an invite, after confirming, and reloads the list", async () => {
+    twoOperatorsAndASummary(5);
+    operatorTeamApi.listOperatorInvites.mockResolvedValueOnce({
+      invites: [
+        {
+          operatorInviteId: "invite-a",
+          email: "sent@example.com",
+          createdAt: "2026-09-10T00:00:00Z",
+          expiresAt: "2026-09-17T00:00:00Z",
+          status: "Sent",
+          smtpErrorCode: null,
+        },
+      ],
+    });
+    operatorTeamApi.revokeOperatorInvite.mockResolvedValue(undefined);
+
+    const container = await render(page());
+    expect(operatorTeamApi.listOperatorInvites).toHaveBeenCalledTimes(1);
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Revoke").click());
+
+    // The confirmation names the real consequence, the same "before, not after" bar
+    // `RemoveOperatorButton`'s own confirmation already holds itself to.
+    expect(container.textContent).toContain("sent@example.com");
+    expect(operatorTeamApi.revokeOperatorInvite).not.toHaveBeenCalled();
+
+    operatorTeamApi.listOperatorInvites.mockResolvedValue({ invites: [] });
+    const confirmButtons = all(container, "dialog button").filter((b) => b.textContent === "Revoke");
+    await interact(() => confirmButtons[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+
+    expect(operatorTeamApi.revokeOperatorInvite).toHaveBeenCalledWith("token", SITE_ID, "invite-a");
+    expect(operatorTeamApi.listOperatorInvites).toHaveBeenCalledTimes(2);
   });
 });

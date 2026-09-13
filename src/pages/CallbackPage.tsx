@@ -151,6 +151,23 @@ export function CallbackPage() {
           return;
         }
 
+        // `25-73`: an invite's own `execute-actions-email` link carries this invite's code as
+        // `?inviteCode=...` on the `redirect_uri` Keycloak was given - preserved through
+        // `signinRedirectCallback()` because that call only reads the OAuth params it needs
+        // (`code`/`state`/`session_state`) and leaves the rest of the URL's own query string alone.
+        // Read before the (a)/(b)/(d) branch above even runs: an invitee who just completed
+        // `UPDATE_PASSWORD`/`UPDATE_PROFILE` resolves to no `operators` row yet by definition, so
+        // `state` here is always `"keycloak-identity-only"` - but routing that state to `/onboarding`
+        // (this function's own ordinary destination) is exactly the "create your own company" form
+        // this item's own Done-when says an invitee must never see. `/redeem-invite?code=...` there
+        // auto-submits the redemption on mount (`RedeemInvitePage`'s own `codeFromUrl` effect) - no
+        // second click, no branch point.
+        const inviteCode = new URLSearchParams(window.location.search).get("inviteCode");
+        if (inviteCode) {
+          void navigate(`/redeem-invite?code=${encodeURIComponent(inviteCode)}`, { replace: true });
+          return;
+        }
+
         void navigate(await destinationWithoutAnOperatorRow(user.access_token), { replace: true });
       })
       .catch((err: unknown) => {
