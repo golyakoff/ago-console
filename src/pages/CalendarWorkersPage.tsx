@@ -262,6 +262,7 @@ export function CalendarWorkersPage() {
                       middleName: fields.middleName,
                       displayName: fields.displayName,
                       isActive: fields.isActive,
+                      serviceIds: fields.serviceIds,
                     }),
               )
             }

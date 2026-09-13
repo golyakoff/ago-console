@@ -34,6 +34,7 @@ export interface WorkerCardFields {
   isActive: boolean;
   /** Only meaningful (and only sent) on create - v1 is one calendar per worker, chosen once. */
   calendarId: string;
+  /** `25-74`: sent on both create and edit now - the worker's complete, desired set of services. */
   serviceIds: string[];
 }
 
@@ -64,7 +65,9 @@ export function WorkerCard({ mode, worker, calendars, services, busy, onSubmit, 
   const [displayNameTouched, setDisplayNameTouched] = useState(worker?.displayNameIsCustom ?? false);
   const [isActive, setIsActive] = useState(worker?.isActive ?? true);
   const [calendarId, setCalendarId] = useState(calendars[0]?.calendarId ?? "");
-  const [serviceIds, setServiceIds] = useState<string[]>([]);
+  // `25-74`: seeded from the worker's own current offerings in edit mode - `worker` is `undefined` on
+  // create, where "nobody yet" is the correct starting point, same as every other field above.
+  const [serviceIds, setServiceIds] = useState<string[]>(worker?.serviceIds ?? []);
 
   // `23-96`: adjusted during render, not in an effect - `react-hooks/set-state-in-effect` (v7) flags a
   // synchronous `setState` in an effect body; comparing against the previous inputs here
@@ -139,41 +142,43 @@ export function WorkerCard({ mode, worker, calendars, services, busy, onSubmit, 
       </Field>
 
       {mode === "create" && (
-        <>
-          <Field label={strings.calendarCalendarFieldLabel}>
-            {(controlProps) => (
-              // One calendar per worker in v1 - a single select, not a multi-select, because the
-              // aggregate refuses a second and a multi-select would promise a shape it will not accept.
-              <Select {...controlProps} value={calendarId} onChange={(e) => setCalendarId(e.target.value)} disabled={busy}>
-                {calendars.map((calendar) => (
-                  <option key={calendar.calendarId} value={calendar.calendarId}>
-                    {calendar.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
-
-          <fieldset className="ago-stack">
-            <legend>{strings.calendarServicesPerformedLegend}</legend>
-            {services.map((service) => (
-              <label className="ago-row" key={service.serviceId}>
-                <input
-                  type="checkbox"
-                  checked={serviceIds.includes(service.serviceId)}
-                  disabled={busy}
-                  onChange={(e) =>
-                    setServiceIds((current) =>
-                      e.target.checked ? [...current, service.serviceId] : current.filter((id) => id !== service.serviceId),
-                    )
-                  }
-                />
-                <span>{service.name}</span>
-              </label>
-            ))}
-          </fieldset>
-        </>
+        <Field label={strings.calendarCalendarFieldLabel}>
+          {(controlProps) => (
+            // One calendar per worker in v1 - a single select, not a multi-select, because the
+            // aggregate refuses a second and a multi-select would promise a shape it will not accept.
+            <Select {...controlProps} value={calendarId} onChange={(e) => setCalendarId(e.target.value)} disabled={busy}>
+              {calendars.map((calendar) => (
+                <option key={calendar.calendarId} value={calendar.calendarId}>
+                  {calendar.name}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
       )}
+
+      {/* `25-74`: rendered in both modes now - `UpdateWorkerHandler` gained the ability to change a
+          worker's services, so the edit form gained the control that reaches it. Unchanged from
+          create otherwise: same checkbox set, same `serviceIds` state, seeded from `worker.serviceIds`
+          in edit mode rather than starting empty. */}
+      <fieldset className="ago-stack">
+        <legend>{strings.calendarServicesPerformedLegend}</legend>
+        {services.map((service) => (
+          <label className="ago-row" key={service.serviceId}>
+            <input
+              type="checkbox"
+              checked={serviceIds.includes(service.serviceId)}
+              disabled={busy}
+              onChange={(e) =>
+                setServiceIds((current) =>
+                  e.target.checked ? [...current, service.serviceId] : current.filter((id) => id !== service.serviceId),
+                )
+              }
+            />
+            <span>{service.name}</span>
+          </label>
+        ))}
+      </fieldset>
 
       {mode === "edit" && (
         <label className="ago-row">
