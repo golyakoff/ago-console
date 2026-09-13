@@ -76,6 +76,13 @@
  *   a phrase a translator would ever touch. Kept as the exact seeded string, not a pattern like
  *   `/^[A-Za-z]+\/[A-Za-z_]+$/` - this file's own header explains why a shape-based rule is the trap,
  *   not the fix.
+ * - **`"smtp"`** - `25-73`'s own `operatorsTeamInviteStatusSendFailed` text (`"ошибка отправки
+ *   приглашения, код ошибки smtp-сервера: {code}"`, rendered on `/team/people` once an invite's own
+ *   `SendFailed` status is seeded - `seededOperatorInvites()`). The identical "short technical
+ *   abbreviation already kept as a loanword" register `"ID"`/`"hex"` above already establish - a mail
+ *   relay protocol has no Russian expansion in ordinary use, and `ru.ts` keeps it lower-case inline
+ *   exactly as the author's own dictated copy for this item wrote it, not a translator's oversight to
+ *   fix.
  *
  * `/owner` is a **further** exemption, but a screen-level one, not an element-level one - see
  * `ux-gate/gate.spec.ts`'s own comment on why it is applied there instead of inside this function.
@@ -138,7 +145,7 @@ export function measureUntranslatedLatinText(): UntranslatedTextResult {
   // See this function's own file-level doc comment above for why each of these is here. Longer
   // phrases first, so "AGO Chat" is removed whole rather than leaving a stray "Chat" behind once
   // "AGO" has already matched inside it.
-  const EXEMPT_PHRASES = ["AGO Chat", "AGO", "WhatsApp", "Telegram", "VK", "Escape", "Shift", "Enter", "SMS", "MAX", "ID", "hex", "https", "</body>", "Europe/Moscow"];
+  const EXEMPT_PHRASES = ["AGO Chat", "AGO", "WhatsApp", "Telegram", "VK", "Escape", "Shift", "Enter", "SMS", "MAX", "ID", "hex", "smtp", "https", "</body>", "Europe/Moscow"];
   const EXEMPT_ANCESTOR_SELECTOR = ".ago-mono, .ago-badge--mono";
   const LATIN_RUN = /[A-Za-z]{2,}/g;
 

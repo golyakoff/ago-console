@@ -809,7 +809,7 @@ export const ru: ConsoleStrings = {
   operatorsTeamRemoveConfirmButton: "Удалить",
   operatorsTeamRemoveError: "Не удалось удалить оператора. Попробуйте ещё раз.",
 
-  operatorsTeamInviteEmailLabel: "Email",
+  operatorsTeamInviteEmailLabel: "Электронная почта",
   operatorsTeamInviteEmailValidationEmpty: "Укажите email коллеги.",
   operatorsTeamInviteButton: "Пригласить коллегу",
   operatorsTeamInviteDialogTitle: "Пригласить коллегу",
@@ -835,7 +835,7 @@ export const ru: ConsoleStrings = {
 
   operatorsTeamInviteListPanelTitle: "Приглашения",
   operatorsTeamInviteListLoadError: "Не удалось загрузить список приглашений. Попробуйте ещё раз.",
-  operatorsTeamInviteListEmailColumn: "Email",
+  operatorsTeamInviteListEmailColumn: "Почта",
   operatorsTeamInviteListSentColumn: "Отправлено",
   operatorsTeamInviteListStatusColumn: "Статус",
   operatorsTeamInviteListExpiryColumn: "Действует до",
