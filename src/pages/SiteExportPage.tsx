@@ -21,10 +21,22 @@ import type { ConsoleStrings } from "../i18n/strings.js";
  * same "no cross-file import of a permission constant" shape `site:erase` already has there. */
 export const SITE_EXPORT_PERMISSION = "site:export";
 
+/** No `default` case, deliberately: `status` is typed as the closed `SiteExportStatus` union
+ * (`siteExportsApi.ts`), so TypeScript already proves this switch exhaustive over every value that
+ * type can name - a `default` here would only hide the compile error a sixth backend status should
+ * produce, the same bar `switch`es over a closed union already keep elsewhere in this console. `25-72`
+ * added the `"Processing"` case below for exactly that reason: without it, this function would not
+ * type-check once `SiteExportStatus` gained the member, rather than silently falling through at
+ * runtime. */
 function statusLabel(status: SiteExportHistoryItemDto["status"], strings: ConsoleStrings): string {
   switch (status) {
     case "Pending":
       return strings.siteExportStatusPending;
+    // `25-72`: a request a Worker replica has atomically claimed and is currently building/uploading -
+    // distinct from "Pending" so an operator who reloads mid-build sees "in progress" rather than a
+    // stale "queued".
+    case "Processing":
+      return strings.siteExportStatusProcessing;
     case "Ready":
       return strings.siteExportStatusReady;
     case "Failed":

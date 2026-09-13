@@ -992,10 +992,14 @@ export interface ConsoleStrings {
   siteExportColumnLink: string;
   siteExportColumnExpiresAt: string;
   siteExportDownloadLink: string;
-  /** The four `ExportStatus` values (`Ago.Chat.Domain.ExportStatus`), rendered in "ссылка" when a row
+  /** The five `ExportStatus` values (`Ago.Chat.Domain.ExportStatus`), rendered in "ссылка" when a row
    * has no working download link (only a `"Ready"` row with a `downloadUrl` renders the link itself -
-   * `SiteExportPage`'s own `statusLabel`). */
+   * `SiteExportPage`'s own `statusLabel`). `siteExportStatusProcessing` (`25-72`) is the newest: a
+   * request a `Worker` replica has atomically claimed and is currently building/uploading - distinct
+   * from `siteExportStatusPending`'s "not claimed yet" so an operator watching the table can tell
+   * "queued" from "actively running" if they reload mid-build. */
   siteExportStatusPending: string;
+  siteExportStatusProcessing: string;
   siteExportStatusReady: string;
   siteExportStatusFailed: string;
   siteExportStatusExpired: string;

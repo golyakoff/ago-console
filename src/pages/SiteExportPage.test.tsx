@@ -157,6 +157,30 @@ describe("the history table", () => {
     expect(container.textContent).toContain("Preparing");
     expect(byText(container, "a", "Download")).toBeNull();
   });
+
+  // `25-72`: a Worker replica has atomically claimed the request and is currently building/uploading
+  // it - the same "status word, not a link, no auto-delete date" shape the Pending test right above
+  // asserts, proving the new status renders its own distinct copy end to end rather than only
+  // type-checking (`statusLabel`'s own remarks: no `default` case, so a status this switch does not
+  // name is a compile error, not a runtime fallthrough).
+  it("renders the status word, not a link, for a Processing row - and no auto-delete date", async () => {
+    siteExportsApi.getSiteExportHistory.mockResolvedValue([
+      {
+        exportId: "44444444-4444-4444-4444-444444444444",
+        status: "Processing",
+        requestedAt: "2026-09-01T10:00:00Z",
+        completedAt: null,
+        downloadUrl: null,
+        expiresAt: null,
+        failureReason: null,
+      } satisfies SiteExportHistoryItemDto,
+    ]);
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("In progress");
+    expect(byText(container, "a", "Download")).toBeNull();
+  });
 });
 
 describe("requesting a new export", () => {

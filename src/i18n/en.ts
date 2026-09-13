@@ -665,6 +665,7 @@ export const en: ConsoleStrings = {
   siteExportColumnExpiresAt: "Auto-deletes on",
   siteExportDownloadLink: "Download",
   siteExportStatusPending: "Preparing",
+  siteExportStatusProcessing: "In progress",
   siteExportStatusReady: "Ready",
   siteExportStatusFailed: "Failed",
   siteExportStatusExpired: "Deleted (retention expired)",
