@@ -413,7 +413,7 @@ describe("the operator navigation", () => {
     ]);
 
     await openSection(container, "Conversations");
-    expect(itemLabels(container)).toEqual(["Mine", "All conversations", "Search"]);
+    expect(itemLabels(container)).toEqual(["Mine", "All conversations", "Search", "Restricted visitors"]);
 
     await openSection(container, "Analytics");
     expect(itemLabels(container)).toEqual(["My numbers", "Analytics", "Conversion", "Tag report", "Booking flow"]);

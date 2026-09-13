@@ -174,6 +174,45 @@ export const ru: ConsoleStrings = {
     "Чат с посетителем завершится, и этот диалог нельзя будет открыть заново. Закрытие также " +
     "освобождает вашу нагрузку, поэтому вам может сразу назначиться новый диалог.",
 
+  closeAsSpamButton: "Закрыть как спам",
+  closeAsSpamDialogTitle: "Закрыть этот диалог как спам?",
+  closeAsSpamDialogBody:
+    "Диалог закроется, как при обычном закрытии, и этот посетитель также будет заглушён на 24 " +
+    "часа: любой новый диалог, который он начнёт на этом сайте за это время, тихо не дойдёт до " +
+    "оператора. Посетителю ничего не показывается. Вы или другой администратор можете снять " +
+    "заглушение досрочно на экране ограниченных посетителей.",
+  closeAsSpamConfirmButton: "Да, закрыть как спам",
+
+  blockVisitorButton: "Заблокировать посетителя",
+  blockVisitorDialogTitle: "Заблокировать этого посетителя?",
+  blockVisitorDialogBody:
+    "Этот посетитель будет заблокирован на этом сайте бессрочно. Каждый новый диалог, который он " +
+    "начнёт, тихо не дойдёт до оператора, пока вы не снимете блокировку. Сам этот диалог не " +
+    "закрывается. Посетителю ничего не показывается.",
+  blockVisitorConfirmButton: "Да, заблокировать",
+  blockVisitorOutcomeNotFound: "Этого диалога больше не существует.",
+  blockVisitorOutcomeNoPermission: "У вас нет прав блокировать посетителей на этом сайте.",
+
+  navRestrictedVisitors: "Ограниченные посетители",
+  restrictedVisitorsPageTitle: "Ограниченные посетители",
+  restrictedVisitorsColumnVisitor: "Посетитель",
+  restrictedVisitorsColumnKind: "Причина",
+  restrictedVisitorsColumnRestrictedAt: "Ограничен",
+  restrictedVisitorsColumnRestrictedBy: "Кем",
+  restrictedVisitorsColumnExpiresAt: "До",
+  restrictedVisitorsColumnStatus: "Статус",
+  restrictedVisitorsKindSpam: "Закрыт как спам",
+  restrictedVisitorsKindBlock: "Заблокирован",
+  restrictedVisitorsExpiresIndefinite: "Бессрочно",
+  restrictedVisitorsStatusActive: "Активно",
+  restrictedVisitorsStatusExpired: "Истекло",
+  restrictedVisitorsStatusLifted: "Снято",
+  restrictedVisitorsLiftButton: "Снять",
+  restrictedVisitorsLoadMoreButton: "Показать ещё",
+  restrictedVisitorsEmpty: "На этом сайте никто не заглушён и не заблокирован.",
+  restrictedVisitorsLoadError: "Не удалось загрузить список ограниченных посетителей. Попробуйте ещё раз.",
+  restrictedVisitorsLiftError: "Не удалось снять это ограничение. Попробуйте ещё раз.",
+
   attachmentUploadGrantButton: "Разрешить загрузку файлов",
   attachmentUploadRevokeButton: "Запретить загрузку файлов",
   attachmentUploadGrantToggleError: "Не удалось изменить разрешение на загрузку. Попробуйте ещё раз.",

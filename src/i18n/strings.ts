@@ -336,6 +336,41 @@ export interface ConsoleStrings {
   closeItButton: string;
   closeConversationDialogBody: string;
 
+  // CloseAsSpamButton (`23-69`).
+  closeAsSpamButton: string;
+  closeAsSpamDialogTitle: string;
+  closeAsSpamDialogBody: string;
+  closeAsSpamConfirmButton: string;
+
+  // BlockVisitorButton (`23-77`).
+  blockVisitorButton: string;
+  blockVisitorDialogTitle: string;
+  blockVisitorDialogBody: string;
+  blockVisitorConfirmButton: string;
+  blockVisitorOutcomeNotFound: string;
+  blockVisitorOutcomeNoPermission: string;
+
+  // RestrictedVisitorsPage (`23-69`/`23-77`).
+  navRestrictedVisitors: string;
+  restrictedVisitorsPageTitle: string;
+  restrictedVisitorsColumnVisitor: string;
+  restrictedVisitorsColumnKind: string;
+  restrictedVisitorsColumnRestrictedAt: string;
+  restrictedVisitorsColumnRestrictedBy: string;
+  restrictedVisitorsColumnExpiresAt: string;
+  restrictedVisitorsColumnStatus: string;
+  restrictedVisitorsKindSpam: string;
+  restrictedVisitorsKindBlock: string;
+  restrictedVisitorsExpiresIndefinite: string;
+  restrictedVisitorsStatusActive: string;
+  restrictedVisitorsStatusExpired: string;
+  restrictedVisitorsStatusLifted: string;
+  restrictedVisitorsLiftButton: string;
+  restrictedVisitorsLoadMoreButton: string;
+  restrictedVisitorsEmpty: string;
+  restrictedVisitorsLoadError: string;
+  restrictedVisitorsLiftError: string;
+
   // AttachmentUploadGrantToggle (`23-78`).
   attachmentUploadGrantButton: string;
   attachmentUploadRevokeButton: string;

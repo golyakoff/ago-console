@@ -647,3 +647,62 @@ export async function fetchBookingFlowReport(
 
   throw await problemDetailsFrom(response);
 }
+
+/** `23-69`: `ago-chat`'s `ConversationsEndpoints.CloseConversationAsSpamResponse` - the one fact this
+ * action hands back beyond an ordinary close's own `204`, so `CloseAsSpamButton` can tell the operator
+ * when the mute it just started lifts on its own. */
+export interface CloseConversationAsSpamResult {
+  mutedUntil: string;
+}
+
+/**
+ * `23-69`: `POST /api/v1/conversations/{id}/close-as-spam` - one act that both closes the conversation
+ * and mutes the visitor for a stated window (`ago-chat`'s `CloseConversationAsSpamHandler`'s own
+ * remarks). Throws `ApiProblemError`, the same `Conversation.Forbidden`/`InvalidState`/
+ * `ConcurrencyConflict`/`NotFound` vocabulary `closeConversation` already throws - `CloseAsSpamButton`
+ * reuses `closeOutcomeFor` directly rather than a second decision function, since the codes are
+ * identical to plain closing.
+ */
+export async function closeConversationAsSpam(
+  accessToken: string,
+  conversationId: string,
+): Promise<CloseConversationAsSpamResult> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/conversations/${conversationId}/close-as-spam`, {
+    method: "POST",
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (!response.ok) {
+    throw await problemDetailsFrom(response);
+  }
+
+  return (await response.json()) as CloseConversationAsSpamResult;
+}
+
+/** `23-77`: `ago-chat`'s `ConversationsEndpoints.BlockVisitorResponse` - `visitorId` rather than
+ * `conversationId`, since this action's whole point is that it reaches every conversation this
+ * visitor might open next, not only the one it was invoked from. */
+export interface BlockVisitorResult {
+  visitorId: string;
+  occurredAt: string;
+  operatorId: string;
+}
+
+/**
+ * `23-77`: `POST /api/v1/conversations/{id}/block-visitor` - blocks the *visitor* behind the
+ * conversation on screen, indefinitely, on this site (`ago-chat`'s `BlockVisitorHandler`'s own
+ * remarks) - does not close or otherwise alter the conversation itself. Throws `ApiProblemError`
+ * (`Conversation.Forbidden`/`NotFound`).
+ */
+export async function blockVisitor(accessToken: string, conversationId: string): Promise<BlockVisitorResult> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/conversations/${conversationId}/block-visitor`, {
+    method: "POST",
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (!response.ok) {
+    throw await problemDetailsFrom(response);
+  }
+
+  return (await response.json()) as BlockVisitorResult;
+}

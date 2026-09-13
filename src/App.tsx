@@ -17,6 +17,7 @@ import { WorkspaceLayout } from "./workspace/WorkspaceLayout.js";
 import { NoConversationSelected } from "./workspace/NoConversationSelected.js";
 import { ConversationPage } from "./pages/ConversationPage.js";
 import { AdminConversationsPage } from "./pages/AdminConversationsPage.js";
+import { RestrictedVisitorsPage } from "./pages/RestrictedVisitorsPage.js";
 import { OperatorAnalyticsPage } from "./pages/OperatorAnalyticsPage.js";
 import { MyNumbersPage } from "./pages/MyNumbersPage.js";
 import { ConversionReportPage } from "./pages/ConversionReportPage.js";
@@ -308,6 +309,9 @@ export function App() {
             `/conversations/all` right above it - `SearchConversationsPage` checks `site:configure`
             itself. `23-31`: moved from `/search`. */}
         <Route path="/conversations/search" element={<SearchConversationsPage />} />
+        {/* `23-69`/`23-77`: the shared visitor-restriction mechanism's own tenant-facing screen - see
+            `consoleNav.ts`'s own `buildTalkItems` for the nav entry right beside `/conversations/all`. */}
+        <Route path="/conversations/restricted" element={<RestrictedVisitorsPage />} />
         {/* `18-08`: same "outside the workspace layout, page gates itself internally" shape as the
             routes above - `OperatorAnalyticsPage` checks `site:configure` itself. `23-31`: moved from
             `/analytics` - the bare path now belongs to this screen's own site-wide report inside the

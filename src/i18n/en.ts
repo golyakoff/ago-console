@@ -175,6 +175,45 @@ export const en: ConsoleStrings = {
     "The visitor’s chat ends and this conversation cannot be reopened. Closing it also frees " +
     "your capacity, so you may be assigned a new conversation straight away.",
 
+  closeAsSpamButton: "Close as spam",
+  closeAsSpamDialogTitle: "Close this conversation as spam?",
+  closeAsSpamDialogBody:
+    "The conversation closes, like an ordinary close, and this visitor is also muted for 24 hours: " +
+    "any new conversation they start on this site during that time is silently kept from reaching an " +
+    "operator. Nothing is shown to the visitor. You or another admin can undo the mute early, from " +
+    "the restricted-visitors screen.",
+  closeAsSpamConfirmButton: "Yes, close as spam",
+
+  blockVisitorButton: "Block visitor",
+  blockVisitorDialogTitle: "Block this visitor?",
+  blockVisitorDialogBody:
+    "This visitor is blocked on this site, indefinitely. Every new conversation they start is " +
+    "silently kept from reaching an operator until you lift the block. This conversation itself is " +
+    "not closed. Nothing is shown to the visitor.",
+  blockVisitorConfirmButton: "Yes, block",
+  blockVisitorOutcomeNotFound: "This conversation no longer exists.",
+  blockVisitorOutcomeNoPermission: "You do not have permission to block visitors for this site.",
+
+  navRestrictedVisitors: "Restricted visitors",
+  restrictedVisitorsPageTitle: "Restricted visitors",
+  restrictedVisitorsColumnVisitor: "Visitor",
+  restrictedVisitorsColumnKind: "Reason",
+  restrictedVisitorsColumnRestrictedAt: "Restricted",
+  restrictedVisitorsColumnRestrictedBy: "By",
+  restrictedVisitorsColumnExpiresAt: "Until",
+  restrictedVisitorsColumnStatus: "Status",
+  restrictedVisitorsKindSpam: "Closed as spam",
+  restrictedVisitorsKindBlock: "Blocked",
+  restrictedVisitorsExpiresIndefinite: "Indefinite",
+  restrictedVisitorsStatusActive: "Active",
+  restrictedVisitorsStatusExpired: "Expired",
+  restrictedVisitorsStatusLifted: "Lifted",
+  restrictedVisitorsLiftButton: "Lift",
+  restrictedVisitorsLoadMoreButton: "Load more",
+  restrictedVisitorsEmpty: "No visitor has been muted or blocked on this site.",
+  restrictedVisitorsLoadError: "Could not load restricted visitors. Try again.",
+  restrictedVisitorsLiftError: "Could not lift this restriction. Try again.",
+
   attachmentUploadGrantButton: "Allow file uploads",
   attachmentUploadRevokeButton: "Revoke file uploads",
   attachmentUploadGrantToggleError: "Could not change the upload permission. Try again.",
