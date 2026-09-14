@@ -841,6 +841,15 @@ export const en: ConsoleStrings = {
     "redirect alone.",
   billingSeatCountOutOfRange: "The resulting seat count has to be within",
 
+  billingReduceSeatsHeading: "Reduce operators",
+  billingReduceSeatsFieldLabel: "How many to remove",
+  billingReduceSeatsNewCountLabel: "Seats after this scheduled change",
+  billingReduceSeatsButton: "Schedule reduction",
+  billingSeatMinimumReached: "You already hold the smallest seat count this tier allows.",
+  billingReduceSeatsSchedulesAtRenewal:
+    "This does not take effect now and is never charged. Your seat count changes at your next " +
+    "renewal - until then, everything stays exactly as it is.",
+
   billingCurrentAdminCountLabel: "Extra Administrators you have now",
   billingAddAdminSeatsHeading: "Add administrators",
   billingAddAdminSeatsFieldLabel: "How many to add",
