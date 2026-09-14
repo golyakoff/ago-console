@@ -3,30 +3,39 @@ import { withActiveSiteHeader } from "./activeSite.js";
 import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
 
 /**
- * `25-15`: the console's own VK connect/disconnect flow, against `Ago.Chat.Api.Channels.
+ * `25-15`/`25-65`: the console's own VK connect/status/disconnect flow, against `Ago.Chat.Api.Channels.
  * VkChannelEndpoints`'s real wire shape - the same `adr/0069` "the shop's own token never round-trips"
  * guarantee `telegramChannelApi.ts`/`maxChannelApi.ts` already make: nothing exported from this module
  * can carry the community's own access token, because nothing the server ever sends back carries it
- * either (`VkChannelEndpoints.ConnectVkChannelResponse`'s own remarks).
+ * either (`VkChannelEndpoints.ConnectVkChannelResponse`/`VkChannelStatusResponse`'s own remarks).
  *
- * ## No status read - the one real shape difference from `telegramChannelApi.ts`/`maxChannelApi.ts`
+ * ## `25-65`: the status read this module's own `25-15` doc comment named as a real, load-bearing gap
  *
- * `VkChannelEndpoints.MapVkChannelEndpoints` maps only `POST`/`DELETE` at
- * `/api/v1/sites/{siteId}/channels/vk[/{id}]` - there is no `GET`. Checked directly against the source
- * (not assumed from Telegram's/MAX's shape - the exact mistake `25-09`'s own brief warned against):
- * `WhatsAppChannelEndpoints`/`AvitoChannelEndpoints` have the identical gap, so this is not a VK-specific
- * oversight. `TelegramChannelEndpoints`/`MaxChannelEndpoints` both have a `GET`, backed by the
- * channel-neutral `GetChannelCredentialStatusHandler` (`Ago.Chat.Application.UseCases.
- * GetChannelCredentialStatus`) - a handler VK's own connect/disconnect handlers already share the
- * permission check and repository with, so wiring a `GET` route for VK would be a small, low-risk
- * addition (mirroring `MaxChannelEndpoints.HandleStatusAsync` almost verbatim). That is backend work in
- * `ago-chat`, outside this frontend-only item's own scope - flagged here, and in the dispatching
- * session's own report, rather than worked around with a client-side substitute (a `localStorage` cache
- * of "am I connected" would silently lie the moment a different operator or browser opens this screen,
- * exactly the failure `23-36`'s own brief opens with). `VkChannelPage`'s own doc comment has the
- * console-side consequence: no persisted "connected" view across a reload, because there is nothing this
- * module could read to rebuild one.
+ * `VkChannelEndpoints.MapVkChannelEndpoints` mapped only `POST`/`DELETE` at
+ * `/api/v1/sites/{siteId}/channels/vk[/{id}]` before `25-65` - no `GET`, the identical gap
+ * `WhatsAppChannelEndpoints`/`AvitoChannelEndpoints` still have (out of `25-65`'s own scope; neither has
+ * a console screen yet for this same reason). `25-65` added `GET`, backed by the channel-neutral
+ * `GetChannelCredentialStatusHandler` `TelegramChannelEndpoints`/`MaxChannelEndpoints` already used -
+ * mirroring `MaxChannelEndpoints.HandleStatusAsync` almost verbatim, the same three-field shape
+ * ({@link VkChannelStatusDto}), not Telegram's live-checked seven: VK's own public API has no
+ * side-effect-free per-request equivalent of Telegram's `getMe` any more than MAX's does
+ * (`VkChannelEndpoints.HandleStatusAsync`'s own remarks), so this screen reports only "an active
+ * credential row exists, and since when" - never a live re-verification.
+ *
+ * `VkChannelStatusDto` deliberately carries neither `callbackUrl` nor `webhookSecret` -
+ * `GetChannelCredentialStatusHandler` never had either to give back (`ChannelCredentialStatus`'s own
+ * shape - an id and a timestamp, nothing else), and `callbackUrl`/`webhookSecret` only ever existed as
+ * values `VkChannelEndpoints.HandleConnectAsync` computed once, at connect time
+ * ({@link ConnectVkChannelResponseDto}'s own remarks). A reload can now show "Connected, since <date>"
+ * (this module's own `fetchVkChannelStatus`) but never the callback URL or secret again - `VkChannelPage`'s
+ * own doc comment has the console-side consequence and why that is correct, not a remaining gap.
  */
+export interface VkChannelStatusDto {
+  connected: boolean;
+  channelCredentialId: string | null;
+  createdAt: string | null;
+}
+
 export interface ConnectVkChannelResponseDto {
   channelCredentialId: string;
   createdAt: string;
@@ -54,6 +63,12 @@ async function vkChannelFetch<T>(accessToken: string, path: string, init?: Reque
   }
 
   return (await response.json()) as T;
+}
+
+/** `25-65`: the same route `connectVkChannel`/`disconnectVkChannel` already call, `GET` instead of
+ * `POST`/`DELETE` - `maxChannelApi.ts`'s own `fetchMaxChannelStatus` precedent. */
+export function fetchVkChannelStatus(accessToken: string, siteId: string): Promise<VkChannelStatusDto> {
+  return vkChannelFetch<VkChannelStatusDto>(accessToken, `/api/v1/sites/${siteId}/channels/vk`);
 }
 
 /** `token` never round-trips - this call sends it once and the response type

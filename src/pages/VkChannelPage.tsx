@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import {
   ApiProblemError,
   connectVkChannel,
   disconnectVkChannel,
+  fetchVkChannelStatus,
   type ConnectVkChannelResponseDto,
+  type VkChannelStatusDto,
 } from "../api/vkChannelApi.js";
 import { formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
 import { PageHead } from "../shell/AppShell.js";
@@ -17,7 +19,7 @@ import { Button } from "../components/Button.js";
 import { Dialog } from "../components/Dialog.js";
 import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
-import { Spinner } from "../components/Spinner.js";
+import { Skeleton, Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
 
 /** `25-15`: the same `channel:manage` gate `Ago.Chat.Api`'s `VkChannelEndpoints` actually enforces on
@@ -31,13 +33,13 @@ import { useStrings } from "../i18n/StringsContext.js";
 export const VK_CHANNEL_PERMISSION = "channel:manage";
 
 /**
- * `25-15`: `/channels/vk` - the third of `23-31`'s reserved "Каналы" places to become a real screen,
- * built the same "one channel end to end" way `23-36`/`25-09` built Telegram's and MAX's first.
+ * `25-15`/`25-65`: `/channels/vk` - the third of `23-31`'s reserved "Каналы" places to become a real
+ * screen, built the same "one channel end to end" way `23-36`/`25-09` built Telegram's and MAX's first.
  *
  * ## VK, not WhatsApp or Avito
  *
  * All three (`14-08`/`14-10`/`14-11`) had a real, working backend adapter and no console screen before
- * this item. Read against the actual endpoint code, not assumed from either precedent
+ * `25-15`. Read against the actual endpoint code, not assumed from either precedent
  * (`VkChannelEndpoints`/`WhatsAppChannelEndpoints`/`AvitoChannelEndpoints`, all in `ago-chat`):
  *
  * - **WhatsApp** goes through Meta's own onboarding - a `phoneNumberId` the operator has to already
@@ -55,39 +57,45 @@ export const VK_CHANNEL_PERMISSION = "channel:manage";
  *   collect first - the smallest, most honest "one channel, all the way" of the three, the same reason
  *   `TelegramChannelPage`'s own doc comment gave for picking Telegram over MAX first.
  *
- * ## The one real gap this screen cannot paper over: there is no status read
+ * ## `25-65`: the status read `25-15`'s own doc comment named as a real, load-bearing gap
  *
- * `vkChannelApi.ts`'s own doc comment has the finding in full: `VkChannelEndpoints` maps `POST`/`DELETE`
- * only, never `GET` - unlike `TelegramChannelEndpoints`/`MaxChannelEndpoints`, both of which back a
- * `GET` with the channel-neutral `GetChannelCredentialStatusHandler`. `WhatsAppChannelEndpoints`/
- * `AvitoChannelEndpoints` have the identical gap, so this is not a reason to have picked either of them
- * instead - the same missing route, three times over.
+ * `vkChannelApi.ts`'s own doc comment has the backend half: `VkChannelEndpoints` gained a `GET` route
+ * in `25-65`, backed by the same channel-neutral `GetChannelCredentialStatusHandler`
+ * `TelegramChannelEndpoints`/`MaxChannelEndpoints` already used. This screen now loads `status` on
+ * mount (`load`, the identical `useCallback`+`useEffect` shape `MaxChannelPage` already uses) and
+ * decides which view to show from the server's own answer, not from whether *this page visit* happened
+ * to perform the connect - the exact gap this doc comment used to describe under "there is no status
+ * read" is closed. `WhatsAppChannelEndpoints`/`AvitoChannelEndpoints` still have it (out of `25-65`'s
+ * own scope; neither has a console screen yet for this same reason) - not a reason this file's own fix
+ * needed to wait, since nothing here depends on either.
  *
- * Concretely, this means: on mount, this screen does not know - and has no honest way to find out -
- * whether VK is already connected. It shows the connect form unconditionally rather than
- * `TelegramChannelPage`'s/`MaxChannelPage`'s "load status, then decide which view to show". A
- * successful connect renders the credentials-and-disconnect view for the rest of that page visit
- * (`channelCredentialId` held in memory, the only place this screen ever learns it); a reload forgets
- * it, because nothing exists to ask. Attempting to connect while a credential is already active is
- * refused server-side (`ChannelCredential.AlreadyConnected`, `RegisterChannelCredentialHandler`'s own
- * check) - surfaced here as `connectError` like any other refusal, with `vkChannelAlreadyConnectedHint`
- * added underneath because, unlike a bad token, this refusal's remedy is not "try a different value in
- * this same form" and deserves saying so.
+ * ## Two separate pieces of "connected" state, not one - `status` versus `justConnected`
  *
- * This is a real, load-bearing gap in what this screen can offer next to Telegram's/MAX's own screens,
- * not a corner cut for expedience: adding the missing `GET` route is a small, low-risk backend change
- * (`GetChannelCredentialStatusHandler` already does the channel-neutral half of the work), but it is
- * backend work in `ago-chat`, and this item is scoped frontend-only against the backend as it actually
- * ships today. Papering over it with a client-side guess (`localStorage`, an optimistic flag that
- * survives a reload untested) would silently lie the moment a different operator, or the same operator
- * in a different browser, opens this screen - exactly the failure every other channel screen in this
- * console was built to avoid.
+ * `status: VkChannelStatusDto | null` is the server's own answer, loaded on mount and after every
+ * mutation - the same "one source of truth, reloaded" discipline `MaxChannelPage` already establishes.
+ * It drives which panel renders (loading skeleton / connect form / connected view) and, once connected,
+ * `channelCredentialId`/`createdAt` for the disconnect call and the "Connected since" line - all of it
+ * genuinely persists across a reload, unlike before `25-65`.
+ *
+ * `justConnected: ConnectVkChannelResponseDto | null` is deliberately a *second*, narrower piece of
+ * state: the one payload `VkChannelEndpoints.HandleConnectAsync` ever returns that carries
+ * `callbackUrl`/`webhookSecret` (`vkChannelApi.ts`'s own remarks - `GetChannelCredentialStatusHandler`
+ * never had either to give back, so `status` can never carry them, on this page visit or any other).
+ * Set only by a successful `attemptConnect` in *this* page visit, cleared on disconnect, and never
+ * reloaded from anywhere - the values it carries were shown to this operator once, by design
+ * (`adr/0069`'s "console never shows it back" is about the shop's own token; VK's own webhook secret is
+ * the one exception that class's own remarks already name, and it stays a one-time reveal even here).
+ * When `status.connected` is `true` but `justConnected` is `null` (a reload, or a second operator/
+ * browser opening an already-connected screen), the connected panel shows
+ * `vkChannelSecretsShownOnceHint` instead of the setup instructions - stating plainly that those two
+ * values are gone for this session, rather than silently omitting the panel with no explanation.
  *
  * ## The token is never rendered back, in either direction
  *
- * Same guarantee as `TelegramChannelPage`/`MaxChannelPage`: `ConnectVkChannelResponseDto` carries an id,
- * a timestamp, and the two values VK itself needs handed to a human (`callbackUrl`/`webhookSecret`,
- * `vkChannelApi.ts`'s own remarks on why this response, uniquely among the three, carries a secret at
+ * Same guarantee as `TelegramChannelPage`/`MaxChannelPage`: `ConnectVkChannelResponseDto`/
+ * `VkChannelStatusDto` together carry an id, a timestamp, and (only on `ConnectVkChannelResponseDto`)
+ * the two values VK itself needs handed to a human (`callbackUrl`/`webhookSecret`, `vkChannelApi.ts`'s
+ * own remarks on why that response, uniquely among the three connect responses, carries a secret at
  * all) - never a field the community's own access token could come back through.
  */
 export function VkChannelPage() {
@@ -96,7 +104,13 @@ export function VkChannelPage() {
   const strings = useStrings();
   const [timeZone] = useState(() => resolveTimeZone());
 
-  const [connection, setConnection] = useState<ConnectVkChannelResponseDto | null>(null);
+  const [status, setStatus] = useState<VkChannelStatusDto | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  /** `25-65`: the callback URL/webhook secret, alive only for the page visit that connected them - see
+   * this component's own doc comment ("Two separate pieces of "connected" state") for why this is not
+   * folded into `status`. */
+  const [justConnected, setJustConnected] = useState<ConnectVkChannelResponseDto | null>(null);
 
   const [tokenInput, setTokenInput] = useState("");
   const [connecting, setConnecting] = useState(false);
@@ -111,6 +125,26 @@ export function VkChannelPage() {
   const [disconnectError, setDisconnectError] = useState<string | null>(null);
 
   const accessToken = user?.access_token;
+
+  const load = useCallback(() => {
+    if (!accessToken || !siteId) {
+      return;
+    }
+
+    fetchVkChannelStatus(accessToken, siteId)
+      .then((response) => {
+        setStatus(response);
+        setLoadError(null);
+      })
+      .catch((err: unknown) => setLoadError(err instanceof ApiProblemError ? err.message : strings.vkChannelLoadError));
+  }, [accessToken, siteId, strings]);
+
+  useEffect(() => {
+    if (!hasPermission(VK_CHANNEL_PERMISSION)) {
+      return;
+    }
+    load();
+  }, [load, hasPermission]);
 
   if (permissions === null) {
     return <Spinner label={strings.siteConfigCheckingPermissions} />;
@@ -131,9 +165,10 @@ export function VkChannelPage() {
     try {
       const response = await connectVkChannel(accessToken, siteId, tokenInput);
       setTokenInput("");
-      setConnection(response);
+      setJustConnected(response);
       setCallbackUrlCopied(false);
       setWebhookSecretCopied(false);
+      load();
     } catch (err) {
       setConnectError(err instanceof ApiProblemError ? err.message : strings.vkChannelConnectError);
       setConnectAlreadyConnected(err instanceof ApiProblemError && err.code === "ChannelCredential.AlreadyConnected");
@@ -143,16 +178,17 @@ export function VkChannelPage() {
   };
 
   const attemptDisconnect = async () => {
-    if (!accessToken || !siteId || !connection) {
+    if (!accessToken || !siteId || !status?.channelCredentialId) {
       return;
     }
 
     setDisconnecting(true);
     setDisconnectError(null);
     try {
-      await disconnectVkChannel(accessToken, siteId, connection.channelCredentialId);
+      await disconnectVkChannel(accessToken, siteId, status.channelCredentialId);
       setDisconnectConfirming(false);
-      setConnection(null);
+      setJustConnected(null);
+      load();
     } catch (err) {
       setDisconnectError(err instanceof ApiProblemError ? err.message : strings.vkChannelDisconnectError);
     } finally {
@@ -161,28 +197,36 @@ export function VkChannelPage() {
   };
 
   const copyCallbackUrl = () => {
-    if (!connection) {
+    if (!justConnected) {
       return;
     }
-    void navigator.clipboard.writeText(connection.callbackUrl);
+    void navigator.clipboard.writeText(justConnected.callbackUrl);
     setCallbackUrlCopied(true);
   };
 
   const copyWebhookSecret = () => {
-    if (!connection) {
+    if (!justConnected) {
       return;
     }
-    void navigator.clipboard.writeText(connection.webhookSecret);
+    void navigator.clipboard.writeText(justConnected.webhookSecret);
     setWebhookSecretCopied(true);
   };
 
-  const createdAtDate = connection?.createdAt ? parseInstant(connection.createdAt) : null;
+  const createdAtDate = status?.createdAt ? parseInstant(status.createdAt) : null;
 
   return (
     <>
       <PageHead title={strings.vkChannelTitle} description={strings.vkChannelDescription} />
 
-      {connection === null ? (
+      {loadError && <Alert tone="danger">{loadError}</Alert>}
+
+      {status === null ? (
+        loadError ? null : (
+          <Panel>
+            <Skeleton lines={3} label={strings.vkChannelLoadingLabel} />
+          </Panel>
+        )
+      ) : !status.connected ? (
         <Panel title={strings.vkChannelPanelTitle}>
           <div className="ago-stack">
             <p>{strings.vkChannelNotConnectedBody}</p>
@@ -230,21 +274,27 @@ export function VkChannelPage() {
               </p>
             )}
 
-            <Alert tone="info" title={strings.vkChannelSetupTitle}>
-              {strings.vkChannelSetupBody}
-            </Alert>
+            {justConnected ? (
+              <>
+                <Alert tone="info" title={strings.vkChannelSetupTitle}>
+                  {strings.vkChannelSetupBody}
+                </Alert>
 
-            <div className="ago-row">
-              <code className="ago-mono">{connection.callbackUrl}</code>
-              <Button onClick={copyCallbackUrl}>{strings.vkChannelCopyCallbackUrlButton}</Button>
-            </div>
-            {callbackUrlCopied && <Alert tone="success">{strings.vkChannelCallbackUrlCopiedLabel}</Alert>}
+                <div className="ago-row">
+                  <code className="ago-mono">{justConnected.callbackUrl}</code>
+                  <Button onClick={copyCallbackUrl}>{strings.vkChannelCopyCallbackUrlButton}</Button>
+                </div>
+                {callbackUrlCopied && <Alert tone="success">{strings.vkChannelCallbackUrlCopiedLabel}</Alert>}
 
-            <div className="ago-row">
-              <code className="ago-mono">{connection.webhookSecret}</code>
-              <Button onClick={copyWebhookSecret}>{strings.vkChannelCopyWebhookSecretButton}</Button>
-            </div>
-            {webhookSecretCopied && <Alert tone="success">{strings.vkChannelWebhookSecretCopiedLabel}</Alert>}
+                <div className="ago-row">
+                  <code className="ago-mono">{justConnected.webhookSecret}</code>
+                  <Button onClick={copyWebhookSecret}>{strings.vkChannelCopyWebhookSecretButton}</Button>
+                </div>
+                {webhookSecretCopied && <Alert tone="success">{strings.vkChannelWebhookSecretCopiedLabel}</Alert>}
+              </>
+            ) : (
+              <Alert tone="info">{strings.vkChannelSecretsShownOnceHint}</Alert>
+            )}
           </div>
         </Panel>
       )}

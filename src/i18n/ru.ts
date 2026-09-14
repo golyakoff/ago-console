@@ -981,6 +981,8 @@ export const ru: ConsoleStrings = {
   vkChannelTitle: "Сообщество VK",
   vkChannelDescription: "Подключите своё сообщество VK, чтобы посетители могли писать ему, а ваша команда отвечала отсюда.",
   vkChannelForbidden: "У вас нет прав на управление каналами этого сайта.",
+  vkChannelLoadError: "Не удалось проверить канал VK. Попробуйте перезагрузить страницу.",
+  vkChannelLoadingLabel: "Проверяем канал VK…",
   vkChannelPanelTitle: "Сообщество VK",
   vkChannelNotConnectedBody:
     "Вставьте ключ доступа сообщества (Управление → Работа с API → Ключи доступа, с доступом к сообщениям). AGO проверит его в VK, прежде чем сохранить.",
@@ -1000,6 +1002,8 @@ export const ru: ConsoleStrings = {
   vkChannelCallbackUrlCopiedLabel: "URL скопирован.",
   vkChannelCopyWebhookSecretButton: "Скопировать секретный ключ",
   vkChannelWebhookSecretCopiedLabel: "Секретный ключ скопирован.",
+  vkChannelSecretsShownOnceHint:
+    "URL обратного вызова и секретный ключ были показаны один раз, сразу после подключения. Чтобы увидеть их снова, отключите сообщество и подключите его заново.",
   vkChannelDisconnectButton: "Отключить",
   vkChannelDisconnectDialogTitle: "Отключить это сообщество?",
   vkChannelDisconnectDialogBody:
