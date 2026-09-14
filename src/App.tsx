@@ -36,6 +36,7 @@ import { TagsPage } from "./pages/TagsPage.js";
 import { BillingPage } from "./pages/BillingPage.js";
 import { DeviceStorageDisclosurePage } from "./pages/DeviceStorageDisclosurePage.js";
 import { DocumentsPage } from "./pages/DocumentsPage.js";
+import { StoragePage } from "./pages/StoragePage.js";
 import { SiteExportPage } from "./pages/SiteExportPage.js";
 import { ProductsPage } from "./pages/ProductsPage.js";
 import { AccountDeletionPage } from "./pages/AccountDeletionPage.js";
@@ -413,6 +414,10 @@ export function App() {
             internally. `23-31` reserved this nav entry ("Документы"); this item is what finally
             reads `24-02`/`24-05`'s consent-document mechanism back instead of leaving it API-only. */}
         <Route path="/account/documents" element={<DocumentsPage />} />
+        {/* `23-80`/`23-82`: same "route stays outside the workspace layout, page gates itself
+            internally" shape as the ones around it - `StoragePage` gates itself on `site:configure`
+            internally, exactly like `DocumentsPage` above it. */}
+        <Route path="/account/storage" element={<StoragePage />} />
         {/* `16-03`: same "route stays outside the workspace layout, page gates itself internally"
             shape as the ones around it - `SiteExportPage` gates itself on `site:export` internally.
             Placed here, right before `/account/delete`, matching `consoleNav.ts`'s own ordering

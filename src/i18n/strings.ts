@@ -133,6 +133,9 @@ export interface ConsoleStrings {
   navAccountProducts: string;
   /** `23-31`: a reserved place - `24-02` built the publish mechanism, no screen reads it back yet. */
   navAccountDocuments: string;
+  /** `23-80`/`23-82`: "Хранилище" - every attachment the tenant holds, quota used, and bulk
+   * delete. */
+  navAccountStorage: string;
   /** `23-31`: the small badge on a `reserved` nav entry (`AppShellNavItem.reserved`) - a place held
    * for a screen that does not exist yet, never a working link. */
   navComingSoonLabel: string;
@@ -800,6 +803,57 @@ export interface ConsoleStrings {
   documentsAcceptancesColumnVersion: string;
   documentsAcceptancesColumnAcceptedAt: string;
   documentsAcceptancesPrivacyNote: string;
+
+  // `23-80`/`23-82`: StoragePage - "Администрирование -> Хранилище". Prefix/suffix strings, the same
+  // "no parameterised string functions in this interface" convention every other count/amount display
+  // in this file already follows (AdminConversationsPage's own refresh-interval description, this
+  // file's own remarks on why).
+  storagePageIntro: string;
+  storagePageForbidden: string;
+  storagePageLoadError: string;
+  storagePageLoadingLabel: string;
+  storageQuotaPanelTitle: string;
+  storageQuotaUsedPrefix: string;
+  storageQuotaUsedSeparator: string;
+  storageEgressThisMonthPrefix: string;
+  storageEgressThisMonthSeparator: string;
+  storageEgressThisMonthSuffix: string;
+  storageLargestConversationsTitle: string;
+  storageTablePanelTitle: string;
+  storageSortLabel: string;
+  storageSortSizeDesc: string;
+  storageSortTypeAsc: string;
+  storageSortAgeAsc: string;
+  storageSortConversationAsc: string;
+  storageSortSenderAsc: string;
+  storageFilterLabel: string;
+  storageFilterNone: string;
+  storageFilterNeverDownloaded: string;
+  storageFilterDuplicates: string;
+  storageBulkDeleteButtonPrefix: string;
+  storageNoAttachments: string;
+  storageColumnSelect: string;
+  storageColumnType: string;
+  storageColumnSize: string;
+  storageColumnConversation: string;
+  storageColumnSender: string;
+  storageColumnDate: string;
+  storageColumnDownloads: string;
+  storageDuplicateBadge: string;
+  storageNeverDownloadedBadge: string;
+  storageSenderVisitor: string;
+  storageSenderOperator: string;
+  storageSenderSystem: string;
+  storageSenderAutoGreeting: string;
+  storageSenderUnknown: string;
+  storageLoadMore: string;
+  storageConfirmDeleteTitle: string;
+  storageConfirmDeleteCancel: string;
+  storageConfirmDeleteConfirm: string;
+  storageConfirmDeleteMessagePrefix: string;
+  storageConfirmDeleteMessageMiddle: string;
+  storageDeleteResultPrefix: string;
+  storageDeleteResultFreedSeparator: string;
 
   // `18-03`: CannedResponsesPage - the same list-editor shape `OfflineAutoReplyPage` established just
   // above (one blank row to type into, dropped on save), reused for a genuinely different concept -

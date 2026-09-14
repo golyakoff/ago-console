@@ -36,10 +36,27 @@ export interface AttachmentDownloadResponse {
  */
 interface ProblemDetailsBody {
   detail?: string;
+  type?: string;
 }
 
 function isProblemDetailsBody(value: unknown): value is ProblemDetailsBody {
   return typeof value === "object" && value !== null;
+}
+
+/** `23-80`: carries the server's stable `type` code (`ConversationErrors`'s own vocabulary,
+ * `ago-chat`) alongside the human-readable `detail` - the same split `SiteConsentDocumentsError`/
+ * `SiteAttachmentStorageError` already establish for their own screens. A plain `Error` (this file's
+ * own shape before this item) gave no caller a way to tell `Attachment.Removed` (permanent) apart
+ * from any other failure without parsing the message text, which is exactly the trap `api-design.md`
+ * warns against ("clients branch on `type`, never on the message"). */
+export class AttachmentApiError extends Error {
+  readonly code: string | null;
+
+  constructor(code: string | null, message: string) {
+    super(message);
+    this.name = "AttachmentApiError";
+    this.code = code;
+  }
 }
 
 async function throwIfNotOk(response: Response, fallbackAction: string): Promise<void> {
@@ -48,16 +65,22 @@ async function throwIfNotOk(response: Response, fallbackAction: string): Promise
   }
 
   let detail: string | null = null;
+  let code: string | null = null;
   try {
     const body: unknown = await response.json();
-    if (isProblemDetailsBody(body) && typeof body.detail === "string") {
-      detail = body.detail;
+    if (isProblemDetailsBody(body)) {
+      if (typeof body.detail === "string") {
+        detail = body.detail;
+      }
+      if (typeof body.type === "string") {
+        code = body.type;
+      }
     }
   } catch {
     // Not problem+json (a network-level failure or a proxy error page) - fall back below.
   }
 
-  throw new Error(detail ?? `${fallbackAction}: ${response.status}`);
+  throw new AttachmentApiError(code, detail ?? `${fallbackAction}: ${response.status}`);
 }
 
 export async function createAttachment(

@@ -8,6 +8,7 @@ import { OperatorConnectionContext, type OperatorConnectionState } from "../real
 import { NotConnectedError, SendOutcomeUnknownError, type OperatorConnection } from "../realtime/operatorConnection.js";
 import type { ConversationSummaryDto, MessageDto } from "../realtime/protocol/types.js";
 import type { WorkspaceOutletContext } from "../workspace/workspaceContext.js";
+import { AttachmentApiError } from "../api/attachmentsApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
 import { ReplyDraftError } from "../api/replyDraftApi.js";
 import { ConversationPage } from "./ConversationPage.js";
@@ -45,7 +46,16 @@ const attachmentsApi = vi.hoisted(() => ({
   deleteAttachment: vi.fn(),
 }));
 
-vi.mock("../api/attachmentsApi.js", () => attachmentsApi);
+// `23-80`: merged with the real module rather than fully replaced (the shape this file's own next
+// comment used to describe as unnecessary, before `AttachmentApiError` existed) - `ConversationPage`
+// does an `instanceof AttachmentApiError` check, and a fully-mocked module would export no such
+// class, failing that check for reasons that have nothing to do with the code under test. The
+// identical "a real error class must survive mocking, only the network calls are faked" reasoning
+// `ApiProblemError`'s own remarks state two paragraphs down.
+vi.mock("../api/attachmentsApi.js", async () => {
+  const actual = await vi.importActual<typeof import("../api/attachmentsApi.js")>("../api/attachmentsApi.js");
+  return { ...actual, ...attachmentsApi };
+});
 
 // `11-09`: the page's only use of this module was `closeConversation`, so the whole module is
 // replaced rather than partially mocked. `ApiProblemError` lives in `api/problemDetails.ts` and is
@@ -485,6 +495,31 @@ describe("the attachment actions on a message", () => {
     await interact(() => button?.click());
     expect(attachmentsApi.deleteAttachment).toHaveBeenCalledWith("token", ATTACHMENT_ID);
     expect(container.textContent).toContain("Attachment deleted");
+  });
+
+  /** `23-80`: an attachment deleted by someone else - another operator's own delete action on this
+   * screen, or the tenant's own bulk-delete on `/account/storage` - must read exactly like this
+   * screen's own local delete, not as a generic failure. Proves the transcript's own honesty claim
+   * end to end: the message stays, and the attachment reference resolves to a plain, worded marker. */
+  it("renders an attachment removed by someone else identically to one this screen deleted itself", async () => {
+    attachmentsApi.getAttachmentDownload.mockRejectedValue(new AttachmentApiError("Attachment.Removed", "Attachment removed."));
+    const fake = fakeConnection();
+    fake.joinReturns([message("m1", 11, { attachmentId: ATTACHMENT_ID })]);
+
+    const container = await render(<Harness connection={fake.connection} permissions={["conversation:read"]} />);
+
+    expect(container.textContent).toContain("Attachment deleted");
+    expect(container.querySelector("img")).toBeNull();
+  });
+
+  it("still renders the generic unavailable state for any other failure - a still-Pending attachment, say", async () => {
+    attachmentsApi.getAttachmentDownload.mockRejectedValue(new AttachmentApiError("Attachment.NotReady", "Not ready yet."));
+    const fake = fakeConnection();
+    fake.joinReturns([message("m1", 11, { attachmentId: ATTACHMENT_ID })]);
+
+    const container = await render(<Harness connection={fake.connection} permissions={["conversation:read"]} />);
+
+    expect(container.textContent).not.toContain("Attachment deleted");
   });
 });
 

@@ -413,6 +413,9 @@ function buildAdminItems(
     items.push({ to: "/account/billing", label: strings.navBilling });
     items.push({ to: "/account/device-storage", label: strings.navDeviceStorage });
     items.push({ to: "/account/documents", label: strings.navAccountDocuments });
+    // `23-80`/`23-82`: "Хранилище" - the tenant's own read of every attachment they hold, plus
+    // bulk-delete. Same `isAdmin`-only gate as the four entries above it.
+    items.push({ to: "/account/storage", label: strings.navAccountStorage });
   }
   // `16-03`: gated on its own `site:export`, immediately before "Удалить аккаунт" - the author's own
   // placement (`SiteExportPage`'s own doc comment). Hidden rather than muted when lacking it, matching

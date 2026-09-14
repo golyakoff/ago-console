@@ -456,11 +456,12 @@ describe("the operator navigation", () => {
     expect(reservedItemLabels(container)).toEqual(["AI suggestions", "AI auto-reply"]);
 
     // `16-02`: `site:erase` is independent too - "Delete account" is hidden here, not muted; the
-    // other four Administration entries need only `site:configure`, which this identity holds.
+    // other five Administration entries need only `site:configure`, which this identity holds.
     // `23-37`: "Documents" is a real item now - still listed by `itemLabels`, but no longer by
     // `reservedItemLabels` (`consoleNav.ts`'s own remarks: it now points at `DocumentsPage`).
+    // `23-80`/`23-82`: "Storage" joins it, same `isAdmin`-only gate, right after "Documents".
     await openSection(container, "Administration");
-    expect(itemLabels(container)).toEqual(["Products", "Billing", "Device data", "Documents"]);
+    expect(itemLabels(container)).toEqual(["Products", "Billing", "Device data", "Documents", "Storage"]);
     expect(reservedItemLabels(container)).toEqual([]);
   });
 
@@ -493,7 +494,7 @@ describe("the operator navigation", () => {
     expect(itemLabels(container)).toEqual(["Employees", "Team chat"]);
 
     await openSection(container, "Administration");
-    expect(itemLabels(container)).toEqual(["Products", "Billing", "Device data", "Documents", "Delete account"]);
+    expect(itemLabels(container)).toEqual(["Products", "Billing", "Device data", "Documents", "Storage", "Delete account"]);
   });
 
   it("mutes the calendar for the tenant regardless of enabledModules - buying it is this identity's own decision either way", async () => {
