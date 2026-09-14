@@ -432,6 +432,11 @@ export interface AppShellProps {
    * for a second, unrelated standing-fact band.
    */
   downloadUsage?: DownloadUsageStatusDto | null;
+  /** `25-84`: starts the manual path's own checkout. Supplied only by `OperatorShell` (the one shell
+   * with a site and a token to buy anything with) - omitted everywhere else, and the banner then
+   * renders no control at all, the same "omit it and get nothing" default `downloadUsage` itself
+   * already has. */
+  onPayDownloadOverage?: () => Promise<void>;
   children: ReactNode;
 }
 
@@ -479,6 +484,7 @@ export function AppShell({
   credentialsArePublished = false,
   suspension = null,
   downloadUsage = null,
+  onPayDownloadOverage,
   children,
 }: AppShellProps) {
   const strings = useStrings();
@@ -615,7 +621,7 @@ export function AppShell({
 
         <PublicDemoNotice credentialsArePublished={credentialsArePublished} />
         <SuspensionBanner status={suspension} />
-        <DownloadUsageBanner status={downloadUsage} />
+        <DownloadUsageBanner status={downloadUsage} onPay={onPayDownloadOverage} />
       </div>
 
       {/* `23-31`: renders nothing - see its own doc comment for why this, and not a bare

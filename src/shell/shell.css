@@ -607,6 +607,32 @@
   padding: 0 var(--ago-gutter);
 }
 
+/* `25-84`: the one control this band ever renders - the tenant paying for egress they have already
+   used. Laid out on the same centred column as the two lines above rather than floated to the right
+   of them: this is a call to action a person reads *after* the sentence explaining why it is there,
+   and a right-aligned button at the end of a full-bleed band ends up a long way from the text that
+   motivates it on a wide screen. Outlined rather than filled - the band already carries the danger
+   tint, and a filled danger button on a danger ground reads as an error state rather than an
+   action. */
+.ago-download-usage-banner__pay {
+  display: block;
+  max-width: var(--ago-shell-max);
+  margin: var(--ago-space-2) auto 0;
+  padding: var(--ago-space-1) var(--ago-space-3);
+  margin-inline-start: var(--ago-gutter);
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: var(--ago-radius-sm);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ago-download-usage-banner__pay:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
 .ago-suspension-banner__title {
   font-weight: 700;
 }

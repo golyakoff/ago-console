@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { Outlet, useLocation, useMatch } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { operatorDisplayName } from "../auth/operatorDisplayName.js";
@@ -12,6 +13,7 @@ import { buildTenantNavSections } from "./consoleNav.js";
 import { RenderErrorAlert, RenderErrorBoundary } from "./RenderErrorBoundary.js";
 import { useSiteSuspensionStatus } from "./useSiteSuspensionStatus.js";
 import { useDownloadUsageStatus } from "./useDownloadUsageStatus.js";
+import { startDownloadOverageCheckout } from "../api/downloadUsageApi.js";
 
 /**
  * `11-05`. The layout route's element - the context-reading half of the shell, mounted inside
@@ -63,6 +65,19 @@ export function OperatorShell() {
   // `25-83`: the shell-wide download-usage banner's own data - the identical "fetched once per site,
   // handed to AppShell as a prop" shape `suspension` just above already establishes.
   const downloadUsage = useDownloadUsageStatus(user?.access_token, siteId);
+  // `25-84`: the manual path's own checkout, resolved here for the same reason `downloadUsage` itself
+  // is - `AppShell` is presentational and reads no context of its own, so the shell that actually has
+  // a token and a site id is the one that supplies the action. A full-page assignment rather than a
+  // client-side route: ЮKassa's confirmation page is theirs, not ours, exactly as
+  // `BillingPage`'s own checkout already navigates.
+  const payDownloadOverage = useCallback(async () => {
+    if (!user?.access_token || !siteId) {
+      return;
+    }
+
+    const checkout = await startDownloadOverageCheckout(user.access_token, siteId);
+    window.location.assign(checkout.confirmationUrl);
+  }, [user?.access_token, siteId]);
   // `11-11`: the one place a specific tenant's locale is ever known - resolved from the active
   // site's own `Locale` (`usePermissions()`'s `locale`, the same "not yet known" `null` state
   // `siteId` already has, which `parseConsoleLocale` treats identically to an unrecognised value:
@@ -145,6 +160,7 @@ export function OperatorShell() {
         credentialsArePublished={credentialsArePublished === true}
         suspension={suspension}
         downloadUsage={downloadUsage}
+        onPayDownloadOverage={payDownloadOverage}
         identity={
           <ShellIdentity
             operator={operatorDisplayName(user)}
