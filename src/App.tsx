@@ -46,6 +46,7 @@ import { OwnerSitesPage } from "./owner/OwnerSitesPage.js";
 import { OwnerSiteDetailPage } from "./owner/OwnerSiteDetailPage.js";
 import { OwnerPricingPage } from "./owner/OwnerPricingPage.js";
 import { OwnerSuspensionsPage } from "./owner/OwnerSuspensionsPage.js";
+import { OwnerTenantIsolationPage } from "./owner/OwnerTenantIsolationPage.js";
 import { CalendarQueuePage } from "./pages/CalendarQueuePage.js";
 import { CalendarSetupPage } from "./pages/CalendarSetupPage.js";
 import { CalendarServicesPage } from "./pages/CalendarServicesPage.js";
@@ -261,6 +262,22 @@ export function App() {
           <RequireAuth>
             <PermissionsProvider>
               <OwnerSuspensionsPage />
+            </PermissionsProvider>
+          </RequireAuth>
+        }
+      />
+      {/* `24-17`: the platform owner's own live read of `tenant-isolation.md`'s five headline
+          figures - the identical gate and "outside the operator layout" reasoning as every other
+          `/owner/*` route above, since it is the same actor. Two policies decide it, independently:
+          `GET /api/v1/owner/tenant-isolation` on each of `Ago.Chat.Api`'s and `Ago.Calendar.Api`'s
+          own `RequirePlatformOwner`. Reached from `OwnerSitesPage`'s own link, not from a second
+          pinned nav entry - `OwnerPricingPage`'s own precedent. */}
+      <Route
+        path="/owner/tenant-isolation"
+        element={
+          <RequireAuth>
+            <PermissionsProvider>
+              <OwnerTenantIsolationPage />
             </PermissionsProvider>
           </RequireAuth>
         }

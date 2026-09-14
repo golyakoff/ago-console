@@ -1168,3 +1168,53 @@ export async function removeOwnerRolePermissions(
 
   return { status: "ok" };
 }
+
+/**
+ * `24-17`'s wire shape, mirrored field for field from `Ago.Chat.Contracts.TenantIsolationSummaryResponse`.
+ *
+ * `unaccountedKeys` is the field `OwnerTenantIsolationPage` must render distinctly from everything
+ * else here - a non-empty list means a real finding (an entry point that is neither RBAC-gated nor
+ * argued-exempt), never merely "a count moved since the doc was last read". See that response's own
+ * C# remarks.
+ */
+export interface OwnerTenantIsolationSummary {
+  entryPoints: number;
+  handlerClasses: number;
+  rbacGated: number;
+  exemptListed: number;
+  unaccountedKeys: string[];
+  exemptButAlsoLooksGated: string[];
+  routesAndHubMethods: number;
+  clientSuppliedSiteIdRoutes: number;
+  generatedAtUtc: string;
+}
+
+/** The same `"not-authorized"` shape every other owner read in this file uses. */
+export type OwnerTenantIsolationSummaryOutcome =
+  | { status: "ok"; summary: OwnerTenantIsolationSummary }
+  | { status: "not-authorized" };
+
+/**
+ * `24-17`: `GET /api/v1/owner/tenant-isolation` - the live-computed counterpart of
+ * `docs/architecture/tenant-isolation.md`'s five headline numbers, read from `Ago.Chat.Api`'s own
+ * currently-running assembly and route table rather than from that document.
+ */
+export async function fetchOwnerTenantIsolationSummary(
+  accessToken: string,
+): Promise<OwnerTenantIsolationSummaryOutcome> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/owner/tenant-isolation`);
+
+  const response = await fetch(url, {
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    return { status: "not-authorized" };
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to load the tenant-isolation summary: ${response.status}`);
+  }
+
+  return { status: "ok", summary: (await response.json()) as OwnerTenantIsolationSummary };
+}

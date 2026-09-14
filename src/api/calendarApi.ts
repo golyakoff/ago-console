@@ -816,6 +816,64 @@ export function recutSchedule(
 }
 
 /**
+ * `24-17`'s wire shape, mirrored field for field from `Ago.Calendar.Contracts.TenantScopeSummaryResponse`.
+ *
+ * Deliberately narrower than `Ago.Chat.Contracts.TenantIsolationSummaryResponse`'s own shape on the
+ * `ago-chat` side of `OwnerTenantIsolationPage` - see that response's own C# remarks for why: this
+ * product has never built the reasoned exemption catalogue `ago-chat`'s `unaccountedKeys` depends on,
+ * so `notGatedKeys` is a weaker, unclassified fact rather than that field's analogue. Read it that
+ * way in `OwnerTenantIsolationPage`, never as if it carried the same weight.
+ */
+export interface CalendarTenantScopeSummary {
+  entryPoints: number;
+  handlerClasses: number;
+  rbacGated: number;
+  notGated: number;
+  notGatedKeys: string[];
+  routesAndHubMethods: number;
+  clientSuppliedTenantIdRoutes: number;
+  generatedAtUtc: string;
+}
+
+/** The same three-way "ok / not-authorized / not-configured" shape `OwnerTenantIsolationPage` needs
+ * to distinguish - `"not-configured"` is a real, expected state on any deployment that has not set
+ * `calendarApiBaseUrl` yet (`config.ts`'s own remarks), never conflated with "the server refused
+ * you". */
+export type CalendarTenantScopeSummaryOutcome =
+  | { status: "ok"; summary: CalendarTenantScopeSummary }
+  | { status: "not-authorized" }
+  | { status: "not-configured" };
+
+/**
+ * `24-17`: `GET /api/v1/owner/tenant-isolation` on `Ago.Calendar.Api`'s own origin - deliberately not
+ * routed through `request()`/`send()` above, the same reason `ownerApi.ts`'s own owner-only reads call
+ * `fetch` directly rather than through their shared helper: a `401`/`403` here is `RequirePlatformOwner`'s
+ * own answer, a real state this function returns rather than an exception `send()` would throw.
+ */
+export async function fetchOwnerTenantScopeSummary(
+  accessToken: string,
+): Promise<CalendarTenantScopeSummaryOutcome> {
+  if (config.calendarApiBaseUrl === null) {
+    return { status: "not-configured" };
+  }
+
+  const url = new URL(`${config.calendarApiBaseUrl}/api/v1/owner/tenant-isolation`);
+  const response = await fetch(url, {
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    return { status: "not-authorized" };
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to load the calendar tenant-isolation summary: ${response.status}`);
+  }
+
+  return { status: "ok", summary: (await response.json()) as CalendarTenantScopeSummary };
+}
+
+/**
  * `23-99`: `validate` is an opt-in fifth parameter, not a change to every call this function already
  * makes - the item's own chosen reading is validation only where an absent field would otherwise
  * look like an empty list or count, not a schema for every response (that is reading 3, explicitly
