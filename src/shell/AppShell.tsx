@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import type { SiteSuspensionStatusDto } from "../api/siteSuspensionApi.js";
+import type { DownloadUsageStatusDto } from "../api/downloadUsageApi.js";
 import type { TenancyDto } from "../api/tenanciesApi.js";
 import { operatorInitials } from "../auth/operatorInitials.js";
 import { Badge } from "../components/Badge.js";
@@ -10,6 +11,7 @@ import { useStrings } from "../i18n/StringsContext.js";
 import { AppearanceIcon, SignOutIcon, TenantIcon } from "./menuIcons.js";
 import { RenderErrorAlert, RenderErrorBoundary } from "./RenderErrorBoundary.js";
 import { SuspensionBanner } from "./SuspensionBanner.js";
+import { DownloadUsageBanner } from "./DownloadUsageBanner.js";
 
 /**
  * `12-04`: who the notice below is talking to. Two values, because the demo console has exactly two
@@ -424,6 +426,12 @@ export interface AppShellProps {
    * `OnboardingPage`/`OwnerSitesPage`/pre-session routes have none, and omit it exactly as they already
    * omit `credentialsArePublished` where it does not apply. */
   suspension?: SiteSuspensionStatusDto | null;
+  /** `25-83`: the caller's own download-usage state, straight from
+   * `GET /api/v1/sites/{siteId}/download-usage` (`useDownloadUsageStatus.ts`) - the identical
+   * "omit it and get nothing" default `suspension`'s own remarks describe for itself, restated here
+   * for a second, unrelated standing-fact band.
+   */
+  downloadUsage?: DownloadUsageStatusDto | null;
   children: ReactNode;
 }
 
@@ -470,6 +478,7 @@ export function AppShell({
   fixed = false,
   credentialsArePublished = false,
   suspension = null,
+  downloadUsage = null,
   children,
 }: AppShellProps) {
   const strings = useStrings();
@@ -601,6 +610,7 @@ export function AppShell({
 
         <PublicDemoNotice credentialsArePublished={credentialsArePublished} />
         <SuspensionBanner status={suspension} />
+        <DownloadUsageBanner status={downloadUsage} />
       </div>
 
       {/* `23-31`: renders nothing - see its own doc comment for why this, and not a bare

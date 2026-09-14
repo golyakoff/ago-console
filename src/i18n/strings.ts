@@ -176,6 +176,19 @@ export interface ConsoleStrings {
    * full, reused rather than a new answer invented for this screen. */
   suspensionBannerContact: string;
 
+  /** `25-83`: the shell-wide download-usage band (`DownloadUsageBanner.tsx`) - the same
+   * "read no context, shown to whoever the caller resolved it for" shape `suspensionBannerTitle`
+   * above already has, restated here for the soft threshold. Non-dismissable, warning-toned rather
+   * than danger-toned (`shell.css`'s own `.ago-download-usage-banner` remarks) - this title must
+   * read as "approaching a limit," never "something is broken." */
+  downloadUsageBannerSoftTitle: string;
+  /** Shown once the hard threshold is actually crossed and downloads are refused - the stronger,
+   * danger-toned variant of the same banner (`DownloadUsageBanner.tsx`'s own modifier class). */
+  downloadUsageBannerBlockedTitle: string;
+  /** The "what to do about it" line - the same no-address "contact us" idiom
+   * `suspensionBannerContact` already reuses, restated for a different standing fact. */
+  downloadUsageBannerContact: string;
+
   // Dark-theme reversal of `adr/0030` point 4 - `ThemeToggle` (`src/design/ThemeToggle.tsx`),
   // rendered in `ShellIdentity` beside sign-out, the same three-state (system/light/dark) shape
   // `src/design/theme.ts`'s `ThemeChoice` declares.

@@ -66,6 +66,10 @@ export const en: ConsoleStrings = {
   suspensionBannerUntilLabel: "Until",
   suspensionBannerContact: "Contact AGO to resolve this.",
 
+  downloadUsageBannerSoftTitle: "This account is approaching its monthly download limit.",
+  downloadUsageBannerBlockedTitle: "This account has reached its monthly download limit - downloads are blocked.",
+  downloadUsageBannerContact: "Contact AGO if this limit is too low for your account.",
+
   themeToggleLabel: "Theme",
   themeToggleAriaLabel: "Colour theme",
   themeOptionSystem: "Match system",
