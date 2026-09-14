@@ -34,7 +34,9 @@ import { useDownloadUsageStatus } from "./useDownloadUsageStatus.js";
  * header used to read "Operator console" or "Client console" depending on which of five hand-
  * maintained routes was active - a list `docs/design/design-system/shell.html` already recorded as
  * "already incomplete" (eight of the thirteen tenant screens were never in it). The backlog item's
- * own instruction is direct: the header now says "Офис" (`25-49`: grew to "AGO Офис") and nothing
+ * own instruction is direct: the header now says "AGO Chat" (`25-49`: grew "Офис" to "AGO Офис";
+ * `25-87`: reverted that on purpose - AGO Chat is the platform's real product name, AGO Calendar a
+ * module sold on top of it, not a co-equal product with its own claim on this text) and nothing
  * else, on every route, for every identity - `AppShell`'s own brand block renders that literal,
  * un-translated word (the same treatment "AGO" already had), so there is nothing left for this
  * component to compute per route.
