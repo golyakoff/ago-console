@@ -1642,6 +1642,11 @@ export const en: ConsoleStrings = {
   onboardingDescription:
     "Your Keycloak account is verified. Choose a display name and the one website origin your " +
     "widget will be embedded on.",
+  onboardingInvitedTitle: "You're joining an existing site",
+  onboardingInvitedDescription:
+    "Your Keycloak account is verified, and somebody has already invited you to work on their site " +
+    "as an operator - activate that invite below. The form further down creates a new site of your " +
+    "own instead, for if that is not what brought you here.",
   onboardingSiteNameLabel: "Site display name",
   onboardingSiteNameEmptyError: "Site display name cannot be empty.",
   onboardingOriginLabel: "Embed origin",

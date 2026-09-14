@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { operatorDisplayName } from "../auth/operatorDisplayName.js";
 import { consumePendingInviteCode } from "../auth/pendingInviteCode.js";
-import { redeemOperatorInvite } from "../api/operatorInvitesApi.js";
+import { redeemOperatorInvite, redeemPendingOperatorInviteForMe } from "../api/operatorInvitesApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
@@ -98,6 +98,14 @@ import { Alert } from "../components/Alert.js";
  * `RequireAuth`'s sign-in redirect - see this component's own `code` state initializer and
  * `pendingInviteCode.ts` for why sessionStorage is what survives that round trip. Manual entry still
  * works exactly as before for anyone who arrives here directly with a code in hand.
+ *
+ * `25-85`: a third arrival shape, with no code anywhere - `OnboardingPage`'s own "activate it here"
+ * card links here bare, because `HasPendingOperatorInviteHandler` never had a code to hand it in the
+ * first place (`OperatorInvite.CodeHash` is a one-way hash, not a deliberately-withheld value this
+ * item could simply widen a query to return - see this item's own worker report). This page now
+ * redeems that case directly, by the caller's own authenticated email instead of a code, on mount -
+ * see `attemptAutoRedeemForMe`'s own doc comment for the security reasoning and the honest fallback
+ * when nothing unambiguous is found.
  */
 export function RedeemInvitePage() {
   const { user, logout } = useAuth();
@@ -184,6 +192,48 @@ export function RedeemInvitePage() {
     void submitCode(code);
   };
 
+  /**
+   * `25-85`: `OnboardingPage`'s own "activate it here" card links to this page bare, with no code at
+   * all - `HasPendingOperatorInviteHandler`'s own deliberately-narrow design (`25-73`) never gave that
+   * page a code to carry, and widening it to *return* one (the backlog's own literal suggestion) turned
+   * out to be impossible: `OperatorInvite.CodeHash` is a one-way SHA-256, so no code is recoverable from
+   * storage for any caller, authenticated or not - see this item's own worker report for the full
+   * account. Rather than show an empty required field and make the reader go find the code by hand
+   * (this item's own real bug), this page redeems directly - keyed by the caller's own authenticated
+   * token email, not a code - for an authenticated caller whose email matches a pending invite.
+   * `RedeemPendingOperatorInviteForCallerHandler`'s own remarks (`ago-chat`) carry the full security
+   * reasoning for why that is not a weaker check: the same trust level `CallbackPage`'s own already-
+   * shipped `?inviteCode=` auto-redemption already grants, to a second path that currently grants less.
+   *
+   * Falls open to the ordinary manual form (already what renders below) on
+   * `OperatorInvite.NoAutoRedeemablePendingInvite` - nothing this call could find to redeem
+   * automatically, not this caller's own mistake, so no error toast for it - the same "an unanswerable
+   * probe must not block, only fail to help" shape `OnboardingPage.tsx`'s own `hasPendingInvite` probe
+   * already follows for the identical kind of "could not tell" outcome.
+   */
+  const attemptAutoRedeemForMe = async (accessToken: string) => {
+    if (submitting || redeemed) {
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await redeemPendingOperatorInviteForMe(accessToken);
+      setRedeemed(true);
+      // See this component's own doc comment for why this waits rather than navigating immediately.
+      redirectTimer.current = setTimeout(() => {
+        void navigate("/", { replace: true });
+      }, 1000);
+    } catch (err) {
+      if (err instanceof ApiProblemError && err.code === "OperatorInvite.NoAutoRedeemablePendingInvite") {
+        return;
+      }
+      setSubmitError(messageFor(err, strings));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // `25-73`'s own Done-when: "the invited user's flow never surfaces the create-your-own-company
   // form... no branch point where a new tenant could be created instead." An invitee who followed the
   // email link has no reason to know what a "code" is or to click a second button to spend one - so
@@ -206,6 +256,32 @@ export function RedeemInvitePage() {
     // every render (it closes over `code`/`submitting`/`redeemed`), and re-running this effect on
     // every one of those changes would either resubmit or do nothing depending on timing - neither is
     // the "once" this effect exists to be.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // `25-85`: the third, remaining arrival shape at this page - no code at all, neither `?code=` (the
+  // email-link effect above already owns that) nor a `/invite/:code`-prefilled one (which still needs
+  // the deliberate click `23-70` established, so `code` being non-empty here also skips it). `code`
+  // is read from this effect's own mount-time closure (empty deps, the identical shape the effect
+  // above already uses) - a value the user might type afterward must never retroactively suppress or
+  // trigger this, since it only ever reflects what this page was actually opened with.
+  useEffect(() => {
+    if (code) {
+      return;
+    }
+
+    const accessToken = user?.access_token;
+    if (!accessToken) {
+      return;
+    }
+
+    // `queueMicrotask` - the identical `react-hooks/set-state-in-effect` reasoning the effect above
+    // already gives for its own `submitCode` call.
+    queueMicrotask(() => {
+      void attemptAutoRedeemForMe(accessToken);
+    });
+    // Fire once, on mount - the identical "the function's own identity changes every render" reasoning
+    // the effect above already gives for its own empty deps array.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

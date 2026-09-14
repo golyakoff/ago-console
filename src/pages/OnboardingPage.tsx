@@ -102,6 +102,8 @@ export function OnboardingPage() {
   // otherwise, so the common case (no pending invite) renders the ordinary form immediately, the same
   // "the form renders until the probe says otherwise" precedent this page's own `12-05` paragraph
   // already established for `ownerEligibility`.
+  // `25-85`: also now governs the page's own heading (`PageHead` below), not only the alert - a second
+  // consumer of the identical probe, not a second fetch.
   const [hasPendingInvite, setHasPendingInvite] = useState(false);
 
   // Fire-and-forget, not part of the submit path: `getRequiredDocuments` already fails open to `[]`
@@ -238,7 +240,42 @@ export function OnboardingPage() {
       // told to somebody in the act of creating a real tenant.
       credentialsArePublished={false}
     >
-      <PageHead title={strings.onboardingTitle} description={strings.onboardingDescription} />
+      {/* `25-85`: the heading itself now depends on `hasPendingInvite`, not only the alert below it -
+          "Finish setting up your site" is the wrong first sentence for somebody who was invited to
+          join one, not asked to create one (this item's own backlog text, found live on the author's
+          own real walkthrough). Swapped, not layered: an invited reader sees `onboardingInvitedTitle`
+          in place of `onboardingTitle`, never both. Same "renders until the probe says otherwise"
+          precedent `hasPendingInvite`'s own effect above already follows for the alert it used to
+          govern alone - a reader who lands here before that fetch resolves briefly sees the ordinary
+          heading, then the invited one, the identical flash `isPlatformOwner`'s own alert below has
+          always accepted for the same reason (`OnboardingPage`'s own class doc comment: "the form
+          renders until the probe says otherwise, not a spinner"). */}
+      <PageHead
+        title={hasPendingInvite ? strings.onboardingInvitedTitle : strings.onboardingTitle}
+        description={hasPendingInvite ? strings.onboardingInvitedDescription : strings.onboardingDescription}
+      />
+
+      {hasPendingInvite && (
+        // `25-85`: moved ahead of the platform-owner alert below - this is now the page's own lead
+        // message for an invited reader (the heading above already said so), not a small aside under a
+        // heading aimed at somebody else. Still `tone="info"`, not `"danger"` - the identical `25-73`
+        // "explain, don't refuse" shape: the form further down stays usable for a reader who genuinely
+        // wants their own site too.
+        //
+        // `25-85`'s own second change to this link's destination: `/redeem-invite` now auto-redeems on
+        // arrival with no code at all, for an authenticated caller whose email matches a pending
+        // invite (`RedeemInvitePage.tsx`'s own new effect) - this `<Link>` itself is unchanged, because
+        // the fix lives entirely in what that destination does once reached, not in this href. See
+        // `RedeemPendingOperatorInviteForCallerHandler`'s own remarks (`ago-chat`) for why that is safe:
+        // exactly the trust level `CallbackPage`'s own `?inviteCode=` auto-redemption already grants.
+        <Alert
+          tone="info"
+          title={strings.onboardingHasPendingInviteTitle}
+          action={<Link to="/redeem-invite">{strings.onboardingHasPendingInviteLink}</Link>}
+        >
+          {strings.onboardingHasPendingInviteBody}
+        </Alert>
+      )}
 
       {isPlatformOwner && (
         /* `tone="info"`, not `"danger"`: nothing has gone wrong and nothing is being refused. The
@@ -253,19 +290,6 @@ export function OnboardingPage() {
           action={<Link to="/owner">{strings.onboardingPlatformOwnerAlertLinkLabel}</Link>}
         >
           {strings.onboardingPlatformOwnerAlertBody}
-        </Alert>
-      )}
-
-      {hasPendingInvite && (
-        // `25-73`: the identical "info, not danger - explain, don't refuse" shape the platform-owner
-        // alert right above already establishes - the form below stays usable for a reader who really
-        // does want their own tenant, this is only pointing out the more likely reason they are here.
-        <Alert
-          tone="info"
-          title={strings.onboardingHasPendingInviteTitle}
-          action={<Link to="/redeem-invite">{strings.onboardingHasPendingInviteLink}</Link>}
-        >
-          {strings.onboardingHasPendingInviteBody}
         </Alert>
       )}
 

@@ -110,3 +110,32 @@ export async function hasPendingOperatorInvite(accessToken: string): Promise<Has
 
   return (await response.json()) as HasPendingOperatorInviteResponse;
 }
+
+/**
+ * `25-85`: the "activate it here" card's own destination - `POST /api/v1/operator-invites/redeem-pending-for-me`,
+ * the identical `RequireKeycloakIdentity` policy every other call in this file uses. No code in the
+ * request: `HasPendingOperatorInviteHandler`'s own design (`25-73`) never gave this console a code to
+ * carry, because `OperatorInvite.CodeHash` is a one-way hash - there is no redeemable code to recover
+ * from storage for *any* caller, authenticated or not. This redeems directly instead, keyed by the
+ * caller's own authenticated token email - `RedeemPendingOperatorInviteForCallerHandler`'s own remarks
+ * (`ago-chat`) carry the full security reasoning for why that is the same trust level this item's own
+ * backlog already names as sufficient, not a new one invented for this call.
+ *
+ * Returns the identical shape `redeemOperatorInvite` above does on success, and throws the identical
+ * `ApiProblemError` shape on failure - `RedeemInvitePage.tsx`'s own `messageFor` already maps every
+ * `OperatorInvite.*` code this call can produce, `OperatorInvite.NoAutoRedeemablePendingInvite` (this
+ * item's own new code, meaning "nothing to redeem automatically" rather than "you made a mistake")
+ * included.
+ */
+export async function redeemPendingOperatorInviteForMe(accessToken: string): Promise<RedeemOperatorInviteResponse> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/operator-invites/redeem-pending-for-me`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!response.ok) {
+    throw await problemDetailsFrom(response);
+  }
+
+  return (await response.json()) as RedeemOperatorInviteResponse;
+}

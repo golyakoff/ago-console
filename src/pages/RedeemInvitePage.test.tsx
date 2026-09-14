@@ -30,7 +30,7 @@ vi.mock("../config.js", () => ({
   },
 }));
 
-const operatorInvitesApi = vi.hoisted(() => ({ redeemOperatorInvite: vi.fn() }));
+const operatorInvitesApi = vi.hoisted(() => ({ redeemOperatorInvite: vi.fn(), redeemPendingOperatorInviteForMe: vi.fn() }));
 const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
 
@@ -126,6 +126,19 @@ function submit(container: HTMLElement): Promise<void> {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // `25-85`: this page now also tries `redeemPendingOperatorInviteForMe` on every mount that has no
+  // code at all - which every existing test in this file that calls the bare `app()` (no `?code=`) now
+  // does too. Defaulted here to the "nothing to auto-redeem" outcome, the one this page's own effect
+  // treats as silent (no error shown, the ordinary manual form renders exactly as before) - so every
+  // test written before this item keeps its own original meaning undisturbed; the describe block below
+  // named for this item is the only one that overrides it.
+  operatorInvitesApi.redeemPendingOperatorInviteForMe.mockRejectedValue(
+    new ApiProblemError(
+      "OperatorInvite.NoAutoRedeemablePendingInvite",
+      "No single pending operator invite could be found for this account automatically.",
+      404,
+    ),
+  );
   // A freshly-redeemed identity now has exactly one tenancy - the site the invite was for - and
   // `operators/me` answers with the permission the invite's own role carried. Neither value is read
   // by the "distinct error message" tests below; they matter only to the one test that follows the
@@ -397,6 +410,87 @@ describe("25-73: redemption fires automatically when the code arrives via ?code=
     await interact(() => undefined);
 
     expect(container.textContent).toContain("Sorry, this invite has been revoked.");
+  });
+});
+
+/**
+ * `25-85`: `OnboardingPage`'s own "activate it here" card links here bare, with no code at all -
+ * `HasPendingOperatorInviteHandler` never had one to hand it (`OperatorInvite.CodeHash` is a one-way
+ * hash - see this item's own worker report). This is the fails-before proof for the mount-time effect
+ * that closes that gap: reverting `RedeemInvitePage`'s own `useEffect(() => { ... void
+ * attemptAutoRedeemForMe(accessToken); }, [])` to a no-op makes every test below fail -
+ * `redeemPendingOperatorInviteForMe` is asserted called (or its effect asserted) with no click and no
+ * code anywhere in each test body.
+ */
+describe("25-85: redemption fires automatically with no code, for an authenticated caller with a matching pending invite", () => {
+  it("redeems without any code or click, and lands in the queue", async () => {
+    vi.useFakeTimers();
+    operatorInvitesApi.redeemPendingOperatorInviteForMe.mockResolvedValue({
+      operatorId: "22222222-2222-2222-2222-222222222222",
+      siteId: "11111111-1111-1111-1111-111111111111",
+    });
+
+    const container = await render(app());
+    await interact(() => undefined);
+
+    expect(operatorInvitesApi.redeemPendingOperatorInviteForMe).toHaveBeenCalledWith("keycloak-token");
+    expect(operatorInvitesApi.redeemOperatorInvite).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("You're in.");
+
+    await interact(() => vi.advanceTimersByTime(1000));
+    expect(container.textContent).toContain("the queue - can configure: true");
+  });
+
+  /** The honest fallback, asserted explicitly rather than only relied on through every other test's
+   * own default mock - nothing to auto-redeem is not this caller's mistake, so the ordinary manual
+   * form renders with no error shown at all, exactly as it did before this item. */
+  it("falls open to the ordinary manual form, with no error shown, when nothing can be auto-redeemed", async () => {
+    const container = await render(app());
+    await interact(() => undefined);
+
+    expect(container.querySelector("form")).not.toBeNull();
+    expect(container.querySelector("[role='alert']")).toBeNull();
+    expect(container.textContent).not.toContain("You're in.");
+  });
+
+  /** A real, actionable outcome - unlike "nothing to auto-redeem" - still reaches the reader as its
+   * own sentence, the identical `messageFor` mapping the manual, code-based path already uses. Proves
+   * this new path does not silently swallow every failure, only the one that means "nothing to try". */
+  it("still shows a real refusal's own message, distinctly from the silent no-invite case", async () => {
+    operatorInvitesApi.redeemPendingOperatorInviteForMe.mockRejectedValue(
+      new ApiProblemError("OperatorInvite.SeatLimitReached", "This site has reached its seat limit of 3.", 402),
+    );
+
+    const container = await render(app());
+    await interact(() => undefined);
+
+    expect(container.textContent).toContain("This site has reached its plan's operator limit.");
+  });
+
+  it("does not attempt the no-code redemption when a code already arrived via the email link", async () => {
+    operatorInvitesApi.redeemOperatorInvite.mockResolvedValue({
+      operatorId: "22222222-2222-2222-2222-222222222222",
+      siteId: "11111111-1111-1111-1111-111111111111",
+    });
+
+    await render(appWithCodeInUrl("emailed-invite-code"));
+    await interact(() => undefined);
+
+    expect(operatorInvitesApi.redeemPendingOperatorInviteForMe).not.toHaveBeenCalled();
+  });
+
+  /** `23-70`'s own deliberate click requirement, still honoured: a code prefilled from `/invite/:code`
+   * is not "no code at all" - the manual form still waits for the reader's own submit, exactly as it
+   * did before this item added the no-code path. */
+  it("does not attempt the no-code redemption when a code was prefilled from /invite/:code", async () => {
+    savePendingInviteCode("kims-shop-invite-code");
+
+    const container = await render(app());
+    await interact(() => undefined);
+
+    expect(operatorInvitesApi.redeemPendingOperatorInviteForMe).not.toHaveBeenCalled();
+    expect(operatorInvitesApi.redeemOperatorInvite).not.toHaveBeenCalled();
+    expect(one<HTMLInputElement>(container, "input").value).toBe("kims-shop-invite-code");
   });
 });
 
