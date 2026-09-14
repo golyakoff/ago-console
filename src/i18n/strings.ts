@@ -161,6 +161,21 @@ export interface ConsoleStrings {
   userMenuAriaLabel: string;
   publicDemoNoticeSharedLogin: string;
 
+  /** `25-70`: the shell-wide suspension band (`SuspensionBanner.tsx`), the same "read no context,
+   * shown to whoever the caller resolved it for" shape `publicDemoNoticeSharedLogin` above already
+   * has - one sentence naming the fact, never conditioned on locale beyond translation. */
+  suspensionBannerTitle: string;
+  /** Prefixes the formatted "since" instant - composed in JSX, not templated, the same
+   * label-plus-`formatAbsolute`-value shape this codebase already uses everywhere else a formatted
+   * date needs a label (no `ConsoleStrings` entry anywhere is itself a template with a placeholder). */
+  suspensionBannerSinceLabel: string;
+  /** Prefixes the formatted "until" instant - `suspensionBannerSinceLabel`'s own sibling. */
+  suspensionBannerUntilLabel: string;
+  /** The "what to do about it" line `docs/backlog/25-70-*.md`'s own Scope asks for - the same
+   * no-address "contact us" idiom `productsContactNote`'s own doc comment already reasons through in
+   * full, reused rather than a new answer invented for this screen. */
+  suspensionBannerContact: string;
+
   // Dark-theme reversal of `adr/0030` point 4 - `ThemeToggle` (`src/design/ThemeToggle.tsx`),
   // rendered in `ShellIdentity` beside sign-out, the same three-state (system/light/dark) shape
   // `src/design/theme.ts`'s `ThemeChoice` declares.

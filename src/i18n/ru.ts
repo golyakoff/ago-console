@@ -60,6 +60,11 @@ export const ru: ConsoleStrings = {
     "может кто угодно — каждый разговор здесь написан незнакомцем, которому сказали, что вы можете " +
     "его прочитать. Не пишите сюда ничего настоящего.",
 
+  suspensionBannerTitle: "Этот аккаунт приостановлен.",
+  suspensionBannerSinceLabel: "Приостановлен с",
+  suspensionBannerUntilLabel: "До",
+  suspensionBannerContact: "Чтобы решить этот вопрос, свяжитесь с AGO.",
+
   themeToggleLabel: "Тема",
   themeToggleAriaLabel: "Цветовая тема",
   themeOptionSystem: "Как в системе",

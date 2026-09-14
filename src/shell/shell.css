@@ -551,6 +551,34 @@
   padding: 0 var(--ago-gutter);
 }
 
+/* `25-70`: the tenant's own suspension banner - the identical full-bleed-band-over-danger-tokens
+   shape `.ago-demo-notice` already establishes just above, reused rather than reinvented: both are a
+   standing fact about the whole session that must survive navigation, sitting outside `<main>` so
+   `wide`/`fixed` never affect it. Two lines instead of one (`.ago-demo-notice__text` has only a
+   single sentence to show) - a bold title plus a detail line, the same weight split
+   `.ago-demo-notice__text`'s own bold single line collapses into one because it never needed a
+   second. */
+.ago-suspension-banner {
+  flex: 0 0 auto;
+  background: var(--ago-danger-tint);
+  border-bottom: 1px solid var(--ago-danger);
+  color: var(--ago-danger);
+  font-size: var(--ago-text-sm);
+  padding: var(--ago-space-2) 0;
+}
+
+.ago-suspension-banner__title,
+.ago-suspension-banner__detail {
+  display: block;
+  max-width: var(--ago-shell-max);
+  margin: 0 auto;
+  padding: 0 var(--ago-gutter);
+}
+
+.ago-suspension-banner__title {
+  font-weight: 700;
+}
+
 /* --- Page frame ----------------------------------------------------------------------------- */
 
 /* `23-31`: the two-column frame - the rail on the left, `<main>` on the right - only ever wraps

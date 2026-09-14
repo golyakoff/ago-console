@@ -10,6 +10,7 @@ import { useConversationsAttention } from "../workspace/ConversationsAttentionCo
 import { AppShell, ShellIdentity, type AppShellNavSection } from "./AppShell.js";
 import { buildTenantNavSections } from "./consoleNav.js";
 import { RenderErrorAlert, RenderErrorBoundary } from "./RenderErrorBoundary.js";
+import { useSiteSuspensionStatus } from "./useSiteSuspensionStatus.js";
 
 /**
  * `11-05`. The layout route's element - the context-reading half of the shell, mounted inside
@@ -51,6 +52,11 @@ export function OperatorShell() {
   // source configured" - rather than a masked wiring bug).
   const { unreadTotal } = useConversationsAttention();
   const { pendingTotal } = usePendingBookingsBadge();
+  // `25-70`: the shell-wide suspension banner's own data - fetched once per site the same way
+  // `credentialsArePublished` above is resolved once and handed to `AppShell` as a prop, rather than
+  // `AppShell` reaching for it itself (that component's own doc comment: presentational, reads no
+  // context of its own).
+  const suspension = useSiteSuspensionStatus(user?.access_token, siteId);
   // `11-11`: the one place a specific tenant's locale is ever known - resolved from the active
   // site's own `Locale` (`usePermissions()`'s `locale`, the same "not yet known" `null` state
   // `siteId` already has, which `parseConsoleLocale` treats identically to an unrecognised value:
@@ -131,6 +137,7 @@ export function OperatorShell() {
         // `PublicDemoNotice`'s own remarks. `null` (not yet answered) is `false` here: unknown must not
         // draw the band, or a real tenant would see it flash on every load before it vanished.
         credentialsArePublished={credentialsArePublished === true}
+        suspension={suspension}
         identity={
           <ShellIdentity
             operator={operatorDisplayName(user)}

@@ -61,6 +61,11 @@ export const en: ConsoleStrings = {
     "in here - every conversation in it was typed by a stranger, who was told you can read it. Do " +
     "not type anything real.",
 
+  suspensionBannerTitle: "This account is suspended.",
+  suspensionBannerSinceLabel: "Suspended since",
+  suspensionBannerUntilLabel: "Until",
+  suspensionBannerContact: "Contact AGO to resolve this.",
+
   themeToggleLabel: "Theme",
   themeToggleAriaLabel: "Colour theme",
   themeOptionSystem: "Match system",
