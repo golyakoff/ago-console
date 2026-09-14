@@ -1832,6 +1832,26 @@ export const ru: ConsoleStrings = {
   aiAddOnEnableLabel: "Включить ИИ-функции",
   aiAddOnDisableLabel: "Выключить ИИ-функции",
   aiAddOnEnableBlocked: "Сначала примите соглашение и сделайте заявление - они фиксируются отдельно.",
+  aiReplyDraftForbidden: "У вас нет прав на настройку ИИ-подсказок этого сайта.",
+  aiReplyDraftLoadError: "Не удалось загрузить состояние ИИ-подсказок.",
+  aiReplyDraftIntro:
+    "Пока вы отвечаете посетителю, AGO может предложить черновик ответа на основе переписки. " +
+    "Отправляемое сообщение всегда пишете вы сами - черновик сам по себе никогда не отправляется.",
+  aiReplyDraftWhatLeavesHeading: "Что покидает эту инсталляцию",
+  aiReplyDraftWhatLeaves:
+    "Запрос черновика передаёт недавние сообщения этого диалога, в виде обычного текста, YandexGPT - " +
+    "поставщику, указанному в соглашении об ИИ-функциях. Больше ничего не передаётся - ни контактные " +
+    "данные, ни вложения, ни данные других диалогов.",
+  aiReplyDraftNotPurchased: "Этот кабинет не подключил ИИ-модуль, поэтому черновики ответов недоступны.",
+  aiReplyDraftSetupIncomplete:
+    "Прежде чем включить черновики ответов, примите соглашение об ИИ-функциях и сделайте заявление о " +
+    "законном основании.",
+  aiReplyDraftGoToAiFeatures: "Перейти к ИИ-функциям",
+  aiReplyDraftSharedSwitchNote:
+    "Это тот же переключатель, что и на странице ИИ-функций. Выключив его здесь, вы также " +
+    "останавливаете фоновую категоризацию завершённых диалогов.",
+  aiReplyDraftEnableLabel: "Включить черновики ответов",
+  aiReplyDraftDisableLabel: "Выключить черновики ответов",
   // `25-89`: the owner panel - see `strings.ts`'s own doc comment on this block for the shared-vs-
   // page-prefixed layout.
   ownerNotAuthorizedTitle: "Доступ запрещён",

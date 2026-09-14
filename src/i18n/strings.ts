@@ -2856,6 +2856,27 @@ export interface ConsoleStrings {
   aiAddOnEnableLabel: string;
   aiAddOnDisableLabel: string;
   aiAddOnEnableBlocked: string;
+  // -------------------------------------------------------------------------------------------
+  // `23-38`: `/automation/ai-suggestions` - the reply draft's own screen. Reads and writes the exact
+  // same `AiAddOnEnablement` switch `25-04`'s screen above already reads and writes (there is no
+  // reply-draft-only flag - `AiAddOnEnablement`'s own doc comment), so nothing here duplicates the
+  // agreement or the declaration; a tenant who has not finished those is pointed at `/account/ai`
+  // instead. What this screen adds is the reply-draft-specific framing: what a draft actually sends,
+  // and the on/off control in the tenant's own words for that one feature.
+  aiReplyDraftForbidden: string;
+  aiReplyDraftLoadError: string;
+  aiReplyDraftIntro: string;
+  aiReplyDraftWhatLeavesHeading: string;
+  aiReplyDraftWhatLeaves: string;
+  aiReplyDraftNotPurchased: string;
+  aiReplyDraftSetupIncomplete: string;
+  aiReplyDraftGoToAiFeatures: string;
+  /** States plainly that this is the same switch `/account/ai` shows, not a second one - so turning
+   * it off here is understood to also stop the background categoriser, and turning it on there is
+   * understood to also turn reply drafts on. */
+  aiReplyDraftSharedSwitchNote: string;
+  aiReplyDraftEnableLabel: string;
+  aiReplyDraftDisableLabel: string;
 
   // `25-89`: the owner panel (`/owner/*`) - `OwnerSitesPage`, `OwnerSiteDetailPage`,
   // `OwnerPricingPage`, `OwnerSuspensionsPage`, `OwnerTenantIsolationPage`. Until this item every

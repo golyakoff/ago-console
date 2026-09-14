@@ -387,7 +387,11 @@ function buildAutomationItems(isAdmin: boolean, strings: ConsoleStrings): AppShe
   }
   return [
     { to: "/automation/canned", label: strings.navCannedResponses },
-    { label: strings.navAutomationAiSuggestions, reserved: true },
+    // `23-38`: no longer reserved - `AiReplyDraftPage` reads and writes the same `AiAddOnEnablement`
+    // switch `/account/ai` (`25-04`) does, framed for the reply draft specifically. `23-39` ("AI
+    // auto-reply", the machine answering a visitor unattended) stays reserved below; it is a
+    // different, unbuilt feature, not the categoriser this switch also governs.
+    { to: "/automation/ai-suggestions", label: strings.navAutomationAiSuggestions },
     { to: "/automation/auto-reply", label: strings.navOfflineAutoReply },
     { label: strings.navAutomationAiAutoReply, reserved: true },
     { to: "/automation/faq", label: strings.navFaqAssistant },
@@ -415,8 +419,8 @@ function buildAdminItems(
     items.push({ to: "/account/documents", label: strings.navAccountDocuments });
     // `25-04`: the AI add-on's own screen - placed beside "Документы" rather than in Автоматизация,
     // because what happens here is buying a module and recording two legal facts about it, not
-    // configuring a behaviour. The two reserved AI entries in Автоматизация stay reserved; they are
-    // the features themselves (`23-38`/`23-39`), which this screen only turns on.
+    // configuring a behaviour. `23-38` gave the reply-draft entry in Автоматизация its own real
+    // screen; `23-39` ("AI auto-reply") is the one still-reserved entry there, an unbuilt feature.
     items.push({ to: "/account/ai", label: strings.navAiAddOn });
     // `23-80`/`23-82`: "Хранилище" - the tenant's own read of every attachment they hold, plus
     // bulk-delete. Same `isAdmin`-only gate as the four entries above it.
