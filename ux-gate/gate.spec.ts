@@ -72,21 +72,40 @@ for (const screen of UX_GATE_SCREENS) {
       expect(result.violations, JSON.stringify(result.violations, null, 2)).toEqual([]);
     });
 
-    // `11-16`: skipped for `owner-sites` - `/owner` renders in English regardless of any signed-in
-    // identity's tenant locale, a settled `11-11` design call restated in `OwnerSitesPage.tsx`'s own
-    // doc comment ("`en` explicitly, never `useStrings()`"), gated server-side by
-    // `RequirePlatformOwner` and client-side by `useOwnerEligibility` - seen by one person, who wrote
-    // it in English on purpose.
+    // `23-27` skipped `redeem-invite` here, for a while: that screen called `useStrings()` throughout
+    // and both `en.ts`/`ru.ts` carried a real translation for every string it rendered, but it had no
+    // site to read a `locale` from yet, so it fell through to the context's bare English default
+    // regardless. `23-28` removed that reason rather than working around it - `RedeemInvitePage.tsx`'s
+    // own doc comment and `StringsContext.tsx`'s have the full account - so that screen has rendered
+    // Russian like every other one this gate opens ever since.
     //
-    // `23-27` also skipped `redeem-invite` here, for a related but distinct reason: that screen
-    // called `useStrings()` throughout and both `en.ts`/`ru.ts` carried a real translation for every
-    // string it rendered, but it had no site to read a `locale` from yet, so it fell through to the
-    // context's bare English default regardless. `23-28` removes that reason rather than working
-    // around it - `RedeemInvitePage.tsx`'s own doc comment and `StringsContext.tsx`'s have the full
-    // account - so this screen now renders Russian like every other one this gate opens, and the
-    // exemption is gone. `owner-sites` is the one screen left here, and its English is permanent by
-    // design, not a consequence of a missing locale signal - the two were never the same kind of gap,
-    // which is exactly why removing one did not mean removing both.
+    // `owner-sites` **was** skipped here for the reason `redeem-invite` no longer is - "`/owner`
+    // renders in English regardless of any signed-in identity's tenant locale, a settled `11-11`
+    // design call" - and `25-89` overturns that premise the same way `23-28` overturned
+    // `redeem-invite`'s (`OwnerSitesPage.tsx`'s and `OwnerStringsProvider.tsx`'s own doc comments have
+    // the full account): `/owner` now wraps itself in `OwnerStringsProvider` and genuinely renders
+    // Russian, proven by removing this skip once, running this exact assertion for real, and fixing
+    // what it found in-scope to fix (`25-89`'s report has the details: a lowercase "id" that should
+    // have been the already-exempted "ID", "API" newly exercised as the loanword `ru.ts` already used
+    // elsewhere, and a fixture site name that literally embedded this test suite's own name inside
+    // what its own rule requires to be pure Cyrillic).
+    //
+    // **The skip stays, on a narrower and different reason than before.** Once those were fixed, three
+    // *pre-existing*, real, already-out-of-scope gaps remained, each latent rather than new - the first
+    // screen this gate ever exercised `OwnerSiteSummary.tier`'s deliberate raw server passthrough
+    // (`OwnerSitesPage.tsx`'s own doc comment: `"free"` is not a placeholder, there is no mapping
+    // table), `ownerSites.ts#formatByteSize`'s own deliberately-untranslated unit letters (`"MiB"`,
+    // the same `d`/`h`/`m` convention `time/format.ts#formatElapsed` already uses), and
+    // `time/format.ts`'s fixed `en-GB` `DISPLAY_LOCALE` (`"Jun"`, `"Sept"` - this function's own file
+    // header above already documents this exact gap as real and deliberately unfixed, for
+    // `AdminConversationsPage` originally; `owner-sites` is simply the second screen honest enough to
+    // surface it). None of the three is a translation this item's own Scope covers - `docs/backlog/
+    // 25-89-*.md` moves owner-panel *strings* into `ConsoleStrings`, not the shared date-formatting or
+    // byte-unit machinery every other translated screen already leaves exactly this untranslated, and
+    // not `12-02`'s own settled "render the wire value, don't invent a mapping" call for `tier`. Fixing
+    // any of the three for real is a repository-wide change (thread a locale through `time/format.ts`
+    // and every one of its call sites; decide a byte-unit convention; decide whether `tier` gets a
+    // display-name mapping at all) - each its own item, not a rider on this one (`CLAUDE.md` rule 15).
     if (screen.name !== "owner-sites") {
       await test.step("no untranslated interface text", async () => {
         const result = await page.evaluate(measureUntranslatedLatinText);

@@ -20,7 +20,8 @@ import {
   type OwnerSiteOperator,
   type OwnerSiteRole,
 } from "../api/ownerApi.js";
-import { en } from "../i18n/en.js";
+import { useStrings } from "../i18n/StringsContext.js";
+import type { ConsoleStrings } from "../i18n/strings.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
 import { buildTenantNavSections } from "../shell/consoleNav.js";
 import { Alert } from "../components/Alert.js";
@@ -107,15 +108,21 @@ type OwnerDetailAccess = "unknown" | "granted" | "refused" | "not-found";
  * **Mounted outside the operator layout**, the identical reasoning `OwnerSitesPage`'s own doc comment
  * gives: the platform owner may hold no `operators` row at all, so nothing here may assume one.
  *
- * **Deliberately hardcoded English**, matching `OwnerSitesPage` and `ui-inventory.md` §8.1's recorded
- * decision - `/owner` is not scoped to one tenant, so it cannot follow one tenant's language. This
- * page passes the built-in `en` table for its nav, exactly like its sibling, and writes every other
- * string in this file as plain English rather than calling `useStrings()`.
+ * **`25-89`: no longer hardcoded English.** This page used to say, in these words, "`/owner` is not
+ * scoped to one tenant, so it cannot follow one tenant's language" and pass the built-in `en` table
+ * for its nav while writing every other string as a plain English literal - the same call
+ * `OwnerSitesPage.tsx`'s own doc comment made and the same one `25-89` supersedes there. This page now
+ * reads `useStrings()` throughout, inside the identical `OwnerStringsProvider` `App.tsx`'s
+ * `/owner/sites/:siteId` route wraps around it - see that provider's own doc comment for the fuller
+ * reasoning (unchanged from `OwnerSitesPage.tsx`'s: there is still no *tenant* locale for a
+ * cross-tenant screen to follow, which is why this stays an explicit provider rather than a route
+ * reading `StringsContext`'s bare default).
  */
 export function OwnerSiteDetailPage() {
   const { siteId } = useParams<{ siteId: string }>();
   const { user, logout } = useAuth();
   const { siteId: ownSiteId, hasPermission, enabledModules } = usePermissions();
+  const strings = useStrings();
   const accessToken = user?.access_token;
 
   const [access, setAccess] = useState<OwnerDetailAccess>("unknown");
@@ -258,9 +265,9 @@ export function OwnerSiteDetailPage() {
       })
       .catch((err: unknown) => {
         // Same "the API is broken" vs. "you may not see this" split every owner screen makes.
-        setError(err instanceof Error ? err.message : "Failed to load this site's detail.");
+        setError(err instanceof Error ? err.message : strings.ownerSiteDetailLoadFailed);
       });
-  }, [accessToken, siteId]);
+  }, [accessToken, siteId, strings]);
 
   useEffect(() => {
     if (!accessToken || !siteId) {
@@ -281,6 +288,7 @@ export function OwnerSiteDetailPage() {
     () =>
       buildModuleColumns(
         timeZone,
+        strings,
         (module) => {
           setRevokingModule(module);
           setRevokeReason("");
@@ -296,7 +304,7 @@ export function OwnerSiteDetailPage() {
           setQuantitySaved(null);
         },
       ),
-    [timeZone],
+    [timeZone, strings],
   );
 
   const handleSaveOrigins = () => {
@@ -335,10 +343,10 @@ export function OwnerSiteDetailPage() {
         // proved `granted` and a real site to reach this form at all), so this is reported the same
         // plain way the page's own load-time `error` state is, not folded into the field-level
         // `originsError` a caller can fix by retyping.
-        setError("This site could no longer be reached. Reload the page and try again.");
+        setError(strings.ownerCouldNotBeReached);
       })
       .catch((err: unknown) => {
-        setOriginsError(err instanceof Error ? err.message : "Failed to save the allowed origins.");
+        setOriginsError(err instanceof Error ? err.message : strings.ownerSiteDetailOriginsSaveFailed);
       })
       .finally(() => {
         setOriginsSaving(false);
@@ -382,11 +390,11 @@ export function OwnerSiteDetailPage() {
     const trimmedCredential = credentialInput.trim();
 
     if (triggerWords.length === 0) {
-      setGrantError("Enter at least one trigger word.");
+      setGrantError(strings.ownerSiteDetailTriggerWordsRequired);
       return;
     }
     if (trimmedCredential.length === 0) {
-      setGrantError("Enter the module's own per-site credential.");
+      setGrantError(strings.ownerSiteDetailCredentialRequired);
       return;
     }
 
@@ -395,18 +403,18 @@ export function OwnerSiteDetailPage() {
     // below - there is no default that reaches the request body.
     let expiresAt: string | null;
     if (expiryChoice === "unset") {
-      setGrantError("Choose whether this grant expires - \"Never\" is a choice too, not a default.");
+      setGrantError(strings.ownerSiteDetailExpiryChoiceRequired);
       return;
     } else if (expiryChoice === "never") {
       expiresAt = null;
     } else {
       if (expiryDateInput.trim().length === 0) {
-        setGrantError("Enter the date and time this grant expires.");
+        setGrantError(strings.ownerSiteDetailExpiryDateRequired);
         return;
       }
       const parsed = new Date(expiryDateInput);
       if (Number.isNaN(parsed.getTime())) {
-        setGrantError("That expiry date and time could not be read.");
+        setGrantError(strings.ownerSiteDetailExpiryDateUnreadable);
         return;
       }
       expiresAt = parsed.toISOString();
@@ -448,10 +456,10 @@ export function OwnerSiteDetailPage() {
 
         // `not-authorized`/`not-found` mid-session - the same genuinely-unexpected-here handling
         // `handleSaveOrigins` above gives its own equivalent outcomes.
-        setError("This site could no longer be reached. Reload the page and try again.");
+        setError(strings.ownerCouldNotBeReached);
       })
       .catch((err: unknown) => {
-        setGrantError(err instanceof Error ? err.message : "Failed to grant the module.");
+        setGrantError(err instanceof Error ? err.message : strings.ownerSiteDetailGrantModuleFailed);
       })
       .finally(() => {
         setGrantSubmitting(false);
@@ -472,7 +480,7 @@ export function OwnerSiteDetailPage() {
     const isPurchase = !revokingModule.grantedByOwner;
     const trimmedReason = revokeReason.trim();
     if (isPurchase && trimmedReason.length === 0) {
-      setRevokeError("Write the reason you would be willing to show this tenant.");
+      setRevokeError(strings.ownerReasonRequiredValidation);
       return;
     }
 
@@ -504,10 +512,10 @@ export function OwnerSiteDetailPage() {
         // this was confirmed. Reported the same page-level way `handleSaveOrigins`'s own equivalent
         // case is.
         setRevokingModule(null);
-        setError("This site could no longer be reached. Reload the page and try again.");
+        setError(strings.ownerCouldNotBeReached);
       })
       .catch((err: unknown) => {
-        setRevokeError(err instanceof Error ? err.message : "Failed to revoke the module.");
+        setRevokeError(err instanceof Error ? err.message : strings.ownerSiteDetailRevokeModuleFailed);
       })
       .finally(() => {
         setRevokeSubmitting(false);
@@ -528,13 +536,13 @@ export function OwnerSiteDetailPage() {
 
     const trimmed = quantityInput.trim();
     if (trimmed.length === 0) {
-      setQuantityError("Enter a quantity.");
+      setQuantityError(strings.ownerSiteDetailQuantityRequired);
       return;
     }
 
     const parsed = Number(trimmed);
     if (!Number.isInteger(parsed) || parsed < 0) {
-      setQuantityError("Enter a whole number, zero or more.");
+      setQuantityError(strings.ownerSiteDetailQuantityInvalid);
       return;
     }
 
@@ -580,10 +588,10 @@ export function OwnerSiteDetailPage() {
         // `not-authorized`/`not-found` mid-session - the same genuinely-unexpected-here handling
         // every other write on this page gives its own equivalent outcomes.
         setQuantityModule(null);
-        setError("This site could no longer be reached. Reload the page and try again.");
+        setError(strings.ownerCouldNotBeReached);
       })
       .catch((err: unknown) => {
-        setQuantityError(err instanceof Error ? err.message : "Failed to grant the quantity.");
+        setQuantityError(err instanceof Error ? err.message : strings.ownerSiteDetailGrantQuantityFailed);
       })
       .finally(() => {
         setQuantitySubmitting(false);
@@ -632,10 +640,10 @@ export function OwnerSiteDetailPage() {
 
         // `not-authorized`/`not-found` mid-session - the same genuinely-unexpected-here handling
         // every other write on this page gives its own equivalent outcomes.
-        setError("This site could no longer be reached. Reload the page and try again.");
+        setError(strings.ownerCouldNotBeReached);
       })
       .catch((err: unknown) => {
-        setRestoreError(err instanceof Error ? err.message : "Failed to restore the operator's seat.");
+        setRestoreError(err instanceof Error ? err.message : strings.ownerSiteDetailRestoreSeatFailed);
       })
       .finally(() => {
         setRestoringOperatorId(null);
@@ -653,7 +661,7 @@ export function OwnerSiteDetailPage() {
 
     const trimmedReason = forceReason.trim();
     if (trimmedReason.length === 0) {
-      setForceError("Write the reason you would be willing to show this tenant.");
+      setForceError(strings.ownerReasonRequiredValidation);
       return;
     }
 
@@ -676,10 +684,10 @@ export function OwnerSiteDetailPage() {
         }
 
         setForceDialogOperator(null);
-        setError("This site could no longer be reached. Reload the page and try again.");
+        setError(strings.ownerCouldNotBeReached);
       })
       .catch((err: unknown) => {
-        setForceError(err instanceof Error ? err.message : "Failed to restore the operator's seat.");
+        setForceError(err instanceof Error ? err.message : strings.ownerSiteDetailRestoreSeatFailed);
       })
       .finally(() => {
         setForceSubmitting(false);
@@ -722,10 +730,10 @@ export function OwnerSiteDetailPage() {
 
         // `not-authorized`/`not-found` mid-session - the same genuinely-unexpected-here handling
         // every other write on this page gives its own equivalent outcomes.
-        setError("This site could no longer be reached. Reload the page and try again.");
+        setError(strings.ownerCouldNotBeReached);
       })
       .catch((err: unknown) => {
-        setAddPermissionError(err instanceof Error ? err.message : "Failed to add the permission.");
+        setAddPermissionError(err instanceof Error ? err.message : strings.ownerSiteDetailAddPermissionFailed);
       })
       .finally(() => {
         setAddingPermissionForRole(null);
@@ -754,7 +762,7 @@ export function OwnerSiteDetailPage() {
 
     const trimmedReason = removePermissionReason.trim();
     if (trimmedReason.length === 0) {
-      setRemovePermissionError("Write the reason you would be willing to show this tenant.");
+      setRemovePermissionError(strings.ownerReasonRequiredValidation);
       return;
     }
 
@@ -783,10 +791,10 @@ export function OwnerSiteDetailPage() {
         }
 
         setRemovingPermission(null);
-        setError("This site could no longer be reached. Reload the page and try again.");
+        setError(strings.ownerCouldNotBeReached);
       })
       .catch((err: unknown) => {
-        setRemovePermissionError(err instanceof Error ? err.message : "Failed to remove the permission.");
+        setRemovePermissionError(err instanceof Error ? err.message : strings.ownerSiteDetailRemovePermissionFailed);
       })
       .finally(() => {
         setRemovePermissionSubmitting(false);
@@ -805,7 +813,7 @@ export function OwnerSiteDetailPage() {
 
     const trimmedReason = suspendReasonInput.trim();
     if (trimmedReason.length === 0) {
-      setSuspendError("A reason is required - state why this account is being frozen, extended, or unblocked.");
+      setSuspendError(strings.ownerSiteDetailSuspensionReasonRequired);
       return;
     }
 
@@ -813,7 +821,7 @@ export function OwnerSiteDetailPage() {
     if (suspendDialogMode !== "lift") {
       minutes = Number.parseInt(suspendMinutesInput, 10);
       if (!Number.isFinite(minutes) || minutes <= 0) {
-        setSuspendError("Enter a whole number of minutes, greater than zero.");
+        setSuspendError(strings.ownerMinutesInvalid);
         return;
       }
     }
@@ -836,7 +844,7 @@ export function OwnerSiteDetailPage() {
       }
 
       setSuspendDialogMode(null);
-      setError("This site could no longer be reached. Reload the page and try again.");
+      setError(strings.ownerCouldNotBeReached);
     };
 
     const request =
@@ -861,7 +869,7 @@ export function OwnerSiteDetailPage() {
         onSettled(false);
       })
       .catch((err: unknown) => {
-        setSuspendError(err instanceof Error ? err.message : "Failed to update this account's suspension.");
+        setSuspendError(err instanceof Error ? err.message : strings.ownerSiteDetailSuspensionUpdateFailed);
       })
       .finally(() => {
         setSuspendSubmitting(false);
@@ -874,14 +882,14 @@ export function OwnerSiteDetailPage() {
       // `pinnedItem` and, unlike that page's own `end: true`, is highlighted while on this sub-route
       // too (`end: false`): this screen is still part of the platform-sites section, one tenant deep
       // into it.
-      sections={ownSiteId ? buildTenantNavSections(hasPermission, en, enabledModules ?? []) : []}
+      sections={ownSiteId ? buildTenantNavSections(hasPermission, strings, enabledModules ?? []) : []}
       // `23-43`: only once the server has actually accepted this caller, exactly as
       // `demoNoticeAudience` below already is. The demo console's operator login is published,
       // so anyone can sign in and type `/owner`; drawing a rail link to a view they were just
       // refused tells a stranger that a platform-operations view exists and where it lives.
       // "unknown" draws nothing either - a link that appears for a moment and then vanishes on
       // the refusal has already said it.
-      pinnedItem={access === "granted" ? { to: "/owner", label: en.navPlatformSites, end: false } : undefined}
+      pinnedItem={access === "granted" ? { to: "/owner", label: strings.navPlatformSites, end: false } : undefined}
       // `23-45`: as OwnerSitesPage - see that file, and `PublicDemoNotice`'s own remarks.
       credentialsArePublished={false}
       wide
@@ -889,38 +897,37 @@ export function OwnerSiteDetailPage() {
         <ShellIdentity operator={operatorDisplayName(user)} siteId={ownSiteId} onSignOut={() => void logout()} />
       }
     >
-      {access === "unknown" && error === null && <Spinner label="Opening this tenant's detail…" />}
+      {access === "unknown" && error === null && <Spinner label={strings.ownerSiteDetailOpeningLabel} />}
 
       {access === "refused" && (
         <>
-          <PageHead title="Platform operations" />
+          <PageHead title={strings.ownerOperationsTitle} />
           {/* `23-43`: says that the caller was refused, and no longer says by what. "Restricted to
               the platform owner" told a reader who is not one that such a role exists on this
               deployment - which on a console whose operator login is published means telling
               anybody. Refusing without naming the thing refused is the smaller disclosure and is
               equally true; the reader who *is* the owner never sees this branch. */}
-          <Alert tone="danger" title="Not authorized">
-            This view is not available to you. The server refused the request, so no site data was
-            loaded.
+          <Alert tone="danger" title={strings.ownerNotAuthorizedTitle}>
+            {strings.ownerSiteAccessRefusedBody}
           </Alert>
         </>
       )}
 
       {access === "not-found" && (
         <>
-          <PageHead title="Platform sites" />
-          <Alert tone="danger" title="No such site">
-            No site matches this id. It may have been mistyped, or the tenant no longer exists.
+          <PageHead title={strings.navPlatformSites} />
+          <Alert tone="danger" title={strings.ownerSiteDetailNoSuchSiteTitle}>
+            {strings.ownerSiteDetailNoSuchSiteBody}
           </Alert>
           <p>
-            <Link to="/owner">Back to the site list</Link>
+            <Link to="/owner">{strings.ownerSiteDetailBackToList}</Link>
           </p>
         </>
       )}
 
       {error !== null && access !== "refused" && access !== "not-found" && (
         <>
-          {access === "unknown" && <PageHead title="Platform sites" />}
+          {access === "unknown" && <PageHead title={strings.navPlatformSites} />}
           <Alert tone="danger">{error}</Alert>
         </>
       )}
@@ -928,13 +935,13 @@ export function OwnerSiteDetailPage() {
       {access === "granted" && site !== null && (
         <>
           <PageHead
-            title={site.name.trim().length > 0 ? site.name : "Unnamed site"}
-            description={`Read-only - this screen shows this tenant's actual state, it changes nothing. Message volume and last activity cover ${describeRecentWindow(site.recentWindowDays)} - the window the API itself reports; seats, conversations and stored bytes are all-time.`}
+            title={site.name.trim().length > 0 ? site.name : strings.ownerUnnamedSite}
+            description={`${strings.ownerSiteDetailDescriptionPrefix}${describeRecentWindow(site.recentWindowDays, strings)}${strings.ownerSitesDescriptionWindowedSuffix}`}
           />
 
           <dl className="ago-owner-detail-facts">
             <div>
-              <dt>Site id</dt>
+              <dt>{strings.ownerSiteDetailFactSiteId}</dt>
               <dd>
                 <Badge tone="neutral" mono>
                   {site.siteId}
@@ -942,43 +949,50 @@ export function OwnerSiteDetailPage() {
               </dd>
             </div>
             <div>
-              <dt>Tier</dt>
+              <dt>{strings.ownerSitesColumnTier}</dt>
               <dd>
                 <Badge tone="neutral">{site.tier}</Badge>
               </dd>
             </div>
             <div>
-              <dt>Seats</dt>
+              <dt>{strings.ownerSitesColumnSeats}</dt>
               <dd>{formatCount(site.seatCount)}</dd>
             </div>
             <div>
-              <dt>Conversations</dt>
+              <dt>{strings.ownerSitesColumnConversations}</dt>
               <dd>{formatCount(site.conversationCount)}</dd>
             </div>
             <div>
-              <dt>{formatRecentMessagesHeader(site.recentWindowDays)}</dt>
+              <dt>{formatRecentMessagesHeader(site.recentWindowDays, strings)}</dt>
               <dd>{formatCount(site.recentMessageCount)}</dd>
             </div>
             <div>
-              <dt>Attachments</dt>
+              <dt>{strings.ownerSitesColumnAttachments}</dt>
               <dd>
-                <span title={`${formatCount(site.attachmentBytes)} bytes`}>
+                <span title={`${formatCount(site.attachmentBytes)}${strings.ownerBytesSuffix}`}>
                   {formatByteSize(site.attachmentBytes)}
                 </span>
               </dd>
             </div>
             <div>
-              <dt>Created</dt>
-              <dd>{renderDateFact(site.createdAt, timeZone, "Not recorded", "This site predates the platform recording creation dates, so its creation date is genuinely unknown.")}</dd>
+              <dt>{strings.ownerSitesColumnCreated}</dt>
+              <dd>
+                {renderDateFact(
+                  site.createdAt,
+                  timeZone,
+                  strings.ownerSitesNotRecorded,
+                  strings.ownerSitesNotRecordedTitle,
+                )}
+              </dd>
             </div>
             <div>
-              <dt>Last activity</dt>
+              <dt>{strings.ownerSitesColumnLastActivity}</dt>
               <dd>
                 {renderDateFact(
                   site.lastMessageAt,
                   timeZone,
-                  formatNoRecentActivity(site.recentWindowDays),
-                  `This is the most recent message within ${describeRecentWindow(site.recentWindowDays)} only. An older message may exist; the API does not report one, deliberately.`,
+                  formatNoRecentActivity(site.recentWindowDays, strings),
+                  `${strings.ownerSitesLastActivityTitlePrefix}${describeRecentWindow(site.recentWindowDays, strings)}${strings.ownerSitesLastActivityTitleSuffix}`,
                 )}
               </dd>
             </div>
@@ -988,12 +1002,12 @@ export function OwnerSiteDetailPage() {
               all. Neither the tenant's own console nor this screen's read-only entitlements table
               below gets a form; this is the one field on this page that writes anything. */}
           <Panel
-            title="Allowed origins"
-            description="The pages this tenant's widget is allowed to run on. Only the platform owner may change this - a tenant who needs a different address still has to ask."
+            title={strings.ownerSiteDetailOriginsTitle}
+            description={strings.ownerSiteDetailOriginsDescription}
           >
             <Field
-              label="Origins, one per line"
-              description="Scheme and host only - e.g. https://shop.example. No path, no trailing slash: this is compared literally against the browser's own Origin header."
+              label={strings.ownerSiteDetailOriginsFieldLabel}
+              description={strings.ownerSiteDetailOriginsFieldDescription}
               error={originsError}
             >
               {(controlProps) => (
@@ -1010,11 +1024,11 @@ export function OwnerSiteDetailPage() {
             </Field>
             <p>
               <Button onClick={handleSaveOrigins} disabled={originsSaving}>
-                {originsSaving ? "Saving…" : "Save allowed origins"}
+                {originsSaving ? strings.ownerSavingLabel : strings.ownerSiteDetailOriginsSaveButton}
               </Button>
             </p>
             {originsSaved && !originsError && (
-              <Alert tone="success">Saved. The widget honours this on its very next request - no restart needed.</Alert>
+              <Alert tone="success">{strings.ownerSiteDetailOriginsSaved}</Alert>
             )}
           </Panel>
 
@@ -1023,15 +1037,15 @@ export function OwnerSiteDetailPage() {
               booking and stops the widget being served for a new chat session alike; a conversation
               already open is untouched and a booking already made stands. */}
           <Panel
-            title="Account suspension"
-            description="An enforcement freeze for a suspected violation - never for non-payment, which billing already handles on its own. A visitor already mid-conversation sees no error and a booking already made stands; only a new session or a new booking is refused."
+            title={strings.ownerSiteDetailSuspensionTitle}
+            description={strings.ownerSiteDetailSuspensionDescription}
           >
             {isCurrentlySuspended(site) ? (
               <>
-                <Alert tone="danger" title="Currently suspended">
-                  Suspended until {formatAbsolute(parseInstant(site.suspendedUntil), timeZone)}. New chat
-                  sessions and new bookings are refused for this account; nothing already open or
-                  already made is affected.
+                <Alert tone="danger" title={strings.ownerSiteDetailSuspendedTitle}>
+                  {strings.ownerSiteDetailSuspendedUntilPrefix}
+                  {formatAbsolute(parseInstant(site.suspendedUntil), timeZone)}
+                  {strings.ownerSiteDetailSuspendedUntilSuffix}
                 </Alert>
                 <p className="ago-row">
                   <Button
@@ -1042,7 +1056,7 @@ export function OwnerSiteDetailPage() {
                       setSuspendError(null);
                     }}
                   >
-                    Extend
+                    {strings.ownerExtendButton}
                   </Button>
                   <Button
                     variant="secondary"
@@ -1052,13 +1066,13 @@ export function OwnerSiteDetailPage() {
                       setSuspendError(null);
                     }}
                   >
-                    Unblock now
+                    {strings.ownerSiteDetailUnblockNowButton}
                   </Button>
                 </p>
               </>
             ) : (
               <>
-                <Alert tone="info">Not currently suspended.</Alert>
+                <Alert tone="info">{strings.ownerSiteDetailNotSuspended}</Alert>
                 <p>
                   <Button
                     variant="danger"
@@ -1069,7 +1083,7 @@ export function OwnerSiteDetailPage() {
                       setSuspendError(null);
                     }}
                   >
-                    Suspend this account
+                    {strings.ownerSiteDetailSuspendButton}
                   </Button>
                 </p>
               </>
@@ -1079,30 +1093,26 @@ export function OwnerSiteDetailPage() {
           {/* `23-68`: "a locked-out tenant can be let back in without a database" - the recovery this
               item exists to build, reached from the same screen `23-65`'s own module grant/revoke
               already lives on, not a new one. */}
-          <h2>Operators</h2>
+          <h2>{strings.ownerSiteDetailOperatorsHeading}</h2>
 
-          <Alert tone="info">
-            Restoring a seat lets an operator sign in again - it does not restore a role. An operator
-            with no roles below signed in but was stripped of every permission; nothing here grants one
-            back.
-          </Alert>
+          <Alert tone="info">{strings.ownerSiteDetailOperatorsNote}</Alert>
 
           {restoreSaved && !restoreError && (
             <Alert tone="success">
-              Seat restored.{" "}
+              {strings.ownerSiteDetailSeatRestoredPrefix}
               {restoreSaved.overrodeSeatLimit
-                ? "This put the site over its own seat limit, as stated when confirming."
-                : "The operator can sign in again now."}
+                ? strings.ownerSiteDetailSeatRestoredOverLimit
+                : strings.ownerSiteDetailSeatRestoredOk}
             </Alert>
           )}
           {restoreError && <Alert tone="danger">{restoreError}</Alert>}
 
           {site.operators.length === 0 ? (
-            <p className="ago-empty">This tenant has no operators.</p>
+            <p className="ago-empty">{strings.ownerSiteDetailNoOperators}</p>
           ) : (
             <Table
-              caption="Every operator this tenant currently has, not counting anyone removed."
-              columns={buildOperatorColumns(restoringOperatorId, handleRestoreSeat)}
+              caption={strings.ownerSiteDetailOperatorsCaption}
+              columns={buildOperatorColumns(strings, restoringOperatorId, handleRestoreSeat)}
               rows={site.operators}
               rowKey={(operator) => operator.operatorId}
             />
@@ -1116,30 +1126,30 @@ export function OwnerSiteDetailPage() {
               missing or remove whatever it should not have - "no magic roles"
               (`docs/backlog/25-77-*.md`'s own "Answered"): any permission, `Admin`'s own defining ones
               included, may be removed, no carve-out on this screen either. */}
-          <h2>Role permissions</h2>
+          <h2>{strings.ownerSiteDetailRolePermissionsHeading}</h2>
 
-          <Alert tone="info">
-            Each tenant&apos;s Operator and Admin roles were seeded once, at registration, with
-            whatever permission list this codebase named that day - a permission added to the product
-            later never reaches an already-registered tenant on its own. Add whatever a role is
-            missing, or remove whatever it should not have - any permission may be removed, including
-            one that makes a role recognisably Admin. A reason is required for every removal.
-          </Alert>
+          <Alert tone="info">{strings.ownerSiteDetailRolePermissionsNote}</Alert>
 
           {addPermissionSaved && !addPermissionError && (
             <Alert tone="success">
-              Added <code>{addPermissionSaved.permission}</code> to {addPermissionSaved.roleName}.
+              {strings.ownerSiteDetailAddedPrefix}
+              <code>{addPermissionSaved.permission}</code>
+              {strings.ownerSiteDetailAddedToInfix}
+              {addPermissionSaved.roleName}.
             </Alert>
           )}
           {addPermissionError && <Alert tone="danger">{addPermissionError}</Alert>}
           {removePermissionSaved && !removePermissionError && (
             <Alert tone="success">
-              Removed <code>{removePermissionSaved.permission}</code> from {removePermissionSaved.roleName}.
+              {strings.ownerSiteDetailRemovedPrefix}
+              <code>{removePermissionSaved.permission}</code>
+              {strings.ownerSiteDetailRemovedFromInfix}
+              {removePermissionSaved.roleName}.
             </Alert>
           )}
 
           {site.roles.length === 0 ? (
-            <p className="ago-empty">This tenant has no roles.</p>
+            <p className="ago-empty">{strings.ownerSiteDetailNoRoles}</p>
           ) : (
             site.roles.map((role) => {
               const missingPermissions = site.allKnownPermissions
@@ -1151,7 +1161,7 @@ export function OwnerSiteDetailPage() {
               return (
                 <Panel key={role.name} title={role.name} quiet>
                   {role.permissions.length === 0 ? (
-                    <p className="ago-empty">No permissions.</p>
+                    <p className="ago-empty">{strings.ownerSiteDetailNoPermissions}</p>
                   ) : (
                     <p className="ago-row">
                       {role.permissions
@@ -1165,10 +1175,10 @@ export function OwnerSiteDetailPage() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              aria-label={`Remove ${permission} from ${role.name}`}
+                              aria-label={`${strings.ownerSiteDetailRemoveAriaPrefix}${permission}${strings.ownerSiteDetailRemoveAriaFromInfix}${role.name}`}
                               onClick={() => openRemovePermissionDialog(role.name, permission)}
                             >
-                              Remove
+                              {strings.ownerSiteDetailRemoveButton}
                             </Button>
                           </span>
                         ))}
@@ -1176,18 +1186,18 @@ export function OwnerSiteDetailPage() {
                   )}
 
                   {missingPermissions.length === 0 ? (
-                    <p className="ago-empty">Already holds every known permission.</p>
+                    <p className="ago-empty">{strings.ownerSiteDetailAllPermissionsHeld}</p>
                   ) : (
                     <p className="ago-row">
                       <Select
-                        aria-label={`Permission to add to ${role.name}`}
+                        aria-label={`${strings.ownerSiteDetailAddPermissionAriaPrefix}${role.name}`}
                         value={selected}
                         onChange={(event) =>
                           setPermissionSelections((current) => ({ ...current, [role.name]: event.target.value }))
                         }
                         disabled={busy}
                       >
-                        <option value="">Choose a permission to add…</option>
+                        <option value="">{strings.ownerSiteDetailChoosePermission}</option>
                         {missingPermissions.map((permission) => (
                           <option key={permission} value={permission}>
                             {permission}
@@ -1195,7 +1205,7 @@ export function OwnerSiteDetailPage() {
                         ))}
                       </Select>
                       <Button onClick={() => handleAddPermission(role)} disabled={!selected || busy}>
-                        {busy ? "Adding…" : "Add permission"}
+                        {busy ? strings.ownerSiteDetailAddingLabel : strings.ownerSiteDetailAddPermissionButton}
                       </Button>
                     </p>
                   )}
@@ -1204,19 +1214,14 @@ export function OwnerSiteDetailPage() {
             })
           )}
 
-          <h2>Entitlements</h2>
+          <h2>{strings.ownerSiteDetailEntitlementsHeading}</h2>
 
           {/* The expiry warning, in words (`flows.md` 5.2, this item's own Done-when): `expiresAt`
               binds the granting side only. Chat stops offering a lapsed module the instant it
               expires, but the module itself is never told - so a screen presenting expiry as a clean
               end date would be lying to its own author. Shown once, above the table, rather than
               repeated per row. */}
-          <Alert tone="info">
-            An expiry date only stops chat from offering a module to this tenant - the module itself is
-            never told when a grant lapses, and does not independently refuse a call it can still
-            verify. "Expired" below means chat has stopped offering it, not that the module has been
-            informed.
-          </Alert>
+          <Alert tone="info">{strings.ownerSiteDetailExpiryWarning}</Alert>
 
           {/* `23-66`: a quantity's own read only ever comes from this row, never from the module -
               this screen shows what was granted, not what the module has caught up to applying.
@@ -1227,29 +1232,23 @@ export function OwnerSiteDetailPage() {
               (`OutboxDispatcherOptions.PublishTimeout`), not a guess - see this item's report for the
               exact constants. What this alert cannot promise is a bound during a genuine broker
               outage, which is why it says "running behind" rather than naming a hard ceiling. */}
-          <Alert tone="info">
-            A module's own countable quantity (workers, for the calendar module) is granted here and
-            applied by the module itself asynchronously, off a queue chat writes to - typically within
-            a few seconds. This table shows what chat has granted the moment you grant it; if the
-            module hasn't caught up after about a minute, the queue is running behind rather than
-            stuck. Granting the same number again is always safe - it never doubles anything - but
-            shouldn't be necessary; the module will catch up on its own.
-          </Alert>
+          <Alert tone="info">{strings.ownerSiteDetailQuantityAsyncNote}</Alert>
 
           {quantitySaved && (
             <Alert tone="success">
-              Granted {formatModuleQuantity(quantitySaved.quantity)} for {quantitySaved.moduleKey}. Chat's
-              own record reflects it now - the module typically catches up within a few seconds, and
-              rarely more than about a minute. No need to grant it again even if this table still
-              shows it - that would be safe, just unnecessary.
+              {strings.ownerSiteDetailQuantityGrantedPrefix}
+              {formatModuleQuantity(quantitySaved.quantity, strings)}
+              {strings.ownerSiteDetailQuantityGrantedForInfix}
+              {quantitySaved.moduleKey}
+              {strings.ownerSiteDetailQuantityGrantedSuffix}
             </Alert>
           )}
 
           {site.modules.length === 0 ? (
-            <p className="ago-empty">This tenant has no modules enabled.</p>
+            <p className="ago-empty">{strings.ownerSiteDetailNoModules}</p>
           ) : (
             <Table
-              caption="Every module this tenant has ever had enabled, including any that have since expired."
+              caption={strings.ownerSiteDetailModulesCaption}
               columns={moduleColumns}
               rows={site.modules}
               rowKey={(module) => module.id}
@@ -1267,11 +1266,11 @@ export function OwnerSiteDetailPage() {
               deployment has not declared an entry point for is refused server-side, naming the missing
               key, the same as an unconfigured provisioning secret is. */}
           <Panel
-            title="Grant a module"
-            description="Gives this tenant a module with no payment - a sales trial, or restoring what a failed payment should have provisioned. The tenant cannot tell a grant apart from their own purchase in ordinary use; only this screen and the audit trail can."
+            title={strings.ownerSiteDetailGrantModuleTitle}
+            description={strings.ownerSiteDetailGrantModuleDescription}
           >
             <form className="ago-stack" onSubmit={handleGrantSubmit}>
-              <Field label="Module key">
+              <Field label={strings.ownerSiteDetailModuleKeyLabel}>
                 {(controlProps) => (
                   <Select
                     {...controlProps}
@@ -1288,7 +1287,7 @@ export function OwnerSiteDetailPage() {
                 )}
               </Field>
 
-              <Field label="Trigger words" description="What a visitor types to reach the module. Comma- or newline-separated.">
+              <Field label={strings.ownerSiteDetailTriggerWordsLabel} description={strings.ownerSiteDetailTriggerWordsDescription}>
                 {(controlProps) => (
                   <Input
                     {...controlProps}
@@ -1301,16 +1300,16 @@ export function OwnerSiteDetailPage() {
               </Field>
 
               <Field
-                label="Credential"
-                description="The module's own per-site credential. Generate a random one, or paste your own - never shown again once saved, so copy it now if you need to record it elsewhere."
+                label={strings.ownerSiteDetailCredentialLabel}
+                description={strings.ownerSiteDetailCredentialDescription}
                 adornment={
                   <>
                     <Button onClick={handleGenerateCredential} disabled={grantSubmitting}>
-                      Generate
+                      {strings.ownerSiteDetailGenerateButton}
                     </Button>
                     {credentialRevealed && credentialInput.length > 0 && (
                       <Button onClick={handleCopyCredential} disabled={grantSubmitting}>
-                        {credentialCopied ? "Copied" : "Copy"}
+                        {credentialCopied ? strings.ownerSiteDetailCopiedLabel : strings.ownerSiteDetailCopyButton}
                       </Button>
                     )}
                   </>
@@ -1336,7 +1335,7 @@ export function OwnerSiteDetailPage() {
                   this form refuses before it ever reaches the server - see handleGrantSubmit's own
                   check. */}
               <fieldset>
-                <legend>Expiry</legend>
+                <legend>{strings.ownerSiteDetailExpiryLegend}</legend>
                 <label className="ago-row">
                   <input
                     type="radio"
@@ -1345,7 +1344,7 @@ export function OwnerSiteDetailPage() {
                     onChange={() => setExpiryChoice("never")}
                     disabled={grantSubmitting}
                   />
-                  <span>Never expires</span>
+                  <span>{strings.ownerSiteDetailNeverExpiresLabel}</span>
                 </label>
                 <label className="ago-row">
                   <input
@@ -1355,7 +1354,7 @@ export function OwnerSiteDetailPage() {
                     onChange={() => setExpiryChoice("date")}
                     disabled={grantSubmitting}
                   />
-                  <span>Expires on</span>
+                  <span>{strings.ownerSiteDetailExpiresOnLabel}</span>
                   <input
                     type="datetime-local"
                     value={expiryDateInput}
@@ -1370,11 +1369,11 @@ export function OwnerSiteDetailPage() {
               </fieldset>
 
               {grantError && <Alert tone="danger">{grantError}</Alert>}
-              {grantSaved && !grantError && <Alert tone="success">Granted. The tenant has it now.</Alert>}
+              {grantSaved && !grantError && <Alert tone="success">{strings.ownerSiteDetailGrantSaved}</Alert>}
 
               <div className="ago-row">
                 <Button type="submit" variant="primary" disabled={grantSubmitting}>
-                  {grantSubmitting ? "Granting…" : "Grant module"}
+                  {grantSubmitting ? strings.ownerSiteDetailGrantingLabel : strings.ownerSiteDetailGrantModuleButton}
                 </Button>
               </div>
             </form>
@@ -1386,7 +1385,11 @@ export function OwnerSiteDetailPage() {
           since it is not recoverable once the row is gone (this item's own Done-when). */}
       <Dialog
         open={revokingModule !== null}
-        title={revokingModule ? `Revoke ${revokingModule.moduleKey}` : "Revoke module"}
+        title={
+          revokingModule
+            ? `${strings.ownerSiteDetailRevokeDialogTitlePrefix}${revokingModule.moduleKey}`
+            : strings.ownerSiteDetailRevokeDialogTitleFallback
+        }
         onClose={() => {
           if (!revokeSubmitting) {
             setRevokingModule(null);
@@ -1395,10 +1398,10 @@ export function OwnerSiteDetailPage() {
         footer={
           <>
             <Button variant="ghost" onClick={() => setRevokingModule(null)} disabled={revokeSubmitting}>
-              Cancel
+              {strings.cancelButton}
             </Button>
             <Button variant="danger" onClick={handleRevokeConfirm} disabled={revokeSubmitting}>
-              {revokeSubmitting ? "Revoking…" : "Revoke"}
+              {revokeSubmitting ? strings.ownerSiteDetailRevokingLabel : strings.ownerSiteDetailRevokeButton}
             </Button>
           </>
         }
@@ -1407,19 +1410,18 @@ export function OwnerSiteDetailPage() {
           <>
             {revokingModule.grantedByOwner ? (
               <p>
-                <Badge tone="accent">Platform owner</Badge> granted this module. Revoking it takes back
-                something we gave away - nothing more is needed.
+                <Badge tone="accent">{strings.ownerSiteDetailGrantedByOwner}</Badge>
+                {strings.ownerSiteDetailRevokeOwnerGrantedNote}
               </p>
             ) : (
               <>
                 <p>
-                  <Badge tone="neutral">Tenant</Badge> purchased this module themselves. Revoking it
-                  overrides something they paid for - `adr/0118` requires a reason, stored verbatim, so
-                  the tenant can be told why later.
+                  <Badge tone="neutral">{strings.ownerSiteDetailGrantedByTenant}</Badge>
+                  {strings.ownerSiteDetailRevokeTenantPurchasedNote}
                 </p>
                 <Field
-                  label="Reason"
-                  description={'Write the reason you would be willing to show this tenant. "Cleanup" or "asked to" are not reasons.'}
+                  label={strings.ownerReasonFieldLabel}
+                  description={strings.ownerReasonFieldDescription}
                   error={revokeError}
                 >
                   {(controlProps) => (
@@ -1446,7 +1448,11 @@ export function OwnerSiteDetailPage() {
           shows the reason field, never conditionally. */}
       <Dialog
         open={removingPermission !== null}
-        title={removingPermission ? `Remove ${removingPermission.permission}` : "Remove permission"}
+        title={
+          removingPermission
+            ? `${strings.ownerSiteDetailRemoveDialogTitlePrefix}${removingPermission.permission}`
+            : strings.ownerSiteDetailRemoveDialogTitleFallback
+        }
         onClose={() => {
           if (!removePermissionSubmitting) {
             setRemovingPermission(null);
@@ -1455,10 +1461,10 @@ export function OwnerSiteDetailPage() {
         footer={
           <>
             <Button variant="ghost" onClick={() => setRemovingPermission(null)} disabled={removePermissionSubmitting}>
-              Cancel
+              {strings.cancelButton}
             </Button>
             <Button variant="danger" onClick={handleRemovePermissionConfirm} disabled={removePermissionSubmitting}>
-              {removePermissionSubmitting ? "Removing…" : "Remove permission"}
+              {removePermissionSubmitting ? strings.ownerSiteDetailRemovingLabel : strings.ownerSiteDetailRemoveDialogTitleFallback}
             </Button>
           </>
         }
@@ -1466,15 +1472,15 @@ export function OwnerSiteDetailPage() {
         {removingPermission && (
           <>
             <p>
-              Removing <code>{removingPermission.permission}</code> from the{" "}
-              <strong>{removingPermission.roleName}</strong> role takes effect immediately for every
-              operator holding it, even one with an open session right now - there is no confirmation
-              beyond this dialog and no way to undo it from this screen except adding the permission
-              back.
+              {strings.ownerSiteDetailRemovingFromRolePrefix}
+              <code>{removingPermission.permission}</code>
+              {strings.ownerSiteDetailRemovingFromRoleInfix}
+              <strong>{removingPermission.roleName}</strong>
+              {strings.ownerSiteDetailRemovingFromRoleSuffix}
             </p>
             <Field
-              label="Reason"
-              description='Write the reason you would be willing to show this tenant. "Cleanup" or "asked to" are not reasons.'
+              label={strings.ownerReasonFieldLabel}
+              description={strings.ownerReasonFieldDescription}
               error={removePermissionError}
             >
               {(controlProps) => (
@@ -1496,7 +1502,11 @@ export function OwnerSiteDetailPage() {
           granted, and it states the impact before the request that would cause it is ever sent. */}
       <Dialog
         open={quantityModule !== null}
-        title={quantityModule ? `Set quantity for ${quantityModule.moduleKey}` : "Set quantity"}
+        title={
+          quantityModule
+            ? `${strings.ownerSiteDetailQuantityDialogTitlePrefix}${quantityModule.moduleKey}`
+            : strings.ownerSiteDetailQuantityDialogTitleFallback
+        }
         onClose={() => {
           if (!quantitySubmitting) {
             setQuantityModule(null);
@@ -1506,19 +1516,19 @@ export function OwnerSiteDetailPage() {
           quantityStage === "confirm" ? (
             <>
               <Button variant="ghost" onClick={() => setQuantityStage("edit")} disabled={quantitySubmitting}>
-                Back
+                {strings.ownerSiteDetailBackButton}
               </Button>
               <Button variant="danger" onClick={handleQuantitySubmit} disabled={quantitySubmitting}>
-                {quantitySubmitting ? "Granting…" : "Confirm lower quantity"}
+                {quantitySubmitting ? strings.ownerSiteDetailGrantingLabel : strings.ownerSiteDetailConfirmLowerQuantityButton}
               </Button>
             </>
           ) : (
             <>
               <Button variant="ghost" onClick={() => setQuantityModule(null)} disabled={quantitySubmitting}>
-                Cancel
+                {strings.cancelButton}
               </Button>
               <Button variant="primary" onClick={handleQuantitySubmit} disabled={quantitySubmitting}>
-                {quantitySubmitting ? "Granting…" : "Grant quantity"}
+                {quantitySubmitting ? strings.ownerSiteDetailGrantingLabel : strings.ownerSiteDetailGrantQuantityButton}
               </Button>
             </>
           )
@@ -1527,12 +1537,16 @@ export function OwnerSiteDetailPage() {
         {quantityModule && quantityStage === "edit" && (
           <>
             <p>
-              Currently{" "}
+              {strings.ownerSiteDetailCurrentlyPrefix}
               {quantityModule.quantity === null
-                ? "not granted for this module."
-                : `granted: ${formatModuleQuantity(quantityModule.quantity)}.`}
+                ? strings.ownerSiteDetailCurrentlyNotGranted
+                : `${strings.ownerSiteDetailCurrentlyGrantedPrefix}${formatModuleQuantity(quantityModule.quantity, strings)}.`}
             </p>
-            <Field label="Quantity" description="A whole number, zero or more. Zero is a real grant - the module and nothing counted under it yet." error={quantityError}>
+            <Field
+              label={strings.ownerSiteDetailQuantityFieldLabel}
+              description={strings.ownerSiteDetailQuantityFieldDescription}
+              error={quantityError}
+            >
               {(controlProps) => (
                 <Input
                   {...controlProps}
@@ -1551,13 +1565,15 @@ export function OwnerSiteDetailPage() {
         {quantityModule && quantityStage === "confirm" && (
           <>
             <p>
-              Lowering {quantityModule.moduleKey}'s quantity from{" "}
-              {formatModuleQuantity(quantityModule.quantity)} to {quantityInput} may deactivate up to{" "}
-              {(quantityModule.quantity ?? 0) - Number(quantityInput)} of whatever this module already
-              created under the old quantity, once it applies the change - for the calendar module,
-              that means workers, the most recently added ones first, until the active count matches
-              the new number. Nothing is deleted; a deactivated worker can be turned back on by hand
-              once the tenant is back under quota.
+              {strings.ownerSiteDetailLoweringPrefix}
+              {quantityModule.moduleKey}
+              {strings.ownerSiteDetailLoweringFromInfix}
+              {formatModuleQuantity(quantityModule.quantity, strings)}
+              {strings.ownerSiteDetailLoweringToInfix}
+              {quantityInput}
+              {strings.ownerSiteDetailLoweringSuffix}
+              {(quantityModule.quantity ?? 0) - Number(quantityInput)}
+              {strings.ownerSiteDetailLoweringSuffix2}
             </p>
             {quantityError && <Alert tone="danger">{quantityError}</Alert>}
           </>
@@ -1570,7 +1586,11 @@ export function OwnerSiteDetailPage() {
           override this and say why", restated for a seat limit instead of a tenant's own purchase. */}
       <Dialog
         open={forceDialogOperator !== null}
-        title={forceDialogOperator ? `Restore ${operatorLabel(forceDialogOperator)}'s seat` : "Restore seat"}
+        title={
+          forceDialogOperator
+            ? `${strings.ownerSiteDetailForceDialogTitlePrefix}${operatorLabel(forceDialogOperator, strings)}${strings.ownerSiteDetailForceDialogTitleInfix}`
+            : strings.ownerSiteDetailForceDialogTitleFallback
+        }
         onClose={() => {
           if (!forceSubmitting) {
             setForceDialogOperator(null);
@@ -1579,10 +1599,10 @@ export function OwnerSiteDetailPage() {
         footer={
           <>
             <Button variant="ghost" onClick={() => setForceDialogOperator(null)} disabled={forceSubmitting}>
-              Cancel
+              {strings.cancelButton}
             </Button>
             <Button variant="danger" onClick={handleForceConfirm} disabled={forceSubmitting}>
-              {forceSubmitting ? "Restoring…" : "Override the seat limit"}
+              {forceSubmitting ? strings.ownerSiteDetailRestoringLabel : strings.ownerSiteDetailOverrideSeatLimitButton}
             </Button>
           </>
         }
@@ -1591,8 +1611,8 @@ export function OwnerSiteDetailPage() {
           <>
             <p>{forceDialogMessage}</p>
             <Field
-              label="Reason"
-              description={'Write the reason you would be willing to show this tenant. "Cleanup" or "asked to" are not reasons.'}
+              label={strings.ownerReasonFieldLabel}
+              description={strings.ownerReasonFieldDescription}
               error={forceError}
             >
               {(controlProps) => (
@@ -1616,10 +1636,10 @@ export function OwnerSiteDetailPage() {
         open={suspendDialogMode !== null}
         title={
           suspendDialogMode === "suspend"
-            ? "Suspend this account"
+            ? strings.ownerSiteDetailSuspendButton
             : suspendDialogMode === "extend"
-              ? "Extend this suspension"
-              : "Unblock this account"
+              ? strings.ownerExtendDialogTitle
+              : strings.ownerUnblockDialogTitle
         }
         onClose={() => {
           if (!suspendSubmitting) {
@@ -1629,7 +1649,7 @@ export function OwnerSiteDetailPage() {
         footer={
           <>
             <Button variant="ghost" onClick={() => setSuspendDialogMode(null)} disabled={suspendSubmitting}>
-              Cancel
+              {strings.cancelButton}
             </Button>
             <Button
               variant={suspendDialogMode === "lift" ? "secondary" : "danger"}
@@ -1637,12 +1657,12 @@ export function OwnerSiteDetailPage() {
               disabled={suspendSubmitting}
             >
               {suspendSubmitting
-                ? "Saving…"
+                ? strings.ownerSavingLabel
                 : suspendDialogMode === "suspend"
-                  ? "Suspend"
+                  ? strings.ownerSiteDetailSuspendConfirmLabel
                   : suspendDialogMode === "extend"
-                    ? "Extend"
-                    : "Unblock"}
+                    ? strings.ownerExtendButton
+                    : strings.ownerUnblockButton}
             </Button>
           </>
         }
@@ -1651,11 +1671,11 @@ export function OwnerSiteDetailPage() {
           <>
             {suspendDialogMode !== "lift" && (
               <Field
-                label={suspendDialogMode === "suspend" ? "Duration, in minutes" : "Additional minutes"}
+                label={suspendDialogMode === "suspend" ? strings.ownerSiteDetailDurationMinutesLabel : strings.ownerAdditionalMinutesLabel}
                 description={
                   suspendDialogMode === "suspend"
-                    ? "From the moment this is confirmed. There is no fixed system duration - choose whatever the situation calls for."
-                    : "Added to the account's current suspended-until instant, not to now - this pushes the deadline further out."
+                    ? strings.ownerSiteDetailDurationFromNowDescription
+                    : strings.ownerAdditionalMinutesDescription
                 }
               >
                 {(controlProps) => (
@@ -1672,8 +1692,8 @@ export function OwnerSiteDetailPage() {
               </Field>
             )}
             <Field
-              label="Reason"
-              description='Write the reason you would be willing to show this tenant. "Cleanup" or "asked to" are not reasons.'
+              label={strings.ownerReasonFieldLabel}
+              description={strings.ownerReasonFieldDescription}
               error={suspendError}
             >
               {(controlProps) => (
@@ -1709,7 +1729,12 @@ function isCurrentlySuspended(site: OwnerSiteDetail): boolean {
 
 /** `createdAt`/`lastMessageAt` share the identical "null means something specific, say what" shape
  * `OwnerSitesPage`'s own table columns already establish for these two fields - reused here rather
- * than re-derived, since drilling into a row must not disagree with what the row itself said. */
+ * than re-derived, since drilling into a row must not disagree with what the row itself said.
+ *
+ * `25-89`: `emptyLabel`/`emptyTitle` arrive pre-translated from the caller (both call sites already
+ * had a `strings` value in scope) rather than this function taking `strings` itself - the same
+ * "the caller resolves the words, this function only decides which branch" shape `renderDateFact`
+ * always had, now carried through to translated text instead of fixed English. */
 function renderDateFact(
   value: string | null,
   timeZone: string | null,
@@ -1730,36 +1755,37 @@ function renderDateFact(
 
 function buildModuleColumns(
   timeZone: string | null,
+  strings: ConsoleStrings,
   onRevoke: (module: OwnerSiteModule) => void,
   onSetQuantity: (module: OwnerSiteModule) => void,
 ): TableColumn<OwnerSiteModule>[] {
   return [
     {
       key: "module",
-      header: "Module",
+      header: strings.ownerSiteDetailColumnModule,
       render: (module) => <Badge tone="neutral">{module.moduleKey}</Badge>,
     },
     {
       key: "triggerWords",
-      header: "Trigger words",
+      header: strings.ownerSiteDetailColumnTriggerWords,
       render: (module) => module.triggerWords.join(", "),
     },
     {
       key: "grantedBy",
-      header: "Granted by",
+      header: strings.ownerSiteDetailColumnGrantedBy,
       render: (module) => (
         // `23-14`'s own Done-when: a module the tenant enabled is distinguishable from one the owner
         // granted - never the same badge, never left to a tooltip alone to say the difference.
         <Badge tone={module.grantedByOwner ? "accent" : "neutral"}>
-          {module.grantedByOwner ? "Platform owner" : "Tenant"}
+          {module.grantedByOwner ? strings.ownerSiteDetailGrantedByOwner : strings.ownerSiteDetailGrantedByTenant}
         </Badge>
       ),
     },
     {
       key: "expires",
-      header: "Expires",
+      header: strings.ownerSiteDetailColumnExpires,
       render: (module) => {
-        const explicit = formatModuleExpiry(module.expiresAt);
+        const explicit = formatModuleExpiry(module.expiresAt, strings);
         if (explicit !== null) {
           // A grant with no expiry renders as an explicit statement, never a blank cell.
           return <span className="ago-meta">{explicit}</span>;
@@ -1770,7 +1796,7 @@ function buildModuleColumns(
           // Unreachable in practice (formatModuleExpiry already handled null), but a garbled value
           // has nothing truthful to render either - the same defensive shape the site list's own
           // date columns use.
-          return <span className="ago-meta">Unknown</span>;
+          return <span className="ago-meta">{strings.ownerSiteDetailUnknown}</span>;
         }
 
         return <span title={formatAbsolute(parsed, timeZone)}>{formatDateStamp(parsed, timeZone)}</span>;
@@ -1778,21 +1804,21 @@ function buildModuleColumns(
     },
     {
       key: "status",
-      header: "Status",
+      header: strings.ownerSiteDetailColumnStatus,
       render: (module) => (
         // `23-103`: rendered directly from the server's own `status` - matching what the live
         // read-store query already decided, never recomputed here by comparing
         // `expiresAt`/`revokedAt` against this browser's own clock (this item's own Done-when).
-        <Badge tone={moduleStatusTone(module.status)}>{formatModuleStatus(module.status)}</Badge>
+        <Badge tone={moduleStatusTone(module.status)}>{formatModuleStatus(module.status, strings)}</Badge>
       ),
     },
     {
       key: "quantity",
-      header: "Quantity",
+      header: strings.ownerSiteDetailColumnQuantity,
       render: (module) => (
         // `23-66`'s own warning: `formatModuleQuantity` renders `null` and `0` differently - "Not
         // granted" is never shown for a module explicitly granted zero.
-        <span className="ago-meta">{formatModuleQuantity(module.quantity)}</span>
+        <span className="ago-meta">{formatModuleQuantity(module.quantity, strings)}</span>
       ),
     },
     {
@@ -1805,10 +1831,10 @@ function buildModuleColumns(
       render: (module) => (
         <div className="ago-row">
           <Button size="sm" variant="ghost" onClick={() => onSetQuantity(module)}>
-            Set quantity
+            {strings.ownerSiteDetailSetQuantityButton}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => onRevoke(module)}>
-            Revoke
+            {strings.ownerSiteDetailRevokeButton}
           </Button>
         </div>
       ),
@@ -1823,24 +1849,27 @@ function buildModuleColumns(
  * formatter - a real caller-facing display-name policy lives in `operatorDisplayName.ts` and this
  * screen deliberately does not import it, since that helper reads the *signed-in* operator's own
  * token claims, not an arbitrary row from a cross-tenant list. */
-function operatorLabel(operator: OwnerSiteOperator): string {
-  return operator.displayName && operator.displayName.trim().length > 0 ? operator.displayName : "Unnamed operator";
+function operatorLabel(operator: OwnerSiteOperator, strings: ConsoleStrings): string {
+  return operator.displayName && operator.displayName.trim().length > 0
+    ? operator.displayName
+    : strings.ownerSiteDetailUnnamedOperator;
 }
 
 function buildOperatorColumns(
+  strings: ConsoleStrings,
   restoringOperatorId: string | null,
   onRestoreSeat: (operator: OwnerSiteOperator) => void,
 ): TableColumn<OwnerSiteOperator>[] {
   return [
     {
       key: "operator",
-      header: "Operator",
+      header: strings.ownerSiteDetailColumnOperator,
       render: (operator) => (
         <div className="ago-row ago-row--tight">
           {operator.displayName && operator.displayName.trim().length > 0 ? (
             <strong>{operator.displayName}</strong>
           ) : (
-            <span className="ago-meta">Unnamed operator</span>
+            <span className="ago-meta">{strings.ownerSiteDetailUnnamedOperator}</span>
           )}
           {operator.email && <span className="ago-meta">{operator.email}</span>}
         </div>
@@ -1848,13 +1877,13 @@ function buildOperatorColumns(
     },
     {
       key: "roles",
-      header: "Roles",
+      header: strings.ownerSiteDetailColumnRoles,
       render: (operator) =>
         operator.roleNames.length === 0 ? (
           // `23-68`'s own warning made visible: an empty role list is the "stripped their own last
           // role" case this item names but does not fix - never rendered as a blank cell.
-          <span className="ago-meta" title="This operator holds no role - restoring a seat lets them sign in, but grants no permission back.">
-            No role
+          <span className="ago-meta" title={strings.ownerSiteDetailNoRoleTitle}>
+            {strings.ownerSiteDetailNoRoleLabel}
           </span>
         ) : (
           operator.roleNames.join(", ")
@@ -1862,9 +1891,11 @@ function buildOperatorColumns(
     },
     {
       key: "seat",
-      header: "Seat",
+      header: strings.ownerSiteDetailColumnSeat,
       render: (operator) => (
-        <Badge tone={operator.holdsSeat ? "success" : "danger"}>{operator.holdsSeat ? "Holds seat" : "No seat"}</Badge>
+        <Badge tone={operator.holdsSeat ? "success" : "danger"}>
+          {operator.holdsSeat ? strings.ownerSiteDetailHoldsSeat : strings.ownerSiteDetailNoSeat}
+        </Badge>
       ),
     },
     {
@@ -1878,7 +1909,7 @@ function buildOperatorColumns(
             onClick={() => onRestoreSeat(operator)}
             disabled={restoringOperatorId === operator.operatorId}
           >
-            {restoringOperatorId === operator.operatorId ? "Restoring…" : "Restore seat"}
+            {restoringOperatorId === operator.operatorId ? strings.ownerSiteDetailRestoringLabel : strings.ownerSiteDetailRestoreSeatButton}
           </Button>
         ),
     },

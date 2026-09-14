@@ -2775,4 +2775,385 @@ export interface ConsoleStrings {
   aiAddOnEnableLabel: string;
   aiAddOnDisableLabel: string;
   aiAddOnEnableBlocked: string;
+
+  // `25-89`: the owner panel (`/owner/*`) - `OwnerSitesPage`, `OwnerSiteDetailPage`,
+  // `OwnerPricingPage`, `OwnerSuspensionsPage`, `OwnerTenantIsolationPage`. Until this item every
+  // string here was a hardcoded English JSX literal (`11-11`'s own settled call for `/owner`, since
+  // superseded - see `StringsContext.tsx`'s and `OwnerStringsProvider.tsx`'s own doc comments for why
+  // "always English" stopped being the right call and what replaced it). Fields shared across more
+  // than one of the five pages are grouped first, under `own` (no page prefix); the rest carry the
+  // owning page's own prefix (`ownerSites*`, `ownerSiteDetail*`, `ownerPricing*`, `ownerSuspensions*`,
+  // `ownerTenantIsolation*`). `navPlatformSites` (`11-x`, above) and `cancelButton` (above) are reused
+  // here rather than duplicated - both already say exactly what these pages need.
+  //
+  // Shared across at least two of the five pages:
+  /** The refusal title every `/owner/*` page's own `AccessRefusal`-shaped `Alert` uses. */
+  ownerNotAuthorizedTitle: string;
+  /** `OwnerSitesPage`'s and `OwnerSiteDetailPage`'s own refused-access body - identical wording in
+   * both (`docs/backlog/25-89-*.md`'s own "should not get a second, duplicate key"). */
+  ownerSiteAccessRefusedBody: string;
+  /** "Platform operations" - the loading/refused `PageHead` title both `OwnerSitesPage` and
+   * `OwnerSiteDetailPage` show before the real, page-specific granted title is known. */
+  ownerOperationsTitle: string;
+  /** The generic "something changed under us mid-session" fallback `OwnerSiteDetailPage`'s six write
+   * handlers all reach for on a `not-authorized`/`not-found` outcome they did not expect. */
+  ownerCouldNotBeReached: string;
+  /** "Unnamed site" - a site whose `name` is the empty string, rendered rather than left blank
+   * (`OwnerSiteDetailPage`'s title/link fallback, `OwnerSuspensionsPage`'s row link and dialog). */
+  ownerUnnamedSite: string;
+  /** The `Field label` every reason textarea on the owner panel shares (`OwnerSiteDetailPage`'s four
+   * dialogs, `OwnerSuspensionsPage`'s one) - always the bare word "Reason". */
+  ownerReasonFieldLabel: string;
+  /** `${adr/0118}`'s own forced-revoke discipline, restated identically at every reason field on the
+   * owner panel - not just `OwnerSiteDetailPage`'s, `OwnerSuspensionsPage`'s own dialog too. */
+  ownerReasonFieldDescription: string;
+  /** Composed as `${formatCount(bytes)}${ownerBytesSuffix}` for a byte count's own exact-figure
+   * `title` (`OwnerSitesPage`'s and `OwnerSiteDetailPage`'s attachment-bytes cell). */
+  ownerBytesSuffix: string;
+  // `ownerSites.ts`'s own helpers, shared by every page that reads `recentWindowDays` -
+  // `describeRecentWindow`/`formatRecentMessagesHeader`/`formatNoRecentActivity`. Reuses
+  // `elapsedDayOne`/`elapsedDayOther` (above) for the word "day"/"days" itself rather than a second
+  // pair - see `ownerSites.ts`'s own doc comment on `describeRecentWindow`.
+  ownerRecentWindowLastDay: string;
+  ownerRecentWindowLastDaysPrefix: string;
+  ownerMessagesHeaderPrefix: string;
+  ownerMessagesHeaderSuffix: string;
+  ownerNoRecentActivityPrefix: string;
+  /** `${count} ${ownerSiteWordOne|Other}` - the same binary singular/plural convention
+   * `elapsedDayOne`/`Other` already uses, reused by `formatMatchSummary` and by `OwnerSitesPage`'s own
+   * "Showing N site(s)" line. */
+  ownerSiteWordOne: string;
+  ownerSiteWordOther: string;
+  /** `formatMatchSummary`'s own three pieces - `${prefix}${matching}${of}${total} ${site word}${suffix}`,
+   * e.g. "Найдено 3 из 41 сайтов." */
+  ownerMatchSummaryPrefix: string;
+  ownerMatchSummaryOf: string;
+  ownerMatchSummarySuffix: string;
+  /** `formatModuleExpiry`'s own null case - "No end date", never a blank cell. */
+  ownerModuleExpiryNever: string;
+  /** `formatModuleStatus`'s own translation-mapping of `OwnerSiteModuleDto.Status`'s three wire
+   * values - see that function's own doc comment (`ownerSites.ts`) for why this is a mapping rather
+   * than a passthrough now. */
+  ownerModuleStatusActive: string;
+  ownerModuleStatusExpired: string;
+  ownerModuleStatusRevoked: string;
+  /** `formatModuleQuantity`'s own null case - "0" is a real grant and must never fall through to
+   * this text (`ownerSites.ts`'s own warning). */
+  ownerModuleQuantityNotGranted: string;
+
+  // `OwnerSitesPage.tsx` (`/owner`) - the cross-tenant site table.
+  ownerSitesOpeningLabel: string;
+  ownerSitesLoadFailed: string;
+  ownerSitesLoadMoreFailed: string;
+  ownerSitesAsideSuspended: string;
+  ownerSitesAsidePricing: string;
+  ownerSitesAsideTenantIsolation: string;
+  ownerSitesDescriptionBase: string;
+  /** Appended to `ownerSitesDescriptionBase` once `recentWindowDays` is known, with
+   * `describeRecentWindow(...)` spliced between this pair - see `OwnerSitesPage.tsx`'s own
+   * `description` prop. */
+  ownerSitesDescriptionWindowedMiddle: string;
+  ownerSitesDescriptionWindowedSuffix: string;
+  ownerSitesSearchLabel: string;
+  ownerSitesSearchPlaceholder: string;
+  ownerSitesSearchButton: string;
+  ownerSitesClearButton: string;
+  ownerSitesSkeletonLabel: string;
+  ownerSitesEmpty: string;
+  /** `No sites match "${activeQuery}". ` - `activeQuery` sits between this pair, followed by
+   * `formatMatchSummary`'s own output. */
+  ownerSitesNoMatchPrefix: string;
+  ownerSitesNoMatchSuffix: string;
+  ownerSitesTableCaption: string;
+  /** `Showing ${count} ${site word}${period or soFar}` - `ownerSiteWordOne`/`Other` (above) supply
+   * the site word itself. */
+  ownerSitesShowingPrefix: string;
+  ownerSitesShowingPeriod: string;
+  ownerSitesShowingSoFar: string;
+  ownerSitesLoadMoreButton: string;
+  ownerSitesLoadMoreLoading: string;
+  ownerSitesColumnSite: string;
+  ownerSitesColumnTier: string;
+  ownerSitesColumnSeats: string;
+  ownerSitesColumnConversations: string;
+  ownerSitesColumnAttachments: string;
+  ownerSitesColumnCreated: string;
+  ownerSitesColumnLastActivity: string;
+  /** The bare "Unnamed" table-cell fallback - shorter than `ownerUnnamedSite` ("Unnamed site")
+   * because this one sits beside the site's own id badge in the same cell, which already says what
+   * kind of thing has no name. */
+  ownerSitesUnnamedSiteShort: string;
+  ownerSitesNotRecorded: string;
+  ownerSitesNotRecordedTitle: string;
+  /** `${prefix}${describeRecentWindow(...)}${suffix}` - the last-activity cell's own tooltip. */
+  ownerSitesLastActivityTitlePrefix: string;
+  ownerSitesLastActivityTitleSuffix: string;
+
+  // More owner-panel keys shared across at least two of the five pages, added alongside
+  // `OwnerSiteDetailPage`/`OwnerSuspensionsPage`'s own fields below rather than the block above,
+  // since the need for the reuse only became apparent while writing those two pages.
+  /** The exact validation message `OwnerSiteDetailPage`'s revoke/force/remove-permission dialogs all
+   * share - distinct from `ownerReasonFieldDescription` above (which is the Field's own static
+   * helper text, always shown; this is the error once the field was left empty). */
+  ownerReasonRequiredValidation: string;
+  /** `OwnerSiteDetailPage`'s suspend dialog and `OwnerSuspensionsPage`'s own dialog share this exact
+   * minutes-validation message. */
+  ownerMinutesInvalid: string;
+  /** `OwnerSiteDetailPage`'s "Additional minutes" field and `OwnerSuspensionsPage`'s only field share
+   * this exact label and description - `OwnerSuspensionsPage` never offers the sibling "Duration, in
+   * minutes" wording, since the initial suspend act lives on `OwnerSiteDetailPage` alone
+   * (`OwnerSuspensionsPage.tsx`'s own doc comment). */
+  ownerAdditionalMinutesLabel: string;
+  ownerAdditionalMinutesDescription: string;
+  /** "Extend"/"Unblock" - the two actions both `OwnerSiteDetailPage`'s suspension panel and
+   * `OwnerSuspensionsPage`'s own row actions offer, in the identical words. */
+  ownerExtendButton: string;
+  ownerUnblockButton: string;
+  /** The two suspend-dialog titles both pages' own dialogs share verbatim. */
+  ownerExtendDialogTitle: string;
+  ownerUnblockDialogTitle: string;
+  /** "Saving…" - the busy label `OwnerSiteDetailPage`'s origins-save button and both pages' own
+   * suspend/extend/unblock dialogs share. */
+  ownerSavingLabel: string;
+
+  // `OwnerSiteDetailPage.tsx` (`/owner/sites/:siteId`) - the per-tenant drill-down.
+  ownerSiteDetailOpeningLabel: string;
+  ownerSiteDetailNoSuchSiteTitle: string;
+  ownerSiteDetailNoSuchSiteBody: string;
+  ownerSiteDetailBackToList: string;
+  ownerSiteDetailLoadFailed: string;
+  /** `Read-only - this screen shows this tenant's actual state, it changes nothing. Message volume
+   * and last activity cover ` - followed by `describeRecentWindow(...)`, then
+   * `ownerSitesDescriptionWindowedSuffix` (reused, identical trailing clause). */
+  ownerSiteDetailDescriptionPrefix: string;
+  ownerSiteDetailFactSiteId: string;
+  ownerSiteDetailOriginsTitle: string;
+  ownerSiteDetailOriginsDescription: string;
+  ownerSiteDetailOriginsFieldLabel: string;
+  ownerSiteDetailOriginsFieldDescription: string;
+  ownerSiteDetailOriginsSaveButton: string;
+  ownerSiteDetailOriginsSaved: string;
+  ownerSiteDetailOriginsSaveFailed: string;
+  ownerSiteDetailSuspensionTitle: string;
+  ownerSiteDetailSuspensionDescription: string;
+  ownerSiteDetailSuspendedTitle: string;
+  ownerSiteDetailSuspendedUntilPrefix: string;
+  ownerSiteDetailSuspendedUntilSuffix: string;
+  ownerSiteDetailUnblockNowButton: string;
+  ownerSiteDetailNotSuspended: string;
+  ownerSiteDetailSuspendButton: string;
+  ownerSiteDetailSuspensionReasonRequired: string;
+  ownerSiteDetailSuspensionUpdateFailed: string;
+  ownerSiteDetailOperatorsHeading: string;
+  ownerSiteDetailOperatorsNote: string;
+  ownerSiteDetailSeatRestoredPrefix: string;
+  ownerSiteDetailSeatRestoredOverLimit: string;
+  ownerSiteDetailSeatRestoredOk: string;
+  ownerSiteDetailRestoreSeatFailed: string;
+  ownerSiteDetailNoOperators: string;
+  ownerSiteDetailOperatorsCaption: string;
+  ownerSiteDetailColumnOperator: string;
+  ownerSiteDetailColumnRoles: string;
+  ownerSiteDetailColumnSeat: string;
+  ownerSiteDetailNoRoleLabel: string;
+  ownerSiteDetailNoRoleTitle: string;
+  ownerSiteDetailHoldsSeat: string;
+  ownerSiteDetailNoSeat: string;
+  ownerSiteDetailRestoringLabel: string;
+  ownerSiteDetailRestoreSeatButton: string;
+  ownerSiteDetailUnnamedOperator: string;
+  ownerSiteDetailRolePermissionsHeading: string;
+  ownerSiteDetailRolePermissionsNote: string;
+  ownerSiteDetailAddedPrefix: string;
+  ownerSiteDetailAddedToInfix: string;
+  ownerSiteDetailRemovedPrefix: string;
+  ownerSiteDetailRemovedFromInfix: string;
+  ownerSiteDetailAddPermissionFailed: string;
+  ownerSiteDetailNoRoles: string;
+  ownerSiteDetailNoPermissions: string;
+  /** `Remove ${permission} from ${roleName}` - the row's own `aria-label`. */
+  ownerSiteDetailRemoveAriaPrefix: string;
+  ownerSiteDetailRemoveAriaFromInfix: string;
+  ownerSiteDetailRemoveButton: string;
+  ownerSiteDetailAllPermissionsHeld: string;
+  /** `Permission to add to ${roleName}` - the picker's own `aria-label`. */
+  ownerSiteDetailAddPermissionAriaPrefix: string;
+  ownerSiteDetailChoosePermission: string;
+  ownerSiteDetailAddingLabel: string;
+  ownerSiteDetailAddPermissionButton: string;
+  ownerSiteDetailRemovePermissionFailed: string;
+  ownerSiteDetailEntitlementsHeading: string;
+  ownerSiteDetailExpiryWarning: string;
+  ownerSiteDetailQuantityAsyncNote: string;
+  ownerSiteDetailQuantityGrantedPrefix: string;
+  ownerSiteDetailQuantityGrantedForInfix: string;
+  ownerSiteDetailQuantityGrantedSuffix: string;
+  ownerSiteDetailNoModules: string;
+  ownerSiteDetailModulesCaption: string;
+  ownerSiteDetailColumnModule: string;
+  ownerSiteDetailColumnTriggerWords: string;
+  ownerSiteDetailColumnGrantedBy: string;
+  ownerSiteDetailColumnExpires: string;
+  ownerSiteDetailColumnStatus: string;
+  ownerSiteDetailColumnQuantity: string;
+  /** "Platform owner"/"Tenant" - `module.grantedByOwner`'s own two-word badge, shared between the
+   * module table's "Granted by" column and the revoke dialog's own provenance sentence. */
+  ownerSiteDetailGrantedByOwner: string;
+  ownerSiteDetailGrantedByTenant: string;
+  ownerSiteDetailUnknown: string;
+  ownerSiteDetailSetQuantityButton: string;
+  ownerSiteDetailRevokeButton: string;
+  ownerSiteDetailGrantModuleTitle: string;
+  ownerSiteDetailGrantModuleDescription: string;
+  ownerSiteDetailModuleKeyLabel: string;
+  ownerSiteDetailTriggerWordsLabel: string;
+  ownerSiteDetailTriggerWordsDescription: string;
+  ownerSiteDetailCredentialLabel: string;
+  ownerSiteDetailCredentialDescription: string;
+  ownerSiteDetailGenerateButton: string;
+  ownerSiteDetailCopiedLabel: string;
+  ownerSiteDetailCopyButton: string;
+  ownerSiteDetailExpiryLegend: string;
+  ownerSiteDetailNeverExpiresLabel: string;
+  ownerSiteDetailExpiresOnLabel: string;
+  ownerSiteDetailTriggerWordsRequired: string;
+  ownerSiteDetailCredentialRequired: string;
+  ownerSiteDetailExpiryChoiceRequired: string;
+  ownerSiteDetailExpiryDateRequired: string;
+  ownerSiteDetailExpiryDateUnreadable: string;
+  ownerSiteDetailGrantModuleFailed: string;
+  ownerSiteDetailGrantSaved: string;
+  ownerSiteDetailGrantingLabel: string;
+  ownerSiteDetailGrantModuleButton: string;
+  ownerSiteDetailRevokeDialogTitlePrefix: string;
+  ownerSiteDetailRevokeDialogTitleFallback: string;
+  ownerSiteDetailRevokingLabel: string;
+  ownerSiteDetailRevokeOwnerGrantedNote: string;
+  ownerSiteDetailRevokeTenantPurchasedNote: string;
+  ownerSiteDetailRevokeModuleFailed: string;
+  ownerSiteDetailRemoveDialogTitlePrefix: string;
+  ownerSiteDetailRemoveDialogTitleFallback: string;
+  ownerSiteDetailRemovingLabel: string;
+  ownerSiteDetailRemovingFromRolePrefix: string;
+  ownerSiteDetailRemovingFromRoleInfix: string;
+  ownerSiteDetailRemovingFromRoleSuffix: string;
+  ownerSiteDetailQuantityDialogTitlePrefix: string;
+  ownerSiteDetailQuantityDialogTitleFallback: string;
+  ownerSiteDetailBackButton: string;
+  ownerSiteDetailConfirmLowerQuantityButton: string;
+  ownerSiteDetailGrantQuantityButton: string;
+  ownerSiteDetailCurrentlyPrefix: string;
+  ownerSiteDetailCurrentlyNotGranted: string;
+  ownerSiteDetailCurrentlyGrantedPrefix: string;
+  ownerSiteDetailQuantityFieldLabel: string;
+  ownerSiteDetailQuantityFieldDescription: string;
+  ownerSiteDetailLoweringPrefix: string;
+  ownerSiteDetailLoweringFromInfix: string;
+  ownerSiteDetailLoweringToInfix: string;
+  ownerSiteDetailLoweringSuffix: string;
+  ownerSiteDetailLoweringSuffix2: string;
+  ownerSiteDetailQuantityRequired: string;
+  ownerSiteDetailQuantityInvalid: string;
+  ownerSiteDetailGrantQuantityFailed: string;
+  ownerSiteDetailForceDialogTitlePrefix: string;
+  ownerSiteDetailForceDialogTitleInfix: string;
+  ownerSiteDetailForceDialogTitleFallback: string;
+  ownerSiteDetailOverrideSeatLimitButton: string;
+  /** The suspend dialog's own bare confirm-button label - distinct from `ownerSiteDetailSuspendButton`
+   * ("Suspend this account", the panel's own opening button) since the dialog's own footer needs the
+   * shorter word once the account being suspended is already named in the dialog's own title. */
+  ownerSiteDetailSuspendConfirmLabel: string;
+  ownerSiteDetailDurationMinutesLabel: string;
+  ownerSiteDetailDurationFromNowDescription: string;
+
+  // `OwnerSuspensionsPage.tsx` (`/owner/suspensions`).
+  ownerSuspensionsOpeningLabel: string;
+  ownerSuspensionsNotAuthorizedBody: string;
+  ownerSuspensionsLoadFailed: string;
+  ownerSuspensionsDescription: string;
+  ownerSuspensionsEmpty: string;
+  ownerSuspensionsCaption: string;
+  ownerSuspensionsColumnSuspendedUntil: string;
+  ownerSuspensionsColumnLastAction: string;
+  ownerSuspensionsColumnActions: string;
+  ownerSuspensionsReasonRequired: string;
+  ownerSuspensionsUpdateFailed: string;
+  ownerSuspensionsCouldNotBeReached: string;
+
+  // `OwnerPricingPage.tsx` (`/owner/pricing`).
+  ownerPricingTierStarter: string;
+  ownerPricingTierGrowth: string;
+  ownerPricingOpeningLabel: string;
+  ownerPricingTitle: string;
+  ownerPricingNotAuthorizedBody: string;
+  ownerPricingLoadFailed: string;
+  ownerPricingDescription: string;
+  ownerPricingSeatsTitle: string;
+  ownerPricingSeatsDescPrefix: string;
+  ownerPricingSeatsDescIncluded: string;
+  ownerPricingSeatsDescForFirst: string;
+  ownerPricingSeatsDescSeatsThen: string;
+  ownerPricingSeatsDescPerSeatBilled: string;
+  ownerPricingSeatsDescDaysSuffix: string;
+  ownerPricingSeatTableCaption: string;
+  ownerPricingColumnTotal: string;
+  ownerPricingBillingOptionsTitle: string;
+  ownerPricingBillingOptionsDescription: string;
+  ownerPricingNoBillingOptions: string;
+  ownerPricingBillingOptionsCaption: string;
+  ownerPricingColumnOption: string;
+  ownerPricingColumnTurnsOn: string;
+  ownerPricingColumnPrice: string;
+  ownerPricingPriceNotConfigured: string;
+  ownerPricingResourcesTitle: string;
+  ownerPricingResourcesDescription: string;
+  ownerPricingCurrentPriceLabel: string;
+  ownerPricingNotYetForSale: string;
+  ownerPricingPublishButton: string;
+  ownerPricingAmountInvalid: string;
+  ownerPricingResourceNotAuthorized: string;
+  ownerPricingPublishFailed: string;
+  ownerPricingPublished: string;
+  ownerPricingNewPriceLabel: string;
+  ownerPricingPublishingLabel: string;
+
+  // `OwnerTenantIsolationPage.tsx` (`/owner/tenant-isolation`). "AGO Chat"/"AGO Calendar" stay
+  // untranslated throughout, deliberately - the same product-name exemption
+  // `ux-gate/lib/i18nCompleteness.ts`'s own `EXEMPT_PHRASES` already gives "AGO"/"AGO Chat".
+  ownerTenantIsolationOpeningLabel: string;
+  ownerTenantIsolationTitle: string;
+  ownerTenantIsolationNotAuthorizedBody: string;
+  ownerTenantIsolationDescription: string;
+  ownerTenantIsolationCombinedTitle: string;
+  ownerTenantIsolationCombinedDescription: string;
+  ownerTenantIsolationCombinedCaption: string;
+  ownerTenantIsolationChatCaption: string;
+  ownerTenantIsolationCalendarCaption: string;
+  ownerTenantIsolationLabelEntryPoints: string;
+  ownerTenantIsolationLabelHandlerClasses: string;
+  ownerTenantIsolationLabelRbacGated: string;
+  ownerTenantIsolationLabelExemptListed: string;
+  ownerTenantIsolationLabelRoutesHubMethods: string;
+  ownerTenantIsolationLabelClientSuppliedSiteId: string;
+  ownerTenantIsolationLabelClientSuppliedTenantId: string;
+  ownerTenantIsolationLabelNotGated: string;
+  ownerTenantIsolationColumnFigure: string;
+  ownerTenantIsolationColumnCount: string;
+  ownerTenantIsolationComputedPrefix: string;
+  ownerTenantIsolationChatLoadingLabel: string;
+  ownerTenantIsolationChatLoadFailed: string;
+  ownerTenantIsolationNotAuthorizedShort: string;
+  ownerTenantIsolationUnaccountedZeroTitle: string;
+  ownerTenantIsolationUnaccountedZeroBody: string;
+  ownerTenantIsolationUnaccountedPrefix: string;
+  ownerTenantIsolationUnaccountedBody: string;
+  ownerTenantIsolationStaleExemptionsPrefix: string;
+  ownerTenantIsolationStaleExemptionsBody: string;
+  ownerTenantIsolationCalendarLoadingLabel: string;
+  ownerTenantIsolationCalendarLoadFailed: string;
+  ownerTenantIsolationCalendarNotConfigured: string;
+  ownerTenantIsolationNotGatedPrefix: string;
+  ownerTenantIsolationNotGatedBody: string;
+  ownerTenantIsolationEntryPointsSuffix: string;
+  ownerTenantIsolationJustNow: string;
 }

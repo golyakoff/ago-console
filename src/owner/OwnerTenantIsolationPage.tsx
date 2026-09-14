@@ -10,7 +10,7 @@ import {
   fetchOwnerTenantScopeSummary,
   type CalendarTenantScopeSummary,
 } from "../api/calendarApi.js";
-import { en } from "../i18n/en.js";
+import { useStrings } from "../i18n/StringsContext.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
 import { Alert } from "../components/Alert.js";
 import { Panel } from "../components/Panel.js";
@@ -63,10 +63,18 @@ interface FigureRow {
  * decides, per request, independently for each backend - so it is possible (if unusual) for one
  * product's figures to load while the other refuses, and this screen renders that combination
  * honestly rather than collapsing both into one access state.
+ *
+ * **`25-89`: no longer hardcoded English.** Reads `useStrings()` inside `App.tsx`'s own
+ * `OwnerStringsProvider`, the identical change `OwnerSitesPage.tsx`'s own doc comment describes; see
+ * that file and `OwnerStringsProvider.tsx` for the full reasoning. "AGO Chat"/"AGO Calendar" stay
+ * untranslated throughout, deliberately - product names, the same exemption
+ * `ux-gate/lib/i18nCompleteness.ts`'s own `EXEMPT_PHRASES` already gives "AGO"/"AGO Chat" elsewhere in
+ * this console.
  */
 export function OwnerTenantIsolationPage() {
   const { user, logout } = useAuth();
   const { siteId } = usePermissions();
+  const strings = useStrings();
   const accessToken = user?.access_token;
 
   const [access, setAccess] = useState<OwnerAccess>("unknown");
@@ -93,7 +101,7 @@ export function OwnerTenantIsolationPage() {
       .then((outcome) => {
         if (outcome.status === "not-authorized") {
           setAccess((prior) => (prior === "granted" ? prior : "refused"));
-          setChat({ status: "unreachable", message: "Not authorized." });
+          setChat({ status: "unreachable", message: strings.ownerTenantIsolationNotAuthorizedShort });
           return;
         }
         setAccess("granted");
@@ -102,20 +110,20 @@ export function OwnerTenantIsolationPage() {
       .catch((err: unknown) => {
         setChat({
           status: "unreachable",
-          message: err instanceof Error ? err.message : "Failed to load the AGO Chat figures.",
+          message: err instanceof Error ? err.message : strings.ownerTenantIsolationChatLoadFailed,
         });
       });
 
     fetchOwnerTenantScopeSummary(accessToken)
       .then((outcome) => {
         if (outcome.status === "not-authorized") {
-          setCalendar({ status: "unreachable", message: "Not authorized." });
+          setCalendar({ status: "unreachable", message: strings.ownerTenantIsolationNotAuthorizedShort });
           return;
         }
         if (outcome.status === "not-configured") {
           setCalendar({
             status: "unreachable",
-            message: "The AGO Calendar backend is not configured for this deployment.",
+            message: strings.ownerTenantIsolationCalendarNotConfigured,
           });
           return;
         }
@@ -128,10 +136,10 @@ export function OwnerTenantIsolationPage() {
       .catch((err: unknown) => {
         setCalendar({
           status: "unreachable",
-          message: err instanceof Error ? err.message : "Failed to load the AGO Calendar figures.",
+          message: err instanceof Error ? err.message : strings.ownerTenantIsolationCalendarLoadFailed,
         });
       });
-  }, [accessToken]);
+  }, [accessToken, strings]);
 
   useEffect(() => {
     load();
@@ -149,7 +157,7 @@ export function OwnerTenantIsolationPage() {
    * Date". */
   const formatGeneratedAt = (iso: string): string => {
     const parsed = parseInstant(iso);
-    return parsed === null ? "just now" : formatAbsolute(parsed, timeZone);
+    return parsed === null ? strings.ownerTenantIsolationJustNow : formatAbsolute(parsed, timeZone);
   };
 
   // `24-17`'s own Scope: "the console adds them up" - the combined figure, present only once both
@@ -165,35 +173,35 @@ export function OwnerTenantIsolationPage() {
 
   const chatFigureRows: FigureRow[] = chatOk
     ? [
-        { label: "Use-case entry points", value: `${chatOk.entryPoints}` },
-        { label: "Handler classes", value: `${chatOk.handlerClasses}` },
-        { label: "RBAC-gated", value: `${chatOk.rbacGated}` },
-        { label: "Deliberately exempt, with a stated reason", value: `${chatOk.exemptListed}` },
-        { label: "Routes and hub methods carrying tenant data", value: `${chatOk.routesAndHubMethods}` },
-        { label: "Routes taking a client-supplied siteId", value: `${chatOk.clientSuppliedSiteIdRoutes}` },
+        { label: strings.ownerTenantIsolationLabelEntryPoints, value: `${chatOk.entryPoints}` },
+        { label: strings.ownerTenantIsolationLabelHandlerClasses, value: `${chatOk.handlerClasses}` },
+        { label: strings.ownerTenantIsolationLabelRbacGated, value: `${chatOk.rbacGated}` },
+        { label: strings.ownerTenantIsolationLabelExemptListed, value: `${chatOk.exemptListed}` },
+        { label: strings.ownerTenantIsolationLabelRoutesHubMethods, value: `${chatOk.routesAndHubMethods}` },
+        { label: strings.ownerTenantIsolationLabelClientSuppliedSiteId, value: `${chatOk.clientSuppliedSiteIdRoutes}` },
       ]
     : [];
 
   const calendarFigureRows: FigureRow[] = calendarOk
     ? [
-        { label: "Use-case entry points", value: `${calendarOk.entryPoints}` },
-        { label: "Handler classes", value: `${calendarOk.handlerClasses}` },
-        { label: "RBAC-gated", value: `${calendarOk.rbacGated}` },
-        { label: "Not RBAC-gated (unclassified)", value: `${calendarOk.notGated}` },
-        { label: "Routes and hub methods carrying tenant data", value: `${calendarOk.routesAndHubMethods}` },
-        { label: "Routes taking a client-supplied tenantId", value: `${calendarOk.clientSuppliedTenantIdRoutes}` },
+        { label: strings.ownerTenantIsolationLabelEntryPoints, value: `${calendarOk.entryPoints}` },
+        { label: strings.ownerTenantIsolationLabelHandlerClasses, value: `${calendarOk.handlerClasses}` },
+        { label: strings.ownerTenantIsolationLabelRbacGated, value: `${calendarOk.rbacGated}` },
+        { label: strings.ownerTenantIsolationLabelNotGated, value: `${calendarOk.notGated}` },
+        { label: strings.ownerTenantIsolationLabelRoutesHubMethods, value: `${calendarOk.routesAndHubMethods}` },
+        { label: strings.ownerTenantIsolationLabelClientSuppliedTenantId, value: `${calendarOk.clientSuppliedTenantIdRoutes}` },
       ]
     : [];
 
   const figureColumns: TableColumn<FigureRow>[] = [
-    { key: "label", header: "Figure", render: (row) => row.label },
-    { key: "value", header: "Count", render: (row) => row.value, align: "end" },
+    { key: "label", header: strings.ownerTenantIsolationColumnFigure, render: (row) => row.label },
+    { key: "value", header: strings.ownerTenantIsolationColumnCount, render: (row) => row.value, align: "end" },
   ];
 
   return (
     <AppShell
       sections={[]}
-      pinnedItem={access === "granted" ? { to: "/owner", label: en.navPlatformSites, end: false } : undefined}
+      pinnedItem={access === "granted" ? { to: "/owner", label: strings.navPlatformSites, end: false } : undefined}
       credentialsArePublished={false}
       wide
       identity={
@@ -201,15 +209,14 @@ export function OwnerTenantIsolationPage() {
       }
     >
       {access === "unknown" && chat.status === "loading" && calendar.status === "loading" && (
-        <Spinner label="Opening the tenant-isolation snapshot…" />
+        <Spinner label={strings.ownerTenantIsolationOpeningLabel} />
       )}
 
       {access === "refused" && (
         <>
-          <PageHead title="Tenant isolation" />
-          <Alert tone="danger" title="Not authorized">
-            This view is not available to you. Neither backend answered as the platform owner, so no
-            figures were loaded.
+          <PageHead title={strings.ownerTenantIsolationTitle} />
+          <Alert tone="danger" title={strings.ownerNotAuthorizedTitle}>
+            {strings.ownerTenantIsolationNotAuthorizedBody}
           </Alert>
         </>
       )}
@@ -217,22 +224,22 @@ export function OwnerTenantIsolationPage() {
       {access === "granted" && (
         <>
           <PageHead
-            title="Tenant isolation"
-            description="Live-computed, from each product's own currently-running assembly and route table - not read from docs/architecture/tenant-isolation.md, which now states plainly that it is a snapshot of this screen rather than the source. Each product answers independently; the figures below are each backend's own real numbers, added up where both are reachable."
+            title={strings.ownerTenantIsolationTitle}
+            description={strings.ownerTenantIsolationDescription}
           />
 
           {combined && (
             <Panel
-              title="Combined, across both products"
-              description="The sum of the two sections below, present only once both products have actually answered."
+              title={strings.ownerTenantIsolationCombinedTitle}
+              description={strings.ownerTenantIsolationCombinedDescription}
             >
               <Table
-                caption="Combined entry-point figures"
+                caption={strings.ownerTenantIsolationCombinedCaption}
                 columns={figureColumns}
                 rows={[
-                  { label: "Use-case entry points", value: `${combined.entryPoints}` },
-                  { label: "Handler classes", value: `${combined.handlerClasses}` },
-                  { label: "RBAC-gated", value: `${combined.rbacGated}` },
+                  { label: strings.ownerTenantIsolationLabelEntryPoints, value: `${combined.entryPoints}` },
+                  { label: strings.ownerTenantIsolationLabelHandlerClasses, value: `${combined.handlerClasses}` },
+                  { label: strings.ownerTenantIsolationLabelRbacGated, value: `${combined.rbacGated}` },
                 ]}
                 rowKey={(row) => row.label}
               />
@@ -243,16 +250,16 @@ export function OwnerTenantIsolationPage() {
             title="AGO Chat"
             description={
               chatOk
-                ? `Computed ${formatGeneratedAt(chatOk.generatedAtUtc)}.`
+                ? `${strings.ownerTenantIsolationComputedPrefix}${formatGeneratedAt(chatOk.generatedAtUtc)}.`
                 : undefined
             }
           >
-            {chat.status === "loading" && <Spinner label="Loading the AGO Chat figures…" />}
+            {chat.status === "loading" && <Spinner label={strings.ownerTenantIsolationChatLoadingLabel} />}
             {chat.status === "unreachable" && <Alert tone="info">{chat.message}</Alert>}
             {chatOk && (
               <div className="ago-stack">
                 <Table
-                  caption="AGO Chat tenant-isolation figures"
+                  caption={strings.ownerTenantIsolationChatCaption}
                   columns={figureColumns}
                   rows={chatFigureRows}
                   rowKey={(row) => row.label}
@@ -263,20 +270,15 @@ export function OwnerTenantIsolationPage() {
                     non-zero, a calm explicit success when zero - never folded into the table
                     above. */}
                 {chatOk.unaccountedKeys.length === 0 ? (
-                  <Alert tone="success" title="Unaccounted: 0">
-                    Every AGO Chat entry point is either RBAC-gated or listed in
-                    TenantScopeExemptions with a stated reason. This is not a maintenance fact - it
-                    is what Ago.Chat.Architecture.Tests.TenantScopeTests already enforces at build
-                    time, confirmed here against the assembly that is actually running.
+                  <Alert tone="success" title={strings.ownerTenantIsolationUnaccountedZeroTitle}>
+                    {strings.ownerTenantIsolationUnaccountedZeroBody}
                   </Alert>
                 ) : (
-                  <Alert tone="danger" title={`Unaccounted: ${chatOk.unaccountedKeys.length}`}>
-                    <p>
-                      These entry points take a SiteId, are not gated through IPermissionChecker,
-                      and are not listed in TenantScopeExemptions with a stated reason. This is a
-                      real finding, not a documentation drift - it means the running deployment is
-                      ahead of the last build TenantScopeTests actually passed.
-                    </p>
+                  <Alert
+                    tone="danger"
+                    title={`${strings.ownerTenantIsolationUnaccountedPrefix}${chatOk.unaccountedKeys.length}`}
+                  >
+                    <p>{strings.ownerTenantIsolationUnaccountedBody}</p>
                     <ul>
                       {chatOk.unaccountedKeys.map((key) => (
                         <li key={key}>
@@ -290,13 +292,9 @@ export function OwnerTenantIsolationPage() {
                 {chatOk.exemptButAlsoLooksGated.length > 0 && (
                   <Alert
                     tone="info"
-                    title={`Stale exemption entries: ${chatOk.exemptButAlsoLooksGated.length}`}
+                    title={`${strings.ownerTenantIsolationStaleExemptionsPrefix}${chatOk.exemptButAlsoLooksGated.length}`}
                   >
-                    <p>
-                      These entries in TenantScopeExemptions now also satisfy the RBAC-gated shape -
-                      documentation debt (the exemption reason may no longer apply), not a security
-                      gap.
-                    </p>
+                    <p>{strings.ownerTenantIsolationStaleExemptionsBody}</p>
                     <ul>
                       {chatOk.exemptButAlsoLooksGated.map((key) => (
                         <li key={key}>
@@ -314,16 +312,16 @@ export function OwnerTenantIsolationPage() {
             title="AGO Calendar"
             description={
               calendarOk
-                ? `Computed ${formatGeneratedAt(calendarOk.generatedAtUtc)}.`
+                ? `${strings.ownerTenantIsolationComputedPrefix}${formatGeneratedAt(calendarOk.generatedAtUtc)}.`
                 : undefined
             }
           >
-            {calendar.status === "loading" && <Spinner label="Loading the AGO Calendar figures…" />}
+            {calendar.status === "loading" && <Spinner label={strings.ownerTenantIsolationCalendarLoadingLabel} />}
             {calendar.status === "unreachable" && <Alert tone="info">{calendar.message}</Alert>}
             {calendarOk && (
               <div className="ago-stack">
                 <Table
-                  caption="AGO Calendar tenant-isolation figures"
+                  caption={strings.ownerTenantIsolationCalendarCaption}
                   columns={figureColumns}
                   rows={calendarFigureRows}
                   rowKey={(row) => row.label}
@@ -336,18 +334,14 @@ export function OwnerTenantIsolationPage() {
                     indistinguishably. Reading it as equivalent to AGO Chat's own Unaccounted above
                     would be exactly the false alarm (or false reassurance) this screen exists to
                     prevent. */}
-                <Alert tone="info" title={`Not RBAC-gated (unclassified): ${calendarOk.notGated}`}>
-                  <p>
-                    AGO Calendar has no exemption catalogue equivalent to AGO Chat&apos;s
-                    TenantScopeExemptions - nobody has yet read each of these and recorded why it is
-                    safe without a permission check. This count is expected to include legitimate
-                    consumer/worker-side handlers and the unauthenticated public-booking surface
-                    alongside anything genuinely unreviewed. Treat it as unclassified, not as a
-                    finding of the kind AGO Chat&apos;s Unaccounted above is.
-                  </p>
+                <Alert tone="info" title={`${strings.ownerTenantIsolationNotGatedPrefix}${calendarOk.notGated}`}>
+                  <p>{strings.ownerTenantIsolationNotGatedBody}</p>
                   {calendarOk.notGatedKeys.length > 0 && (
                     <details>
-                      <summary>{calendarOk.notGatedKeys.length} entry points</summary>
+                      <summary>
+                        {calendarOk.notGatedKeys.length}
+                        {strings.ownerTenantIsolationEntryPointsSuffix}
+                      </summary>
                       <ul>
                         {calendarOk.notGatedKeys.map((key) => (
                           <li key={key}>
