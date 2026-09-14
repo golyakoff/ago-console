@@ -7,6 +7,7 @@ import { NotConnectedError, SendOutcomeUnknownError } from "../realtime/operator
 import { newClientMessageId } from "../realtime/protocol/dedup.js";
 import type { MessageDto } from "../realtime/protocol/types.js";
 import {
+  AttachmentApiError,
   confirmAttachment,
   createAttachment,
   deleteAttachment,
@@ -74,8 +75,10 @@ interface PendingAttachment {
 
 /** One attachment's fetched download info, or a marker for a state that has no info to fetch -
  * `"loading"` while the `GET /api/v1/attachments/{id}` call is in flight, `"deleted"` once this
- * console's own delete action removed it (no point re-fetching - the server would now return
- * `Attachment.NotReady`), `"error"` for anything else that went wrong. */
+ * console's own delete action removed it, or once a fetch comes back `Attachment.Removed` (`23-80`:
+ * deleted by someone else - another operator's own action on this same screen, or the tenant's own
+ * bulk-delete on `/account/storage` - reaching the identical honest state either way, not a broken
+ * link or a generic error), `"error"` for anything else that went wrong. */
 type AttachmentDetail = AttachmentDownloadResponse | "loading" | "deleted" | "error";
 
 /**
@@ -611,7 +614,14 @@ export function ConversationPage() {
       setAttachmentDetails((prev) => ({ ...prev, [attachmentId]: "loading" }));
       getAttachmentDownload(accessToken, attachmentId)
         .then((info) => setAttachmentDetails((prev) => ({ ...prev, [attachmentId]: info })))
-        .catch(() => setAttachmentDetails((prev) => ({ ...prev, [attachmentId]: "error" })));
+        .catch((err: unknown) => {
+          // `23-80`: `Attachment.Removed` reads as the identical "deleted" state this component's
+          // own local delete action already produces - the same honest marker, whichever of the two
+          // deleted it. Every other failure (still-Pending, forbidden, a network error) stays
+          // "error", unchanged.
+          const removed = err instanceof AttachmentApiError && err.code === "Attachment.Removed";
+          setAttachmentDetails((prev) => ({ ...prev, [attachmentId]: removed ? "deleted" : "error" }));
+        });
     }
   }, [messages, user?.access_token]);
 
