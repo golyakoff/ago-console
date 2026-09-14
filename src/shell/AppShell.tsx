@@ -589,18 +589,23 @@ export function AppShell({
                   )}
                 </button>
               )}
-              {/* `23-31`: the header says "AGO Офис" and nothing else - the old two-line "AGO" wordmark
+              {/* `23-31`: the header says "AGO Chat" and nothing else - the old two-line "AGO" wordmark
                   plus a route-driven tagline ("Operator console"/"Client console"/"Platform owner
                   console") is gone, and with it the five-route `useMatch` list `OperatorShell` used
                   to compute which one to show. A brand name, like the glyph beside it - not looked up
                   in `strings`, the same reasoning `ux-gate/lib/i18nCompleteness.ts` already gives for
-                  never translating "AGO". `25-49`: the label itself grew from "Офис" to "AGO Офис" -
-                  the product's real name, not just its module. */}
+                  never translating "AGO". `25-49`: the label grew from "Офис" to "AGO Офис" on the
+                  theory that the console served two co-equal products (AGO Chat, AGO Calendar) and
+                  neither name could speak for both. `25-87`: reverts that on purpose - the author's
+                  own call, made aware of `25-49`'s reasoning, is that AGO Chat is the platform's real
+                  product name and AGO Calendar is a module sold on top of it, not a second product
+                  with an equal claim on the console's own name. Back to "AGO Chat", identical in
+                  both locales - a brand name is never translated. */}
               <span className="ago-shell__brand">
                 <span className="ago-shell__glyph" aria-hidden="true">
                   A
                 </span>
-                <span className="ago-shell__wordmark">AGO Офис</span>
+                <span className="ago-shell__wordmark">AGO Chat</span>
               </span>
             </span>
 
@@ -953,13 +958,14 @@ export function CenteredShell({ children }: { children: ReactNode }) {
       <div className="ago-shell__sticky">
         <header className="ago-shell__header">
           <div className="ago-shell__header-row">
-            {/* `23-31`: matches `AppShell`'s own brand block - "AGO Офис" and nothing else
-                (`25-49`: renamed from "Офис"). */}
+            {/* `23-31`: matches `AppShell`'s own brand block - "AGO Chat" and nothing else
+                (`25-49`: renamed from "Офис" to "AGO Офис"; `25-87`: reverted that on purpose -
+                see `AppShell`'s own brand block above for the reasoning). */}
             <span className="ago-shell__brand">
               <span className="ago-shell__glyph" aria-hidden="true">
                 A
               </span>
-              <span className="ago-shell__wordmark">AGO Офис</span>
+              <span className="ago-shell__wordmark">AGO Chat</span>
             </span>
           </div>
         </header>
