@@ -2541,10 +2541,21 @@ export interface ConsoleStrings {
   /** The fallback for `err instanceof Error` being false. */
   signupErrorGeneric: string;
 
-  /** `OnboardingPage`'s `<PageHead>` title. */
+  /** `OnboardingPage`'s `<PageHead>` title - the ordinary, self-registering visitor's own heading.
+   * `25-85`: no longer this page's only heading - see `onboardingInvitedTitle` right below for the
+   * one an invited reader sees instead. */
   onboardingTitle: string;
-  /** `OnboardingPage`'s `<PageHead>` description. */
+  /** `OnboardingPage`'s `<PageHead>` description - pairs with `onboardingTitle` above. */
   onboardingDescription: string;
+  /** `25-85`: `OnboardingPage`'s `<PageHead>` title for a reader `hasPendingOperatorInvite` already
+   * says has a live invite waiting - leads with "you're joining an existing site", the opposite framing
+   * from `onboardingTitle`'s "finish setting up your site", because that is the wrong first sentence
+   * for somebody who never asked to create one (this item's own backlog text, found live on the
+   * author's own real invite walkthrough). Swapped in for `onboardingTitle` entirely, not added beside
+   * it - the invite card below still carries the actionable "activate it here" link either way. */
+  onboardingInvitedTitle: string;
+  /** Pairs with `onboardingInvitedTitle` above. */
+  onboardingInvitedDescription: string;
   onboardingSiteNameLabel: string;
   /** `validate()`'s own client-side check, before the server's - `RegisterSiteHandler`'s real gate is
    * unchanged and still surfaces its own message if this one somehow lets something through. */

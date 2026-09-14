@@ -272,6 +272,48 @@ describe("25-73: the pending-invite steer", () => {
   });
 });
 
+/**
+ * `25-85`: the item found live on the author's own real invite walkthrough - "Finish setting up your
+ * site" is the wrong first sentence for somebody who was invited to join one, not asked to create one.
+ * The alert `25-73` already added stays; what changes here is the page's own heading, which now leads
+ * with the invite framing instead of sitting the invite card as a small aside underneath a heading
+ * aimed at a different kind of visitor.
+ */
+describe("25-85: the invite framing leads for an invited reader", () => {
+  it("keeps the ordinary heading when there is no pending invite - the common case, unchanged", async () => {
+    operatorInvitesApi.hasPendingOperatorInvite.mockResolvedValue({ hasPendingInvite: false });
+
+    const container = await render(app());
+    await flush();
+
+    expect(container.querySelector("h1")?.textContent).toBe("Finish setting up your site");
+  });
+
+  /** Fails-before: reverting `PageHead`'s own `hasPendingInvite ? ... : ...` title back to the bare
+   * `strings.onboardingTitle` makes this fail - an invited reader keeps seeing "Finish setting up your
+   * site" no matter what the probe answers. */
+  it("leads with the invite framing, not the generic heading, once a pending invite is found", async () => {
+    operatorInvitesApi.hasPendingOperatorInvite.mockResolvedValue({ hasPendingInvite: true });
+
+    const container = await render(app());
+    await flush();
+
+    expect(container.querySelector("h1")?.textContent).toBe("You're joining an existing site");
+    expect(container.textContent).not.toContain("Finish setting up your site");
+    // The registration form itself is still usable underneath - `25-73`'s own "explain, don't refuse"
+    // shape, restated: a reader who really does want their own site too is not blocked.
+    expect(container.querySelector("form")).not.toBeNull();
+  });
+
+  it("renders the ordinary heading until the probe answers, the same 'form renders until the probe says otherwise' shape this page already follows for the alert", async () => {
+    operatorInvitesApi.hasPendingOperatorInvite.mockReturnValue(new Promise(() => undefined));
+
+    const container = await render(app());
+
+    expect(container.querySelector("h1")?.textContent).toBe("Finish setting up your site");
+  });
+});
+
 describe("what the form checks itself", () => {
   it("does not send an empty site name to the server", async () => {
     const container = await render(app());
