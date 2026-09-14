@@ -181,6 +181,37 @@ describe("who is offered the screen", () => {
   });
 });
 
+/**
+ * `23-85`/`adr/0151`: `channel:manage` is not an entitlement - an operator can hold the permission
+ * this screen otherwise gates on and still have nothing to act with, because the account never bought
+ * (or has stopped paying for) the Telegram channel option. `GetChannelCredentialStatusHandler` now
+ * refuses that case server-side with `ChannelCredential.NotEntitled`, before ever reaching Telegram's
+ * own live check - this describe block is the console's own "no code change needed" proof (this
+ * item's own report): `problemDetailsFrom`/`ApiProblemError` already turn any RFC 7807 `detail` into
+ * `loadError`'s rendered text (`TelegramChannelPage.tsx`'s own `.catch` on `load()`), so the backend's
+ * legible refusal reaches this screen with nothing added here - "the console hides what cannot be
+ * used, but the hiding is not the control" (the item's own Scope) turns out to already hold for this
+ * one reason, once the server names it.
+ */
+describe("not entitled", () => {
+  it("shows the server's own no-entitlement refusal, and never offers the token field", async () => {
+    telegramChannelApi.fetchTelegramChannelStatus.mockRejectedValue(
+      new ApiProblemError(
+        "ChannelCredential.NotEntitled",
+        "This account has no channel entitlement for Telegram channels. Connect it once the Telegram channel option is purchased.",
+        402,
+      ),
+    );
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain(
+      "This account has no channel entitlement for Telegram channels. Connect it once the Telegram channel option is purchased.",
+    );
+    expect(container.textContent).not.toContain("Bot token");
+  });
+});
+
 describe("not connected", () => {
   it("offers the token field and a disabled connect button until something is typed", async () => {
     const container = await render(page());
