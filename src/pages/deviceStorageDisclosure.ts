@@ -7,14 +7,27 @@ import type { ConsoleStrings } from "../i18n/strings.js";
  * `ConsoleStrings` rather than carrying literal text, so the page renders in whichever locale the
  * tenant's site is configured for, the same as every other settings screen.
  */
+
+/**
+ * `25-84`: the keys of <see cref="ConsoleStrings"/> whose value is a plain string, not a function.
+ * Every entry in `ConsoleStrings` was a `string` until `downloadUsageBannerPayLabel` needed to
+ * interpolate a Rouble amount into a sentence whose word order differs between Russian and English -
+ * which a plain string cannot do, and which concatenation in the component would get wrong in one of
+ * the two languages. Narrowing the three key fields below from `keyof ConsoleStrings` to this is the
+ * honest type for what they always meant: they name text a table cell renders, and a function was
+ * never a legal value for one.
+ */
+type ConsoleStringKey = {
+  [K in keyof ConsoleStrings]: ConsoleStrings[K] extends string ? K : never;
+}[keyof ConsoleStrings];
 export interface DeviceStorageDisclosureRow {
   /** The key suffix a tenant would see in their browser's dev tools, after `ago-chat:<siteKey>:`.
    * `last-sequence:<conversationId>` is templated - one physical key per conversation the browser
    * has resumed, not a single literal key - stated as such rather than picking one example id. */
   key: string;
-  holdsKey: keyof ConsoleStrings;
-  whyKey: keyof ConsoleStrings;
-  lifetimeKey: keyof ConsoleStrings;
+  holdsKey: ConsoleStringKey;
+  whyKey: ConsoleStringKey;
+  lifetimeKey: ConsoleStringKey;
 }
 
 /**

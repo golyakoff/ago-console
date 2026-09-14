@@ -188,6 +188,22 @@ export interface ConsoleStrings {
   /** The "what to do about it" line - the same no-address "contact us" idiom
    * `suspensionBannerContact` already reuses, restated for a different standing fact. */
   downloadUsageBannerContact: string;
+  /** `25-84`: the manual path's own call to action, shown in the blocked banner beside the contact
+   * line - the tenant can pay for the egress they have already used and start reading files again
+   * without waiting for anyone. Takes the amount, because "pay 340 RUB" is a decision somebody can
+   * make and "pay to continue" is not; the figure is the server's own
+   * (`DownloadUsageStatusDto.outstandingOverageRub`), never multiplied here. */
+  downloadUsageBannerPayLabel: (amountRub: string) => string;
+  /** Shown while the checkout call is in flight, and as the button's own disabled state - the same
+   * "one in-flight action, stated" shape every other submit button in this console uses. */
+  downloadUsageBannerPayPending: string;
+  /** Shown when starting the checkout failed - deliberately not the provider's own message, which is
+   * neither localised nor meant for an end user. */
+  downloadUsageBannerPayFailed: string;
+  /** `25-84`: the one blocked state no purchase can lift - this account has reached the ceiling the
+   * platform owner set on how much overage may accrue in a month. Shown instead of the pay button,
+   * because offering a button that would refuse is worse than explaining why there is none. */
+  downloadUsageBannerAtCap: string;
 
   // Dark-theme reversal of `adr/0030` point 4 - `ThemeToggle` (`src/design/ThemeToggle.tsx`),
   // rendered in `ShellIdentity` beside sign-out, the same three-state (system/light/dark) shape

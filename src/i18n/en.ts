@@ -69,6 +69,10 @@ export const en: ConsoleStrings = {
   downloadUsageBannerSoftTitle: "This account is approaching its monthly download limit.",
   downloadUsageBannerBlockedTitle: "This account has reached its monthly download limit - downloads are blocked.",
   downloadUsageBannerContact: "Contact AGO if this limit is too low for your account.",
+  downloadUsageBannerPayLabel: (amountRub: string) => `Pay ${amountRub} RUB and keep downloading`,
+  downloadUsageBannerPayPending: "Opening checkout...",
+  downloadUsageBannerPayFailed: "Could not start the payment. Please try again, or contact AGO.",
+  downloadUsageBannerAtCap: "This account has reached the maximum overage it may accrue this month - contact AGO to raise it.",
 
   themeToggleLabel: "Theme",
   themeToggleAriaLabel: "Colour theme",

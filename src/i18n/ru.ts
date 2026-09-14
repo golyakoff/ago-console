@@ -68,6 +68,10 @@ export const ru: ConsoleStrings = {
   downloadUsageBannerSoftTitle: "Этот аккаунт приближается к месячному лимиту скачиваний.",
   downloadUsageBannerBlockedTitle: "Этот аккаунт достиг месячного лимита скачиваний — скачивание заблокировано.",
   downloadUsageBannerContact: "Если этого лимита вашему аккаунту недостаточно, свяжитесь с AGO.",
+  downloadUsageBannerPayLabel: (amountRub: string) => `Оплатить ${amountRub} ₽ и продолжить скачивание`,
+  downloadUsageBannerPayPending: "Открываем оплату…",
+  downloadUsageBannerPayFailed: "Не удалось начать оплату. Попробуйте ещё раз или свяжитесь с AGO.",
+  downloadUsageBannerAtCap: "Аккаунт достиг максимальной суммы перерасхода за месяц — свяжитесь с AGO, чтобы её повысить.",
 
   themeToggleLabel: "Тема",
   themeToggleAriaLabel: "Цветовая тема",
