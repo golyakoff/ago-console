@@ -31,6 +31,7 @@ import { TelegramChannelPage } from "./pages/TelegramChannelPage.js";
 import { MaxChannelPage } from "./pages/MaxChannelPage.js";
 import { VkChannelPage } from "./pages/VkChannelPage.js";
 import { AiAddOnPage } from "./pages/AiAddOnPage.js";
+import { AiReplyDraftPage } from "./pages/AiReplyDraftPage.js";
 import { FaqModulePage } from "./pages/FaqModulePage.js";
 import { OfflineAutoReplyPage } from "./pages/OfflineAutoReplyPage.js";
 import { CannedResponsesPage } from "./pages/CannedResponsesPage.js";
@@ -416,6 +417,11 @@ export function App() {
             `AiAddOnPage` gates itself on `site:configure`, and every route it calls is gated again
             server-side. Under /account/, beside the other buy-and-agree screens. */}
         <Route path="/account/ai" element={<AiAddOnPage />} />
+        {/* `23-38`: same "route outside the workspace layout, page gates itself internally" shape -
+            `AiReplyDraftPage` gates itself on `site:configure`. Reads and writes the identical
+            `AiAddOnEnablement` switch `AiAddOnPage` above does; placed in "Автоматизация" rather than
+            beside `/account/ai` because this is the feature itself, not the buy-and-agree screen. */}
+        <Route path="/automation/ai-suggestions" element={<AiReplyDraftPage />} />
         {/* `14-04`: same pattern again - `OfflineAutoReplyPage` gates itself on `site:configure`
             internally. `23-31`: moved from `/settings/auto-reply` into "Автоматизация". */}
         <Route path="/automation/auto-reply" element={<OfflineAutoReplyPage />} />

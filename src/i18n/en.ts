@@ -1827,6 +1827,26 @@ export const en: ConsoleStrings = {
   aiAddOnEnableLabel: "Turn AI features on",
   aiAddOnDisableLabel: "Turn AI features off",
   aiAddOnEnableBlocked: "Accept the agreement and make the declaration first - they are recorded separately.",
+  aiReplyDraftForbidden: "You do not have permission to configure this site's AI reply drafts.",
+  aiReplyDraftLoadError: "Could not load the reply-draft status.",
+  aiReplyDraftIntro:
+    "While you are answering a visitor, AGO can draft a reply based on that conversation so far. You " +
+    "always write the message that actually gets sent - a draft is never sent on its own.",
+  aiReplyDraftWhatLeavesHeading: "What leaves this deployment",
+  aiReplyDraftWhatLeaves:
+    "Drafting a reply sends that conversation's own recent messages, as plain text, to YandexGPT, the " +
+    "provider named in the AI features agreement. Nothing else goes with it - no contact details, no " +
+    "attachments, and no other conversation's data.",
+  aiReplyDraftNotPurchased: "This workspace has not bought the AI add-on, so reply drafts are not available.",
+  aiReplyDraftSetupIncomplete:
+    "Before reply drafts can be turned on, accept the AI features agreement and record your " +
+    "lawful-basis declaration.",
+  aiReplyDraftGoToAiFeatures: "Go to AI features",
+  aiReplyDraftSharedSwitchNote:
+    "This is the same switch as the one on the AI features page. Turning it off also stops AGO from " +
+    "categorising your closed conversations in the background.",
+  aiReplyDraftEnableLabel: "Turn reply drafts on",
+  aiReplyDraftDisableLabel: "Turn reply drafts off",
   // `25-89`: the owner panel - see `strings.ts`'s own doc comment on this block for the shared-vs-
   // page-prefixed layout.
   ownerNotAuthorizedTitle: "Not authorized",

@@ -449,6 +449,9 @@ describe("the operator navigation", () => {
     ]);
     expect(reservedItemLabels(container)).toEqual(["Other channels"]);
 
+    // `23-38`: "AI suggestions" is a real item now - still listed by `itemLabels` (which does not
+    // distinguish reserved from ordinary), but no longer by `reservedItemLabels` (`consoleNav.ts`'s
+    // own remarks: it now points at `AiReplyDraftPage`). "AI auto-reply" (`23-39`) stays reserved.
     await openSection(container, "Automation");
     expect(itemLabels(container)).toEqual([
       "Canned responses",
@@ -458,7 +461,7 @@ describe("the operator navigation", () => {
       "AI FAQ assistant",
       "Tags",
     ]);
-    expect(reservedItemLabels(container)).toEqual(["AI suggestions", "AI auto-reply"]);
+    expect(reservedItemLabels(container)).toEqual(["AI auto-reply"]);
 
     // `16-02`: `site:erase` is independent too - "Delete account" is hidden here, not muted; the
     // other five Administration entries need only `site:configure`, which this identity holds.
