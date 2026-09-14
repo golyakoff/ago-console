@@ -295,6 +295,11 @@ export function OwnerSitesPage() {
                 <Link to="/owner/pricing" className="ago-btn ago-btn--secondary ago-btn--md">
                   Price list
                 </Link>
+                {/* `24-17`: the live tenant-isolation figures - the identical "reached from here,
+                    not from a second pinned nav entry" precedent the two links above already set. */}
+                <Link to="/owner/tenant-isolation" className="ago-btn ago-btn--secondary ago-btn--md">
+                  Tenant isolation
+                </Link>
               </div>
             }
             // Found live, 2026-08-28: the table below used to sit in its own titled `Panel` ("Sites"),
