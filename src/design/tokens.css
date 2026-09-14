@@ -143,6 +143,13 @@
   --ago-success: #12684a;          /* 6.76:1 on --ago-surface, 6.50:1 on --ago-mint */
   --ago-danger: #9f1d17;           /* 7.89:1 on --ago-surface, 7.56:1 on --ago-paper */
   --ago-danger-tint: #fdecea;      /* 6.90:1 with --ago-danger on top */
+  /* `25-83`: the account-download-cap warning banner's own tone - "warning-toned (yellow/orange, not
+     red)... the distinction matters: this is 'you are approaching a limit,' not 'something is
+     broken'" (docs/backlog/25-83-*.md's own decision). The first non-danger status colour this file
+     defines - --ago-danger's own dark-band placement doesn't apply here on purpose, since the whole
+     point is that this must not read as a sibling of danger. */
+  --ago-warning: #7a4d00;          /* 7.27:1 on --ago-surface, 6.96:1 on --ago-paper */
+  --ago-warning-tint: #fff4e0;     /* 6.67:1 with --ago-warning on top */
 
   /* --- Spacing -------------------------------------------------------------------------------
      RECOMPUTED. The landing's spacing is ad-hoc (8/10/12/14/16/18/20/26/28/32/40/44/76px, chosen
@@ -294,6 +301,8 @@
     --ago-success: #7fe0af;          /* 10.02:1 on --ago-surface, 9.49:1 on --ago-mint */
     --ago-danger-tint: #3a1613;
     --ago-danger: #ff8a80;           /* 6.99:1 on --ago-surface, 7.05:1 on --ago-danger-tint */
+    --ago-warning-tint: #3a2a10;
+    --ago-warning: #ffb74d;          /* 9.22:1 on --ago-surface, 10.73:1 on --ago-paper, 7.99:1 on --ago-warning-tint */
 
     /* Elevation - a shadow's darkening reads far less on a page that is already near-black, so
        elevation here is carried mainly by the surface-lightness ramp above; these stay dark
@@ -335,6 +344,8 @@
   --ago-success: #7fe0af;
   --ago-danger-tint: #3a1613;
   --ago-danger: #ff8a80;
+  --ago-warning-tint: #3a2a10;
+  --ago-warning: #ffb74d;
 
   --ago-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 16px -12px rgba(0, 0, 0, 0.6);
   --ago-shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 28px -18px rgba(0, 0, 0, 0.65);

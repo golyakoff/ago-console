@@ -65,6 +65,10 @@ export const ru: ConsoleStrings = {
   suspensionBannerUntilLabel: "До",
   suspensionBannerContact: "Чтобы решить этот вопрос, свяжитесь с AGO.",
 
+  downloadUsageBannerSoftTitle: "Этот аккаунт приближается к месячному лимиту скачиваний.",
+  downloadUsageBannerBlockedTitle: "Этот аккаунт достиг месячного лимита скачиваний — скачивание заблокировано.",
+  downloadUsageBannerContact: "Если этого лимита вашему аккаунту недостаточно, свяжитесь с AGO.",
+
   themeToggleLabel: "Тема",
   themeToggleAriaLabel: "Цветовая тема",
   themeOptionSystem: "Как в системе",

@@ -11,6 +11,7 @@ import { AppShell, ShellIdentity, type AppShellNavSection } from "./AppShell.js"
 import { buildTenantNavSections } from "./consoleNav.js";
 import { RenderErrorAlert, RenderErrorBoundary } from "./RenderErrorBoundary.js";
 import { useSiteSuspensionStatus } from "./useSiteSuspensionStatus.js";
+import { useDownloadUsageStatus } from "./useDownloadUsageStatus.js";
 
 /**
  * `11-05`. The layout route's element - the context-reading half of the shell, mounted inside
@@ -57,6 +58,9 @@ export function OperatorShell() {
   // `AppShell` reaching for it itself (that component's own doc comment: presentational, reads no
   // context of its own).
   const suspension = useSiteSuspensionStatus(user?.access_token, siteId);
+  // `25-83`: the shell-wide download-usage banner's own data - the identical "fetched once per site,
+  // handed to AppShell as a prop" shape `suspension` just above already establishes.
+  const downloadUsage = useDownloadUsageStatus(user?.access_token, siteId);
   // `11-11`: the one place a specific tenant's locale is ever known - resolved from the active
   // site's own `Locale` (`usePermissions()`'s `locale`, the same "not yet known" `null` state
   // `siteId` already has, which `parseConsoleLocale` treats identically to an unrecognised value:
@@ -138,6 +142,7 @@ export function OperatorShell() {
         // draw the band, or a real tenant would see it flash on every load before it vanished.
         credentialsArePublished={credentialsArePublished === true}
         suspension={suspension}
+        downloadUsage={downloadUsage}
         identity={
           <ShellIdentity
             operator={operatorDisplayName(user)}

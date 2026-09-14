@@ -575,6 +575,37 @@
   padding: 0 var(--ago-gutter);
 }
 
+/* `25-83`: the download-usage banner - the identical full-bleed-band shape `.ago-suspension-banner`
+   just above already establishes, over `--ago-warning` tokens rather than `--ago-danger` ones: "a
+   non-dismissable, warning-toned (yellow/orange, not red) console banner" is the item's own decision
+   in so many words, and re-using the danger tokens here would be exactly the "reads as a sibling of a
+   real outage" confusion that decision exists to avoid. `--modifier(blocked)` switches the same
+   markup onto the danger tokens for the one state that genuinely is a stronger fact than a warning -
+   the hard threshold, where downloads are refused outright - without a second, parallel set of BEM
+   classes to keep in step with this one. */
+.ago-download-usage-banner {
+  flex: 0 0 auto;
+  background: var(--ago-warning-tint);
+  border-bottom: 1px solid var(--ago-warning);
+  color: var(--ago-warning);
+  font-size: var(--ago-text-sm);
+  padding: var(--ago-space-2) 0;
+}
+
+.ago-download-usage-banner--blocked {
+  background: var(--ago-danger-tint);
+  border-bottom-color: var(--ago-danger);
+  color: var(--ago-danger);
+}
+
+.ago-download-usage-banner__title,
+.ago-download-usage-banner__detail {
+  display: block;
+  max-width: var(--ago-shell-max);
+  margin: 0 auto;
+  padding: 0 var(--ago-gutter);
+}
+
 .ago-suspension-banner__title {
   font-weight: 700;
 }
