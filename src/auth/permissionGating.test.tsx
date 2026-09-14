@@ -184,7 +184,12 @@ function grants(permissions: string[], enabledModules: string[] = []): void {
   // this at all" state is meant to be the ordinary default here, the same way `permissions` defaults
   // to whatever the caller passes rather than to "everything". Tests about the calendar's own
   // forbidden/absent distinction pass the second argument explicitly.
-  operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions, siteId: SITE_ID, enabledModules });
+  //
+  // `25-88`: `locale: "En"` explicitly - this suite is about permission-gated navigation content,
+  // not about locale, and was asserting English section labels only as an incidental consequence of
+  // `parseConsoleLocale`'s own old default. Pinning it explicitly keeps this file testing what it is
+  // actually about, unaffected by that default's own value either way.
+  operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions, siteId: SITE_ID, enabledModules, locale: "En" });
 }
 
 /**
@@ -530,23 +535,29 @@ describe("the operator navigation", () => {
     // "Not yet known" is not "allowed" - `PermissionsContext`'s own rule. This is the identical
     // fail-closed shape a permission-less operator gets, which is the safe direction to guess wrong
     // in for the second or so this answer takes.
+    //
+    // `25-88`: genuinely nothing is known yet here, including locale - unlike `grants()`'s own tests
+    // above, there is no real permissions response to pin a locale on, so this is the console's own
+    // new default for "nobody has told us yet" showing through correctly, not an incidental artifact
+    // to route around.
     operatorsApi.fetchMyPermissions.mockReturnValue(new Promise(() => undefined));
 
     const container = await render(shellAt("/"));
 
-    expect(sectionLabels(container)).toEqual(["Conversations", "Analytics", "Team"]);
-    await openSection(container, "Conversations");
-    expect(itemLabels(container)).toEqual(["Mine"]);
+    expect(sectionLabels(container)).toEqual(["Диалоги", "Аналитика", "Команда"]);
+    await openSection(container, "Диалоги");
+    expect(itemLabels(container)).toEqual(["Мои"]);
   });
 
   it("offers only three sections, and nothing gated, when the permissions call fails", async () => {
     // Fail-closed: a console that cannot find out what an operator may do must not guess "everything".
+    // `25-88`: Russian, the same "nothing known yet" reasoning as the in-flight case above.
     const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
     operatorsApi.fetchMyPermissions.mockRejectedValue(new Error("network down"));
 
     const container = await render(shellAt("/"));
 
-    expect(sectionLabels(container)).toEqual(["Conversations", "Analytics", "Team"]);
+    expect(sectionLabels(container)).toEqual(["Диалоги", "Аналитика", "Команда"]);
     expect(logged).toHaveBeenCalled();
   });
 

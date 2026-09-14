@@ -276,9 +276,56 @@ describe("the site-configuration screens for an active site with no Locale set",
   // same root would leave the *first* route's tree on screen rather than actually navigating - found
   // live writing this test, by an assertion that read the wrong page's title. `afterEach`'s `unmount()`
   // is what gives each `it` below a fresh root.
+  //
+  // `25-88`: these four used to assert English - `parseConsoleLocale`'s own fallback for "no
+  // configured Locale at all" is Russian now, the same `23-28` reasoning applied structurally. A
+  // site with an explicit `Locale = "En"` is untouched - see the describe block below.
 
-  it("renders AdminConversationsPage's table unchanged, in English", async () => {
+  it("renders AdminConversationsPage's table in Russian, the console's own new default for an unset Locale", async () => {
     const admin = await render(siteConfigAt("/admin", null));
+
+    expect(admin.querySelector(".ago-page-head__title")?.textContent).toBe("Все диалоги");
+    const headers = all(admin, ".ago-table th").map((h) => h.textContent?.trim());
+    expect(headers).toEqual(["Посетитель", "Статус", "Назначенный оператор", "Начат", "Непрочитано"]);
+    expect(admin.querySelector(".ago-table tbody tr")?.textContent).toContain("Ожидание");
+    expect(admin.querySelector(".ago-table tbody tr")?.textContent).toContain("Не назначен");
+  });
+
+  it("renders WidgetConfigPage's form in Russian, the console's own new default for an unset Locale", async () => {
+    const widget = await render(siteConfigAt("/settings/widget", null));
+
+    expect(widget.querySelector(".ago-page-head__title")?.textContent).toBe("Виджет на сайте");
+    expect(widget.querySelector(".ago-panel__title")?.textContent).toBe("Кнопка запуска");
+    const widgetSave = Array.from(widget.querySelectorAll("button")).find((b) => b.type === "submit");
+    expect(widgetSave?.textContent).toBe("Сохранить");
+  });
+
+  it("renders OfflineAutoReplyPage's form in Russian, the console's own new default for an unset Locale", async () => {
+    const autoReply = await render(siteConfigAt("/settings/auto-reply", null));
+
+    expect(autoReply.querySelector(".ago-page-head__title")?.textContent).toBe("Автоответ офлайн");
+    expect(autoReply.querySelector("legend")?.textContent).toBe("Правила по ключевым словам");
+    const removeButton = one<HTMLButtonElement>(autoReply, "button[aria-label='Удалить правило 1']");
+    expect(removeButton.textContent).toBe("Удалить");
+    const panelTitles = all(autoReply, ".ago-panel__title").map((t) => t.textContent?.trim());
+    expect(panelTitles).toEqual(["Ответы, пока вас нет на месте", "Штраф ожидания"]);
+    const autoReplyLabels = all(autoReply, ".ago-field__label").map((l) => l.textContent?.trim());
+    expect(autoReplyLabels.at(-1)).toBe("Секунд до принудительного назначения");
+  });
+
+  it("renders CannedResponsesPage's form in Russian, the console's own new default for an unset Locale", async () => {
+    const cannedResponses = await render(siteConfigAt("/settings/canned-responses", null));
+
+    expect(cannedResponses.querySelector(".ago-page-head__title")?.textContent).toBe("Готовые ответы");
+    expect(cannedResponses.querySelector("legend")?.textContent).toBe("Ответы");
+    const removeButton = one<HTMLButtonElement>(cannedResponses, "button[aria-label='Удалить готовый ответ 1']");
+    expect(removeButton.textContent).toBe("Удалить");
+  });
+});
+
+describe("the site-configuration screens for an active site with an explicit Locale = En", () => {
+  it("renders AdminConversationsPage's table in English, unchanged - the case this item's own fallback change must never touch", async () => {
+    const admin = await render(siteConfigAt("/admin", "En"));
 
     expect(admin.querySelector(".ago-page-head__title")?.textContent).toBe("All conversations");
     const headers = all(admin, ".ago-table th").map((h) => h.textContent?.trim());
@@ -287,8 +334,8 @@ describe("the site-configuration screens for an active site with no Locale set",
     expect(admin.querySelector(".ago-table tbody tr")?.textContent).toContain("Unassigned");
   });
 
-  it("renders WidgetConfigPage's form unchanged, in English", async () => {
-    const widget = await render(siteConfigAt("/settings/widget", null));
+  it("renders WidgetConfigPage's form in English, unchanged", async () => {
+    const widget = await render(siteConfigAt("/settings/widget", "En"));
 
     expect(widget.querySelector(".ago-page-head__title")?.textContent).toBe("Website widget");
     expect(widget.querySelector(".ago-panel__title")?.textContent).toBe("Launcher");
@@ -296,22 +343,21 @@ describe("the site-configuration screens for an active site with no Locale set",
     expect(widgetSave?.textContent).toBe("Save");
   });
 
-  it("renders OfflineAutoReplyPage's form unchanged, in English", async () => {
-    const autoReply = await render(siteConfigAt("/settings/auto-reply", null));
+  it("renders OfflineAutoReplyPage's form in English, unchanged", async () => {
+    const autoReply = await render(siteConfigAt("/settings/auto-reply", "En"));
 
     expect(autoReply.querySelector(".ago-page-head__title")?.textContent).toBe("Offline auto-reply");
     expect(autoReply.querySelector("legend")?.textContent).toBe("Keyword rules");
     const removeButton = one<HTMLButtonElement>(autoReply, "button[aria-label='Remove keyword rule 1']");
     expect(removeButton.textContent).toBe("Remove");
-    // `23-05`: the sibling panel's own English title and label, unchanged from the default locale.
     const panelTitles = all(autoReply, ".ago-panel__title").map((t) => t.textContent?.trim());
     expect(panelTitles).toEqual(["Replies while you are away", "Assignment penalty"]);
     const autoReplyLabels = all(autoReply, ".ago-field__label").map((l) => l.textContent?.trim());
     expect(autoReplyLabels.at(-1)).toBe("Seconds before assigning anyway");
   });
 
-  it("renders CannedResponsesPage's form unchanged, in English", async () => {
-    const cannedResponses = await render(siteConfigAt("/settings/canned-responses", null));
+  it("renders CannedResponsesPage's form in English, unchanged", async () => {
+    const cannedResponses = await render(siteConfigAt("/settings/canned-responses", "En"));
 
     expect(cannedResponses.querySelector(".ago-page-head__title")?.textContent).toBe("Canned responses");
     expect(cannedResponses.querySelector("legend")?.textContent).toBe("Responses");
