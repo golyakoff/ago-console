@@ -978,6 +978,8 @@ export const en: ConsoleStrings = {
   vkChannelTitle: "VK community",
   vkChannelDescription: "Connect your own VK community so visitors can message it and your team replies from here.",
   vkChannelForbidden: "You do not have permission to manage this site's channels.",
+  vkChannelLoadError: "Could not check your VK channel. Try reloading the page.",
+  vkChannelLoadingLabel: "Checking your VK channel…",
   vkChannelPanelTitle: "VK community",
   vkChannelNotConnectedBody:
     "Paste your community's access token (Управление → Работа с API → Ключи доступа, with Messages access). AGO checks it with VK before saving it.",
@@ -997,6 +999,8 @@ export const en: ConsoleStrings = {
   vkChannelCallbackUrlCopiedLabel: "Callback URL copied.",
   vkChannelCopyWebhookSecretButton: "Copy secret key",
   vkChannelWebhookSecretCopiedLabel: "Secret key copied.",
+  vkChannelSecretsShownOnceHint:
+    "The callback URL and secret key were shown once, right after connecting. To see them again, disconnect and reconnect this community.",
   vkChannelDisconnectButton: "Disconnect",
   vkChannelDisconnectDialogTitle: "Disconnect this community?",
   vkChannelDisconnectDialogBody:

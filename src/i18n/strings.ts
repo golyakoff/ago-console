@@ -1473,17 +1473,22 @@ export interface ConsoleStrings {
   maxChannelDisconnectConfirmButton: string;
   maxChannelDisconnectError: string;
 
-  // `25-15`: VkChannelPage (`/channels/vk`) - the third of `23-31`'s three reserved channel places to
-  // become a real screen, built on `TelegramChannelPage`'s/`MaxChannelPage`'s own shape above. Gated
-  // on `channel:manage` (`VK_CHANNEL_PERMISSION`), the identical dedicated-permission-screen shape.
-  // No loading/status strings here, unlike Telegram's/MAX's own blocks above - `VkChannelPage`'s own
-  // doc comment explains why: `VkChannelEndpoints` has no `GET` route to load a status from at all.
+  // `25-15`/`25-65`: VkChannelPage (`/channels/vk`) - the third of `23-31`'s three reserved channel
+  // places to become a real screen, built on `TelegramChannelPage`'s/`MaxChannelPage`'s own shape
+  // above. Gated on `channel:manage` (`VK_CHANNEL_PERMISSION`), the identical dedicated-permission-
+  // screen shape. `25-65` added `vkChannelLoadError`/`vkChannelLoadingLabel` (`maxChannelLoadError`/
+  // `maxChannelLoadingLabel`'s own precedent, once `VkChannelEndpoints` gained the `GET` route this
+  // block's own `25-15` comment used to say did not exist) and `vkChannelSecretsShownOnceHint`.
   vkChannelTitle: string;
   vkChannelDescription: string;
   vkChannelForbidden: string;
+  /** `25-65`: `maxChannelLoadError`'s own precedent, once `fetchVkChannelStatus` existed to fail. */
+  vkChannelLoadError: string;
+  /** `25-65`: `maxChannelLoadingLabel`'s own precedent - shown while `status` is still `null`. */
+  vkChannelLoadingLabel: string;
   vkChannelPanelTitle: string;
-  /** Always shown until a connect attempt succeeds this page visit - there is no status read to decide
-   * this from (`VkChannelPage`'s own doc comment). */
+  /** Shown while `status.connected` is `false` - `25-65`'s own status read replaced the unconditional
+   * "always shown" this string's own doc comment used to describe before that route existed. */
   vkChannelNotConnectedBody: string;
   vkChannelTokenFieldLabel: string;
   vkChannelTokenFieldDescription: string;
@@ -1496,19 +1501,22 @@ export interface ConsoleStrings {
   vkChannelConnectError: string;
   /** Shown underneath `vkChannelConnectError` only when the refusal was specifically
    * `ChannelCredential.AlreadyConnected` - unlike a bad token, retrying with a different value in this
-   * same form cannot fix this one, and `VkChannelPage`'s own doc comment explains why this screen has
-   * no way to offer a disconnect button for a credential it never learned the id of. */
+   * same form cannot fix this one. Reached less often after `25-65` (a reload now shows the connected
+   * view instead of the form), but still reachable - a second operator/browser attempting to connect
+   * a credential the first one already registered gets this exact refusal. */
   vkChannelAlreadyConnectedHint: string;
-  /** `${vkChannelConnectedSinceLabel} ${date}` - held in memory from the connect response for the rest
-   * of this page visit only (`VkChannelPage`'s own doc comment: nothing persists this across a
-   * reload). */
+  /** `${vkChannelConnectedSinceLabel} ${date}` - `status.createdAt` since `25-65` (persists across a
+   * reload, unlike the in-memory-only value this string's own `25-15` doc comment used to describe). */
   vkChannelConnectedSinceLabel: string;
   /** The one badge this screen ever shows for a connected credential - "Connected" means VK's own
    * `groups.getById` agreed at connect time (`VkChannelEndpoints.HandleConnectAsync`), the same
    * "verified before ever written" fact Telegram's `getMe` and MAX's `POST /subscriptions` establish
-   * for their own connect calls. */
+   * for their own connect calls. Shown for `status.connected`, not re-verified live on a reload
+   * (`vkChannelApi.ts`'s own remarks on why `VkChannelStatusDto` cannot carry a fresher answer). */
   vkChannelConnectedBadge: string;
-  /** Title of the `Alert` explaining what the two values below it are for. */
+  /** Title of the `Alert` explaining what the two values below it are for - shown only for the
+   * `justConnected` case (`VkChannelPage`'s own remarks): the callback URL and secret key this alert
+   * introduces are not values `status` (a reload) can ever reproduce. */
   vkChannelSetupTitle: string;
   /** Tells the operator to paste `callbackUrl`/`webhookSecret` into VK's own community "Callback API"
    * settings screen - the one manual step VK's own Callback API requires a human to do, unlike MAX's
@@ -1518,6 +1526,13 @@ export interface ConsoleStrings {
   vkChannelCallbackUrlCopiedLabel: string;
   vkChannelCopyWebhookSecretButton: string;
   vkChannelWebhookSecretCopiedLabel: string;
+  /** `25-65`: shown in the connected view instead of `vkChannelSetupTitle`/`vkChannelSetupBody` when
+   * this page visit did not itself perform the connect (a reload, or a second operator/browser opening
+   * an already-connected screen) - `VkChannelStatusDto` never carries the callback URL or secret
+   * (`vkChannelApi.ts`'s own remarks: `GetChannelCredentialStatusHandler` never had either to give
+   * back), so this screen states plainly that they were shown once, rather than silently omitting the
+   * setup panel with no explanation. */
+  vkChannelSecretsShownOnceHint: string;
   vkChannelDisconnectButton: string;
   vkChannelDisconnectDialogTitle: string;
   /** States the consequence directly, the same `telegramChannelDisconnectDialogBody`/
