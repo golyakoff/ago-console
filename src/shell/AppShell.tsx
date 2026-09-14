@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
+import type { SiteSuspensionStatusDto } from "../api/siteSuspensionApi.js";
 import type { TenancyDto } from "../api/tenanciesApi.js";
 import { operatorInitials } from "../auth/operatorInitials.js";
 import { Badge } from "../components/Badge.js";
@@ -8,6 +9,7 @@ import { config } from "../config.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { AppearanceIcon, SignOutIcon, TenantIcon } from "./menuIcons.js";
 import { RenderErrorAlert, RenderErrorBoundary } from "./RenderErrorBoundary.js";
+import { SuspensionBanner } from "./SuspensionBanner.js";
 
 /**
  * `12-04`: who the notice below is talking to. Two values, because the demo console has exactly two
@@ -415,6 +417,13 @@ export interface AppShellProps {
    * API (`credentialsArePublished`). Defaults to `false`, so a shell that does not pass it draws no
    * band - see `PublicDemoNotice`'s own remarks on why that direction was chosen over `12-04`'s. */
   credentialsArePublished?: boolean;
+  /** `25-70`: the caller's own site suspension state, straight from `GET /api/v1/sites/{siteId}/suspension`
+   * (`useSiteSuspensionStatus.ts`) - `undefined`/`null` (not yet known, or genuinely not suspended)
+   * draws no band, the same "omit it and get nothing" default `credentialsArePublished`'s own remarks
+   * describe for itself. Passed only by `OperatorShell`, the one shell with a site to ask about -
+   * `OnboardingPage`/`OwnerSitesPage`/pre-session routes have none, and omit it exactly as they already
+   * omit `credentialsArePublished` where it does not apply. */
+  suspension?: SiteSuspensionStatusDto | null;
   children: ReactNode;
 }
 
@@ -460,6 +469,7 @@ export function AppShell({
   wide = false,
   fixed = false,
   credentialsArePublished = false,
+  suspension = null,
   children,
 }: AppShellProps) {
   const strings = useStrings();
@@ -590,6 +600,7 @@ export function AppShell({
         </header>
 
         <PublicDemoNotice credentialsArePublished={credentialsArePublished} />
+        <SuspensionBanner status={suspension} />
       </div>
 
       {/* `23-31`: renders nothing - see its own doc comment for why this, and not a bare
