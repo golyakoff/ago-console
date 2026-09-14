@@ -1187,6 +1187,64 @@ export interface ConsoleStrings {
   billingSeatsUsedLabel: string;
   billingSeatLimitLabel: string;
 
+  /** `25-23`: the two headings that split one undifferentiated "Лимит мест" into the two counts
+   * `ago-business` decision `0011` actually keeps apart ("администраторы считаются отдельно от
+   * мест"). Before this item the screen had a single seat block and no concept of an Administrator
+   * seat at all, so an owner reading it could not tell which of the two limits they were near. */
+  billingOperatorSeatsHeading: string;
+  billingAdminSeatsHeading: string;
+  /** Names the separation out loud rather than leaving a reader to infer it from two panels sitting
+   * next to each other - `0011`'s own rule, stated where it is acted on. */
+  billingAdminSeatsNote: string;
+
+  /** `25-23`: the free-allowance-vs-bought-beyond-it split, named rather than collapsed into one
+   * number (`25-23`'s own Scope). For Operators the allowance is
+   * `seatPricing.freeSeatsIncluded` - a property of the grid, the same for every site; for
+   * Administrators it is `adminLimit - extraAdministratorsPurchased`, because
+   * `Site.ActivateSubscription` builds `AdminLimit` as exactly
+   * `ResolveAdminLimit(tier) + ExtraAdministratorsPurchased` and the second term is a real persisted
+   * field (`25-41`), not an estimate. */
+  billingFreeSeatsIncludedLabel: string;
+  billingAdminsIncludedLabel: string;
+  billingAdminsPurchasedLabel: string;
+  /** Value is `₽${adminExtraPriceRub}`, or `billingAdminExtraNotPriced` when that field is `null` -
+   * `25-43`'s own "a key with no published version is the ordinary 'built, not yet for sale' state".
+   * Never rendered as ₽0: a price nobody published is an absence, not a free one. */
+  billingAdminExtraPriceLabel: string;
+  billingAdminExtraNotPriced: string;
+
+  /** `25-23`: the sourced replacement for `billingSeatCountFieldDescription`'s deleted
+   * "От 2 до 100 мест" - every number below comes off `GET .../billing/status`'s own `seatPricing`
+   * (`SubscriptionTierBands` plus `25-43`'s published price versions), so the console holds no second
+   * copy of the grid to drift from it. Trailing interpolation throughout, this table's own
+   * convention: `${label}: ${value}`, values composed at the call site. */
+  billingPurchasableSeatsLabel: string;
+  billingBaseSeatPriceLabel: string;
+  billingBaseSeatsCoveredLabel: string;
+  billingExtraSeatPriceLabel: string;
+  billingBillingPeriodDaysLabel: string;
+
+  /** `25-23`: the add-seats control that replaced the direct-edit seat field. The old field let an
+   * owner type an absolute seat total over their current one, which read as "set my seats to N" and
+   * gave no sense of what was being bought; this is the quantity-plus-add shape the author asked
+   * for - a read-only current count, a "how many more" spinner, and one button. */
+  billingCurrentSeatCountLabel: string;
+  billingAddSeatsHeading: string;
+  billingAddSeatsFieldLabel: string;
+  billingNewSeatCountLabel: string;
+  billingAddSeatsButton: string;
+  /** Shown in place of the control once `seatLimit` has reached `seatPricing.maxSeats` - there is no
+   * self-serve purchase above that band at all (`SubscriptionTierBands.TryResolveTier` refuses it),
+   * so offering the control would be offering something the server will decline. */
+  billingSeatMaximumReached: string;
+  /** Says out loud what pressing the button does when this site has no active paid subscription: it
+   * starts a real ЮKassa checkout and moves the site onto Business. The control must never imply
+   * less than it does, and on a Solo site "add operators" *is* "subscribe". */
+  billingAddSeatsStartsCheckout: string;
+  /** Trailing interpolation - `${billingSeatCountOutOfRange} ${min}-${max}.` Replaces the old
+   * validation message, which reused the stale "2-100" description string as its own error text. */
+  billingSeatCountOutOfRange: string;
+
   /** Shown while `latestSubscription.status === "Pending"` - the screen's own honest "payment
    * submitted, confirmation pending" state, polled via `usePollUntilCheckoutSettled` rather than
    * ever claimed done off the ЮKassa redirect alone. */
@@ -1210,11 +1268,15 @@ export interface ConsoleStrings {
   billingPendingDowngradeTitle: string;
   billingPendingDowngradeBody: string;
 
-  billingSeatCountFieldLabel: string;
-  billingSeatCountFieldDescription: string;
-  billingSubscribeButton: string;
+  /** `25-23` deleted four keys from this block: `billingSeatCountFieldLabel`/
+   * `billingSeatCountFieldDescription` (the direct-edit field and its stale "От 2 до 100 мест"
+   * copy), and `billingSubscribeButton`/`billingChangeSeatsButton` (two button captions for what is
+   * now one `billingAddSeatsButton`, because the control no longer changes shape depending on
+   * whether a subscription already exists - it always adds). The two *submitting* captions below
+   * stay and stay distinct: they are the only place this screen says which of the two things is
+   * actually happening, and "Переход в ЮKassa…" is a materially different promise from
+   * "Отправка…". */
   billingSubscribingButton: string;
-  billingChangeSeatsButton: string;
   billingChangingSeatsButton: string;
   billingCheckoutError: string;
   billingSeatChangeError: string;

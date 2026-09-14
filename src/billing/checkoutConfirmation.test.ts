@@ -5,8 +5,31 @@ import type { BillingStatusDto } from "../api/billingApi.js";
 const billingApi = vi.hoisted(() => ({ fetchBillingStatus: vi.fn() }));
 vi.mock("../api/billingApi.js", () => billingApi);
 
+/** `25-23` grew `BillingStatusDto` by six fields. Nothing `checkCheckoutConfirmation` reads is among
+ * them - it looks at `latestSubscription.status` and nothing else - so they are filled in here only
+ * to keep the fixture a real `BillingStatusDto` rather than a partial cast, which would have let a
+ * future field go missing silently. */
 function statusWith(latestSubscription: BillingStatusDto["latestSubscription"]): BillingStatusDto {
-  return { tier: "starter", seatLimit: 5, seatsUsed: 2, latestSubscription };
+  return {
+    tier: "starter",
+    seatLimit: 5,
+    seatsUsed: 2,
+    latestSubscription,
+    tierDisplayName: "Business",
+    adminLimit: 2,
+    adminsUsed: 1,
+    extraAdministratorsPurchased: 0,
+    seatPricing: {
+      minSeats: 2,
+      maxSeats: 5,
+      baseSeats: 3,
+      freeSeatsIncluded: 2,
+      baseSeatPriceRub: 490,
+      pricePerExtraSeatRub: 200,
+      billingPeriodDays: 30,
+    },
+    adminExtraPriceRub: null,
+  };
 }
 
 beforeEach(() => {

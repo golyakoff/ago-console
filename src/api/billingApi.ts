@@ -38,13 +38,50 @@ export interface BillingSubscriptionSummaryDto {
   pendingTier: string | null;
 }
 
+/**
+ * `25-23`: `Ago.Chat.Domain.SubscriptionTierBands`' own currently-effective numbers plus the two
+ * seat price keys' currently-published amounts, carried on the billing status so this screen never
+ * hand-types a second copy of the grid (`GetBillingStatus.BillingSeatPricingDto`).
+ *
+ * **This is what replaced `billingSeatCountFieldDescription`'s old hand-typed "От 2 до 100 мест".**
+ * That copy was stale in a way nothing here could have caught: `SubscriptionTierBands.MaxSeats` is
+ * **5**, not 100, so the console was advertising - and its own `billingValidation.ts` was locally
+ * accepting - a seat count four times past what `TryResolveTier` will resolve at all. Reading
+ * `minSeats`/`maxSeats` off the server closes both halves of that at once, the same "sourced, not
+ * retyped" discipline `25-20`'s price-list screen already follows.
+ */
+export interface BillingSeatPricingDto {
+  minSeats: number;
+  maxSeats: number;
+  baseSeats: number;
+  freeSeatsIncluded: number;
+  baseSeatPriceRub: number;
+  pricePerExtraSeatRub: number;
+  billingPeriodDays: number;
+}
+
 /** `GetBillingStatus.BillingStatusDto`'s own wire shape. `latestSubscription` is `null` only for a
- * site that has never started a checkout - still free by construction (`13-01`'s own default). */
+ * site that has never started a checkout - still free by construction (`13-01`'s own default).
+ *
+ * `25-23` added the last six fields, all of them server facts this screen renders and never
+ * recomputes: `tierDisplayName` is the grid's own name for `tier` (mapped server-side - see
+ * `BillingStatusDto`'s own C# remarks for why there rather than here), `adminLimit`/`adminsUsed` are
+ * the Administrator pair `ago-business 0011` counts separately from Operator seats, and
+ * `extraAdministratorsPurchased` is `25-41`'s own persisted purchase count - the one number that
+ * makes the included-in-tier vs bought-beyond-it split showable rather than guessed at.
+ * `adminExtraPriceRub` is `null` exactly when that price key has never been published (`25-43`'s own
+ * "built, not yet for sale" state), which this screen renders as an absence, never as ₽0. */
 export interface BillingStatusDto {
   tier: string;
   seatLimit: number;
   seatsUsed: number;
   latestSubscription: BillingSubscriptionSummaryDto | null;
+  tierDisplayName: string;
+  adminLimit: number;
+  adminsUsed: number;
+  extraAdministratorsPurchased: number;
+  seatPricing: BillingSeatPricingDto;
+  adminExtraPriceRub: number | null;
 }
 
 /** `CreateCheckoutSession.CheckoutSessionDto`'s own wire shape - `confirmationUrl` is ЮKassa's hosted
