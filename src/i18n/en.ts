@@ -1630,13 +1630,13 @@ export const en: ConsoleStrings = {
   callbackOperatorLookupFailedDetailPrefix: "GET /api/v1/operators/me failed: ",
   callbackOperatorLookupFailedDetailSuffix:
     "Reload this page to try again. If it keeps happening, the API is unreachable or this " +
-    "origin has not been allowed to call it yet - this is not a problem with your Keycloak sign-in.",
+    "origin has not been allowed to call it yet - this is not a problem with your sign-in.",
   callbackUnknownError: "Unknown error.",
 
   signupTitle: "Sign up for AGO Chat",
   signupDescription:
-    "Create your site and operator account. You'll fill in your email and choose a password on " +
-    "Keycloak's own sign-up page.",
+    "Create your site and operator account. You'll enter your email and choose a password on " +
+    "a separate sign-up page.",
   signupButton: "Sign up",
   signupButtonRedirecting: "Opening sign-up…",
   signupErrorPrefix: "Could not open the sign-up page: ",
@@ -1644,11 +1644,11 @@ export const en: ConsoleStrings = {
 
   onboardingTitle: "Finish setting up your site",
   onboardingDescription:
-    "Your Keycloak account is verified. Choose a display name and the one website origin your " +
+    "Your account is verified. Choose a display name and the one website origin your " +
     "widget will be embedded on.",
   onboardingInvitedTitle: "You're joining an existing site",
   onboardingInvitedDescription:
-    "Your Keycloak account is verified, and somebody has already invited you to work on their site " +
+    "Your account is verified, and somebody has already invited you to work on their site " +
     "as an operator - activate that invite below. The form further down creates a new site of your " +
     "own instead, for if that is not what brought you here.",
   onboardingSiteNameLabel: "Site display name",
@@ -1663,7 +1663,7 @@ export const en: ConsoleStrings = {
   onboardingPlatformOwnerAlertTitle: "You are signed in as the platform owner",
   onboardingPlatformOwnerAlertLinkLabel: "Go to the platform operations view",
   onboardingPlatformOwnerAlertBody:
-    "Being the platform owner is a Keycloak realm role, not a seat inside any one site, and it " +
+    "Being the platform owner is a realm-wide role, not a seat inside any one site, and it " +
     "stays that way whatever you do here. Registering below additionally makes this account an " +
     "operator of a new site of its own - a normal thing to want, and the way to run a tenant on " +
     "your own deployment, but nothing in this product can take it back afterwards.",
