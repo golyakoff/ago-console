@@ -841,6 +841,15 @@ export const ru: ConsoleStrings = {
     "страницы оплаты.",
   billingSeatCountOutOfRange: "Итоговое количество мест должно быть в диапазоне",
 
+  billingReduceSeatsHeading: "Уменьшить количество операторов",
+  billingReduceSeatsFieldLabel: "Сколько убрать",
+  billingReduceSeatsNewCountLabel: "Станет мест после этого запланированного изменения",
+  billingReduceSeatsButton: "Запланировать уменьшение",
+  billingSeatMinimumReached: "У вас уже минимальное количество мест, доступное на этом тарифе.",
+  billingReduceSeatsSchedulesAtRenewal:
+    "Изменение не вступает в силу сейчас и никогда не списывает деньги. Количество мест изменится " +
+    "при следующем продлении — до этого всё остаётся как есть.",
+
   billingCurrentAdminCountLabel: "Докуплено администраторов сейчас",
   billingAddAdminSeatsHeading: "Докупить администраторов",
   billingAddAdminSeatsFieldLabel: "Сколько добавить",

@@ -335,10 +335,13 @@ describe("the add-seats control", () => {
     billingApi.fetchBillingStatus.mockResolvedValue(businessStatus({ seatLimit: 5, seatsUsed: 5 }));
 
     const container = await render(page());
+    // Scoped to the Add panel: `25-95` gave this screen a second, sibling number input (the
+    // reduce-seats control), so a bare `container`-wide query would also match that one.
+    const panel = panelTitled(container, "Add operators");
 
-    expect(container.textContent).toContain("You already hold the largest seat count sold without a conversation.");
-    expect(container.querySelector("input[type=number]")).toBeNull();
-    expect(byText(container, "button", "Add")).toBeNull();
+    expect(panel.textContent).toContain("You already hold the largest seat count sold without a conversation.");
+    expect(panel.querySelector("input[type=number]")).toBeNull();
+    expect(byText(panel, "button", "Add")).toBeNull();
   });
 });
 
@@ -427,6 +430,141 @@ describe("adding seats to an active (Succeeded) subscription", () => {
     expect(container.textContent).toContain("Seat change scheduled");
     expect(container.textContent).toContain("3");
     expect(container.textContent).toContain("starter");
+  });
+});
+
+/** `25-95`: the decrease direction `25-23`'s add-only stepper removed the one console path for.
+ * `ChangeSubscriptionSeatsHandler` never stopped accepting a lower absolute seat count - what was
+ * gone was any console control that could ever send one. */
+describe("reducing seats on an active (Succeeded) subscription", () => {
+  it("requests the seat count the server reported minus the quantity chosen - a real absolute count, not a delta", async () => {
+    billingApi.fetchBillingStatus.mockResolvedValue(businessStatus({ seatLimit: 4, seatsUsed: 2 }));
+    // `DowngradeScheduled`'s own wire shape - `newTier`/`newSeatCount`, no `proratedAmountRub` at
+    // all, because no charge was made (`ChangeSubscriptionSeatsResponseDto`'s own remarks).
+    billingApi.changeSubscriptionSeats.mockResolvedValue({ newTier: "starter", newSeatCount: 3 });
+
+    const container = await render(page());
+    const panel = panelTitled(container, "Reduce operators");
+    const removeInput = one<HTMLInputElement>(panel, "input[type=number]");
+    const button = byText<HTMLButtonElement>(panel, "button", "Schedule reduction");
+    if (button === null) {
+      throw new Error("no Schedule reduction button rendered");
+    }
+
+    await interact(() => setInputValue(removeInput, "1"));
+    await interact(() => button.click());
+
+    // 4 held - 1 removed = 3 requested, the identical "absolute count sent, never the bare quantity
+    // typed" contract `seatsAfterPurchase` already uses for the add direction.
+    expect(billingApi.changeSubscriptionSeats).toHaveBeenCalledWith("token", SITE_ID, "sub-1", 3);
+  });
+
+  it("never renders a charge for a scheduled downgrade - the response carries no amount to show", async () => {
+    billingApi.fetchBillingStatus.mockResolvedValue(businessStatus({ seatLimit: 4, seatsUsed: 2 }));
+    billingApi.changeSubscriptionSeats.mockResolvedValue({ newTier: "starter", newSeatCount: 3 });
+
+    const container = await render(page());
+    const panel = panelTitled(container, "Reduce operators");
+    const removeInput = one<HTMLInputElement>(panel, "input[type=number]");
+    const button = byText<HTMLButtonElement>(panel, "button", "Schedule reduction");
+    if (button === null) {
+      throw new Error("no Schedule reduction button rendered");
+    }
+
+    await interact(() => setInputValue(removeInput, "1"));
+    await interact(() => button.click());
+
+    // No success alert of any kind renders for this submission - a decrease is never billed and
+    // never applies immediately, so there is nothing to confirm beyond what the persistent
+    // pending-downgrade block (covered separately below) already shows once the refetch lands. In
+    // particular, no ruble amount appears inside the reduce panel itself - unlike the charged-upgrade
+    // path, which does show one (`billingUpgradeSuccessBody`).
+    expect(panel.querySelector(".ago-alert--success")).toBeNull();
+    expect(panel.textContent).not.toMatch(/₽\d/);
+  });
+
+  it("leads to the persistent scheduled-downgrade display once the post-request refetch reports it - never before", async () => {
+    billingApi.fetchBillingStatus
+      .mockResolvedValueOnce(businessStatus({ seatLimit: 4, seatsUsed: 2 }))
+      .mockResolvedValue(
+        businessStatus({
+          seatLimit: 4,
+          seatsUsed: 2,
+          latestSubscription: subscription({ requestedSeats: 4, pendingSeatCount: 3, pendingTier: "starter" }),
+        }),
+      );
+    billingApi.changeSubscriptionSeats.mockResolvedValue({ newTier: "starter", newSeatCount: 3 });
+
+    const container = await render(page());
+    // Before submitting, nothing has scheduled anything yet.
+    expect(container.textContent).not.toContain("Seat change scheduled");
+
+    const panel = panelTitled(container, "Reduce operators");
+    const removeInput = one<HTMLInputElement>(panel, "input[type=number]");
+    const button = byText<HTMLButtonElement>(panel, "button", "Schedule reduction");
+    if (button === null) {
+      throw new Error("no Schedule reduction button rendered");
+    }
+
+    await interact(() => setInputValue(removeInput, "1"));
+    await interact(() => button.click());
+
+    // `load()` re-runs `fetchBillingStatus` after the request resolves - the persistent block reads
+    // `sub.pendingSeatCount`/`pendingTier` off that refetch, never off the write response itself.
+    expect(billingApi.fetchBillingStatus).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toContain("Seat change scheduled");
+    expect(container.textContent).toContain("3");
+    expect(container.textContent).toContain("starter");
+  });
+
+  it("refuses a quantity that would take the total below the server's own minimum, and names that range", async () => {
+    billingApi.fetchBillingStatus.mockResolvedValue(businessStatus({ seatLimit: 3, seatsUsed: 2 }));
+
+    const container = await render(page());
+    const panel = panelTitled(container, "Reduce operators");
+    const removeInput = one<HTMLInputElement>(panel, "input[type=number]");
+    const button = byText<HTMLButtonElement>(panel, "button", "Schedule reduction");
+    if (button === null) {
+      throw new Error("no Schedule reduction button rendered");
+    }
+
+    // 3 - 2 = 1, below `MinSeats` 2.
+    await interact(() => setInputValue(removeInput, "2"));
+
+    expect(panel.textContent).toContain("The resulting seat count has to be within 2-5");
+    expect(button.disabled).toBe(true);
+
+    await interact(() => button.click());
+
+    expect(billingApi.changeSubscriptionSeats).not.toHaveBeenCalled();
+  });
+
+  it("offers no control at all once the site already holds the tier's own smallest seat count", async () => {
+    billingApi.fetchBillingStatus.mockResolvedValue(businessStatus({ seatLimit: 2, seatsUsed: 2 }));
+
+    const container = await render(page());
+    const panel = panelTitled(container, "Reduce operators");
+
+    expect(panel.textContent).toContain("You already hold the smallest seat count this tier allows.");
+    expect(panel.querySelector("input[type=number]")).toBeNull();
+    expect(byText(panel, "button", "Schedule reduction")).toBeNull();
+  });
+
+  it("is not offered without an active (Succeeded) subscription - there is nothing yet to reduce from", async () => {
+    billingApi.fetchBillingStatus.mockResolvedValue(freeStatus());
+
+    const container = await render(page());
+
+    expect(() => panelTitled(container, "Reduce operators")).toThrow();
+  });
+
+  it("says out loud that the change is scheduled and never charges", async () => {
+    billingApi.fetchBillingStatus.mockResolvedValue(businessStatus({ seatLimit: 4, seatsUsed: 2 }));
+
+    const container = await render(page());
+    const panel = panelTitled(container, "Reduce operators");
+
+    expect(panel.textContent).toContain("does not take effect now and is never charged");
   });
 });
 

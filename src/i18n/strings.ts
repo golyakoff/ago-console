@@ -1261,6 +1261,35 @@ export interface ConsoleStrings {
    * validation message, which reused the stale "2-100" description string as its own error text. */
   billingSeatCountOutOfRange: string;
 
+  /** `25-95`: the reduce-seats control `25-23` left no way to reach - a second, explicit control
+   * rather than letting the add-seats stepper above cross zero, because the two directions are not
+   * the same action wearing a different sign: an increase on a `Succeeded` subscription charges
+   * immediately, a decrease only ever schedules (`ChangeSubscriptionSeatsHandler.ScheduleDowngradeAsync`,
+   * no charge, no immediate write). Its own quantity field, its own floor
+   * (`billingSeatMinimumReached`, `SubscriptionTierBands.MinSeats`'s own mirror of
+   * `billingSeatMaximumReached` above), and its own "here is what pressing this actually does" line -
+   * `billingReduceSeatsSchedulesAtRenewal` - the identical "say what happens before it happens"
+   * posture `billingAddSeatsStartsCheckout`/`billingAddAdminSeatsChargesImmediately` already hold for
+   * their own, different mechanisms. No success toast of its own: a scheduled, uncharged change is
+   * told entirely through the persistent `billingPendingDowngradeBody` block once `load()` refetches
+   * it, the same discipline `billingUpgradeSuccessBody`'s own remarks already state for this exact
+   * case. */
+  billingReduceSeatsHeading: string;
+  billingReduceSeatsFieldLabel: string;
+  /** Deliberately not a reuse of `billingNewSeatCountLabel` ("Seats after this purchase") - that
+   * wording is honest for the add control, which can apply immediately, and would be dishonest here:
+   * nothing changes the moment this form submits, so this label says "scheduled" rather than implying
+   * an instant result. */
+  billingReduceSeatsNewCountLabel: string;
+  billingReduceSeatsButton: string;
+  /** Shown in place of the reduce-seats control once `seatLimit` has reached `seatPricing.minSeats` -
+   * `billingSeatMaximumReached`'s own mirror for the opposite floor. */
+  billingSeatMinimumReached: string;
+  /** Says out loud, unconditionally (unlike `billingAddSeatsStartsCheckout`, which only shows on a
+   * site with no active subscription), that a decrease never applies now and never charges - the
+   * control's own honesty about timing, `25-95`'s own Done-when. */
+  billingReduceSeatsSchedulesAtRenewal: string;
+
   /** `25-96`: the Administrator-seat counterpart to the add-seats control above, wired to `25-41`'s
    * own `POST .../billing/subscriptions/{id}/administrators` - built and tested, but unused by the
    * console until this item. Deliberately diverges from the Operator control rather than reusing its

@@ -42,6 +42,12 @@ const CHECKOUT_POLL_INTERVAL_MS = 3_000;
  * being overwritten. */
 const MIN_SEATS_TO_ADD = 1;
 
+/** `25-95`: the reduce control's own floor - the smallest quantity a decrease request can name, the
+ * identical "one is the smallest change that means anything" reasoning `MIN_SEATS_TO_ADD` already
+ * gives, mirrored rather than shared because the two constants bound two different directions of the
+ * same number and a single shared name would read as if zero were a valid quantity for either. */
+const MIN_SEATS_TO_REMOVE = 1;
+
 type SeatChangeSuccess = { amountRub: number; tier: string; seats: number };
 
 /** `25-96`: no `tier` field - unlike a seat change, an Administrator purchase never moves the site
@@ -132,6 +138,34 @@ function rub(amount: number): string {
  * handler's own only guard is `Billing.AdministratorCountNotAnIncrease` ("must exceed what is
  * already bought"), which starting the quantity at `MIN_SEATS_TO_ADD` already guarantees - so there
  * is no Administrator analogue of `seatCountError`/`billingSeatMaximumReached` to compute or render.
+ *
+ * ## `25-95`: a decrease got a control of its own, not a sign flip on the add stepper
+ *
+ * `25-23`'s add-only stepper (`seatsToAdd`, floored at `MIN_SEATS_TO_ADD`) removed the one console
+ * path that could ever request fewer seats than a site already holds - the backend side never moved:
+ * `ChangeSubscriptionSeatsHandler` has always taken an absolute `RequestedSeats` and branched
+ * internally (more than current: charge and apply now, `Upgraded`; less: `ScheduleDowngradeAsync`, no
+ * charge, applied at the next renewal, `DowngradeScheduled`), and `billingPendingDowngradeBody`
+ * already knew how to render the result. The gap this item closed was narrowly the input: nothing
+ * could make `seatsAfterPurchase` compute below `status.seatLimit`.
+ *
+ * The two shapes on the table were letting the existing stepper go negative (turning "+N" into "±N",
+ * reusing `handleSeatChangeSubmit` unchanged), or a second, explicit control. This screen took the
+ * second: an increase and a decrease are not the same request wearing a different sign, they are two
+ * differently-consequential actions (an immediate charge against a stored payment method versus a
+ * deferred, uncharged schedule), and a single control that silently swaps between them the moment a
+ * spinner crosses zero would make the more consequential of the two - the one that moves money - the
+ * one an idle nudge past zero could trigger by accident. The `±N` alternative would also have
+ * complicated the bound itself: the add direction's ceiling is `pricing.maxSeats - seatLimit` and the
+ * remove direction's is `seatLimit - pricing.minSeats`, two different numbers a single `min`/`max`
+ * pair cannot both express without recomputing them on every sign change. Splitting the control keeps
+ * each one's own bound simple and keeps `MIN_SEATS_TO_ADD`'s "1 is the smallest change that means
+ * anything" reading honest for both directions, rather than reusing it to also mean "zero is a valid
+ * quantity to type." The new `handleSeatReductionSubmit` still calls the identical
+ * `changeSubscriptionSeats` endpoint `handleSeatChangeSubmit` already calls - only the control offering
+ * it, and the state it owns, are new - and it is shown only once a subscription is already `Succeeded`,
+ * the one state `ChangeSubscriptionSeatsHandler`'s own top gate accepts a seat change of either
+ * direction on at all.
  */
 export function BillingPage() {
   const { user } = useAuth();
@@ -155,6 +189,17 @@ export function BillingPage() {
   const [seatChangeSubmitting, setSeatChangeSubmitting] = useState(false);
   const [seatChangeError, setSeatChangeError] = useState<string | null>(null);
   const [seatChangeSuccess, setSeatChangeSuccess] = useState<SeatChangeSuccess | null>(null);
+
+  // `25-95`: the reduce-seats control's own state, kept apart from the add control's above for the
+  // identical reason `adminSlotsToAdd`'s own comment already gives for staying apart from
+  // `seatsToAdd` - two controls that submit independently of one another, this time against the same
+  // current count but in opposite directions. No success state of its own: a scheduled, uncharged
+  // downgrade is told entirely through the persistent `billingPendingDowngradeBody` block once
+  // `load()` refetches it - the identical "no separate toast to keep in sync with persistent state"
+  // reasoning `handleCancelConfirm` below already gives for its own success path.
+  const [seatsToRemove, setSeatsToRemove] = useState(MIN_SEATS_TO_REMOVE);
+  const [seatReductionSubmitting, setSeatReductionSubmitting] = useState(false);
+  const [seatReductionError, setSeatReductionError] = useState<string | null>(null);
 
   // `25-96`: the identical "quantity to add, reset to the floor after every purchase" shape
   // `seatsToAdd` above uses, kept as its own state rather than shared with it - the two controls buy
@@ -242,6 +287,23 @@ export function BillingPage() {
   // seats you can add" tells a reader nothing the control did not.
   const canSubmitPurchase = pricing !== null && seatsToAdd >= MIN_SEATS_TO_ADD && seatCountError === null;
 
+  // `25-95`: what the reduce-seats control actually asks for - `status.seatLimit` minus the quantity
+  // chosen, the same "add to (here, subtract from) the server's own last-reported count" shape
+  // `seatsAfterPurchase` above uses, never a number this screen was holding on to. Decrease is only
+  // ever reachable on an already-`Succeeded` subscription (`ChangeSubscriptionSeatsHandler`'s own top
+  // gate refuses anything else before it even looks at the direction), so - unlike the add control,
+  // which also serves the "no subscription yet" checkout case - this one control covers exactly one
+  // branch and needs no `sub?.status` fork of its own at render time; the panel below is withheld
+  // entirely otherwise.
+  const seatsRemovable = status !== null && pricing !== null ? status.seatLimit - pricing.minSeats : 0;
+  const atSeatMinimum = status !== null && pricing !== null && status.seatLimit <= pricing.minSeats;
+  const seatsAfterReduction = status === null ? 0 : status.seatLimit - seatsToRemove;
+  const seatReductionCountError =
+    pricing !== null && seatsToRemove >= MIN_SEATS_TO_REMOVE && !isValidSeatCount(seatsAfterReduction, pricing.minSeats, pricing.maxSeats)
+      ? `${strings.billingSeatCountOutOfRange} ${pricing.minSeats}-${pricing.maxSeats}.`
+      : null;
+  const canSubmitReduction = pricing !== null && seatsToRemove >= MIN_SEATS_TO_REMOVE && seatReductionCountError === null;
+
   // `25-96`: what the Administrator purchase actually asks for - `status.extraAdministratorsPurchased`
   // plus the quantity chosen, the identical "add to the server's own last-reported count, never to a
   // number this screen was holding on to" shape `seatsAfterPurchase` uses above.
@@ -301,6 +363,32 @@ export function BillingPage() {
       setSeatChangeError(err instanceof ApiProblemError ? err.message : strings.billingSeatChangeError);
     } finally {
       setSeatChangeSubmitting(false);
+    }
+  };
+
+  const handleSeatReductionSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!canSubmitReduction || !accessToken || !siteId || !sub) {
+      return;
+    }
+
+    setSeatReductionSubmitting(true);
+    setSeatReductionError(null);
+    try {
+      // `ChangeSubscriptionSeatsHandler` branches on the same endpoint by comparing this absolute
+      // count to the subscription's own stored `RequestedSeats`: below it, `ScheduleDowngradeAsync`
+      // runs - `subscription.PendingSeatCount`/`PendingTier` are recorded, no charge is made, and
+      // nothing changes until the next renewal. The response is never inspected here: it carries no
+      // `proratedAmountRub` field for this branch (`ChangeSubscriptionSeatsResponseDto`'s own remarks),
+      // so there is nothing in it this screen would show that `load()`'s refetch does not already
+      // provide through `billingPendingDowngradeBody` above.
+      await changeSubscriptionSeats(accessToken, siteId, sub.subscriptionId, seatsAfterReduction);
+      setSeatsToRemove(MIN_SEATS_TO_REMOVE);
+      load();
+    } catch (err) {
+      setSeatReductionError(err instanceof ApiProblemError ? err.message : strings.billingSeatChangeError);
+    } finally {
+      setSeatReductionSubmitting(false);
     }
   };
 
@@ -521,6 +609,57 @@ export function BillingPage() {
                         {checkoutSubmitting ? strings.billingSubscribingButton : strings.billingAddSeatsButton}
                       </Button>
                     )}
+                  </div>
+                </form>
+              )}
+            </Panel>
+          )}
+
+          {/* `25-95`: the decrease direction `25-23`'s add-only stepper removed the one console path
+              for. A second, explicit control rather than letting the add stepper above cross zero -
+              an increase on a `Succeeded` subscription charges immediately and a decrease only ever
+              schedules (no charge, nothing written until the next renewal), and those are different
+              enough outcomes that one control silently switching between them by crossing zero would
+              be easy to trigger by accident. Shown only on an already-`Succeeded` subscription - the
+              one state `ChangeSubscriptionSeatsHandler` accepts a seat change of either direction on
+              at all - so there is no "no subscription yet" branch to fork on here the way the add
+              control above has. */}
+          {sub?.status === "Succeeded" && (
+            <Panel title={strings.billingReduceSeatsHeading}>
+              {atSeatMinimum ? (
+                <p>{strings.billingSeatMinimumReached}</p>
+              ) : (
+                <form className="ago-stack" onSubmit={(e) => void handleSeatReductionSubmit(e)}>
+                  <p>
+                    <strong>{strings.billingCurrentSeatCountLabel}:</strong> {status.seatLimit}
+                  </p>
+
+                  <Field
+                    label={strings.billingReduceSeatsFieldLabel}
+                    description={`${strings.billingReduceSeatsNewCountLabel}: ${seatsAfterReduction}`}
+                    error={seatReductionCountError}
+                  >
+                    {(controlProps) => (
+                      <Input
+                        {...controlProps}
+                        type="number"
+                        min={MIN_SEATS_TO_REMOVE}
+                        max={seatsRemovable}
+                        value={seatsToRemove}
+                        onChange={(e) => setSeatsToRemove(Number(e.target.value))}
+                        disabled={seatReductionSubmitting}
+                      />
+                    )}
+                  </Field>
+
+                  <p>{strings.billingReduceSeatsSchedulesAtRenewal}</p>
+
+                  {seatReductionError && <Alert tone="danger">{seatReductionError}</Alert>}
+
+                  <div className="ago-row">
+                    <Button type="submit" variant="primary" disabled={seatReductionSubmitting || !canSubmitReduction}>
+                      {seatReductionSubmitting ? strings.billingChangingSeatsButton : strings.billingReduceSeatsButton}
+                    </Button>
                   </div>
                 </form>
               )}
