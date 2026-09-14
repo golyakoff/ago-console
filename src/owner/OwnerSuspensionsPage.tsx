@@ -9,7 +9,7 @@ import {
   unblockOwnerSuspension,
   type OwnerSuspension,
 } from "../api/ownerApi.js";
-import { en } from "../i18n/en.js";
+import { useStrings } from "../i18n/StringsContext.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
 import { Alert } from "../components/Alert.js";
 import { Button } from "../components/Button.js";
@@ -37,10 +37,15 @@ type OwnerSuspensionsAccess = "unknown" | "granted" | "refused";
  *
  * **The "suspend a site in the first place" action lives on `OwnerSiteDetailPage` instead** - a site
  * the owner is already looking at, not this list, which only ever shows sites already suspended.
+ *
+ * **`25-89`: reads `useStrings()` now, inside `App.tsx`'s own `OwnerStringsProvider`** - the same
+ * change `OwnerSitesPage.tsx`'s own doc comment describes for itself; see that file's remarks and
+ * `OwnerStringsProvider.tsx`'s own doc comment for the full reasoning.
  */
 export function OwnerSuspensionsPage() {
   const { user, logout } = useAuth();
   const { siteId: ownSiteId } = usePermissions();
+  const strings = useStrings();
   const accessToken = user?.access_token;
 
   const [access, setAccess] = useState<OwnerSuspensionsAccess>("unknown");
@@ -72,9 +77,9 @@ export function OwnerSuspensionsPage() {
         setSuspensions(outcome.suspensions);
       })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Failed to load suspended accounts.");
+        setError(err instanceof Error ? err.message : strings.ownerSuspensionsLoadFailed);
       });
-  }, [accessToken]);
+  }, [accessToken, strings]);
 
   useEffect(() => {
     load();
@@ -100,7 +105,7 @@ export function OwnerSuspensionsPage() {
 
     const trimmedReason = reasonInput.trim();
     if (trimmedReason.length === 0) {
-      setDialogError("A reason is required.");
+      setDialogError(strings.ownerSuspensionsReasonRequired);
       return;
     }
 
@@ -108,7 +113,7 @@ export function OwnerSuspensionsPage() {
     if (dialogMode === "extend") {
       minutes = Number.parseInt(minutesInput, 10);
       if (!Number.isFinite(minutes) || minutes <= 0) {
-        setDialogError("Enter a whole number of minutes, greater than zero.");
+        setDialogError(strings.ownerMinutesInvalid);
         return;
       }
     }
@@ -135,10 +140,10 @@ export function OwnerSuspensionsPage() {
         }
 
         closeDialog();
-        setError("This account could no longer be reached. Reload the page and try again.");
+        setError(strings.ownerSuspensionsCouldNotBeReached);
       })
       .catch((err: unknown) => {
-        setDialogError(err instanceof Error ? err.message : "Failed to update this suspension.");
+        setDialogError(err instanceof Error ? err.message : strings.ownerSuspensionsUpdateFailed);
       })
       .finally(() => {
         setSubmitting(false);
@@ -148,19 +153,19 @@ export function OwnerSuspensionsPage() {
   const columns: TableColumn<OwnerSuspension>[] = [
     {
       key: "site",
-      header: "Site",
+      header: strings.ownerSitesColumnSite,
       render: (row) => (
-        <Link to={`/owner/sites/${row.siteId}`}>{row.siteName.trim().length > 0 ? row.siteName : "Unnamed site"}</Link>
+        <Link to={`/owner/sites/${row.siteId}`}>{row.siteName.trim().length > 0 ? row.siteName : strings.ownerUnnamedSite}</Link>
       ),
     },
     {
       key: "suspendedUntil",
-      header: "Suspended until",
+      header: strings.ownerSuspensionsColumnSuspendedUntil,
       render: (row) => formatAbsolute(parseInstant(row.suspendedUntil), timeZone),
     },
     {
       key: "lastAction",
-      header: "Most recent act",
+      header: strings.ownerSuspensionsColumnLastAction,
       render: (row) => (
         <span title={formatAbsolute(parseInstant(row.lastActionAt), timeZone)}>
           {row.lastActionBy} - {row.lastActionReason}
@@ -169,12 +174,12 @@ export function OwnerSuspensionsPage() {
     },
     {
       key: "actions",
-      header: "Actions",
+      header: strings.ownerSuspensionsColumnActions,
       render: (row) => (
         <div className="ago-row ago-row--tight">
-          <Button onClick={() => openDialog(row, "extend")}>Extend</Button>
+          <Button onClick={() => openDialog(row, "extend")}>{strings.ownerExtendButton}</Button>
           <Button variant="secondary" onClick={() => openDialog(row, "unblock")}>
-            Unblock
+            {strings.ownerUnblockButton}
           </Button>
         </div>
       ),
@@ -184,28 +189,27 @@ export function OwnerSuspensionsPage() {
   return (
     <AppShell
       sections={[]}
-      pinnedItem={access === "granted" ? { to: "/owner", label: en.navPlatformSites, end: false } : undefined}
+      pinnedItem={access === "granted" ? { to: "/owner", label: strings.navPlatformSites, end: false } : undefined}
       credentialsArePublished={false}
       wide
       identity={
         <ShellIdentity operator={operatorDisplayName(user)} siteId={ownSiteId} onSignOut={() => void logout()} />
       }
     >
-      {access === "unknown" && error === null && <Spinner label="Opening suspended accounts…" />}
+      {access === "unknown" && error === null && <Spinner label={strings.ownerSuspensionsOpeningLabel} />}
 
       {access === "refused" && (
         <>
-          <PageHead title="Suspended accounts" />
-          <Alert tone="danger" title="Not authorized">
-            This view is not available to you. The server refused the request, so no accounts were
-            loaded.
+          <PageHead title={strings.ownerSitesAsideSuspended} />
+          <Alert tone="danger" title={strings.ownerNotAuthorizedTitle}>
+            {strings.ownerSuspensionsNotAuthorizedBody}
           </Alert>
         </>
       )}
 
       {error !== null && access !== "refused" && (
         <>
-          {access === "unknown" && <PageHead title="Suspended accounts" />}
+          {access === "unknown" && <PageHead title={strings.ownerSitesAsideSuspended} />}
           <Alert tone="danger">{error}</Alert>
         </>
       )}
@@ -213,15 +217,15 @@ export function OwnerSuspensionsPage() {
       {access === "granted" && (
         <>
           <PageHead
-            title="Suspended accounts"
-            description="Every account currently under an enforcement freeze - a suspected violation, never non-payment. A suspension nobody extends lifts itself once its own deadline passes, with no manual step."
+            title={strings.ownerSitesAsideSuspended}
+            description={strings.ownerSuspensionsDescription}
           />
 
           {suspensions.length === 0 ? (
-            <p className="ago-empty">No accounts are currently suspended.</p>
+            <p className="ago-empty">{strings.ownerSuspensionsEmpty}</p>
           ) : (
             <Table
-              caption="Every currently-suspended account, with its own deadline and most recent act."
+              caption={strings.ownerSuspensionsCaption}
               columns={columns}
               rows={suspensions}
               rowKey={(row) => row.siteId}
@@ -232,7 +236,7 @@ export function OwnerSuspensionsPage() {
 
       <Dialog
         open={dialogMode !== null}
-        title={dialogMode === "extend" ? "Extend this suspension" : "Unblock this account"}
+        title={dialogMode === "extend" ? strings.ownerExtendDialogTitle : strings.ownerUnblockDialogTitle}
         onClose={() => {
           if (!submitting) {
             closeDialog();
@@ -241,25 +245,25 @@ export function OwnerSuspensionsPage() {
         footer={
           <>
             <Button variant="ghost" onClick={closeDialog} disabled={submitting}>
-              Cancel
+              {strings.cancelButton}
             </Button>
             <Button
               variant={dialogMode === "unblock" ? "secondary" : "danger"}
               onClick={handleConfirm}
               disabled={submitting}
             >
-              {submitting ? "Saving…" : dialogMode === "extend" ? "Extend" : "Unblock"}
+              {submitting ? strings.ownerSavingLabel : dialogMode === "extend" ? strings.ownerExtendButton : strings.ownerUnblockButton}
             </Button>
           </>
         }
       >
         {dialogMode !== null && dialogSite && (
           <>
-            <p>{dialogSite.siteName.trim().length > 0 ? dialogSite.siteName : "Unnamed site"}</p>
+            <p>{dialogSite.siteName.trim().length > 0 ? dialogSite.siteName : strings.ownerUnnamedSite}</p>
             {dialogMode === "extend" && (
               <Field
-                label="Additional minutes"
-                description="Added to the account's current suspended-until instant, not to now - this pushes the deadline further out."
+                label={strings.ownerAdditionalMinutesLabel}
+                description={strings.ownerAdditionalMinutesDescription}
               >
                 {(controlProps) => (
                   <Input
@@ -275,8 +279,8 @@ export function OwnerSuspensionsPage() {
               </Field>
             )}
             <Field
-              label="Reason"
-              description='Write the reason you would be willing to show this tenant. "Cleanup" or "asked to" are not reasons.'
+              label={strings.ownerReasonFieldLabel}
+              description={strings.ownerReasonFieldDescription}
               error={dialogError}
             >
               {(controlProps) => (

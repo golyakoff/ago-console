@@ -5,6 +5,7 @@ import { PermissionsProvider } from "./auth/PermissionsProvider.js";
 import { OperatorConnectionProvider } from "./realtime/OperatorConnectionProvider.js";
 import { CalendarOperatorConnectionProvider } from "./realtime/CalendarOperatorConnectionProvider.js";
 import { PreSessionStringsProvider } from "./i18n/PreSessionStringsProvider.js";
+import { OwnerStringsProvider } from "./i18n/OwnerStringsProvider.js";
 import { ConversationsAttentionProvider } from "./workspace/ConversationsAttentionProvider.js";
 import { OperatorShell } from "./shell/OperatorShell.js";
 import { CallbackPage } from "./pages/CallbackPage.js";
@@ -211,15 +212,26 @@ export function App() {
           `RequirePlatformOwner` policy on `12-02`'s endpoint already does, authoritatively, per
           request. `OwnerSitesPage` renders whatever that policy answers. The console's own
           client-side signal (`useOwnerEligibility`) decides one thing only - whether the navigation
-          link is drawn - and is the server's answer read back, never a re-derivation of it. */}
+          link is drawn - and is the server's answer read back, never a re-derivation of it.
+
+          `25-89`: **every `/owner/*` route below now also wraps in `OwnerStringsProvider`**, outside
+          `RequireAuth` (the identical position `PreSessionStringsProvider` takes on `/onboarding`/
+          `/redeem-invite` below) - these five pages read `strings` like the rest of the console now,
+          and this is what gives them a real locale to read without depending on `StringsContext`'s
+          own bare default or on any tenant this identity might also administer. See
+          `OwnerStringsProvider.tsx`'s own doc comment for why this is its own provider rather than
+          `PreSessionStringsProvider` reused, and `StringsContext.tsx`'s for the full history of what
+          `/owner` used to do instead. */}
       <Route
         path="/owner"
         element={
-          <RequireAuth>
-            <PermissionsProvider>
-              <OwnerSitesPage />
-            </PermissionsProvider>
-          </RequireAuth>
+          <OwnerStringsProvider>
+            <RequireAuth>
+              <PermissionsProvider>
+                <OwnerSitesPage />
+              </PermissionsProvider>
+            </RequireAuth>
+          </OwnerStringsProvider>
         }
       />
       {/* `23-14`: the per-tenant drill-down `ui-inventory.md` §8.1 recorded as absent - same gate,
@@ -231,11 +243,13 @@ export function App() {
       <Route
         path="/owner/sites/:siteId"
         element={
-          <RequireAuth>
-            <PermissionsProvider>
-              <OwnerSiteDetailPage />
-            </PermissionsProvider>
-          </RequireAuth>
+          <OwnerStringsProvider>
+            <RequireAuth>
+              <PermissionsProvider>
+                <OwnerSiteDetailPage />
+              </PermissionsProvider>
+            </RequireAuth>
+          </OwnerStringsProvider>
         }
       />
       {/* `25-20`: the platform owner's own price list - the identical gate and "outside the operator
@@ -246,11 +260,13 @@ export function App() {
       <Route
         path="/owner/pricing"
         element={
-          <RequireAuth>
-            <PermissionsProvider>
-              <OwnerPricingPage />
-            </PermissionsProvider>
-          </RequireAuth>
+          <OwnerStringsProvider>
+            <RequireAuth>
+              <PermissionsProvider>
+                <OwnerPricingPage />
+              </PermissionsProvider>
+            </RequireAuth>
+          </OwnerStringsProvider>
         }
       />
       {/* `22-08`: the console's own "who is currently suspended" screen - the identical gate and
@@ -261,11 +277,13 @@ export function App() {
       <Route
         path="/owner/suspensions"
         element={
-          <RequireAuth>
-            <PermissionsProvider>
-              <OwnerSuspensionsPage />
-            </PermissionsProvider>
-          </RequireAuth>
+          <OwnerStringsProvider>
+            <RequireAuth>
+              <PermissionsProvider>
+                <OwnerSuspensionsPage />
+              </PermissionsProvider>
+            </RequireAuth>
+          </OwnerStringsProvider>
         }
       />
       {/* `24-17`: the platform owner's own live read of `tenant-isolation.md`'s five headline
@@ -277,11 +295,13 @@ export function App() {
       <Route
         path="/owner/tenant-isolation"
         element={
-          <RequireAuth>
-            <PermissionsProvider>
-              <OwnerTenantIsolationPage />
-            </PermissionsProvider>
-          </RequireAuth>
+          <OwnerStringsProvider>
+            <RequireAuth>
+              <PermissionsProvider>
+                <OwnerTenantIsolationPage />
+              </PermissionsProvider>
+            </RequireAuth>
+          </OwnerStringsProvider>
         }
       />
       <Route

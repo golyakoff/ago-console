@@ -83,9 +83,27 @@
  *   relay protocol has no Russian expansion in ordinary use, and `ru.ts` keeps it lower-case inline
  *   exactly as the author's own dictated copy for this item wrote it, not a translator's oversight to
  *   fix.
+ * - **`"API"`** - `25-89`'s own `ownerSitesDescriptionWindowedSuffix`/`ownerSitesTableCaption`/
+ *   `ownerSitesLastActivityTitleSuffix` (all rendered on `owner-sites`, the first screen this gate
+ *   opens that put `/owner`'s own Russian text in front of this assertion at all). The identical
+ *   loanword register `"ID"`/`"hex"`/`"smtp"` already establish, not a guess made up for this item -
+ *   `ru.ts` already used `"API"` inline in three other, older strings before `25-89` touched this file
+ *   at all (`vkChannelNotConnectedBody`, `vkChannelSetupBody`,
+ *   `callbackOperatorLookupFailedDetailSuffix`), none of which this gate's own five screens happened
+ *   to render, so nothing had exercised the gap until an actually-gated screen's own text used the
+ *   word too.
  *
- * `/owner` is a **further** exemption, but a screen-level one, not an element-level one - see
- * `ux-gate/gate.spec.ts`'s own comment on why it is applied there instead of inside this function.
+ * `/owner` (`owner-sites`) is still a further exemption, applied at the screen level in
+ * `ux-gate/gate.spec.ts` rather than as a phrase in this function - but no longer for the reason it
+ * used to be. `25-89` overturned the design call that used to justify it (`/owner` rendering fixed
+ * English "by design", `11-11`) the identical way `23-28` overturned `redeem-invite`'s own now-removed
+ * exemption (two paragraphs below): `/owner` now wraps itself in `OwnerStringsProvider` and genuinely
+ * renders Russian, proven by running this exact assertion against it for real. What survived that -
+ * three pre-existing, real, out-of-scope gaps this screen was simply the first to exercise (a raw
+ * server-sent `tier` value, `formatByteSize`'s own deliberately-untranslated unit letters, and this
+ * file's own already-documented `DISPLAY_LOCALE` gap two sections below) - is why the skip in
+ * `gate.spec.ts` stays, with its own reasoning updated to say so rather than the premise `25-89`
+ * disproved.
  *
  * ## What this deliberately does *not* exempt
  *
@@ -145,7 +163,7 @@ export function measureUntranslatedLatinText(): UntranslatedTextResult {
   // See this function's own file-level doc comment above for why each of these is here. Longer
   // phrases first, so "AGO Chat" is removed whole rather than leaving a stray "Chat" behind once
   // "AGO" has already matched inside it.
-  const EXEMPT_PHRASES = ["AGO Chat", "AGO", "WhatsApp", "Telegram", "VK", "Escape", "Shift", "Enter", "SMS", "MAX", "ID", "hex", "smtp", "https", "</body>", "Europe/Moscow"];
+  const EXEMPT_PHRASES = ["AGO Chat", "AGO", "WhatsApp", "Telegram", "VK", "Escape", "Shift", "Enter", "SMS", "MAX", "ID", "hex", "smtp", "API", "https", "</body>", "Europe/Moscow"];
   const EXEMPT_ANCESTOR_SELECTOR = ".ago-mono, .ago-badge--mono";
   const LATIN_RUN = /[A-Za-z]{2,}/g;
 

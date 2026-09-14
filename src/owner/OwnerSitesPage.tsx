@@ -4,7 +4,8 @@ import { useAuth } from "../auth/AuthContext.js";
 import { operatorDisplayName } from "../auth/operatorDisplayName.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchOwnerSites, type OwnerSiteSummary } from "../api/ownerApi.js";
-import { en } from "../i18n/en.js";
+import { useStrings } from "../i18n/StringsContext.js";
+import type { ConsoleStrings } from "../i18n/strings.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
 import { buildTenantNavSections } from "../shell/consoleNav.js";
 import { Alert } from "../components/Alert.js";
@@ -59,10 +60,23 @@ type OwnerAccess = "unknown" | "granted" | "refused";
  * kept - it fails soft (its fetch 403s and leaves `siteId` null, logged), and it is what lets the
  * header offer a way back into the console for the ordinary case where the owner also holds an
  * operator seat, without offering a dead link to someone who does not.
+ *
+ * **`25-89`: no longer English-only.** `11-11`'s original call - restated here for years as "`en`
+ * explicitly, never `useStrings()` ... `/owner` is not scoped to one tenant, so it never follows one's
+ * language" - is superseded: the owner panel now reads `useStrings()` like every other console page,
+ * wrapped in its own `OwnerStringsProvider` (`App.tsx`'s five `/owner/*` routes) rather than a
+ * tenant's. The reasoning that survives is narrower than it reads above: there is genuinely no
+ * *tenant* locale for a cross-tenant screen to follow, which is exactly why this page does not read
+ * `StringsContext`'s bare default (still `en`, and still `/owner`'s own safety net for a route nobody
+ * wires to a provider by mistake - `StringsContext.tsx`'s own doc comment) and instead wraps itself in
+ * an explicit Russian provider, the identical shape `23-28` built for `/callback`/`/signup`/
+ * `/onboarding`/`/redeem-invite` for the same underlying reason: no tenant to read from does not mean
+ * no answer - it means Russian, chosen rather than defaulted to.
  */
 export function OwnerSitesPage() {
   const { user, logout } = useAuth();
   const { siteId, hasPermission, enabledModules } = usePermissions();
+  const strings = useStrings();
   const accessToken = user?.access_token;
 
   const [access, setAccess] = useState<OwnerAccess>("unknown");
@@ -133,14 +147,14 @@ export function OwnerSitesPage() {
           // Deliberately not folded into `refused`: "the API is broken" and "you may not see this"
           // are different facts, and telling the owner they lack access whenever the database is
           // down would send them looking for the wrong problem.
-          setError(err instanceof Error ? err.message : "Failed to load platform sites.");
+          setError(err instanceof Error ? err.message : strings.ownerSitesLoadFailed);
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [accessToken, activeQuery]);
+  }, [accessToken, activeQuery, strings]);
 
   const handleSearchSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
@@ -189,14 +203,14 @@ export function OwnerSitesPage() {
         setError(null);
       })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Failed to load more platform sites.");
+        setError(err instanceof Error ? err.message : strings.ownerSitesLoadMoreFailed);
       })
       .finally(() => setLoadingMore(false));
-  }, [accessToken, nextBefore, activeQuery]);
+  }, [accessToken, nextBefore, activeQuery, strings]);
 
   const columns = useMemo(
-    () => (recentWindowDays === null ? [] : buildColumns(recentWindowDays, timeZone)),
-    [recentWindowDays, timeZone],
+    () => (recentWindowDays === null ? [] : buildColumns(recentWindowDays, timeZone, strings)),
+    [recentWindowDays, timeZone, strings],
   );
 
   return (
@@ -209,17 +223,17 @@ export function OwnerSitesPage() {
       // "Platform sites" is always present, as `AppShell`'s own `pinnedItem` - this page is itself
       // what that link points at, so it renders with the active state the console uses everywhere
       // else for "you are here".
-      // `11-11`: `en` explicitly, never `useStrings()` - this page is deliberately English-only
-      // regardless of any tenant this identity also administers (confirmed with the author, `11-11`'s
-      // own backlog item: `/owner` is not scoped to one tenant, so it never follows one's language).
-      sections={siteId ? buildTenantNavSections(hasPermission, en, enabledModules ?? []) : []}
+      // `25-89`: `strings` (from `useStrings()`), no longer the hardcoded `en` import - this call
+      // used to be `/owner`'s one deliberate exception to "read the active locale"; it no longer is,
+      // now that the owner panel has an explicit Russian provider of its own rather than none at all.
+      sections={siteId ? buildTenantNavSections(hasPermission, strings, enabledModules ?? []) : []}
       // `23-43`: only once the server has actually accepted this caller, exactly as
       // `demoNoticeAudience` below already is. The demo console's operator login is published,
       // so anyone can sign in and type `/owner`; drawing a rail link to a view they were just
       // refused tells a stranger that a platform-operations view exists and where it lives.
       // "unknown" draws nothing either - a link that appears for a moment and then vanishes on
       // the refusal has already said it.
-      pinnedItem={access === "granted" ? { to: "/owner", label: en.navPlatformSites, end: true } : undefined}
+      pinnedItem={access === "granted" ? { to: "/owner", label: strings.navPlatformSites, end: true } : undefined}
       // `12-04`: narrowed only once `12-02`'s endpoint has actually accepted this caller. While the
       // answer is still `"unknown"`, and on a refusal, the reader is not demonstrably the owner, and
       // the stricter shared-login wording is the true thing to say to them.
@@ -238,11 +252,11 @@ export function OwnerSitesPage() {
         />
       }
     >
-      {access === "unknown" && error === null && <Spinner label="Opening the platform operations view…" />}
+      {access === "unknown" && error === null && <Spinner label={strings.ownerSitesOpeningLabel} />}
 
       {access === "refused" && (
         <>
-          <PageHead title="Platform operations" />
+          <PageHead title={strings.ownerOperationsTitle} />
           {/* `Alert tone="danger"` carries `role="alert"`, the same assertive live region every
               refusal branch in this console uses. No table, no skeleton, no partial row: the server
               refused before any site data existed in this browser. */}
@@ -251,9 +265,8 @@ export function OwnerSitesPage() {
               deployment - which on a console whose operator login is published means telling
               anybody. Refusing without naming the thing refused is the smaller disclosure and is
               equally true; the reader who *is* the owner never sees this branch. */}
-          <Alert tone="danger" title="Not authorized">
-            This view is not available to you. The server refused the request, so no site data was
-            loaded.
+          <Alert tone="danger" title={strings.ownerNotAuthorizedTitle}>
+            {strings.ownerSiteAccessRefusedBody}
           </Alert>
           {/* `4-06`(console): no separate "back" link here any more - the nav bar above already
               offers "Conversations" whenever `siteId` says this identity has somewhere to go back
@@ -264,7 +277,7 @@ export function OwnerSitesPage() {
 
       {error !== null && access !== "refused" && (
         <>
-          {access === "unknown" && <PageHead title="Platform operations" />}
+          {access === "unknown" && <PageHead title={strings.ownerOperationsTitle} />}
           <Alert tone="danger">{error}</Alert>
         </>
       )}
@@ -272,7 +285,7 @@ export function OwnerSitesPage() {
       {access === "granted" && (
         <>
           <PageHead
-            title="Platform sites"
+            title={strings.navPlatformSites}
             // `25-20`: the price list's own entry point - a plain in-page link rather than a second
             // `AppShell` `pinnedItem` (that slot holds exactly one entry, "Platform sites" itself,
             // and both owner screens already reuse it to point back here). `PageHead`'s own `aside`
@@ -290,15 +303,15 @@ export function OwnerSitesPage() {
                     here, not from a second pinned nav entry, the identical precedent this page's
                     own "Price list" link already sets for `OwnerPricingPage`. */}
                 <Link to="/owner/suspensions" className="ago-btn ago-btn--secondary ago-btn--md">
-                  Suspended accounts
+                  {strings.ownerSitesAsideSuspended}
                 </Link>
                 <Link to="/owner/pricing" className="ago-btn ago-btn--secondary ago-btn--md">
-                  Price list
+                  {strings.ownerSitesAsidePricing}
                 </Link>
                 {/* `24-17`: the live tenant-isolation figures - the identical "reached from here,
                     not from a second pinned nav entry" precedent the two links above already set. */}
                 <Link to="/owner/tenant-isolation" className="ago-btn ago-btn--secondary ago-btn--md">
-                  Tenant isolation
+                  {strings.ownerSitesAsideTenantIsolation}
                 </Link>
               </div>
             }
@@ -312,8 +325,8 @@ export function OwnerSitesPage() {
             // together in practice.
             description={
               recentWindowDays === null
-                ? "Every site on this deployment, as the platform owner sees it. Read-only - this screen shows numbers, it changes nothing."
-                : `Every site on this deployment, as the platform owner sees it. Read-only - this screen shows numbers, it changes nothing. Message volume and last activity cover ${describeRecentWindow(recentWindowDays)} - the window the API itself reports; seats, conversations and stored bytes are all-time.`
+                ? strings.ownerSitesDescriptionBase
+                : `${strings.ownerSitesDescriptionBase}${strings.ownerSitesDescriptionWindowedMiddle}${describeRecentWindow(recentWindowDays, strings)}${strings.ownerSitesDescriptionWindowedSuffix}`
             }
           />
 
@@ -323,21 +336,21 @@ export function OwnerSitesPage() {
               would spam it. Rendered above the table in every loading/empty/loaded state below, so the
               owner can adjust a search while the previous result is still loading. */}
           <form className="ago-row" onSubmit={handleSearchSubmit}>
-            <Field label="Find a site by name or id">
+            <Field label={strings.ownerSitesSearchLabel}>
               {(controlProps) => (
                 <Input
                   {...controlProps}
                   type="text"
                   value={queryInput}
                   onChange={(e) => setQueryInput(e.target.value)}
-                  placeholder="Part of a site's name, or part of its id"
+                  placeholder={strings.ownerSitesSearchPlaceholder}
                 />
               )}
             </Field>
-            <Button type="submit">Search</Button>
+            <Button type="submit">{strings.ownerSitesSearchButton}</Button>
             {activeQuery !== undefined && (
               <Button type="button" onClick={handleClearSearch}>
-                Clear
+                {strings.ownerSitesClearButton}
               </Button>
             )}
           </form>
@@ -351,41 +364,42 @@ export function OwnerSitesPage() {
               self-contained (their own border/background), the same bare-block pattern
               `AdminConversationsPage` and the workspace's queue lists already use. */}
           {sites === null ? (
-            <Skeleton lines={4} label="Loading platform sites…" />
+            <Skeleton lines={4} label={strings.ownerSitesSkeletonLabel} />
           ) : sites.length === 0 ? (
             <p className="ago-empty">
               {activeQuery === undefined
-                ? "No sites yet."
+                ? strings.ownerSitesEmpty
                 : // `23-14`'s own guard: still says how many of how many, even at zero matches -
                   // never just "no results", which would read like the search itself failed rather
                   // than like a real, complete answer.
-                  `No sites match "${activeQuery}". ${matchingSites !== null && totalSites !== null ? formatMatchSummary(matchingSites, totalSites) : ""}`}
+                  `${strings.ownerSitesNoMatchPrefix}${activeQuery}${strings.ownerSitesNoMatchSuffix}${matchingSites !== null && totalSites !== null ? formatMatchSummary(matchingSites, totalSites, strings) : ""}`}
             </p>
           ) : (
             <>
               {/* `23-14`: only while a search is active - an unfiltered "41 of 41 sites match" says
                   nothing the row count below does not already say plainer. */}
               {activeQuery !== undefined && matchingSites !== null && totalSites !== null && (
-                <p className="ago-meta">{formatMatchSummary(matchingSites, totalSites)}</p>
+                <p className="ago-meta">{formatMatchSummary(matchingSites, totalSites, strings)}</p>
               )}
               <Table
                 // Not "newest first": `12-02` pages by site id descending, which is a stable
                 // cursor order and not a chronological or a usage ranking. Saying so is the point
                 // - a caption claiming an order the data does not have is how a reader ends up
                 // believing the top row matters most.
-                caption="Every site on this deployment, in the API's own cursor order (site id, descending) - not ranked by size or activity."
+                caption={strings.ownerSitesTableCaption}
                 columns={columns}
                 rows={sites}
                 rowKey={(site) => site.siteId}
               />
               <div className="ago-row">
                 <span className="ago-meta">
-                  Showing {formatCount(sites.length)} {sites.length === 1 ? "site" : "sites"}
-                  {nextBefore === null ? "." : " so far."}
+                  {strings.ownerSitesShowingPrefix}
+                  {formatCount(sites.length)} {sites.length === 1 ? strings.ownerSiteWordOne : strings.ownerSiteWordOther}
+                  {nextBefore === null ? strings.ownerSitesShowingPeriod : strings.ownerSitesShowingSoFar}
                 </span>
                 {nextBefore !== null && (
                   <Button onClick={loadMore} disabled={loadingMore}>
-                    {loadingMore ? "Loading…" : "Load more"}
+                    {loadingMore ? strings.ownerSitesLoadMoreLoading : strings.ownerSitesLoadMoreButton}
                   </Button>
                 )}
               </div>
@@ -402,12 +416,14 @@ export function OwnerSitesPage() {
  * do, because its columns are fixed): the message-volume header names the server's own
  * `recentWindowDays`, so the columns cannot exist before the first response does. That is the whole
  * mechanism by which this screen cannot hardcode "30 days".
+ *
+ * `25-89`: takes `strings` now - every header and cell this builds is user-facing text.
  */
-function buildColumns(recentWindowDays: number, timeZone: string | null): TableColumn<OwnerSiteSummary>[] {
+function buildColumns(recentWindowDays: number, timeZone: string | null, strings: ConsoleStrings): TableColumn<OwnerSiteSummary>[] {
   return [
     {
       key: "site",
-      header: "Site",
+      header: strings.ownerSitesColumnSite,
       render: (site) => (
         // `23-14`: the row link `ui-inventory.md` §8.1 recorded as absent - a plain in-page
         // navigation to the per-tenant detail read, not a new tab and not a button, the same
@@ -422,7 +438,7 @@ function buildColumns(recentWindowDays: number, timeZone: string | null): TableC
           {site.name.trim().length > 0 ? (
             <strong>{site.name}</strong>
           ) : (
-            <span className="ago-meta">Unnamed</span>
+            <span className="ago-meta">{strings.ownerSitesUnnamedSiteShort}</span>
           )}
           <Badge tone="neutral" mono>
             {site.siteId.slice(0, 8)}
@@ -432,36 +448,36 @@ function buildColumns(recentWindowDays: number, timeZone: string | null): TableC
     },
     {
       key: "tier",
-      header: "Tier",
+      header: strings.ownerSitesColumnTier,
       // Rendered exactly as the server sent it. `12-02` is explicit that `"free"` is the only tier
       // that exists today and is not a placeholder - so there is no mapping table here, no icon and
       // no "upgrade" affordance implying a richer plan system that does not exist yet.
       render: (site) => <Badge tone="neutral">{site.tier}</Badge>,
     },
-    { key: "seats", header: "Seats", align: "end", render: (site) => formatCount(site.seatCount) },
+    { key: "seats", header: strings.ownerSitesColumnSeats, align: "end", render: (site) => formatCount(site.seatCount) },
     {
       key: "conversations",
-      header: "Conversations",
+      header: strings.ownerSitesColumnConversations,
       align: "end",
       render: (site) => formatCount(site.conversationCount),
     },
     {
       key: "messages",
-      header: formatRecentMessagesHeader(recentWindowDays),
+      header: formatRecentMessagesHeader(recentWindowDays, strings),
       align: "end",
       render: (site) => formatCount(site.recentMessageCount),
     },
     {
       key: "attachments",
-      header: "Attachments",
+      header: strings.ownerSitesColumnAttachments,
       align: "end",
       // The exact byte count stays one hover away - `formatByteSize` rounds towards zero, and the
       // rounded figure is for comparing rows, not for quoting.
-      render: (site) => <span title={`${formatCount(site.attachmentBytes)} bytes`}>{formatByteSize(site.attachmentBytes)}</span>,
+      render: (site) => <span title={`${formatCount(site.attachmentBytes)}${strings.ownerBytesSuffix}`}>{formatByteSize(site.attachmentBytes)}</span>,
     },
     {
       key: "created",
-      header: "Created",
+      header: strings.ownerSitesColumnCreated,
       render: (site) => {
         const created = parseInstant(site.createdAt);
         if (created === null) {
@@ -470,22 +486,23 @@ function buildColumns(recentWindowDays: number, timeZone: string | null): TableC
           // dash that reads as zero would each be a fabricated fact; this says what is true. (An
           // unparseable value lands here too - there is nothing truthful to render from it either.)
           return (
-            <span className="ago-meta" title="This site predates the platform recording creation dates, so its creation date is genuinely unknown.">
-              Not recorded
+            <span className="ago-meta" title={strings.ownerSitesNotRecordedTitle}>
+              {strings.ownerSitesNotRecorded}
             </span>
           );
         }
 
-        // `343`: no `strings` argument, on purpose - this page never calls `useStrings()` (see this
-        // file's own remarks above), so there is no locale value to pass, and `formatAbsolute`/
-        // `formatDateStamp`'s `= en` default renders exactly the fixed English this screen already
-        // committed to.
+        // `25-89`: `formatAbsolute`/`formatDateStamp` still take no `strings` at all - not a gap this
+        // item leaves behind, but a pre-existing, documented one for the *whole* console
+        // (`ux-gate/lib/i18nCompleteness.ts`'s own "What this deliberately does not exempt": weekday
+        // and month names come from `time/format.ts`'s own fixed `DISPLAY_LOCALE`, out of `11-06`'s
+        // scope, unrelated to whether the page around them calls `useStrings()`).
         return <span title={formatAbsolute(created, timeZone)}>{formatDateStamp(created, timeZone)}</span>;
       },
     },
     {
       key: "activity",
-      header: "Last activity",
+      header: strings.ownerSitesColumnLastActivity,
       render: (site) => {
         const lastMessage = parseInstant(site.lastMessageAt);
         if (lastMessage === null) {
@@ -494,9 +511,9 @@ function buildColumns(recentWindowDays: number, timeZone: string | null): TableC
           return (
             <span
               className="ago-meta"
-              title={`This is the most recent message within ${describeRecentWindow(recentWindowDays)} only. An older message may exist; the API does not report one, deliberately.`}
+              title={`${strings.ownerSitesLastActivityTitlePrefix}${describeRecentWindow(recentWindowDays, strings)}${strings.ownerSitesLastActivityTitleSuffix}`}
             >
-              {formatNoRecentActivity(recentWindowDays)}
+              {formatNoRecentActivity(recentWindowDays, strings)}
             </span>
           );
         }

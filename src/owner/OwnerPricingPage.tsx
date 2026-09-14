@@ -8,7 +8,8 @@ import {
   type OwnerPricedResource,
   type OwnerPricing,
 } from "../api/ownerApi.js";
-import { en } from "../i18n/en.js";
+import { useStrings } from "../i18n/StringsContext.js";
+import type { ConsoleStrings } from "../i18n/strings.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
 import { Alert } from "../components/Alert.js";
 import { Button } from "../components/Button.js";
@@ -22,10 +23,18 @@ import { Table, type TableColumn } from "../components/Table.js";
  * identical reason - there is no partial state to render while the server has not yet spoken. */
 type OwnerPricingAccess = "unknown" | "granted" | "refused";
 
-const TIER_LABELS: Record<string, string> = {
-  starter: "Starter",
-  growth: "Growth",
-};
+/**
+ * `25-89`: a client-side tier-name map, translated here rather than reused from `BillingPage.tsx` -
+ * that page reads a server-resolved `tierDisplayName` instead of mapping the wire key itself
+ * (`BillingPage.tsx`'s own remarks), so there was no existing Russian value for "starter"/"growth" to
+ * reuse without duplicating. `strings.ownerPricingTierStarter`/`Growth` hold the translation.
+ */
+function tierLabels(strings: ConsoleStrings): Record<string, string> {
+  return {
+    starter: strings.ownerPricingTierStarter,
+    growth: strings.ownerPricingTierGrowth,
+  };
+}
 
 /**
  * `25-20`: the platform owner's own price-list screen - `GET /api/v1/owner/pricing`. Every
@@ -61,10 +70,15 @@ const TIER_LABELS: Record<string, string> = {
  * (`GetPricingForOwnerHandler`'s own remarks, `ago-chat`). This screen shows that plainly rather than
  * omitting the section or inventing a number - `CLAUDE.md`: "a screen that honestly shows 'not yet
  * configured' for a price nothing has set is the correct outcome."
+ *
+ * **`25-89`: no longer hardcoded English** - reads `useStrings()` inside `App.tsx`'s own
+ * `OwnerStringsProvider`, the identical change `OwnerSitesPage.tsx`'s own doc comment describes; see
+ * that file and `OwnerStringsProvider.tsx` for the full reasoning.
  */
 export function OwnerPricingPage() {
   const { user, logout } = useAuth();
   const { siteId } = usePermissions();
+  const strings = useStrings();
   const accessToken = user?.access_token;
 
   const [access, setAccess] = useState<OwnerPricingAccess>("unknown");
@@ -97,9 +111,9 @@ export function OwnerPricingPage() {
       .catch((err: unknown) => {
         // Deliberately not folded into `refused` - "the API is broken" and "you may not see this"
         // are different facts, the identical split `OwnerSitesPage`'s own catch branch keeps.
-        setError(err instanceof Error ? err.message : "Failed to load the platform price list.");
+        setError(err instanceof Error ? err.message : strings.ownerPricingLoadFailed);
       });
-  }, [accessToken]);
+  }, [accessToken, strings]);
 
   useEffect(() => {
     load();
@@ -136,24 +150,25 @@ export function OwnerPricingPage() {
           })),
         );
 
+  const labels = tierLabels(strings);
   const tierColumns: TableColumn<SeatCountRow>[] = [
-    { key: "tier", header: "Tier", render: (row) => TIER_LABELS[row.tierKey] ?? row.tierKey },
-    { key: "seats", header: "Seats", render: (row) => `${row.seats}`, align: "end" },
+    { key: "tier", header: strings.ownerSitesColumnTier, render: (row) => labels[row.tierKey] ?? row.tierKey },
+    { key: "seats", header: strings.ownerSitesColumnSeats, render: (row) => `${row.seats}`, align: "end" },
     {
       key: "price",
-      header: "Total per billing period",
+      header: strings.ownerPricingColumnTotal,
       render: (row) => `₽${row.totalRub.toFixed(2)}`,
       align: "end",
     },
   ];
 
   const billingOptionColumns: TableColumn<OwnerPricing["billingOptions"][number]>[] = [
-    { key: "optionKey", header: "Option", render: (row) => row.optionKey },
-    { key: "moduleKey", header: "Turns on", render: (row) => row.moduleKey ?? "—" },
+    { key: "optionKey", header: strings.ownerPricingColumnOption, render: (row) => row.optionKey },
+    { key: "moduleKey", header: strings.ownerPricingColumnTurnsOn, render: (row) => row.moduleKey ?? "—" },
     {
       key: "price",
-      header: "Price",
-      render: (row) => (row.priceRub === null ? "Not configured" : `₽${row.priceRub.toFixed(2)}`),
+      header: strings.ownerPricingColumnPrice,
+      render: (row) => (row.priceRub === null ? strings.ownerPricingPriceNotConfigured : `₽${row.priceRub.toFixed(2)}`),
       align: "end",
     },
   ];
@@ -168,28 +183,27 @@ export function OwnerPricingPage() {
       // (`OwnerSitesPage`'s new `aside` link) - it does not add a second pinned entry of its own.
       // "Platform sites" stays highlighted while here, the same `end: false` `OwnerSiteDetailPage`
       // already uses for its own sub-route of the identical pinned link.
-      pinnedItem={access === "granted" ? { to: "/owner", label: en.navPlatformSites, end: false } : undefined}
+      pinnedItem={access === "granted" ? { to: "/owner", label: strings.navPlatformSites, end: false } : undefined}
       credentialsArePublished={false}
       wide
       identity={
         <ShellIdentity operator={operatorDisplayName(user)} siteId={siteId} onSignOut={() => void logout()} />
       }
     >
-      {access === "unknown" && error === null && <Spinner label="Opening the platform price list…" />}
+      {access === "unknown" && error === null && <Spinner label={strings.ownerPricingOpeningLabel} />}
 
       {access === "refused" && (
         <>
-          <PageHead title="Price list" />
-          <Alert tone="danger" title="Not authorized">
-            This view is not available to you. The server refused the request, so no pricing was
-            loaded.
+          <PageHead title={strings.ownerPricingTitle} />
+          <Alert tone="danger" title={strings.ownerNotAuthorizedTitle}>
+            {strings.ownerPricingNotAuthorizedBody}
           </Alert>
         </>
       )}
 
       {error !== null && access !== "refused" && (
         <>
-          {access === "unknown" && <PageHead title="Price list" />}
+          {access === "unknown" && <PageHead title={strings.ownerPricingTitle} />}
           <Alert tone="danger">{error}</Alert>
         </>
       )}
@@ -197,19 +211,19 @@ export function OwnerPricingPage() {
       {access === "granted" && pricing !== null && (
         <>
           <PageHead
-            title="Price list"
-            description="Every currently-paid capability and its price, read from this deployment's own billing configuration - not retyped from anywhere else. Seats and other billing options below are still a read-only view of this deployment's own configuration; priced resources, further down, is the one section that can publish a new price."
+            title={strings.ownerPricingTitle}
+            description={strings.ownerPricingDescription}
           />
 
           <Panel
-            title="Seats"
+            title={strings.ownerPricingSeatsTitle}
             // `25-42`: states the real formula in prose, not just in the table - a base charge for
             // the first `baseSeats` seats, then a per-seat charge beyond that, so the reader has the
             // shape of the calculation even before looking at any one row's own total.
-            description={`Every site starts with ${pricing.seatPricing.freeSeatsIncluded} seats included, no charge. Buying more costs ₽${pricing.seatPricing.baseSeatPriceRub.toFixed(2)} for the first ${pricing.seatPricing.baseSeats} seats, then +₽${pricing.seatPricing.pricePerExtraSeatRub.toFixed(2)} per seat beyond that, billed every ${pricing.seatPricing.billingPeriodDays} days.`}
+            description={`${strings.ownerPricingSeatsDescPrefix}${pricing.seatPricing.freeSeatsIncluded}${strings.ownerPricingSeatsDescIncluded}${pricing.seatPricing.baseSeatPriceRub.toFixed(2)}${strings.ownerPricingSeatsDescForFirst}${pricing.seatPricing.baseSeats}${strings.ownerPricingSeatsDescSeatsThen}${pricing.seatPricing.pricePerExtraSeatRub.toFixed(2)}${strings.ownerPricingSeatsDescPerSeatBilled}${pricing.seatPricing.billingPeriodDays}${strings.ownerPricingSeatsDescDaysSuffix}`}
           >
             <Table
-              caption="Seat pricing by seat count"
+              caption={strings.ownerPricingSeatTableCaption}
               columns={tierColumns}
               rows={seatCountRows}
               rowKey={(row) => `${row.tierKey}-${row.seats}`}
@@ -217,22 +231,17 @@ export function OwnerPricingPage() {
           </Panel>
 
           <Panel
-            title="Other billing options"
-            description="Channel entitlements, AI add-ons, and storage pricing beyond the included allowance."
+            title={strings.ownerPricingBillingOptionsTitle}
+            description={strings.ownerPricingBillingOptionsDescription}
           >
             {pricing.billingOptions.length === 0 ? (
               // `25-20`'s own honest finding, rendered rather than hidden: this deployment has no
               // billing option configured at all, and even one that were would carry no price - see
               // this component's own remarks above for why that is not a gap in this screen.
-              <Alert tone="info">
-                No billing options are configured on this deployment yet. This deployment's own
-                configuration can declare what a billing option turns on (which module it enables),
-                but this codebase has no configuration for what any of them cost - that number, when
-                one exists, will appear here rather than being invented.
-              </Alert>
+              <Alert tone="info">{strings.ownerPricingNoBillingOptions}</Alert>
             ) : (
               <Table
-                caption="Other billing options and their prices"
+                caption={strings.ownerPricingBillingOptionsCaption}
                 columns={billingOptionColumns}
                 rows={pricing.billingOptions}
                 rowKey={(row) => row.optionKey}
@@ -241,8 +250,8 @@ export function OwnerPricingPage() {
           </Panel>
 
           <Panel
-            title="Priced resources"
-            description="Every price key the product has registered, and its own currently-effective Rouble figure. Publishing a new version here changes what the next charge for that key uses - it never touches a charge already in progress, and it never lets you invent a key that is not already in this list."
+            title={strings.ownerPricingResourcesTitle}
+            description={strings.ownerPricingResourcesDescription}
           >
             <div className="ago-stack">
               {pricing.pricedResources.map((resource) => (
@@ -251,6 +260,7 @@ export function OwnerPricingPage() {
                   resource={resource}
                   accessToken={accessToken}
                   onPublished={load}
+                  strings={strings}
                 />
               ))}
             </div>
@@ -265,6 +275,7 @@ interface PricedResourcePanelProps {
   resource: OwnerPricedResource;
   accessToken: string;
   onPublished: () => void;
+  strings: ConsoleStrings;
 }
 
 /**
@@ -274,8 +285,13 @@ interface PricedResourcePanelProps {
  * title/body pair). The form defaults closed once a version already exists, exactly like that
  * panel's own `formOpen`/`formVisible` split, for the identical reason: reading what is already
  * published should not require scrolling past an editable form aimed at replacing it.
+ *
+ * `25-89`: takes `strings` as a prop rather than calling `useStrings()` itself - this is a plain
+ * child component rendered inside the page's own JSX (not a route), so threading the value down
+ * once, the same way `resource`/`accessToken`/`onPublished` already arrive, avoids a second context
+ * read for a value the parent already resolved.
  */
-function PricedResourcePanel({ resource, accessToken, onPublished }: PricedResourcePanelProps) {
+function PricedResourcePanel({ resource, accessToken, onPublished, strings }: PricedResourcePanelProps) {
   const [formOpen, setFormOpen] = useState(false);
   const [draftAmount, setDraftAmount] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -293,7 +309,7 @@ function PricedResourcePanel({ resource, accessToken, onPublished }: PricedResou
 
     const amountRub = Number(draftAmount);
     if (draftAmount.trim().length === 0 || !Number.isFinite(amountRub) || amountRub < 0) {
-      setValidationError("Enter a Rouble amount of zero or more.");
+      setValidationError(strings.ownerPricingAmountInvalid);
       return;
     }
     setValidationError(null);
@@ -302,7 +318,7 @@ function PricedResourcePanel({ resource, accessToken, onPublished }: PricedResou
     try {
       const outcome = await publishPriceVersion(accessToken, resource.key, amountRub);
       if (outcome.status === "not-authorized") {
-        setSubmitError("This view is not available to you. The server refused the request.");
+        setSubmitError(strings.ownerPricingResourceNotAuthorized);
         return;
       }
       if (outcome.status === "invalid" || outcome.status === "conflict") {
@@ -318,7 +334,7 @@ function PricedResourcePanel({ resource, accessToken, onPublished }: PricedResou
       setFormOpen(false);
       onPublished();
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Failed to publish the price version.");
+      setSubmitError(err instanceof Error ? err.message : strings.ownerPricingPublishFailed);
     } finally {
       setSubmitting(false);
     }
@@ -328,20 +344,20 @@ function PricedResourcePanel({ resource, accessToken, onPublished }: PricedResou
     <Panel quiet title={resource.label}>
       <div className="ago-stack">
         <div>
-          <strong>Current price</strong>{" "}
+          <strong>{strings.ownerPricingCurrentPriceLabel}</strong>{" "}
           {hasCurrentVersion ? (
             `₽${resource.currentAmountRub.toFixed(2)} (${resource.currentVersion})`
           ) : (
             // `25-43`'s own second decision, rendered plainly rather than as an error: a registered
             // key with nothing published yet is the ordinary "built, not yet for sale" state.
-            "Not yet for sale - no version has been published for this key."
+            strings.ownerPricingNotYetForSale
           )}
         </div>
 
         {hasCurrentVersion && (
           <div>
             <Button type="button" variant="secondary" onClick={() => setFormOpen((open) => !open)}>
-              {formOpen ? "Cancel" : "Publish a new price"}
+              {formOpen ? strings.cancelButton : strings.ownerPricingPublishButton}
             </Button>
           </div>
         )}
@@ -356,11 +372,11 @@ function PricedResourcePanel({ resource, accessToken, onPublished }: PricedResou
          * a version) makes the gap real, found while writing this panel's own tests. */}
         {validationError && <Alert tone="danger">{validationError}</Alert>}
         {submitError && <Alert tone="danger">{submitError}</Alert>}
-        {saved && <Alert tone="success">The new price was published.</Alert>}
+        {saved && <Alert tone="success">{strings.ownerPricingPublished}</Alert>}
 
         {formVisible && (
           <form className="ago-stack" onSubmit={(e) => void handleSubmit(e)}>
-            <Field label="New price (₽)">
+            <Field label={strings.ownerPricingNewPriceLabel}>
               {(controlProps) => (
                 <Input
                   {...controlProps}
@@ -377,7 +393,7 @@ function PricedResourcePanel({ resource, accessToken, onPublished }: PricedResou
 
             <div className="ago-row">
               <Button type="submit" variant="primary" disabled={submitting}>
-                {submitting ? "Publishing…" : "Publish a new price"}
+                {submitting ? strings.ownerPricingPublishingLabel : strings.ownerPricingPublishButton}
               </Button>
             </div>
           </form>

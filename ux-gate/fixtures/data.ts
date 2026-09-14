@@ -10,7 +10,13 @@ export const SITE_ID = "11111111-1111-4111-8111-111111111111";
 // `11-16`: Cyrillic, not English - every free-text fixture value in this file is, so that any
 // Latin-script text a screen still renders is by construction interface chrome, not data
 // (`ux-gate/lib/i18nCompleteness.ts`'s own doc comment has the full reasoning).
-export const SITE_NAME = "Кофейня «У реки» (тестовые данные ux-gate)";
+// `25-89`: the parenthetical annotation used to read "(тестовые данные ux-gate)" - a Latin "ux-gate"
+// literally inside the one value this rule requires to be pure Cyrillic, found only once `owner-sites`
+// (the first gated screen to render `site.name` as plain visible text rather than through `.ago-mono`)
+// stopped being exempted from the assertion this comment's own reasoning backs. Not a data problem -
+// no real tenant name would ever contain this repository's own test-tooling name - so the fix is the
+// annotation's own wording, not a new exemption.
+export const SITE_NAME = "Кофейня «У реки» (тестовые данные проверки интерфейса)";
 export const OPERATOR_ID = "22222222-2222-4222-8222-222222222222";
 export const OPERATOR_SUB = "33333333-3333-4333-8333-333333333333";
 export const VISITOR_ID = "44444444-4444-4444-8444-444444444444";

@@ -16,30 +16,38 @@ import type { ConsoleStrings } from "./strings.js";
  * is exactly what this gives it, rather than threading every one of `ConsoleStrings`' fields through
  * as individual props.
  *
- * The one provider that resolves a *tenant's* locale is `OperatorShell`. `OwnerSitesPage` is the one
- * page that deliberately never provides one at all (`11-11`'s own settled call, restated in that
- * page's own doc comment: `/owner` is not scoped to one tenant, so it always falls through to this
- * bare `en` default, on purpose, forever).
+ * The one provider that resolves a *tenant's* locale is `OperatorShell`. `OwnerSitesPage` **used to
+ * be** the one page that deliberately never provided one at all (`11-11`'s own settled call,
+ * restated for years in that page's own doc comment: "`/owner` is not scoped to one tenant, so it
+ * always falls through to this bare `en` default, on purpose, forever"). `25-89` supersedes that: the
+ * five `/owner/*` routes (`OwnerSitesPage` and its four siblings) now wrap themselves in
+ * `OwnerStringsProvider` (`OwnerStringsProvider.tsx`, used from `App.tsx`'s five route elements),
+ * the identical shape the next paragraph describes for the four pre-session pages - see that file's
+ * own doc comment for why it is not simply `PreSessionStringsProvider` reused under `/owner`'s call
+ * sites, and `docs/backlog/25-89-*.md` for why this was not done by widening the bare default below
+ * instead (`25-88`'s own investigation into exactly that found 562 test failures across 69 files).
  *
- * `23-28`: **the four pre-session pages are a third case, not the same as `/owner`'s.** Before this
+ * `23-28`: **the four pre-session pages are a third case, not the same as `/owner`'s.** Before that
  * item they also fell through to this bare default - the doc comment here used to call that "the
  * correct behaviour, not a gap", reasoning that there is no tenant whose language they could follow.
  * The author's answer (`docs/backlog/23-28-*.md`, 2026-09-05) rejects that premise rather than the
  * conclusion: a locale does not have to be *derived* from a tenant to be chosen - for a product
  * selling to Russian shops, Russian is the correct default for "nobody has told us yet", not a guess
- * standing in for a missing signal. So `/callback`, `/signup`, `/onboarding` and `/redeem-invite` now
- * wrap themselves in `PreSessionStringsProvider` (`PreSessionStringsProvider.tsx`, used from
- * `App.tsx`'s four route elements) rather than relying on this bare default - kept in its own file
- * rather than beside `useStrings()` here purely because `react-refresh/only-export-components` flags
- * a file that exports both a component and a hook once it holds more than one component's worth of
- * reason to exist; nothing about the split changes which file owns the *decision*, which is this one
- * - the bare `en` below stays exactly what it was for every other caller (`/owner`'s permanent
- * English, and the safety net for a route this file's own author has not yet wired to either
- * provider), and is deliberately *not* changed to `ru` itself: doing that would silently widen
- * `/owner` into Russian too the moment its own signed-in identity's tenancy happens to be one, which
- * is precisely the "must not quietly widen itself" trap the backlog item warns against - `/owner`'s
- * English has to keep coming from a fact about `/owner`, not from every unwired route happening to
- * agree with it today.
+ * standing in for a missing signal. So `/callback`, `/signup`, `/onboarding` and `/redeem-invite` wrap
+ * themselves in `PreSessionStringsProvider` (`PreSessionStringsProvider.tsx`, used from `App.tsx`'s
+ * four route elements) rather than relying on this bare default - kept in its own file rather than
+ * beside `useStrings()` here purely because `react-refresh/only-export-components` flags a file that
+ * exports both a component and a hook once it holds more than one component's worth of reason to
+ * exist; nothing about the split changes which file owns the *decision*, which is this one.
+ *
+ * **The bare `en` below is now only a safety net, never a page's own permanent answer** - a route
+ * nobody has wired to either provider yet, and (deliberately, `OwnerSitesPage.test.tsx`'s and its
+ * siblings' own convention) a component-level test that mounts an owner page directly, outside
+ * `App.tsx`'s own tree, to exercise it in isolation. It is deliberately *not* changed to `ru` itself:
+ * doing that would silently widen every such unwired route or bare test into Russian by way of a
+ * context default nobody chose for it, rather than an explicit provider naming the decision - the
+ * same "must not quietly widen itself" trap `23-28`'s own backlog item warned against, now guarding
+ * two providers' worth of callers instead of one.
  *
  * `23-97`: `StringsProvider` (the `.Provider` alias) moved out to `StringsProvider.tsx` - not
  * `useStrings()`. `eslint-plugin-react-refresh` 0.5.6 started flagging this file for exporting a
