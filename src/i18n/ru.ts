@@ -806,8 +806,36 @@ export const ru: ConsoleStrings = {
 
   billingPanelTitle: "Подписка",
   billingTierLabel: "Тариф",
-  billingSeatsUsedLabel: "Занято мест",
-  billingSeatLimitLabel: "Лимит мест",
+  billingSeatsUsedLabel: "Занято",
+  billingSeatLimitLabel: "Лимит",
+
+  billingOperatorSeatsHeading: "Операторские места",
+  billingAdminSeatsHeading: "Места администраторов",
+  billingAdminSeatsNote: "Администраторы считаются отдельно от операторских мест.",
+
+  billingFreeSeatsIncludedLabel: "Бесплатно включено в Solo",
+  billingAdminsIncludedLabel: "Включено в тариф",
+  billingAdminsPurchasedLabel: "Докуплено сверх тарифа",
+  billingAdminExtraPriceLabel: "Цена дополнительного администратора",
+  billingAdminExtraNotPriced: "пока не продаётся",
+
+  billingPurchasableSeatsLabel: "Можно купить на Business",
+  billingBaseSeatPriceLabel: "Базовая цена",
+  billingBaseSeatsCoveredLabel: "Мест в базовой цене",
+  billingExtraSeatPriceLabel: "Каждое место сверх них",
+  billingBillingPeriodDaysLabel: "Списание раз в, дней",
+
+  billingCurrentSeatCountLabel: "Мест сейчас",
+  billingAddSeatsHeading: "Добавить операторов",
+  billingAddSeatsFieldLabel: "Сколько добавить",
+  billingNewSeatCountLabel: "Станет мест после покупки",
+  billingAddSeatsButton: "Добавить",
+  billingSeatMaximumReached: "У вас уже максимальное количество мест, доступное без отдельного обсуждения.",
+  billingAddSeatsStartsCheckout:
+    "Добавление операторов сверх бесплатных переводит сайт на тариф Business. Кнопка открывает " +
+    "оплату в ЮKassa — места появятся после подтверждения платежа, а не по одному возврату со " +
+    "страницы оплаты.",
+  billingSeatCountOutOfRange: "Итоговое количество мест должно быть в диапазоне",
 
   billingPendingTitle: "Подтверждение платежа",
   billingPendingBody:
@@ -825,11 +853,7 @@ export const ru: ConsoleStrings = {
   billingPendingDowngradeTitle: "Изменение мест запланировано",
   billingPendingDowngradeBody: "При следующем продлении количество мест изменится на",
 
-  billingSeatCountFieldLabel: "Количество мест",
-  billingSeatCountFieldDescription: "От 2 до 100 мест. Точный ценовой диапазон подтверждается сервером.",
-  billingSubscribeButton: "Оформить подписку",
   billingSubscribingButton: "Переход в ЮKassa…",
-  billingChangeSeatsButton: "Изменить количество мест",
   billingChangingSeatsButton: "Отправка…",
   billingCheckoutError: "Не удалось начать оформление.",
   billingSeatChangeError: "Не удалось изменить количество мест.",

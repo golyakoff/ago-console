@@ -12,7 +12,7 @@ import {
 import { checkCheckoutConfirmation } from "../billing/checkoutConfirmation.js";
 import type { CheckoutConfirmationOutcome } from "../billing/checkoutConfirmation.js";
 import { usePollUntilCheckoutSettled } from "../billing/usePollUntilCheckoutSettled.js";
-import { isValidSeatCount, MAX_SEATS, MIN_SEATS } from "./billingValidation.js";
+import { isValidSeatCount } from "./billingValidation.js";
 import { formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
 import { PageHead } from "../shell/AppShell.js";
 import { AccessRefusal } from "../shell/accessRefusal.js";
@@ -35,7 +35,20 @@ export const BILLING_PERMISSION = "site:configure";
 
 const CHECKOUT_POLL_INTERVAL_MS = 3_000;
 
+/** `25-23`: the stepper's own floor. One is the smallest purchase that means anything, and the
+ * control starts there rather than at the site's current seat count - the whole point of the change
+ * from a direct-edit field is that the number being typed is a *quantity being bought*, not a total
+ * being overwritten. */
+const MIN_SEATS_TO_ADD = 1;
+
 type SeatChangeSuccess = { amountRub: number; tier: string; seats: number };
+
+/** `25-23`: `₽NNN.00`, the identical formatting `OwnerPricingPage` already uses for the same
+ * catalog-sourced amounts - so a price shown to a tenant here and to the owner there cannot render
+ * differently from one another. */
+function rub(amount: number): string {
+  return `₽${amount.toFixed(2)}`;
+}
 
 /**
  * `13-04`: `/settings/billing` - current tier, seats used vs. seat limit, and the full subscription
@@ -59,6 +72,41 @@ type SeatChangeSuccess = { amountRub: number; tier: string; seats: number };
  * synchronous write, `ago-chat`'s own `13-03` implementation), so this screen simply refetches status
  * after each and renders whatever comes back - the identical "never render success before the server
  * says so" discipline, just without a webhook in the loop to wait for.
+ *
+ * ## `25-23`: catching up to the Solo/Business grid
+ *
+ * This screen predated the tariff grid `ago-business` decisions `0011`/`0012` settled and showed
+ * three things that were wrong about it. It rendered `status.tier` raw - the server's own enum
+ * value, so a free site read "free" where the grid says **Solo**. It showed one undifferentiated
+ * "Лимит мест", although `0011` counts Administrators separately from Operator seats against a limit
+ * of their own. And its seat-count description hand-typed "От 2 до 100 мест" while
+ * `SubscriptionTierBands.MaxSeats` is **5** - so the console advertised, and its own
+ * `billingValidation.ts` locally accepted, seat counts `TryResolveTier` refuses outright.
+ *
+ * All three are now server facts: `tierDisplayName` (mapped server-side, `BillingStatusDto`'s own C#
+ * remarks say why there), `adminLimit`/`adminsUsed`/`extraAdministratorsPurchased`, and the whole of
+ * `seatPricing`. **Nothing on this screen is a second copy of the grid any more** - `25-20`'s
+ * "sourced, not retyped" discipline, which is the only thing that would have caught the 100-vs-5
+ * drift.
+ *
+ * ### The seat control: a quantity to add, not a total to overwrite
+ *
+ * The direct-edit field is gone. It let an owner type an absolute seat total over their current one,
+ * which reads as "set my seats to N" and never says what is being *bought*; in its place is the
+ * read-only current count plus an add-this-many spinner and one **Добавить** button, the
+ * e-commerce quantity-plus-add shape the author asked for.
+ *
+ * **That button is wired to the real purchase path, not left a stub, and `25-23`'s own Scope asked
+ * for a stub.** The Scope's reason was that "there is no ЮKassa integration yet (`23-86` is that
+ * gap)"; re-checked against `ago-chat` on 2026-09-14, that premise no longer holds - ЮKassa is real
+ * (`Ago.Chat.Infrastructure.YooKassa`, a signature-verified webhook, a stored payment method),
+ * `23-86` is closed as done and was about the option-to-entitlement mapping rather than about
+ * payments at all, and this very screen has been calling `createCheckoutSession`/
+ * `changeSubscriptionSeats` in production since `13-02`/`13-03`. Replacing two working calls with a
+ * deliberate no-op would have deleted shipped capability and left a button that lies in the other
+ * direction. So the shape changed and the wiring did not: the same two endpoints, called with
+ * `seatLimit + seatsToAdd` instead of a typed absolute, and `billingAddSeatsStartsCheckout` saying
+ * out loud when pressing it will open ЮKassa.
  */
 export function BillingPage() {
   const { user } = useAuth();
@@ -69,9 +117,12 @@ export function BillingPage() {
   const [status, setStatus] = useState<BillingStatusDto | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [seatCountInput, setSeatCountInput] = useState(MIN_SEATS);
-  const [seatCountTouched, setSeatCountTouched] = useState(false);
-  const [validationError, setValidationError] = useState<string | null>(null);
+  // `25-23`: a quantity, so it has one fixed starting value and needs no seeding from the server at
+  // all. The `prevSeedInputs` render-phase adjustment this component used to carry (re-seeding an
+  // absolute seat field from `latestSubscription.requestedSeats` on every fresh status, but only
+  // until the operator touched it) is deleted with the field it existed for - a background refresh
+  // can no longer overwrite a half-typed total, because there is no total being typed.
+  const [seatsToAdd, setSeatsToAdd] = useState(MIN_SEATS_TO_ADD);
 
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -106,22 +157,6 @@ export function BillingPage() {
     load();
   }, [load, hasPermission]);
 
-  // Seeds the seat-count input from the currently-active subscription (or `MIN_SEATS` for a free
-  // site with none) every time a fresh `status` arrives - but only until the operator actually types
-  // in the field, so a background refresh (the checkout poll, a post-write reload) never overwrites
-  // input they are mid-edit on.
-  // `23-96`: adjusted during render, not in an effect - `react-hooks/set-state-in-effect` (v7) flags a
-  // synchronous `setState` in an effect body; comparing against the previous inputs here
-  // (react.dev/learn/you-might-not-need-an-effect, "Adjusting some state when a prop changes")
-  // re-seeds on the same render `status`/`seatCountTouched` change, mirroring the old effect exactly.
-  const [prevSeedInputs, setPrevSeedInputs] = useState({ status, seatCountTouched });
-  if (status !== prevSeedInputs.status || seatCountTouched !== prevSeedInputs.seatCountTouched) {
-    setPrevSeedInputs({ status, seatCountTouched });
-    if (status && !seatCountTouched) {
-      setSeatCountInput(status.latestSubscription?.requestedSeats ?? MIN_SEATS);
-    }
-  }
-
   const sub = status?.latestSubscription ?? null;
   const isPending = sub?.status === "Pending";
 
@@ -147,25 +182,42 @@ export function BillingPage() {
     return <AccessRefusal title={strings.billingTitle} message={strings.billingForbidden} strings={strings} />;
   }
 
-  const validateSeatCount = (): boolean => {
-    if (!isValidSeatCount(seatCountInput)) {
-      setValidationError(strings.billingSeatCountFieldDescription);
-      return false;
-    }
-    setValidationError(null);
-    return true;
-  };
+  const pricing = status?.seatPricing ?? null;
+  // `25-23`: what the purchase actually asks for. Both endpoints below take an absolute seat total
+  // (`CreateCheckoutSessionRequest.RequestedSeats`/`ChangeSubscriptionSeatsRequest.RequestedSeats`),
+  // so the quantity the owner chose is added to the seat count the *server* last reported - never to
+  // a number this screen was holding on to.
+  const seatsAfterPurchase = status === null ? 0 : status.seatLimit + seatsToAdd;
+  const atSeatMaximum = status !== null && pricing !== null && status.seatLimit >= pricing.maxSeats;
+  const seatsAddable = status !== null && pricing !== null ? pricing.maxSeats - status.seatLimit : 0;
+
+  // `25-23`: derived during render, not kept in a second state variable synced by a submit handler.
+  // The old field validated only on submit, which is why it could sit showing a stale error (or
+  // none) while the value under it changed; this is the "you might not need an effect" shape the
+  // seeding block above was already rewritten into by `23-96`, applied to the error too. The
+  // practical consequence is that an over-range quantity says so the moment it is typed rather than
+  // after a round trip - and the browser's own `min`/`max` constraint validation on the input below
+  // independently refuses to submit it, so the message is what explains a refusal rather than being
+  // the only thing preventing one.
+  const seatCountError =
+    pricing !== null && seatsToAdd >= MIN_SEATS_TO_ADD && !isValidSeatCount(seatsAfterPurchase, pricing.minSeats, pricing.maxSeats)
+      ? `${strings.billingSeatCountOutOfRange} ${pricing.minSeats}-${pricing.maxSeats}.`
+      : null;
+  // A quantity below one buys nothing, so it is refused without a message of its own - the spinner's
+  // own floor already says what the minimum is, and an error explaining "1 is the smallest number of
+  // seats you can add" tells a reader nothing the control did not.
+  const canSubmitPurchase = pricing !== null && seatsToAdd >= MIN_SEATS_TO_ADD && seatCountError === null;
 
   const handleCheckoutSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!validateSeatCount() || !accessToken || !siteId) {
+    if (!canSubmitPurchase || !accessToken || !siteId) {
       return;
     }
 
     setCheckoutSubmitting(true);
     setCheckoutError(null);
     try {
-      const { confirmationUrl } = await createCheckoutSession(accessToken, siteId, seatCountInput);
+      const { confirmationUrl } = await createCheckoutSession(accessToken, siteId, seatsAfterPurchase);
       // A real, full-page navigation to ЮKassa's hosted checkout - not an in-app state change. The
       // component unmounts here on success; `checkoutSubmitting` is only ever reset on the failure
       // path below.
@@ -178,7 +230,7 @@ export function BillingPage() {
 
   const handleSeatChangeSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!validateSeatCount() || !accessToken || !siteId || !sub) {
+    if (!canSubmitPurchase || !accessToken || !siteId || !sub) {
       return;
     }
 
@@ -186,13 +238,13 @@ export function BillingPage() {
     setSeatChangeError(null);
     setSeatChangeSuccess(null);
     try {
-      const response = await changeSubscriptionSeats(accessToken, siteId, sub.subscriptionId, seatCountInput);
+      const response = await changeSubscriptionSeats(accessToken, siteId, sub.subscriptionId, seatsAfterPurchase);
       if ("proratedAmountRub" in response) {
         setSeatChangeSuccess({ amountRub: response.proratedAmountRub, tier: response.newTier, seats: response.newSeatCount });
       }
-      // A downgrade needs no one-off toast - `load()` below refreshes `latestSubscription`, and the
-      // `pendingSeatCount`/`pendingTier` it now carries renders through the persistent
-      // `billingPendingDowngradeBody` block already in this screen, not a second, redundant message.
+      // `25-23`: back to one, so the control never invites the same purchase twice by still showing
+      // the quantity that was just bought.
+      setSeatsToAdd(MIN_SEATS_TO_ADD);
       load();
     } catch (err) {
       setSeatChangeError(err instanceof ApiProblemError ? err.message : strings.billingSeatChangeError);
@@ -230,22 +282,21 @@ export function BillingPage() {
 
       {loadError && <Alert tone="danger">{loadError}</Alert>}
 
-      {status === null && !loadError ? (
-        <Panel>
-          <Skeleton lines={3} label={strings.billingLoadingLabel} />
-        </Panel>
-      ) : status === null ? null : (
+      {status === null || pricing === null ? (
+        loadError ? null : (
+          <Panel>
+            <Skeleton lines={3} label={strings.billingLoadingLabel} />
+          </Panel>
+        )
+      ) : (
         <div className="ago-stack">
           <Panel title={strings.billingPanelTitle}>
             <div className="ago-stack">
               <p>
-                <strong>{strings.billingTierLabel}:</strong> {status.tier}
-              </p>
-              <p>
-                <strong>{strings.billingSeatsUsedLabel}:</strong> {status.seatsUsed}
-              </p>
-              <p>
-                <strong>{strings.billingSeatLimitLabel}:</strong> {status.seatLimit}
+                {/* `25-23`: the grid's own name for this tier, resolved server-side - never
+                    `status.tier`, which is the raw enum value ("free"/"starter") the wire carries
+                    for whatever already reads it literally. */}
+                <strong>{strings.billingTierLabel}:</strong> {status.tierDisplayName}
               </p>
 
               {isPending && (
@@ -276,56 +327,125 @@ export function BillingPage() {
             </div>
           </Panel>
 
-          {/* Upgrade-or-subscribe form: no active paid subscription (never checked out, or the last
-              attempt lapsed/failed) starts a brand-new checkout. An active `Succeeded` subscription
-              changes its own seat count instead - `13-03`'s single endpoint handles both an immediate
-              charged increase and a deferred, uncharged decrease, told apart entirely by comparing the
-              new count against the current one (`ChangeSubscriptionSeatsHandler`'s own remarks), so
-              this screen needs only one form for both directions. */}
+          {/* `25-23`: Operator seats and Administrator seats as two blocks against two limits -
+              `ago-business 0011`'s own separation, which the single "Лимит мест" line this replaced
+              collapsed. Each names its free allowance apart from what is bought beyond it. */}
+          <Panel title={strings.billingOperatorSeatsHeading}>
+            <div className="ago-stack">
+              <p>
+                <strong>{strings.billingSeatsUsedLabel}:</strong> {status.seatsUsed}
+              </p>
+              <p>
+                <strong>{strings.billingSeatLimitLabel}:</strong> {status.seatLimit}
+              </p>
+              <p>
+                <strong>{strings.billingFreeSeatsIncludedLabel}:</strong> {pricing.freeSeatsIncluded}
+              </p>
+              <p>
+                <strong>{strings.billingPurchasableSeatsLabel}:</strong> {pricing.minSeats}-{pricing.maxSeats}
+              </p>
+              <p>
+                <strong>{strings.billingBaseSeatPriceLabel}:</strong> {rub(pricing.baseSeatPriceRub)}
+              </p>
+              <p>
+                <strong>{strings.billingBaseSeatsCoveredLabel}:</strong> {pricing.baseSeats}
+              </p>
+              <p>
+                <strong>{strings.billingExtraSeatPriceLabel}:</strong> {rub(pricing.pricePerExtraSeatRub)}
+              </p>
+              <p>
+                <strong>{strings.billingBillingPeriodDaysLabel}:</strong> {pricing.billingPeriodDays}
+              </p>
+            </div>
+          </Panel>
+
+          <Panel title={strings.billingAdminSeatsHeading} description={strings.billingAdminSeatsNote}>
+            <div className="ago-stack">
+              <p>
+                <strong>{strings.billingSeatsUsedLabel}:</strong> {status.adminsUsed}
+              </p>
+              <p>
+                <strong>{strings.billingSeatLimitLabel}:</strong> {status.adminLimit}
+              </p>
+              <p>
+                {/* `Site.ActivateSubscription` builds `AdminLimit` as exactly
+                    `ResolveAdminLimit(tier) + ExtraAdministratorsPurchased`, so this difference is
+                    that first term rather than an estimate of it - and the second term below is the
+                    persisted field itself (`25-41`), never inferred. */}
+                <strong>{strings.billingAdminsIncludedLabel}:</strong> {status.adminLimit - status.extraAdministratorsPurchased}
+              </p>
+              <p>
+                <strong>{strings.billingAdminsPurchasedLabel}:</strong> {status.extraAdministratorsPurchased}
+              </p>
+              <p>
+                <strong>{strings.billingAdminExtraPriceLabel}:</strong>{" "}
+                {status.adminExtraPriceRub === null ? strings.billingAdminExtraNotPriced : rub(status.adminExtraPriceRub)}
+              </p>
+            </div>
+          </Panel>
+
+          {/* `25-23`: one control for both directions of the same purchase - a site with no active
+              paid subscription starts a checkout, one with a `Succeeded` subscription changes its
+              seat count in place. Both take the same absolute total, so the stepper's quantity is
+              the only thing that differs between them. Withheld while a payment is still pending or
+              retrying, exactly as the field it replaced was. */}
           {!isPending && sub?.status !== "PastDue" && (
-            <Panel title={sub?.status === "Succeeded" ? strings.billingChangeSeatsButton : strings.billingSubscribeButton}>
-              <form
-                className="ago-stack"
-                onSubmit={(e) => void (sub?.status === "Succeeded" ? handleSeatChangeSubmit(e) : handleCheckoutSubmit(e))}
-              >
-                <Field label={strings.billingSeatCountFieldLabel} description={strings.billingSeatCountFieldDescription} error={validationError}>
-                  {(controlProps) => (
-                    <Input
-                      {...controlProps}
-                      type="number"
-                      min={MIN_SEATS}
-                      max={MAX_SEATS}
-                      value={seatCountInput}
-                      onChange={(e) => {
-                        setSeatCountTouched(true);
-                        setSeatCountInput(Number(e.target.value));
-                      }}
-                      disabled={checkoutSubmitting || seatChangeSubmitting}
-                    />
-                  )}
-                </Field>
+            <Panel title={strings.billingAddSeatsHeading}>
+              {atSeatMaximum ? (
+                <p>{strings.billingSeatMaximumReached}</p>
+              ) : (
+                <form
+                  className="ago-stack"
+                  onSubmit={(e) => void (sub?.status === "Succeeded" ? handleSeatChangeSubmit(e) : handleCheckoutSubmit(e))}
+                >
+                  <p>
+                    {/* The read-only half of the control `25-23` asked for: what you have now is
+                        stated, not offered as something to overwrite. */}
+                    <strong>{strings.billingCurrentSeatCountLabel}:</strong> {status.seatLimit}
+                  </p>
 
-                {checkoutError && <Alert tone="danger">{checkoutError}</Alert>}
-                {seatChangeError && <Alert tone="danger">{seatChangeError}</Alert>}
-                {seatChangeSuccess && (
-                  <Alert tone="success" title={strings.billingUpgradeSuccessTitle}>
-                    {strings.billingUpgradeSuccessBody} ₽{seatChangeSuccess.amountRub.toFixed(2)} · {seatChangeSuccess.tier},{" "}
-                    {seatChangeSuccess.seats}.
-                  </Alert>
-                )}
+                  <Field
+                    label={strings.billingAddSeatsFieldLabel}
+                    description={`${strings.billingNewSeatCountLabel}: ${seatsAfterPurchase}`}
+                    error={seatCountError}
+                  >
+                    {(controlProps) => (
+                      <Input
+                        {...controlProps}
+                        type="number"
+                        min={MIN_SEATS_TO_ADD}
+                        max={seatsAddable}
+                        value={seatsToAdd}
+                        onChange={(e) => setSeatsToAdd(Number(e.target.value))}
+                        disabled={checkoutSubmitting || seatChangeSubmitting}
+                      />
+                    )}
+                  </Field>
 
-                <div className="ago-row">
-                  {sub?.status === "Succeeded" ? (
-                    <Button type="submit" variant="primary" disabled={seatChangeSubmitting}>
-                      {seatChangeSubmitting ? strings.billingChangingSeatsButton : strings.billingChangeSeatsButton}
-                    </Button>
-                  ) : (
-                    <Button type="submit" variant="primary" disabled={checkoutSubmitting}>
-                      {checkoutSubmitting ? strings.billingSubscribingButton : strings.billingSubscribeButton}
-                    </Button>
+                  {sub?.status !== "Succeeded" && <p>{strings.billingAddSeatsStartsCheckout}</p>}
+
+                  {checkoutError && <Alert tone="danger">{checkoutError}</Alert>}
+                  {seatChangeError && <Alert tone="danger">{seatChangeError}</Alert>}
+                  {seatChangeSuccess && (
+                    <Alert tone="success" title={strings.billingUpgradeSuccessTitle}>
+                      {strings.billingUpgradeSuccessBody} ₽{seatChangeSuccess.amountRub.toFixed(2)} · {seatChangeSuccess.tier},{" "}
+                      {seatChangeSuccess.seats}.
+                    </Alert>
                   )}
-                </div>
-              </form>
+
+                  <div className="ago-row">
+                    {sub?.status === "Succeeded" ? (
+                      <Button type="submit" variant="primary" disabled={seatChangeSubmitting || !canSubmitPurchase}>
+                        {seatChangeSubmitting ? strings.billingChangingSeatsButton : strings.billingAddSeatsButton}
+                      </Button>
+                    ) : (
+                      <Button type="submit" variant="primary" disabled={checkoutSubmitting || !canSubmitPurchase}>
+                        {checkoutSubmitting ? strings.billingSubscribingButton : strings.billingAddSeatsButton}
+                      </Button>
+                    )}
+                  </div>
+                </form>
+              )}
             </Panel>
           )}
 

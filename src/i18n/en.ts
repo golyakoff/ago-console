@@ -806,8 +806,36 @@ export const en: ConsoleStrings = {
 
   billingPanelTitle: "Subscription",
   billingTierLabel: "Tier",
-  billingSeatsUsedLabel: "Seats used",
-  billingSeatLimitLabel: "Seat limit",
+  billingSeatsUsedLabel: "In use",
+  billingSeatLimitLabel: "Limit",
+
+  billingOperatorSeatsHeading: "Operator seats",
+  billingAdminSeatsHeading: "Administrator seats",
+  billingAdminSeatsNote: "Administrators are counted separately from Operator seats.",
+
+  billingFreeSeatsIncludedLabel: "Included free on Solo",
+  billingAdminsIncludedLabel: "Included in the tier",
+  billingAdminsPurchasedLabel: "Purchased beyond the tier",
+  billingAdminExtraPriceLabel: "Price per extra Administrator",
+  billingAdminExtraNotPriced: "not on sale yet",
+
+  billingPurchasableSeatsLabel: "Purchasable on Business",
+  billingBaseSeatPriceLabel: "Base price",
+  billingBaseSeatsCoveredLabel: "Seats covered by the base price",
+  billingExtraSeatPriceLabel: "Each seat beyond those",
+  billingBillingPeriodDaysLabel: "Charged every, days",
+
+  billingCurrentSeatCountLabel: "Seats you have now",
+  billingAddSeatsHeading: "Add operators",
+  billingAddSeatsFieldLabel: "How many to add",
+  billingNewSeatCountLabel: "Seats after this purchase",
+  billingAddSeatsButton: "Add",
+  billingSeatMaximumReached: "You already hold the largest seat count sold without a conversation.",
+  billingAddSeatsStartsCheckout:
+    "Adding operators beyond the free allowance moves this site onto Business. The button opens " +
+    "ЮKassa's hosted checkout - the seats appear once the payment is confirmed, never on the " +
+    "redirect alone.",
+  billingSeatCountOutOfRange: "The resulting seat count has to be within",
 
   billingPendingTitle: "Confirming payment",
   billingPendingBody:
@@ -825,11 +853,7 @@ export const en: ConsoleStrings = {
   billingPendingDowngradeTitle: "Seat change scheduled",
   billingPendingDowngradeBody: "At your next renewal your seat count will change to",
 
-  billingSeatCountFieldLabel: "Seat count",
-  billingSeatCountFieldDescription: "2-100 seats. The exact price band is confirmed by the server.",
-  billingSubscribeButton: "Subscribe",
   billingSubscribingButton: "Redirecting to ЮKassa…",
-  billingChangeSeatsButton: "Change seat count",
   billingChangingSeatsButton: "Submitting…",
   billingCheckoutError: "Failed to start checkout.",
   billingSeatChangeError: "Failed to change the seat count.",
