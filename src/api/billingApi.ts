@@ -109,6 +109,18 @@ export interface CancelSubscriptionResponseDto {
   paidThroughUntil: string | null;
 }
 
+/**
+ * `25-41`'s own `PurchaseAdministratorSlot.PurchaseAdministratorSlotResult` wire shape - unlike
+ * `ChangeSubscriptionSeatsResponseDto` above, this is a single record, never a discriminated union:
+ * `PurchaseAdministratorSlotHandler`'s own remarks say this endpoint is *only ever* an immediate,
+ * charged increase (no deferred-downgrade branch exists for Administrator slots at all), so
+ * `proratedAmountRub` is always present.
+ */
+export interface PurchaseAdministratorSlotResponseDto {
+  proratedAmountRub: number;
+  newExtraAdministratorCount: number;
+}
+
 async function billingFetch<T>(accessToken: string, path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${config.apiBaseUrl}${path}`, {
     ...init,
@@ -165,6 +177,24 @@ export function cancelSubscription(
     accessToken,
     `/api/v1/sites/${siteId}/billing/subscriptions/${subscriptionId}/cancel`,
     { method: "POST" },
+  );
+}
+
+/** `25-41`'s own endpoint - `POST .../billing/subscriptions/{id}/administrators`, `BillingEndpoints`'s
+ * `PurchaseAdministratorSlotRequest(int RequestedExtraAdministrators)`. Same "absolute count, not a
+ * delta" contract `changeSubscriptionSeats` above uses for `requestedSeats`: the caller adds the
+ * quantity chosen to `status.extraAdministratorsPurchased` before calling this, the identical shape
+ * `BillingPage`'s existing seat-purchase call already follows for `seatLimit`. */
+export function purchaseAdministratorSlot(
+  accessToken: string,
+  siteId: string,
+  subscriptionId: string,
+  requestedExtraAdministrators: number,
+): Promise<PurchaseAdministratorSlotResponseDto> {
+  return billingFetch<PurchaseAdministratorSlotResponseDto>(
+    accessToken,
+    `/api/v1/sites/${siteId}/billing/subscriptions/${subscriptionId}/administrators`,
+    { method: "POST", body: JSON.stringify({ requestedExtraAdministrators }) },
   );
 }
 
