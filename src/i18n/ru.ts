@@ -841,6 +841,21 @@ export const ru: ConsoleStrings = {
     "страницы оплаты.",
   billingSeatCountOutOfRange: "Итоговое количество мест должно быть в диапазоне",
 
+  billingCurrentAdminCountLabel: "Докуплено администраторов сейчас",
+  billingAddAdminSeatsHeading: "Докупить администраторов",
+  billingAddAdminSeatsFieldLabel: "Сколько добавить",
+  billingNewAdminCountLabel: "Станет докупленных администраторов после покупки",
+  billingAddAdminSeatsButton: "Докупить администраторов",
+  billingAddAdminSeatsChargesImmediately: "Списание с сохранённого способа оплаты произойдёт сразу — без перехода в ЮKassa.",
+  billingAddAdminSeatsNotForSale: "Дополнительные администраторы пока не продаются.",
+  billingAddAdminSeatsNeedsSubscription:
+    "Для покупки дополнительных администраторов нужна активная платная подписка. Сначала добавьте " +
+    "операторов выше, чтобы её оформить, а затем здесь можно будет докупить администраторов.",
+  billingAdminPurchaseSubmittingButton: "Отправка…",
+  billingAdminPurchaseError: "Не удалось докупить администраторов.",
+  billingAdminPurchaseSuccessTitle: "Куплено",
+  billingAdminPurchaseSuccessBody: "Списано",
+
   billingPendingTitle: "Подтверждение платежа",
   billingPendingBody:
     "Платёж отправлен в ЮKassa и ожидает подтверждения. Эта страница обновится автоматически, как " +

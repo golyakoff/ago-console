@@ -37,6 +37,7 @@ const billingApi = vi.hoisted(() => ({
   createCheckoutSession: vi.fn(),
   changeSubscriptionSeats: vi.fn(),
   cancelSubscription: vi.fn(),
+  purchaseAdministratorSlot: vi.fn(),
 }));
 
 vi.mock("../api/operatorsApi.js", async () => {
@@ -426,6 +427,89 @@ describe("adding seats to an active (Succeeded) subscription", () => {
     expect(container.textContent).toContain("Seat change scheduled");
     expect(container.textContent).toContain("3");
     expect(container.textContent).toContain("starter");
+  });
+});
+
+/** `25-96`: the Administrator-seat purchase control this screen was missing entirely before this
+ * item - `25-41`'s own endpoint existed and was tested on the `ago-chat` side, but nothing in the
+ * console called it. */
+describe("purchasing extra Administrator seats", () => {
+  it("buys the quantity chosen on top of the current extra-Administrator count, charging immediately - no ЮKassa redirect", async () => {
+    billingApi.fetchBillingStatus.mockResolvedValue(
+      businessStatus({ extraAdministratorsPurchased: 1, adminLimit: 3, adminsUsed: 2, adminExtraPriceRub: 500 }),
+    );
+    billingApi.purchaseAdministratorSlot.mockResolvedValue({ proratedAmountRub: 250, newExtraAdministratorCount: 3 });
+
+    const container = await render(page());
+    const panel = panelTitled(container, "Add administrators");
+    const addInput = one<HTMLInputElement>(panel, "input[type=number]");
+    const button = byText<HTMLButtonElement>(panel, "button", "Add administrators");
+    if (button === null) {
+      throw new Error("no Add administrators button rendered");
+    }
+
+    await interact(() => setInputValue(addInput, "2"));
+    await interact(() => button.click());
+
+    // 1 already bought + 2 added = 3 requested - the same "absolute count sent to the server, never
+    // the bare quantity typed" contract `seatsAfterPurchase` uses for Operator seats.
+    expect(billingApi.purchaseAdministratorSlot).toHaveBeenCalledWith("token", SITE_ID, "sub-1", 3);
+    expect(panel.textContent).toContain("250.00");
+    expect(panel.textContent).toContain("This charges your saved payment method immediately");
+  });
+
+  it("offers no control, and explains why, while the extra-Administrator price is not yet published", async () => {
+    billingApi.fetchBillingStatus.mockResolvedValue(freeStatus());
+
+    const container = await render(page());
+    const panel = panelTitled(container, "Add administrators");
+
+    expect(panel.textContent).toContain("Extra Administrators are not on sale yet.");
+    expect(panel.querySelector("input[type=number]")).toBeNull();
+    expect(byText(panel, "button", "Add administrators")).toBeNull();
+    expect(billingApi.purchaseAdministratorSlot).not.toHaveBeenCalled();
+  });
+
+  it("offers no control, and points at the Operator purchase above, without an active (Succeeded) subscription", async () => {
+    billingApi.fetchBillingStatus.mockResolvedValue(
+      businessStatus({ adminExtraPriceRub: 500, latestSubscription: subscription({ status: "PastDue" }) }),
+    );
+
+    const container = await render(page());
+    const panel = panelTitled(container, "Add administrators");
+
+    expect(panel.textContent).toContain("needs an active paid subscription");
+    expect(panel.querySelector("input[type=number]")).toBeNull();
+    expect(byText(panel, "button", "Add administrators")).toBeNull();
+  });
+
+  it("refreshes the purchased count and the resulting limit on the same screen after a successful purchase", async () => {
+    billingApi.fetchBillingStatus
+      .mockResolvedValueOnce(
+        businessStatus({ extraAdministratorsPurchased: 1, adminLimit: 3, adminsUsed: 2, adminExtraPriceRub: 500 }),
+      )
+      .mockResolvedValue(
+        businessStatus({ extraAdministratorsPurchased: 2, adminLimit: 4, adminsUsed: 2, adminExtraPriceRub: 500 }),
+      );
+    billingApi.purchaseAdministratorSlot.mockResolvedValue({ proratedAmountRub: 250, newExtraAdministratorCount: 2 });
+
+    const container = await render(page());
+    const addPanel = panelTitled(container, "Add administrators");
+    // Default quantity (1) is submitted as-is - this test is about the post-purchase refresh, not
+    // the quantity chosen.
+    const button = byText<HTMLButtonElement>(addPanel, "button", "Add administrators");
+    if (button === null) {
+      throw new Error("no Add administrators button rendered");
+    }
+
+    await interact(() => button.click());
+
+    // `load()` re-runs `fetchBillingStatus` after the purchase resolves - the display panel above
+    // reflects the server's own post-purchase numbers, never a locally-computed guess.
+    expect(billingApi.fetchBillingStatus).toHaveBeenCalledTimes(2);
+    const displayPanel = panelTitled(container, "Administrator seats");
+    expect(displayPanel.textContent).toContain("Purchased beyond the tier: 2");
+    expect(displayPanel.textContent).toContain("Limit: 4");
   });
 });
 

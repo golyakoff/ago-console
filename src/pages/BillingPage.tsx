@@ -7,6 +7,7 @@ import {
   changeSubscriptionSeats,
   createCheckoutSession,
   fetchBillingStatus,
+  purchaseAdministratorSlot,
   type BillingStatusDto,
 } from "../api/billingApi.js";
 import { checkCheckoutConfirmation } from "../billing/checkoutConfirmation.js";
@@ -42,6 +43,10 @@ const CHECKOUT_POLL_INTERVAL_MS = 3_000;
 const MIN_SEATS_TO_ADD = 1;
 
 type SeatChangeSuccess = { amountRub: number; tier: string; seats: number };
+
+/** `25-96`: no `tier` field - unlike a seat change, an Administrator purchase never moves the site
+ * between tiers, so there is nothing here to echo back beyond what was charged and the new count. */
+type AdminPurchaseSuccess = { amountRub: number; count: number };
 
 /** `25-23`: `₽NNN.00`, the identical formatting `OwnerPricingPage` already uses for the same
  * catalog-sourced amounts - so a price shown to a tenant here and to the owner there cannot render
@@ -107,6 +112,26 @@ function rub(amount: number): string {
  * direction. So the shape changed and the wiring did not: the same two endpoints, called with
  * `seatLimit + seatsToAdd` instead of a typed absolute, and `billingAddSeatsStartsCheckout` saying
  * out loud when pressing it will open ЮKassa.
+ *
+ * ## `25-96`: an Administrator-seat control, deliberately not a copy of the Operator one
+ *
+ * `25-23` gave the Administrator panel above facts and no way to change them; `25-41` had already
+ * built and tested the purchase endpoint (`POST .../billing/subscriptions/{id}/administrators`), so
+ * this item is the console half. The quantity-to-add shape is the same, and so is the discipline -
+ * `purchaseAdministratorSlot` returns a real, synchronous, charged result and this screen never
+ * shows it before that response comes back, then calls `load()` to refetch `extraAdministratorsPurchased`/
+ * `adminLimit`/`adminsUsed` from the server rather than computing them locally.
+ *
+ * What is deliberately different: `PurchaseAdministratorSlotHandler` (`ago-chat`, read directly
+ * rather than assumed) has no checkout-session branch at all - it 400s with
+ * `Billing.SubscriptionNotActive` on anything but an already-`Succeeded` subscription, because
+ * buying an extra Administrator charges a *stored payment method* that only exists once a real
+ * subscription has succeeded once. So this control has no "starts a subscription" fallback the way
+ * the Operator one does; instead it explains, in place of the form, that an Operator-seat purchase
+ * above has to happen first. It also carries no `SubscriptionTierBands`-style min/max band - the
+ * handler's own only guard is `Billing.AdministratorCountNotAnIncrease` ("must exceed what is
+ * already bought"), which starting the quantity at `MIN_SEATS_TO_ADD` already guarantees - so there
+ * is no Administrator analogue of `seatCountError`/`billingSeatMaximumReached` to compute or render.
  */
 export function BillingPage() {
   const { user } = useAuth();
@@ -130,6 +155,15 @@ export function BillingPage() {
   const [seatChangeSubmitting, setSeatChangeSubmitting] = useState(false);
   const [seatChangeError, setSeatChangeError] = useState<string | null>(null);
   const [seatChangeSuccess, setSeatChangeSuccess] = useState<SeatChangeSuccess | null>(null);
+
+  // `25-96`: the identical "quantity to add, reset to the floor after every purchase" shape
+  // `seatsToAdd` above uses, kept as its own state rather than shared with it - the two controls buy
+  // against two different current counts (`seatLimit` vs `extraAdministratorsPurchased`) and submit
+  // independently of one another.
+  const [adminSlotsToAdd, setAdminSlotsToAdd] = useState(MIN_SEATS_TO_ADD);
+  const [adminPurchaseSubmitting, setAdminPurchaseSubmitting] = useState(false);
+  const [adminPurchaseError, setAdminPurchaseError] = useState<string | null>(null);
+  const [adminPurchaseSuccess, setAdminPurchaseSuccess] = useState<AdminPurchaseSuccess | null>(null);
 
   const [cancelConfirming, setCancelConfirming] = useState(false);
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
@@ -208,6 +242,23 @@ export function BillingPage() {
   // seats you can add" tells a reader nothing the control did not.
   const canSubmitPurchase = pricing !== null && seatsToAdd >= MIN_SEATS_TO_ADD && seatCountError === null;
 
+  // `25-96`: what the Administrator purchase actually asks for - `status.extraAdministratorsPurchased`
+  // plus the quantity chosen, the identical "add to the server's own last-reported count, never to a
+  // number this screen was holding on to" shape `seatsAfterPurchase` uses above.
+  const adminCountAfterPurchase = status === null ? 0 : status.extraAdministratorsPurchased + adminSlotsToAdd;
+  // `PurchaseAdministratorSlotHandler` requires an already-`Succeeded` subscription with a stored
+  // payment method and has no checkout-session branch of its own (unlike the Operator path above) -
+  // so, unlike `canSubmitPurchase`, this also gates on `sub.status`. It carries no min/max band check:
+  // `25-41`'s own contract enforces only "the requested count must exceed the current one"
+  // (`Billing.AdministratorCountNotAnIncrease`), which `adminSlotsToAdd >= MIN_SEATS_TO_ADD` already
+  // guarantees, so there is no analogue of `seatCountError` to compute here.
+  const canPurchaseAdminSlot =
+    status !== null &&
+    status.adminExtraPriceRub !== null &&
+    sub !== null &&
+    sub.status === "Succeeded" &&
+    adminSlotsToAdd >= MIN_SEATS_TO_ADD;
+
   const handleCheckoutSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!canSubmitPurchase || !accessToken || !siteId) {
@@ -250,6 +301,33 @@ export function BillingPage() {
       setSeatChangeError(err instanceof ApiProblemError ? err.message : strings.billingSeatChangeError);
     } finally {
       setSeatChangeSubmitting(false);
+    }
+  };
+
+  const handleAdminPurchaseSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!canPurchaseAdminSlot || !accessToken || !siteId || !sub) {
+      return;
+    }
+
+    setAdminPurchaseSubmitting(true);
+    setAdminPurchaseError(null);
+    setAdminPurchaseSuccess(null);
+    try {
+      const response = await purchaseAdministratorSlot(accessToken, siteId, sub.subscriptionId, adminCountAfterPurchase);
+      setAdminPurchaseSuccess({ amountRub: response.proratedAmountRub, count: response.newExtraAdministratorCount });
+      // `25-96`: back to one, the identical "never invites the same purchase twice" reasoning
+      // `handleSeatChangeSubmit` already gives for its own reset.
+      setAdminSlotsToAdd(MIN_SEATS_TO_ADD);
+      // `25-96`'s own Done-when: the purchased count and the resulting limit refresh on the same
+      // screen after a successful purchase - `load()` refetches `GET .../billing/status`, which is
+      // what actually re-renders `extraAdministratorsPurchased`/`adminLimit`/`adminsUsed` below, the
+      // identical refresh `handleSeatChangeSubmit` already performs for its own purchase.
+      load();
+    } catch (err) {
+      setAdminPurchaseError(err instanceof ApiProblemError ? err.message : strings.billingAdminPurchaseError);
+    } finally {
+      setAdminPurchaseSubmitting(false);
     }
   };
 
@@ -448,6 +526,59 @@ export function BillingPage() {
               )}
             </Panel>
           )}
+
+          {/* `25-96`: the Administrator-seat purchase control this screen has been missing since
+              `25-23` made the Administrator panel above display-only. Deliberately not the same
+              two-branch shape as the Operator panel immediately above: `25-41`'s own
+              `PurchaseAdministratorSlotHandler` has no checkout-session path at all, only an
+              immediate charge against an already-`Succeeded` subscription's stored payment method -
+              so, rather than starting a checkout of its own, this panel explains what is missing and
+              points at the Operator control above when there is no such subscription yet. */}
+          <Panel title={strings.billingAddAdminSeatsHeading}>
+            {status.adminExtraPriceRub === null ? (
+              <p>{strings.billingAddAdminSeatsNotForSale}</p>
+            ) : sub === null || sub.status !== "Succeeded" ? (
+              <p>{strings.billingAddAdminSeatsNeedsSubscription}</p>
+            ) : (
+              <form className="ago-stack" onSubmit={(e) => void handleAdminPurchaseSubmit(e)}>
+                <p>
+                  <strong>{strings.billingCurrentAdminCountLabel}:</strong> {status.extraAdministratorsPurchased}
+                </p>
+
+                <Field
+                  label={strings.billingAddAdminSeatsFieldLabel}
+                  description={`${strings.billingNewAdminCountLabel}: ${adminCountAfterPurchase}`}
+                >
+                  {(controlProps) => (
+                    <Input
+                      {...controlProps}
+                      type="number"
+                      min={MIN_SEATS_TO_ADD}
+                      value={adminSlotsToAdd}
+                      onChange={(e) => setAdminSlotsToAdd(Number(e.target.value))}
+                      disabled={adminPurchaseSubmitting}
+                    />
+                  )}
+                </Field>
+
+                <p>{strings.billingAddAdminSeatsChargesImmediately}</p>
+
+                {adminPurchaseError && <Alert tone="danger">{adminPurchaseError}</Alert>}
+                {adminPurchaseSuccess && (
+                  <Alert tone="success" title={strings.billingAdminPurchaseSuccessTitle}>
+                    {strings.billingAdminPurchaseSuccessBody} ₽{adminPurchaseSuccess.amountRub.toFixed(2)} ·{" "}
+                    {adminPurchaseSuccess.count}.
+                  </Alert>
+                )}
+
+                <div className="ago-row">
+                  <Button type="submit" variant="primary" disabled={adminPurchaseSubmitting || !canPurchaseAdminSlot}>
+                    {adminPurchaseSubmitting ? strings.billingAdminPurchaseSubmittingButton : strings.billingAddAdminSeatsButton}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </Panel>
 
           {(sub?.status === "Succeeded" || sub?.status === "PastDue") && !sub.cancelRequested && (
             <Panel quiet>

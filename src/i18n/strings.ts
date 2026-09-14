@@ -1261,6 +1261,42 @@ export interface ConsoleStrings {
    * validation message, which reused the stale "2-100" description string as its own error text. */
   billingSeatCountOutOfRange: string;
 
+  /** `25-96`: the Administrator-seat counterpart to the add-seats control above, wired to `25-41`'s
+   * own `POST .../billing/subscriptions/{id}/administrators` - built and tested, but unused by the
+   * console until this item. Deliberately diverges from the Operator control rather than reusing its
+   * shape wholesale: `PurchaseAdministratorSlotHandler` requires an already-`Succeeded` subscription
+   * with a stored payment method (its own guard, `Billing.SubscriptionNotActive`) and has no
+   * checkout-session branch at all, so - unlike Operator seats - there is no "starts a subscription"
+   * path here; and it enforces only "the requested count must exceed the current one"
+   * (`Billing.AdministratorCountNotAnIncrease`), no `SubscriptionTierBands`-style min/max band, so this
+   * control carries no analogue of `billingSeatCountOutOfRange`/`billingSeatMaximumReached` at all. */
+  billingCurrentAdminCountLabel: string;
+  billingAddAdminSeatsHeading: string;
+  billingAddAdminSeatsFieldLabel: string;
+  billingNewAdminCountLabel: string;
+  billingAddAdminSeatsButton: string;
+  /** Says out loud that, unlike the Operator control, pressing this button never opens a ЮKassa
+   * redirect - `PurchaseAdministratorSlotHandler` always charges the stored payment method
+   * synchronously, in the same request, the identical "state what happens before it happens" posture
+   * `billingAddSeatsStartsCheckout` holds for its own, different mechanism. */
+  billingAddAdminSeatsChargesImmediately: string;
+  /** Shown, control withheld, when `status.adminExtraPriceRub` is `null` - purchasing would only ever
+   * fail server-side with `Billing.PriceNotConfigured` (`25-43`'s own "built, not yet for sale"
+   * state), so the control is not offered rather than offered and refused. */
+  billingAddAdminSeatsNotForSale: string;
+  /** Shown, control withheld, when there is no `Succeeded` subscription - `PurchaseAdministratorSlotHandler`
+   * has no checkout-session path of its own, so an owner on Solo (or mid-checkout, or lapsed) cannot
+   * buy an extra Administrator until an Operator-seat purchase above has put the site on a paid,
+   * `Succeeded` subscription first. */
+  billingAddAdminSeatsNeedsSubscription: string;
+  billingAdminPurchaseSubmittingButton: string;
+  billingAdminPurchaseError: string;
+  /** Trailing interpolation - `${billingAdminPurchaseSuccessBody} ₽${amount} · ${count}.`, the
+   * Administrator-purchase counterpart to `billingUpgradeSuccessBody` above (no `tier` term here -
+   * an Administrator purchase never changes the site's tier). */
+  billingAdminPurchaseSuccessTitle: string;
+  billingAdminPurchaseSuccessBody: string;
+
   /** Shown while `latestSubscription.status === "Pending"` - the screen's own honest "payment
    * submitted, confirmation pending" state, polled via `usePollUntilCheckoutSettled` rather than
    * ever claimed done off the ЮKassa redirect alone. */

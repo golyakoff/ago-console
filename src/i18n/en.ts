@@ -841,6 +841,21 @@ export const en: ConsoleStrings = {
     "redirect alone.",
   billingSeatCountOutOfRange: "The resulting seat count has to be within",
 
+  billingCurrentAdminCountLabel: "Extra Administrators you have now",
+  billingAddAdminSeatsHeading: "Add administrators",
+  billingAddAdminSeatsFieldLabel: "How many to add",
+  billingNewAdminCountLabel: "Extra Administrators after this purchase",
+  billingAddAdminSeatsButton: "Add administrators",
+  billingAddAdminSeatsChargesImmediately: "This charges your saved payment method immediately - there is no ЮKassa redirect.",
+  billingAddAdminSeatsNotForSale: "Extra Administrators are not on sale yet.",
+  billingAddAdminSeatsNeedsSubscription:
+    "Purchasing extra Administrators needs an active paid subscription. Add operators above first to " +
+    "start one, then extra Administrators can be bought here.",
+  billingAdminPurchaseSubmittingButton: "Submitting…",
+  billingAdminPurchaseError: "Failed to purchase extra Administrators.",
+  billingAdminPurchaseSuccessTitle: "Purchased",
+  billingAdminPurchaseSuccessBody: "Charged",
+
   billingPendingTitle: "Confirming payment",
   billingPendingBody:
     "Your payment was submitted to ЮKassa and is waiting for confirmation. This page will update " +
