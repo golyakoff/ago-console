@@ -1772,4 +1772,31 @@ export const en: ConsoleStrings = {
     "One entry per conversation this browser has ever resumed. The entry for whichever conversation " +
     "was current is removed when the visitor identifier above is replaced; an entry for an earlier, " +
     "already-superseded conversation is not otherwise cleared.",
+
+  navAiAddOn: "AI features",
+  aiAddOnForbidden: "You do not have permission to configure this site's AI features.",
+  aiAddOnLoadError: "Could not load the AI add-on status.",
+  aiAddOnIntro:
+    "AI reply suggestions and automatic categorisation of closed conversations send the text of your " +
+    "visitors' conversations to an external provider. Both are off until you turn them on here.",
+  aiAddOnNotPurchased: "This workspace does not have the AI add-on. Contact AGO to add it.",
+  aiAddOnStatusOn: "On",
+  aiAddOnStatusOff: "Off",
+  aiAddOnEffectiveFrom: "Only conversations created from this moment on are ever sent:",
+  aiAddOnAgreementHeading: "The agreement",
+  aiAddOnAgreementMissing: "The agreement has not been published in this deployment yet.",
+  aiAddOnAcceptLabel: "I have read and accept this agreement",
+  aiAddOnAcceptedOn: "Accepted",
+  aiAddOnNotAccepted: "Not yet accepted.",
+  aiAddOnDeclarationHeading: "Your declaration",
+  aiAddOnDeclarationText:
+    "You remain the data controller for your visitors. Declaring below records that you hold a lawful " +
+    "basis for passing their conversation text to the provider named in the agreement. AGO records " +
+    "this declaration and does not verify or replace that basis.",
+  aiAddOnDeclareLabel: "I declare that we hold a lawful basis",
+  aiAddOnDeclaredOn: "Declared",
+  aiAddOnNotDeclared: "Not yet declared.",
+  aiAddOnEnableLabel: "Turn AI features on",
+  aiAddOnDisableLabel: "Turn AI features off",
+  aiAddOnEnableBlocked: "Accept the agreement and make the declaration first - they are recorded separately.",
 };

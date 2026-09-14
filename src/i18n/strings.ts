@@ -2746,4 +2746,33 @@ export interface ConsoleStrings {
   deviceStorageLastSequenceHolds: string;
   deviceStorageLastSequenceWhy: string;
   deviceStorageLastSequenceLifetime: string;
+  // -------------------------------------------------------------------------------------------
+  // `25-04`: the AI add-on - a paid module that is off for every tenant until they buy it, accept
+  // its agreement and separately declare they hold a lawful basis for their visitors' data reaching
+  // the provider. The two evidence lines below are deliberately two fields, not one "ready" label:
+  // accepting AGO's terms and asserting a fact about somebody else are two statements, and a tenant
+  // must be able to see which of them they have made.
+  navAiAddOn: string;
+  aiAddOnForbidden: string;
+  aiAddOnLoadError: string;
+  aiAddOnIntro: string;
+  aiAddOnNotPurchased: string;
+  aiAddOnStatusOn: string;
+  aiAddOnStatusOff: string;
+  /** Rendered with the cut-off instant appended - "nothing before this moment is ever sent" is the
+   * one fact a tenant needs on screen the moment they switch it on. */
+  aiAddOnEffectiveFrom: string;
+  aiAddOnAgreementHeading: string;
+  aiAddOnAgreementMissing: string;
+  aiAddOnAcceptLabel: string;
+  aiAddOnAcceptedOn: string;
+  aiAddOnNotAccepted: string;
+  aiAddOnDeclarationHeading: string;
+  aiAddOnDeclarationText: string;
+  aiAddOnDeclareLabel: string;
+  aiAddOnDeclaredOn: string;
+  aiAddOnNotDeclared: string;
+  aiAddOnEnableLabel: string;
+  aiAddOnDisableLabel: string;
+  aiAddOnEnableBlocked: string;
 }

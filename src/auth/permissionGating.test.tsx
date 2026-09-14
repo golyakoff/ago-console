@@ -465,8 +465,11 @@ describe("the operator navigation", () => {
     // `23-37`: "Documents" is a real item now - still listed by `itemLabels`, but no longer by
     // `reservedItemLabels` (`consoleNav.ts`'s own remarks: it now points at `DocumentsPage`).
     // `23-80`/`23-82`: "Storage" joins it, same `isAdmin`-only gate, right after "Documents".
+    // `25-04`: "AI features" too - the screen where a tenant buys the AI add-on, accepts its
+    // agreement and separately declares a lawful basis. Same `isAdmin`-only gate, placed with the
+    // other buy-and-agree screens rather than in Automation.
     await openSection(container, "Administration");
-    expect(itemLabels(container)).toEqual(["Products", "Billing", "Device data", "Documents", "Storage"]);
+    expect(itemLabels(container)).toEqual(["Products", "Billing", "Device data", "Documents", "AI features", "Storage"]);
     expect(reservedItemLabels(container)).toEqual([]);
   });
 
@@ -499,7 +502,9 @@ describe("the operator navigation", () => {
     expect(itemLabels(container)).toEqual(["Employees", "Team chat"]);
 
     await openSection(container, "Administration");
-    expect(itemLabels(container)).toEqual(["Products", "Billing", "Device data", "Documents", "Storage", "Delete account"]);
+    expect(itemLabels(container)).toEqual([
+      "Products", "Billing", "Device data", "Documents", "AI features", "Storage", "Delete account",
+    ]);
   });
 
   it("mutes the calendar for the tenant regardless of enabledModules - buying it is this identity's own decision either way", async () => {
