@@ -30,8 +30,8 @@ export function registrationUrlFrom(authorizeUrl: string): string {
 
   if (!url.pathname.endsWith(AUTHORIZE_PATH)) {
     throw new Error(
-      `Cannot derive Keycloak's registration URL: ${url.pathname} is not ${AUTHORIZE_PATH}. ` +
-        "The realm's authorization endpoint has moved, and sending you to the sign-in page instead would be worse.",
+      `Cannot derive the registration URL: ${url.pathname} is not ${AUTHORIZE_PATH}. ` +
+        "The authorization endpoint has moved, and sending you to the sign-in page instead would be worse.",
     );
   }
 
