@@ -413,6 +413,11 @@ function buildAdminItems(
     items.push({ to: "/account/billing", label: strings.navBilling });
     items.push({ to: "/account/device-storage", label: strings.navDeviceStorage });
     items.push({ to: "/account/documents", label: strings.navAccountDocuments });
+    // `25-04`: the AI add-on's own screen - placed beside "Документы" rather than in Автоматизация,
+    // because what happens here is buying a module and recording two legal facts about it, not
+    // configuring a behaviour. The two reserved AI entries in Автоматизация stay reserved; they are
+    // the features themselves (`23-38`/`23-39`), which this screen only turns on.
+    items.push({ to: "/account/ai", label: strings.navAiAddOn });
     // `23-80`/`23-82`: "Хранилище" - the tenant's own read of every attachment they hold, plus
     // bulk-delete. Same `isAdmin`-only gate as the four entries above it.
     items.push({ to: "/account/storage", label: strings.navAccountStorage });

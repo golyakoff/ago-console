@@ -29,6 +29,7 @@ import { InstallSnippetPage } from "./pages/InstallSnippetPage.js";
 import { TelegramChannelPage } from "./pages/TelegramChannelPage.js";
 import { MaxChannelPage } from "./pages/MaxChannelPage.js";
 import { VkChannelPage } from "./pages/VkChannelPage.js";
+import { AiAddOnPage } from "./pages/AiAddOnPage.js";
 import { FaqModulePage } from "./pages/FaqModulePage.js";
 import { OfflineAutoReplyPage } from "./pages/OfflineAutoReplyPage.js";
 import { CannedResponsesPage } from "./pages/CannedResponsesPage.js";
@@ -391,6 +392,10 @@ export function App() {
             exactly like `WidgetConfigPage` above it. `23-31`: moved from `/settings/faq` into the
             "Автоматизация" section. */}
         <Route path="/automation/faq" element={<FaqModulePage />} />
+        {/* `25-04`: same "route outside the workspace layout, page gates itself internally" shape -
+            `AiAddOnPage` gates itself on `site:configure`, and every route it calls is gated again
+            server-side. Under /account/, beside the other buy-and-agree screens. */}
+        <Route path="/account/ai" element={<AiAddOnPage />} />
         {/* `14-04`: same pattern again - `OfflineAutoReplyPage` gates itself on `site:configure`
             internally. `23-31`: moved from `/settings/auto-reply` into "Автоматизация". */}
         <Route path="/automation/auto-reply" element={<OfflineAutoReplyPage />} />
