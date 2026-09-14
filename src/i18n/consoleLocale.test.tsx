@@ -150,12 +150,45 @@ describe("the console shell for an active site with no Locale set", () => {
     operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID, credentialsArePublished: true });
   });
 
-  it("renders unchanged, in English", async () => {
+  // `25-88`: this used to assert English - `parseConsoleLocale`'s own fallback for "no configured
+  // Locale at all" is Russian now, the same `23-28` reasoning applied structurally rather than left
+  // as the one place it was missed. A tenant with an explicit `Locale = "En"` is a different,
+  // untouched case - see the "En" describe block below, added by this same item.
+  it("renders in Russian, the console's own new default for an unset Locale", async () => {
+    const container = await render(shellAt("/"));
+
+    expect(container.querySelector(".ago-skip-link")?.textContent).toBe("Перейти к содержимому");
+    expect(container.querySelector(".ago-shell__wordmark")?.textContent).toBe("AGO Офис");
+    expect(sectionLabels(container)).toEqual([
+      "Диалоги",
+      "Записи",
+      "Аналитика",
+      "Команда",
+      "Каналы",
+      "Автоматизация",
+      "Администрирование",
+    ]);
+    await openIdentityMenu(container);
+    expect(byText<HTMLButtonElement>(container, ".ago-user-menu__item", "Выйти")).not.toBeNull();
+    expect(container.querySelector(".ago-demo-notice__text")?.textContent).toContain(
+      "Это публичная демо-консоль",
+    );
+  });
+});
+
+describe("the console shell for an active site with an explicit Locale = En", () => {
+  beforeEach(() => {
+    // `25-88`: the one case this item's own fallback change must never touch - a tenant's real,
+    // explicit choice, not an absence of one.
+    operatorsApi.fetchMyPermissions.mockResolvedValue({
+      permissions: ["site:configure"], siteId: SITE_ID, locale: "En", credentialsArePublished: true,
+    });
+  });
+
+  it("still renders in English, unchanged", async () => {
     const container = await render(shellAt("/"));
 
     expect(container.querySelector(".ago-skip-link")?.textContent).toBe("Skip to content");
-    expect(container.querySelector(".ago-shell__wordmark")?.textContent).toBe("AGO Офис");
-    // `25-50`: Bookings (was Calendar) moves to second place, ahead of Analytics.
     expect(sectionLabels(container)).toEqual([
       "Conversations",
       "Bookings",

@@ -198,14 +198,30 @@ describe("the operator workspace for an active site with Locale = Ru", () => {
 });
 
 describe("the operator workspace for an active site with no Locale set", () => {
-  it("renders unchanged, in English - the regression case", async () => {
+  // `25-88`: this used to assert English - `parseConsoleLocale`'s own fallback for "no configured
+  // Locale at all" is Russian now, the same `23-28` reasoning applied structurally. A site with an
+  // explicit `Locale = "En"` is untouched - see the describe block below, added by this same item.
+  it("renders in Russian, the console's own new default for an unset Locale", async () => {
     const container = await render(workspaceAt(`/conversations/${CONVERSATION_ID}`, null));
+
+    expect(container.querySelector("#ago-list-assigned")?.textContent).toContain("Назначено мне");
+    expect(container.querySelector(".ago-thread")?.getAttribute("aria-label")).toBe("Переписка");
+    const textarea = container.querySelector<HTMLTextAreaElement>(".ago-composer__input");
+    expect(textarea?.placeholder).toBe("Напишите ответ — Enter отправляет, Shift+Enter — новая строка");
+    const buttons = all(container, ".ago-composer__actions button").map((b) => b.textContent?.trim());
+    expect(buttons).toEqual(["Прикрепить", "Предложить ответ", "Отправить"]);
+    expect(container.querySelector("#ago-visitor-panel-title")?.textContent).toBe("Посетитель");
+  });
+});
+
+describe("the operator workspace for an active site with an explicit Locale = En", () => {
+  it("still renders in English, unchanged - the case this item's own fallback change must never touch", async () => {
+    const container = await render(workspaceAt(`/conversations/${CONVERSATION_ID}`, "En"));
 
     expect(container.querySelector("#ago-list-assigned")?.textContent).toContain("Assigned to me");
     expect(container.querySelector(".ago-thread")?.getAttribute("aria-label")).toBe("Message thread");
     const textarea = container.querySelector<HTMLTextAreaElement>(".ago-composer__input");
     expect(textarea?.placeholder).toBe("Write a reply — Enter to send, Shift+Enter for a new line");
-    // `19-01`: same addition as the Russian case above.
     const buttons = all(container, ".ago-composer__actions button").map((b) => b.textContent?.trim());
     expect(buttons).toEqual(["Attach", "Suggest a reply", "Send"]);
     expect(container.querySelector("#ago-visitor-panel-title")?.textContent).toBe("Visitor");
