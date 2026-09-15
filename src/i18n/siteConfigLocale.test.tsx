@@ -202,13 +202,15 @@ describe("the site-configuration screens for an active site with Locale = Ru", (
     // heading rather than silently inside "Кнопка запуска" above. `25-24`: `requireContactConsent`
     // moved into its own third panel, split out of the notice panel - proving its Russian title
     // renders too, not merged back into the notice card's own heading. `25-39`: a fourth panel
-    // title, proving the same for the temporary booking-relaxation checkbox.
+    // title, proving the same for the temporary booking-relaxation checkbox. `25-104`: a fifth panel
+    // title, proving the same for the site-level attachment-upload default.
     const panelTitles = all(container, ".ago-panel__title").map((t) => t.textContent?.trim());
     expect(panelTitles).toEqual([
       "Кнопка запуска",
       "Согласие на обработку персональных данных",
       "Согласие на сбор контактных данных",
       "Бронирование (временно)",
+      "Вложения",
     ]);
     const saveButton = Array.from(container.querySelectorAll("button")).find((b) => b.type === "submit");
     expect(saveButton?.textContent).toBe("Сохранить");

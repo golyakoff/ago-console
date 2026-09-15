@@ -675,6 +675,16 @@ export interface ConsoleStrings {
   widgetBookingPanelTitle: string;
   widgetAcceptUnverifiedPhoneLabel: string;
   widgetAcceptUnverifiedPhoneDescription: string;
+  /** `25-104`: `WidgetConfig.AllowAttachmentUploadsByDefault` - a fifth widget-config panel, kept
+   * separate from "Launcher"/"Consent notice"/"Contact consent"/"Booking (temporary)" for the same
+   * reason each of those stays its own panel: this is neither an appearance choice, a statement about
+   * data processing, a gate on collecting contact details, nor a temporary phone-verification
+   * workaround - it is its own question ("can a new conversation's visitor send a file from their
+   * first message, with no operator having granted it yet"), so it earns its own panel the same way
+   * `widgetContactConsentPanelTitle` split out of the notice panel in `25-24`. */
+  widgetAttachmentsPanelTitle: string;
+  widgetAllowAttachmentUploadsByDefaultLabel: string;
+  widgetAllowAttachmentUploadsByDefaultDescription: string;
   widgetAutoOpenDelay15: string;
   widgetAutoOpenDelay30: string;
   widgetAutoOpenDelay45: string;
