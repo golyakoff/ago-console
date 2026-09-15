@@ -30,11 +30,21 @@ const userManager = vi.hoisted(() => ({
     getUser: vi.fn(),
     signinRedirect: vi.fn(),
     signoutRedirect: vi.fn(),
+    // Session-expiry fix: `AuthProvider`'s effect now also wires `addSilentRenewError` and calls
+    // `signinSilent()` on tab-visibility regain - this file's own scenario (a sign-out race) never
+    // exercises either, but the effect still calls them unconditionally on mount, so the fake needs
+    // them to exist. `signinSilent` resolved rather than left to reject: nothing here fires
+    // `visibilitychange`, so it is never actually invoked, but an unresolved mock would be a trap for
+    // whichever test adds that next.
+    removeUser: vi.fn(),
+    signinSilent: vi.fn(() => Promise.resolve(undefined)),
     events: {
       addUserLoaded: vi.fn(),
       removeUserLoaded: vi.fn(),
       addUserUnloaded: vi.fn((h: () => void) => handlers.unloaded.push(h)),
       removeUserUnloaded: vi.fn(),
+      addSilentRenewError: vi.fn(),
+      removeSilentRenewError: vi.fn(),
     },
   },
 }));

@@ -33,6 +33,21 @@ export class ApiProblemError extends Error {
   }
 }
 
+/**
+ * Session-expiry fix: `true` for exactly the failure `AuthProvider`'s `silentRenewError` handler and
+ * `RequireAuth`'s `user.expired` check exist to redirect out of before a caller ever sees it - a `401`
+ * this file's own doc comment already names as the shape the authentication middleware produces with
+ * no problem-details body of its own (`code` falls back to `http.401`).
+ *
+ * A narrow status check rather than branching on `code`: the server never has a stable `type` to hand
+ * back for this case (`problemDetailsFrom`'s own doc comment explains why), so `http.401` is this
+ * file's own fallback string, not a contract the backend publishes - the status is the fact worth
+ * trusting.
+ */
+export function isSessionExpiredError(err: unknown): boolean {
+  return err instanceof ApiProblemError && err.status === 401;
+}
+
 interface ProblemDetailsBody {
   type?: unknown;
   detail?: unknown;

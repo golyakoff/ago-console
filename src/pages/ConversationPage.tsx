@@ -22,6 +22,7 @@ import { Spinner } from "../components/Spinner.js";
 import { Tooltip } from "../components/Tooltip.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { fetchChannelDeliveries, type ChannelDeliveryDto } from "../api/channelDeliveriesApi.js";
+import { isSessionExpiredError } from "../api/problemDetails.js";
 import {
   blockVisitor,
   closeConversation,
@@ -391,7 +392,15 @@ export function ConversationPage() {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setVisitorHistoryError(err instanceof Error ? err.message : strings.visitorHistoryError);
+          // Session-expiry fix: same residual-race backstop as `WorkspaceLayout`'s queue fetch - see
+          // that catch's own doc comment.
+          setVisitorHistoryError(
+            isSessionExpiredError(err)
+              ? strings.authSessionExpiredError
+              : err instanceof Error
+                ? err.message
+                : strings.visitorHistoryError,
+          );
         }
       });
 

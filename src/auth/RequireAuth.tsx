@@ -21,12 +21,27 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     // browser is still here - and raced the sign-out redirect with a sign-in one. Keycloak's session
     // was still alive at that moment, so the sign-in won silently and the operator was handed back
     // the console they had just asked to leave. See `AuthProvider`'s `logout` for the full ordering.
-    if (!isLoading && !isSigningOut && user === null) {
+    //
+    // `user.expired` (session-expiry fix): `AuthProvider`'s own `silentRenewError` handler already
+    // clears `user` the moment a renewal genuinely fails, which is the normal way this guard finds out
+    // - but it is not the only way a `User` with a dead `expires_at` can reach this component. A page
+    // load restores whatever `oidc-client-ts` last wrote to `sessionStorage` before any renewal attempt
+    // has had a chance to run, and if the tab was asleep or closed past the SSO idle timeout, that
+    // restored `User` is already expired on arrival. Checking `user.expired` (an `oidc-client-ts`
+    // getter computed from `expires_at`, not this app's own clock) closes that gap the same way
+    // `user === null` does - by handing the honest case back to the same `login()` call, rather than a
+    // second recovery path.
+    if (!isLoading && !isSigningOut && (user === null || user.expired)) {
       void login();
     }
   }, [isLoading, isSigningOut, user, login]);
 
-  if (isLoading || user === null) {
+  // Mirrors the effect's own condition above, for the same reason `user === null` was already here
+  // rather than only in the effect: rendering `children` for a `User` this guard already knows is
+  // expired would show the workspace for the instant between this render and `login()`'s navigation -
+  // exactly the stale screen the operator reported, now with a passing check standing behind it
+  // instead of a missing one.
+  if (isLoading || user === null || user.expired) {
     return (
       <CenteredShell>
         {/* `23-51`: the label follows which way the operator is travelling. It said `Signing in…` in
