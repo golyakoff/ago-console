@@ -3209,6 +3209,11 @@ export interface ConsoleStrings {
   ownerPricingPriceNotConfigured: string;
   ownerPricingResourcesTitle: string;
   ownerPricingResourcesDescription: string;
+  ownerPricingResourceSeatBase: string;
+  ownerPricingResourceSeatExtra: string;
+  ownerPricingResourceAdminExtra: string;
+  ownerPricingResourceDownloadOverage: string;
+  ownerPricingResourceChannelAddOn: string;
   ownerPricingCurrentPriceLabel: string;
   ownerPricingNotYetForSale: string;
   ownerPricingPublishButton: string;

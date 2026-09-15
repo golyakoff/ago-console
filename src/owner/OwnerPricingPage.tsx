@@ -37,6 +37,26 @@ function tierLabels(strings: ConsoleStrings): Record<string, string> {
 }
 
 /**
+ * The identical gap `tierLabels` above already closed for `row.tierKey`, found the same way - a
+ * server-supplied key rendered as its own raw `resource.label` (developer prose like "Business tier
+ * - base price (up to the included seats)"), missed by `25-89`'s own sweep because that pass hunted
+ * hardcoded UI strings in this file, not a label this page reads from the wire. Falls back to
+ * `resource.label` itself for a key not yet in this map, the same "never silently drop a future key"
+ * shape `tierLabels[row.tierKey] ?? row.tierKey` already uses two lines above - a newly-registered
+ * `PricedResourceKeys` entry still renders (in English, until this map catches up) rather than
+ * vanishing from the screen.
+ */
+function resourceLabels(strings: ConsoleStrings): Record<string, string> {
+  return {
+    "seat-base": strings.ownerPricingResourceSeatBase,
+    "seat-extra": strings.ownerPricingResourceSeatExtra,
+    "admin-extra": strings.ownerPricingResourceAdminExtra,
+    "download-overage-per-gb": strings.ownerPricingResourceDownloadOverage,
+    "channel-addon": strings.ownerPricingResourceChannelAddOn,
+  };
+}
+
+/**
  * `25-20`: the platform owner's own price-list screen - `GET /api/v1/owner/pricing`. Every
  * currently-paid capability's price, read from the same configuration the billing code itself
  * charges from, so the owner can check the product's own numbers without opening the private
@@ -301,6 +321,7 @@ function PricedResourcePanel({ resource, accessToken, onPublished, strings }: Pr
 
   const hasCurrentVersion = resource.currentVersion !== null;
   const formVisible = !hasCurrentVersion || formOpen;
+  const resourceLabel = resourceLabels(strings)[resource.key] ?? resource.label;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -341,7 +362,7 @@ function PricedResourcePanel({ resource, accessToken, onPublished, strings }: Pr
   };
 
   return (
-    <Panel quiet title={resource.label}>
+    <Panel quiet title={resourceLabel}>
       <div className="ago-stack">
         <div>
           <strong>{strings.ownerPricingCurrentPriceLabel}</strong>{" "}

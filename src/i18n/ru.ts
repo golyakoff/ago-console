@@ -2139,6 +2139,11 @@ export const ru: ConsoleStrings = {
   ownerPricingResourcesTitle: "Тарифицируемые ресурсы",
   ownerPricingResourcesDescription:
     "Каждый ценовой ключ, зарегистрированный в продукте, и его собственная текущая цена в рублях. Публикация новой версии здесь меняет то, что использует следующее списание по этому ключу — она никогда не затрагивает уже начатое списание и никогда не позволяет придумать ключ, которого ещё нет в этом списке.",
+  ownerPricingResourceSeatBase: "Базовая цена (тариф Business, включает первые места)",
+  ownerPricingResourceSeatExtra: "Цена за место сверх включённых (тариф Business)",
+  ownerPricingResourceAdminExtra: "Цена за администратора сверх двух включённых",
+  ownerPricingResourceDownloadOverage: "Цена за гигабайт перерасхода при скачивании вложений сверх жёсткого порога тарифа",
+  ownerPricingResourceChannelAddOn: "Цена за подключённый канал сверх виджета",
   ownerPricingCurrentPriceLabel: "Текущая цена",
   ownerPricingNotYetForSale: "Пока не продаётся — для этого ключа ещё не опубликована ни одна версия.",
   ownerPricingPublishButton: "Опубликовать новую цену",
