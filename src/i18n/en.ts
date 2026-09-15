@@ -2130,6 +2130,11 @@ export const en: ConsoleStrings = {
   ownerPricingResourcesTitle: "Priced resources",
   ownerPricingResourcesDescription:
     "Every price key the product has registered, and its own currently-effective Rouble figure. Publishing a new version here changes what the next charge for that key uses - it never touches a charge already in progress, and it never lets you invent a key that is not already in this list.",
+  ownerPricingResourceSeatBase: "Base price (Business tier, includes the first seats)",
+  ownerPricingResourceSeatExtra: "Price per seat beyond the included ones (Business tier)",
+  ownerPricingResourceAdminExtra: "Price per Administrator beyond the two a paid plan includes",
+  ownerPricingResourceDownloadOverage: "Price per gigabyte of attachment downloads past a tier's hard threshold",
+  ownerPricingResourceChannelAddOn: "Price per connected channel beyond the widget itself",
   ownerPricingCurrentPriceLabel: "Current price",
   ownerPricingNotYetForSale: "Not yet for sale - no version has been published for this key.",
   ownerPricingPublishButton: "Publish a new price",
