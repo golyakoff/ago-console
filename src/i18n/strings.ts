@@ -2250,6 +2250,12 @@ export interface ConsoleStrings {
    * Russian screen and wrong about the fact itself while somebody was leaving. */
   authSigningIn: string;
   authSigningOut: string;
+  /** Session-expiry fix: shown in place of a raw `Failed to load … : 401` whenever an API call's own
+   * `ApiProblemError.status` is `401` - the read reached the server before `AuthProvider`'s
+   * `silentRenewError` handler (or `RequireAuth`'s `user.expired` check) had redirected to Keycloak.
+   * One string for every such call site, rather than each one inventing its own wording for the same
+   * fact. */
+  authSessionExpiredError: string;
   calendarSetupSaveOriginsButton: string;
   calendarSetupCalendarsTitle: string;
   calendarPublishedLabel: string;

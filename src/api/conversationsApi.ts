@@ -51,7 +51,13 @@ export async function fetchOperatorQueue(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to load the queue: ${response.status}`);
+    // Session-expiry fix: was a bare `Error` with the status number baked into an English sentence -
+    // which is exactly the raw "Failed to load the queue: 401" text an operator saw on an idle-timed-out
+    // session, with no way to tell a dead session apart from a real outage. `problemDetailsFrom` is
+    // this same file's own established shape for a failure a caller has to branch on (see
+    // `closeConversation` below) - `WorkspaceLayout`'s catch now branches on `.status === 401` to show a
+    // "sign in again" message instead of the status code.
+    throw await problemDetailsFrom(response);
   }
 
   return (await response.json()) as OperatorQueueResponse;
@@ -83,7 +89,9 @@ export async function fetchAllConversationsForSite(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to load all conversations: ${response.status}`);
+    // Session-expiry fix: was a bare `Error`, the same shape `fetchOperatorQueue` above carried until
+    // this item - see that function's own doc comment for why `problemDetailsFrom` replaces it.
+    throw await problemDetailsFrom(response);
   }
 
   return (await response.json()) as AllConversationsForSiteResponse;
@@ -116,7 +124,12 @@ export async function markConversationRead(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to mark the conversation read: ${response.status}`);
+    // Session-expiry fix: was a bare `Error`, the same shape `fetchOperatorQueue` above carried until
+    // this item - see that function's own doc comment. This call's own failure is swallowed by its
+    // caller (`WorkspaceLayout.markRead`'s own `console.warn`), so the typed status/code is not
+    // rendered anywhere today, but it is still the honest thing to throw, consistent with every other
+    // read in this file.
+    throw await problemDetailsFrom(response);
   }
 
   return (await response.json()) as MarkConversationReadResult;
@@ -320,7 +333,10 @@ export async function fetchVisitorHistory(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to load the visitor's prior conversations: ${response.status}`);
+    // Session-expiry fix: was a bare `Error`, the same shape `fetchOperatorQueue` above carried until
+    // this item - see that function's own doc comment. `ConversationPage`'s catch now branches on
+    // `isSessionExpiredError` the same way `WorkspaceLayout`'s does.
+    throw await problemDetailsFrom(response);
   }
 
   return (await response.json()) as VisitorHistoryResponse;

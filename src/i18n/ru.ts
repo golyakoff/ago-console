@@ -1384,6 +1384,7 @@ export const ru: ConsoleStrings = {
   installOriginChangeHint: "Для изменения напишите в поддержку.",
   authSigningIn: "Входим…",
   authSigningOut: "Выходим…",
+  authSessionExpiredError: "Сессия истекла. Войдите снова.",
   calendarSetupSaveOriginsButton: "Сохранить источники",
   calendarSetupCalendarsTitle: "Календари",
   calendarPublishedLabel: "опубликован",

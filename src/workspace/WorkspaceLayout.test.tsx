@@ -12,6 +12,7 @@ import { WorkspaceLayout } from "./WorkspaceLayout.js";
 import { NoConversationSelected } from "./NoConversationSelected.js";
 import { ConversationPage } from "../pages/ConversationPage.js";
 import { one, interact, render, unmount } from "../testing/dom.js";
+import { ApiProblemError } from "../api/problemDetails.js";
 
 /**
  * `18-03`: proves the wiring `workspaceLocale.test.tsx`/`ConversationPage.test.tsx` do not - that
@@ -288,5 +289,32 @@ describe("the workspace's canned-response wiring", () => {
     expect(container.querySelector("[role=listbox]")).toBeNull();
     // The `/` is left as ordinary text - not swallowed, not sent.
     expect(textarea.value).toBe("/");
+  });
+});
+
+/**
+ * Session-expiry fix: the reported symptom itself - an idle-timed-out tab's queue poll landing on a
+ * `401` and showing the raw `Failed to load the queue: 401` with no way out but a manual reload. This
+ * is the residual-race backstop (`WorkspaceLayout.refreshQueue`'s own doc comment): `AuthProvider`'s
+ * `silentRenewError` handler and `RequireAuth`'s `user.expired` check should redirect before this ever
+ * renders, but this test's harness injects `AuthContext` directly with a fixed, never-expiring `user`
+ * (see `Signed` above) rather than running through the real guard - the same reason it is worth proving
+ * this fallback independently rather than trusting the guard alone to make a raw status code
+ * unreachable.
+ */
+describe("the queue fetch failing with an expired session", () => {
+  it("shows the honest, translated session-expiry message instead of the raw HTTP status", async () => {
+    conversationsApi.fetchOperatorQueue.mockRejectedValue(
+      new ApiProblemError("http.401", "The request failed (401).", 401),
+    );
+
+    const container = await render(workspaceAt("/"));
+
+    // This harness renders through `OperatorShell`'s real `StringsProvider`, which resolves to the
+    // console's Russian table (unlike `sessionExpiry.test.tsx`'s bare auth tree, which has none and so
+    // falls through to English) - `strings.authSessionExpiredError` from `ru.ts`.
+    expect(container.textContent).toContain("Сессия истекла. Войдите снова.");
+    expect(container.textContent).not.toContain("Failed to load the queue: 401");
+    expect(container.textContent).not.toContain("401");
   });
 });

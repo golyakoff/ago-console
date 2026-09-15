@@ -8,6 +8,7 @@ import {
   claimConversation,
 } from "../api/conversationsApi.js";
 import { fetchTags, type TagDto } from "../api/tagsApi.js";
+import { isSessionExpiredError } from "../api/problemDetails.js";
 import type { ConversationSummaryDto } from "../realtime/protocol/types.js";
 import { formatAbsolute, parseInstant, resolveTimeZone } from "../time/format.js";
 import { PageHead } from "../shell/AppShell.js";
@@ -219,7 +220,17 @@ export function AdminConversationsPage() {
         setConversations(page.conversations);
         setError(null);
       })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : strings.adminLoadError));
+      .catch((err: unknown) =>
+        // Session-expiry fix: same residual-race backstop as `WorkspaceLayout`'s queue fetch - see
+        // that catch's own doc comment.
+        setError(
+          isSessionExpiredError(err)
+            ? strings.authSessionExpiredError
+            : err instanceof Error
+              ? err.message
+              : strings.adminLoadError,
+        ),
+      );
   }, [user?.access_token, strings, tagFilter]);
 
   const columns = useMemo(

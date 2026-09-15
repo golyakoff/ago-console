@@ -1380,6 +1380,7 @@ export const en: ConsoleStrings = {
   installOriginChangeHint: "To change it, contact support.",
   authSigningIn: "Signing in…",
   authSigningOut: "Signing out…",
+  authSessionExpiredError: "Your session has expired. Sign in again.",
   calendarSetupSaveOriginsButton: "Save origins",
   calendarSetupCalendarsTitle: "Calendars",
   calendarPublishedLabel: "published",

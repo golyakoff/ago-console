@@ -7,6 +7,7 @@ import { ConnectionStateBadge } from "../realtime/ConnectionStateBadge.js";
 import { AwayControl } from "../realtime/AwayControl.js";
 import { linkStatusOf } from "../realtime/linkStatus.js";
 import { fetchOperatorQueue, markConversationRead } from "../api/conversationsApi.js";
+import { isSessionExpiredError } from "../api/problemDetails.js";
 import { fetchCannedResponses, type CannedResponseDto } from "../api/cannedResponsesApi.js";
 import { fetchTags, type TagDto } from "../api/tagsApi.js";
 import type { OperatorQueueResponse } from "../realtime/protocol/types.js";
@@ -205,7 +206,21 @@ export function WorkspaceLayout() {
         setAttention((prev) => applyAttentionEvent(prev, { kind: "refetched" }));
         setError(null);
       })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : strings.workspaceQueueLoadError));
+      .catch((err: unknown) => {
+        // Session-expiry fix: a `401` reaching here at all means this read raced the redirect that
+        // `AuthProvider`'s `silentRenewError` handler (or `RequireAuth`'s `user.expired` check) should
+        // already be starting - so this is the residual-race backstop, not the primary defence. Either
+        // way the operator should never see the status code itself; `authSessionExpiredError` says the
+        // one true thing about it in their own language, from the i18n table like every other string on
+        // this screen.
+        setError(
+          isSessionExpiredError(err)
+            ? strings.authSessionExpiredError
+            : err instanceof Error
+              ? err.message
+              : strings.workspaceQueueLoadError,
+        );
+      });
   }, [user?.access_token, strings, tagFilters]);
 
   // `5-15`: the real server-side clear. Deliberately not followed by a `refreshQueue()` - the
