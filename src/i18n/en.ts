@@ -426,6 +426,13 @@ export const en: ConsoleStrings = {
     "visitor already gave in the conversation - or still asks for one if none was given - without " +
     "proving they can be reached on it. The record always keeps track of which bookings were taken " +
     "this way. Turn this off again once a real verification provider is in place.",
+  widgetAttachmentsPanelTitle: "Attachments",
+  widgetAllowAttachmentUploadsByDefaultLabel: "Allow attachments from the first message",
+  widgetAllowAttachmentUploadsByDefaultDescription:
+    "Off by default. While on, every new conversation on this site starts with the visitor already " +
+    "able to send a file - no operator has to grant it first. This is the site's own default only; an " +
+    "operator can still grant or revoke uploads on any individual conversation regardless of this " +
+    "setting.",
 
   installForbidden: "You do not have permission to view this site's installation details.",
   installLoadError: "Failed to load your installation details.",

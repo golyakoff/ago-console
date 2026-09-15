@@ -124,6 +124,10 @@ export function WidgetConfigPage() {
   // it on" posture `attractAttention`/`requireContactConsent` already establish for themselves, so a
   // slow load never briefly implies a real, verified-phone guarantee has already been relaxed.
   const [acceptUnverifiedPhone, setAcceptUnverifiedPhone] = useState(false);
+  // `25-104`: the identical "off until the load call resolves" default every other boolean on this
+  // screen already states for itself, so a slow load never briefly implies attachments are already
+  // allowed by default.
+  const [allowAttachmentUploadsByDefault, setAllowAttachmentUploadsByDefault] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [noticeUrlValidationError, setNoticeUrlValidationError] = useState<string | null>(null);
@@ -152,6 +156,7 @@ export function WidgetConfigPage() {
         setAutoOpenDelaySeconds(dto.autoOpenDelaySeconds);
         setAutoOpenGreetingTextInput(dto.autoOpenGreetingText ?? "");
         setAcceptUnverifiedPhone(dto.acceptUnverifiedPhone);
+        setAllowAttachmentUploadsByDefault(dto.allowAttachmentUploadsByDefault);
         setLoadError(null);
       })
       .catch((err: unknown) =>
@@ -241,6 +246,7 @@ export function WidgetConfigPage() {
         autoOpenDelaySeconds,
         autoOpenGreetingText: trimmedAutoOpenGreetingText.length > 0 ? trimmedAutoOpenGreetingText : null,
         acceptUnverifiedPhone,
+        allowAttachmentUploadsByDefault,
       });
       setCurrent(dto);
       setColorInput(dto.primaryColorHex ?? "");
@@ -254,6 +260,7 @@ export function WidgetConfigPage() {
       setAutoOpenDelaySeconds(dto.autoOpenDelaySeconds);
       setAutoOpenGreetingTextInput(dto.autoOpenGreetingText ?? "");
       setAcceptUnverifiedPhone(dto.acceptUnverifiedPhone);
+      setAllowAttachmentUploadsByDefault(dto.allowAttachmentUploadsByDefault);
       // `25-24`: collapses the notice editor back behind its toggle now that the read view above it
       // has the freshly saved text to show instead - the same "the read view is what replaces the
       // form, so the form does not need to stay open next to it" reasoning `ConsentDocumentPanel`'s
@@ -567,6 +574,27 @@ export function WidgetConfigPage() {
                 <span>{strings.widgetAcceptUnverifiedPhoneLabel}</span>
               </label>
               <p className="ago-field__description">{strings.widgetAcceptUnverifiedPhoneDescription}</p>
+            </div>
+          </Panel>
+
+          {/* `25-104`: a fifth panel, kept separate from "Launcher"/"Consent notice"/"Contact consent"/
+              "Booking (temporary)" - this is neither an appearance choice, a data-handling statement, a
+              gate on collecting contact details, nor a temporary phone-verification workaround. It is
+              its own question (can a new conversation's visitor send a file from their first message,
+              with no operator having granted it yet), so it gets its own panel the same way
+              `requireContactConsent` earned its own in `25-24`. */}
+          <Panel title={strings.widgetAttachmentsPanelTitle}>
+            <div className="ago-stack">
+              <label className="ago-row">
+                <input
+                  type="checkbox"
+                  checked={allowAttachmentUploadsByDefault}
+                  disabled={submitting}
+                  onChange={(e) => setAllowAttachmentUploadsByDefault(e.target.checked)}
+                />
+                <span>{strings.widgetAllowAttachmentUploadsByDefaultLabel}</span>
+              </label>
+              <p className="ago-field__description">{strings.widgetAllowAttachmentUploadsByDefaultDescription}</p>
             </div>
           </Panel>
 

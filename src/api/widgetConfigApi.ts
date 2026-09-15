@@ -85,6 +85,24 @@ export interface WidgetConfigDto {
    * is chat-module-only today, `20-10`'s public booking widget is unaffected regardless of this value.
    */
   acceptUnverifiedPhone: boolean;
+  /**
+   * `25-104`: `Ago.Chat.Domain.WidgetConfig.AllowAttachmentUploadsByDefault` - off by default, and off
+   * until the tenant turns it on, the identical posture every other boolean on this interface already
+   * states for itself. While on, `StartConversationHandler` seeds a new conversation's own
+   * per-conversation upload grant already turned on, so a visitor can send a file from their first
+   * message without an operator granting it first. This field states only the site's own configured
+   * default - the operator-facing per-conversation override (`AttachmentUploadGrantToggle.tsx`) is a
+   * separate control for a separate question and is unaffected by this value either way.
+   *
+   * This field was missing from this interface entirely while the server has always had it - the
+   * same defect class `requireContactConsent`'s own remarks above describe (`23-108`) and
+   * `acceptUnverifiedPhone` (`25-39`) also had to close: `updateWidgetConfig` below `JSON.stringify`s
+   * this whole object as the PUT body, and the server's `UpdateWidgetConfigRequest` takes a
+   * non-nullable `bool` defaulting to `false` - so an absent property here would have silently reset
+   * this flag to off on every save of any other widget setting, for every site that had ever turned it
+   * on.
+   */
+  allowAttachmentUploadsByDefault: boolean;
 }
 
 /**

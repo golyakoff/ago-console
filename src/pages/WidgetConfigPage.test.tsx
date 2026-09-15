@@ -730,6 +730,127 @@ describe("the accept-unverified-phone-booking checkbox", () => {
   });
 });
 
+/** `25-104`: the "Attachments" panel's own checkbox, found the identical way
+ * `acceptUnverifiedPhoneCheckbox` above is. */
+function allowAttachmentUploadsByDefaultCheckbox(container: HTMLElement): HTMLInputElement {
+  const label = byText<HTMLLabelElement>(container, "label", "Allow attachments from the first message");
+  if (label === null) {
+    throw new Error("no 'Allow attachments from the first message' label found");
+  }
+
+  const input = label.querySelector("input[type='checkbox']");
+  if (!(input instanceof HTMLInputElement)) {
+    throw new Error("'Allow attachments from the first message' label has no checkbox");
+  }
+
+  return input;
+}
+
+/**
+ * `25-104`: the console half of the item - a checkbox, off by default, saved through the same one PUT
+ * every other field on this screen already uses. Modeled on "the accept-unverified-phone-booking
+ * checkbox" block above, which is this file's own precedent for a boolean field whose real defect was
+ * never the missing checkbox but the PUT body silently dropping it.
+ */
+describe("the allow-attachment-uploads-by-default checkbox", () => {
+  it("gives the checkbox its own 'Attachments' panel", async () => {
+    const container = await render(page());
+
+    const title = byText<HTMLHeadingElement>(container, "h2", "Attachments");
+    expect(title).not.toBeNull();
+
+    const panel = title?.closest(".ago-panel");
+    expect(panel).not.toBeNull();
+    expect(panel?.querySelector("input[type='checkbox']")).not.toBeNull();
+  });
+
+  it("is off by default when the site has never turned it on", async () => {
+    const container = await render(page());
+
+    expect(allowAttachmentUploadsByDefaultCheckbox(container).checked).toBe(false);
+  });
+
+  it("loads the site's current setting into the checkbox", async () => {
+    widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
+      siteId: SITE_ID,
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "En",
+      noticeText: null,
+      noticeUrl: null,
+      allowAttachmentUploadsByDefault: true,
+    });
+    const container = await render(page());
+
+    expect(allowAttachmentUploadsByDefaultCheckbox(container).checked).toBe(true);
+  });
+
+  it("saves the chosen setting alongside every other field, in one PUT", async () => {
+    const container = await render(page());
+
+    await interact(() => allowAttachmentUploadsByDefaultCheckbox(container).click());
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(widgetConfigApi.updateWidgetConfig).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({ position: "BottomRight", allowAttachmentUploadsByDefault: true }),
+    );
+  });
+
+  it("reflects the server's saved setting back into the checkbox", async () => {
+    const container = await render(page());
+    widgetConfigApi.updateWidgetConfig.mockResolvedValue({
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "En",
+      noticeText: null,
+      noticeUrl: null,
+      allowAttachmentUploadsByDefault: true,
+    });
+
+    await interact(() => allowAttachmentUploadsByDefaultCheckbox(container).click());
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(allowAttachmentUploadsByDefaultCheckbox(container).checked).toBe(true);
+    expect(container.textContent).toContain("Saved.");
+  });
+
+  // `25-104`'s own reason to exist: this is the test that matters most on this screen. Before the fix,
+  // `WidgetConfigDto`/the PUT body built in `WidgetConfigPage.tsx` had no
+  // `allowAttachmentUploadsByDefault` field at all, and the server's own `UpdateWidgetConfigRequest`
+  // takes a non-nullable `bool` defaulting to `false` - so a save that never touched this checkbox
+  // would silently omit the property, the server would bind it to `false`, and a site's real setting
+  // would be reset behind the tenant's back on every unrelated save. Proven the same way
+  // `acceptUnverifiedPhone`'s identical test above proves it for itself: change something else
+  // entirely, and the flag the server sent must come back unchanged in the request.
+  it("carries the setting through a save that never touched it", async () => {
+    widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "Ru",
+      noticeText: null,
+      noticeUrl: null,
+      allowAttachmentUploadsByDefault: true,
+    });
+
+    const container = await render(page());
+
+    await interact(() => {
+      const select = localeSelect(container);
+      select.value = "En";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(widgetConfigApi.updateWidgetConfig).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({ locale: "En", allowAttachmentUploadsByDefault: true }),
+    );
+  });
+});
+
 /**
  * `23-64`: the console half of the item - a checkbox (off by default), a delay `<select>` (the
  * closed six-value set), and a greeting `<textarea>` with no default text, saved through the same one
