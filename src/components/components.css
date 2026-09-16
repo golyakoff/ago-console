@@ -705,10 +705,11 @@
   position: absolute;
   z-index: 1;
   top: calc(100% + var(--ago-space-2));
+  /* `25-111`: `left`/`max-width` here are the default this renders with when there is room -
+     `Tooltip.tsx`'s own `useLayoutEffect` overrides both with an inline style (never this file) the
+     one time there is not, which is why an override can never fight this rule's specificity. */
   left: 0;
   width: max-content;
-  /* No viewport-collision detection - `Tooltip.tsx`'s own doc comment says why that is an accepted
-     gap for this item's own call sites, all inside the workspace's bounded columns. */
   max-width: 18rem;
   padding: var(--ago-space-2) var(--ago-space-3);
   border: 1px solid var(--ago-line-strong);
