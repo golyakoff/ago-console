@@ -201,16 +201,8 @@ export interface OwnerSiteDetail {
    *
    * `25-114`: never carries a `"channel"` row, by design - a channel entitlement (Telegram today) is
    * a `ModuleQuantityGrant` with no `enabled_modules` row behind it at all (`ChannelEntitlement.cs`'s
-   * own remarks, `ago-chat`), so `GetSiteForOwnerHandler` has nothing here to project one from. Its
-   * own `quantities` dictionary (read from `IModuleQuantityGrantStore.GetAllForSiteAsync`, keyed by
-   * every `ModuleKey` this site has a grant for, `"channel"` included when one exists) is used only to
-   * enrich a row that is already in this array - never as an independent source of a row - so a
-   * channel entitlement's own current quantity genuinely does not reach this response at all today.
-   * `OwnerSiteDetailPage.tsx`'s own "Channel entitlement" section can therefore only show what it
-   * itself just granted in the current browser session, not this tenant's real standing value; closing
-   * that gap needs a field added to `OwnerSiteDetailResponse` on the wire (the value is already read
-   * server-side, so no new query - see this item's own report for the exact shape), which is out of
-   * this console-only item's scope. */
+   * own remarks, `ago-chat`), so `GetSiteForOwnerHandler` has nothing here to project one from. See
+   * `channelQuantity` below for that value's own field. */
   modules: OwnerSiteModule[];
   /** `23-48`: this tenant's own `Site.AllowedOrigins`, added so the owner's detail screen - the only
    * place any of it may now be edited - has something to show and edit without a second round trip.
@@ -232,6 +224,13 @@ export interface OwnerSiteDetail {
    * permission" picker has a closed vocabulary to offer without keeping its own copy that could drift
    * from the server's. */
   allKnownPermissions: string[];
+  /** `25-114`: this site's own standing channel-entitlement quantity, mirroring
+   * `Ago.Chat.Contracts.OwnerSiteDetailResponse.ChannelQuantity` field for field - `null` means no
+   * grant exists yet, the same "absent, not zero" reading `OwnerSiteModule.quantity` already gives its
+   * sibling field, never rendered as `0`. This is the tenant's real, persisted value, read fresh on
+   * every load - not `channelQuantitySaved` below, which is only ever this browser's own memory of a
+   * quantity it just granted in the current session. */
+  channelQuantity: number | null;
 }
 
 /**

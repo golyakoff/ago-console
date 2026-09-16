@@ -119,6 +119,10 @@ function detail(overrides: Partial<OwnerSiteDetail> = {}): OwnerSiteDetail {
     // list every unrelated test would have to reason about.
     roles: [],
     allKnownPermissions: [],
+    // `25-114`: `null` by default, the same "opt in per test" shape `roles`/`modules` above already
+    // use - a test that does not care about the channel entitlement sees "never granted", not a
+    // stand-in number every unrelated test would have to reason about.
+    channelQuantity: null,
     ...overrides,
   };
 }
@@ -1189,7 +1193,29 @@ describe("the site detail page's own channel entitlement section (25-114)", () =
     await interact(() => byText<HTMLButtonElement>(container, "button", "Grant channel quantity").click());
 
     expect(ownerApi.grantOwnerModuleQuantity).toHaveBeenCalledWith("token", SITE_ID, "channel", 3);
-    expect(container.textContent).toContain("Granted in this session: 3");
+    expect(container.textContent).toContain("Just granted: 3");
+  });
+
+  // `25-114`: the read-side half - the site's own real, persisted value (`OwnerSiteDetailResponse.
+  // ChannelQuantity`), not merely what this browser session itself just granted. Proves the gap the
+  // worker who first built this section reported honestly as out of its own scope is now closed.
+  it("shows the site's own persisted channel quantity on load, and prefills the input with it", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail({ channelQuantity: 5 }) });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).toContain("Currently granted: 5");
+    const input = one<HTMLInputElement>(container, 'form input[type="number"]');
+    expect(input.value).toBe("5");
+  });
+
+  it("shows a 'never granted' message, not zero, when no channel quantity has ever been granted", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail({ channelQuantity: null }) });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).toContain("No channel quantity has been granted yet.");
+    expect(container.textContent).not.toContain("Currently granted:");
   });
 
   it("refuses to submit a blank channel quantity, without calling the server", async () => {

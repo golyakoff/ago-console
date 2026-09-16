@@ -199,12 +199,10 @@ export function OwnerSiteDetailPage() {
   // credential would make chat believe a real module is registered when nothing routes to it), so
   // there is no row in `site.modules` this section could reuse the existing dialog for without first
   // faking one - exactly the confusion that class's own comment warns against. `channelQuantitySaved`
-  // starts `null` and stays `null` across a page reload: `OwnerSiteDetailResponse` only ever surfaces
-  // `IModuleQuantityGrantStore`'s quantities as enrichment of a `modules` row that already exists
-  // (`GetSiteForOwnerHandler.ToModuleDto`), so a quantity granted for a moduleless pseudo-module never
-  // reaches this screen's own read at all - this section can show only what it itself just granted in
-  // this browser session, not the site's actual standing entitlement. See this file's own report for
-  // `25-114` for the read-side field this leaves genuinely missing, deliberately not added here.
+  // is a transient success confirmation only, the same role `quantitySaved` plays for a real module
+  // above - the site's own standing value now comes from `site.channelQuantity`
+  // (`OwnerSiteDetailResponse.ChannelQuantity`, added once this item's own read-side gap was closed),
+  // read fresh on every load exactly like every other field on this screen, never guessed at.
   const [channelQuantityInput, setChannelQuantityInput] = useState("");
   const [channelQuantityError, setChannelQuantityError] = useState<string | null>(null);
   const [channelQuantitySaved, setChannelQuantitySaved] = useState<number | null>(null);
@@ -290,6 +288,12 @@ export function OwnerSiteDetailPage() {
         setAccess("granted");
         setSite(outcome.site);
         setOriginsDraft(outcome.site.allowedOrigins.join("\n"));
+        // `25-114`: prefill with the site's own real standing value, the same "show what the server
+        // actually holds" reasoning `originsDraft` above already follows for `allowedOrigins` - never
+        // left at whatever this browser tab's own last submit happened to type in.
+        setChannelQuantityInput(
+          outcome.site.channelQuantity === null ? "" : String(outcome.site.channelQuantity),
+        );
       })
       .catch((err: unknown) => {
         // Same "the API is broken" vs. "you may not see this" split every owner screen makes.
@@ -627,13 +631,11 @@ export function OwnerSiteDetailPage() {
   };
 
   // `25-114`: the channel entitlement's own submit - always `CHANNEL_MODULE_KEY`, never a value read
-  // from the form the way `moduleKeyInput`/`quantityModule.moduleKey` are for a real module. No
-  // "lowering" confirm stage the way `handleQuantitySubmit` has: that stage compares the new number
-  // against `quantityModule.quantity`, a value this screen actually holds because the row it came from
-  // is real; there is no equivalent trustworthy "current" value here to compare against (this file's
-  // own remarks on `channelQuantitySaved` above), so a smaller, honest one-step form is what the
-  // available data supports rather than a dialog that would imply a comparison this screen cannot
-  // actually make.
+  // from the form the way `moduleKeyInput`/`quantityModule.moduleKey` are for a real module. Still no
+  // "lowering" confirm stage the way `handleQuantitySubmit` has, even though `site.channelQuantity` is
+  // now a trustworthy current value this form could compare against - deliberately kept as the smaller
+  // one-step form this item's own scope covers (closing the read-side gap), not a limitation of the
+  // data anymore; a lowering-confirm stage for this form is a separate, later decision.
   const handleChannelQuantitySubmit = (event: React.FormEvent) => {
     event.preventDefault();
     setChannelQuantityError(null);
@@ -662,6 +664,11 @@ export function OwnerSiteDetailPage() {
         if (outcome.status === "ok") {
           setChannelQuantitySaved(outcome.quantity);
           setChannelQuantityInput(String(outcome.quantity));
+          // `25-114`: re-read rather than splice a locally-built value in - the identical
+          // "the server's own read is the only source" reasoning `submitQuantity` above already
+          // follows for a real module, so `site.channelQuantity` reflects this grant immediately
+          // rather than only this session's own transient `channelQuantitySaved` banner.
+          loadSiteDetail();
           return;
         }
 
@@ -1479,16 +1486,21 @@ export function OwnerSiteDetailPage() {
           >
             <Alert tone="info">{strings.ownerSiteDetailChannelEntitlementNote}</Alert>
 
-            {/* `25-114`'s own honest limitation, stated here rather than guessed at: this screen was
-                never sent this tenant's actual standing channel quantity (see this file's own remarks
-                on `channelQuantitySaved` above) - it can only report what was granted in this
-                browser's current session, not "the truth" the way the Entitlements table above can for
-                a real module row. */}
+            {/* `25-114`: the site's own real standing value, from `site.channelQuantity` - "absent,
+                not zero" exactly like `OwnerSiteModule.quantity` above, never rendered as a blank or a
+                0. */}
             <p className="ago-meta">
-              {channelQuantitySaved === null
+              {site.channelQuantity === null
                 ? strings.ownerSiteDetailChannelQuantityUnknown
-                : `${strings.ownerSiteDetailChannelQuantityGrantedThisSessionPrefix}${formatModuleQuantity(channelQuantitySaved, strings)}`}
+                : `${strings.ownerSiteDetailChannelQuantityCurrentPrefix}${formatModuleQuantity(site.channelQuantity, strings)}`}
             </p>
+
+            {channelQuantitySaved !== null && (
+              <Alert tone="success">
+                {strings.ownerSiteDetailChannelQuantityGrantedThisSessionPrefix}
+                {formatModuleQuantity(channelQuantitySaved, strings)}
+              </Alert>
+            )}
 
             <form className="ago-stack" onSubmit={handleChannelQuantitySubmit}>
               <Field
