@@ -3173,16 +3173,29 @@ export interface ConsoleStrings {
   ownerSiteDetailQuantityRequired: string;
   ownerSiteDetailQuantityInvalid: string;
   ownerSiteDetailGrantQuantityFailed: string;
-  /** `25-114`: the channel entitlement's own dedicated section - see `OwnerSiteDetailPage.tsx`'s own
-   * remarks on why this is a section of its own rather than a row in the Entitlements table above it. */
-  ownerSiteDetailChannelEntitlementHeading: string;
-  ownerSiteDetailChannelEntitlementTitle: string;
-  ownerSiteDetailChannelEntitlementDescription: string;
-  ownerSiteDetailChannelEntitlementNote: string;
-  ownerSiteDetailChannelQuantityUnknown: string;
-  ownerSiteDetailChannelQuantityCurrentPrefix: string;
-  ownerSiteDetailChannelQuantityGrantedThisSessionPrefix: string;
-  ownerSiteDetailChannelQuantityButton: string;
+  /** `25-115`: the channel entitlement's own dedicated section, replacing `25-114`'s single numeric
+   * quantity form - see `OwnerSiteDetailPage.tsx`'s own remarks on why this is a section of its own
+   * rather than a row in the Entitlements table above it. */
+  ownerSiteDetailChannelEntitlementsHeading: string;
+  ownerSiteDetailChannelScreenNote: string;
+  ownerSiteDetailChannelEntitlementsCaption: string;
+  ownerSiteDetailChannelColumnKind: string;
+  ownerSiteDetailChannelPaid: string;
+  ownerSiteDetailChannelNoneGranted: string;
+  ownerSiteDetailChannelGrantTitle: string;
+  ownerSiteDetailChannelGrantDescription: string;
+  ownerSiteDetailChannelNoneAvailable: string;
+  ownerSiteDetailChannelKindLabel: string;
+  ownerSiteDetailChannelGrantButton: string;
+  ownerSiteDetailChannelGrantSaved: string;
+  ownerSiteDetailChannelGrantFailed: string;
+  ownerSiteDetailChannelRevokeFailed: string;
+  ownerSiteDetailChannelRevokeDialogTitlePrefix: string;
+  ownerChannelKindMax: string;
+  ownerChannelKindTelegram: string;
+  ownerChannelKindVk: string;
+  ownerChannelKindWhatsApp: string;
+  ownerChannelKindAvito: string;
   ownerSiteDetailForceDialogTitlePrefix: string;
   ownerSiteDetailForceDialogTitleInfix: string;
   ownerSiteDetailForceDialogTitleFallback: string;

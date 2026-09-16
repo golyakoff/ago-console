@@ -5,7 +5,13 @@ import type { User } from "oidc-client-ts";
 import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { OwnerSiteDetailPage } from "./OwnerSiteDetailPage.js";
-import type { OwnerSiteDetail, OwnerSiteModule, OwnerSiteOperator, OwnerSiteRole } from "../api/ownerApi.js";
+import type {
+  OwnerSiteChannelEntitlement,
+  OwnerSiteDetail,
+  OwnerSiteModule,
+  OwnerSiteOperator,
+  OwnerSiteRole,
+} from "../api/ownerApi.js";
 import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
@@ -33,6 +39,8 @@ const ownerApi = vi.hoisted(() => ({
   revokeOwnerModule: vi.fn(),
   // `23-66`: the quantity screen's own write, mocked the same way.
   grantOwnerModuleQuantity: vi.fn(),
+  // `25-115`: the channel entitlement's own grant/revoke write, mocked the same way.
+  grantOwnerChannelEntitlement: vi.fn(),
   // `23-68`: the operator roster's own restore-seat write, mocked the same way.
   restoreOwnerOperatorSeat: vi.fn(),
   // `25-76`: the role-permission tool's own write, mocked the same way.
@@ -119,10 +127,28 @@ function detail(overrides: Partial<OwnerSiteDetail> = {}): OwnerSiteDetail {
     // list every unrelated test would have to reason about.
     roles: [],
     allKnownPermissions: [],
-    // `25-114`: `null` by default, the same "opt in per test" shape `roles`/`modules` above already
-    // use - a test that does not care about the channel entitlement sees "never granted", not a
-    // stand-in number every unrelated test would have to reason about.
-    channelQuantity: null,
+    // `25-115`: an empty list by default, the same "opt in per test" shape `roles`/`modules` above
+    // already use - a test that does not care about channel entitlements sees no priced channel kinds
+    // at all, not a stand-in list every unrelated test would have to reason about.
+    channelEntitlements: [],
+    ...overrides,
+  };
+}
+
+let nextChannelEntitlement = 0;
+
+/** `25-115`: one row of `site.channelEntitlements` - `moduleKey` defaults to a distinct, obviously
+ * synthetic value per call (mirroring `oneModule`'s own auto-incrementing `id` above) so a test that
+ * builds more than one entitlement without naming a `moduleKey` still gets rows `Table`'s own
+ * `rowKey` can tell apart. */
+function oneChannelEntitlement(overrides: Partial<OwnerSiteChannelEntitlement> = {}): OwnerSiteChannelEntitlement {
+  nextChannelEntitlement += 1;
+  return {
+    kind: "Telegram",
+    moduleKey: `channel-telegram-${nextChannelEntitlement}`,
+    granted: false,
+    grantedByOwner: true,
+    expiresAt: null,
     ...overrides,
   };
 }
@@ -1170,77 +1196,272 @@ describe("the site detail page's own quantity dialog", () => {
   });
 });
 
-// `25-114`: the channel entitlement's own dedicated section - proves the actual gap this item was
-// filed for: a channel quantity grant (`ModuleKey` `"channel"`) reached with no pre-existing
-// `enabled_modules` row to click, on a fixture that is genuinely module-less (`detail()`'s own
-// default `modules: []` - true of every real site before `25-113`/`25-114`, not a seeded stand-in
-// that would beg the question this item exists to answer).
-describe("the site detail page's own channel entitlement section (25-114)", () => {
-  it("grants a channel quantity for a site with no enabled_modules rows at all, with no row to click first", async () => {
-    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
-    ownerApi.grantOwnerModuleQuantity.mockResolvedValue({ status: "ok", moduleKey: "channel", quantity: 3 });
-
-    const container = await render(shellAt());
-
-    expect(container.textContent).toContain("Channel entitlement");
-    // `detail()`'s own defaults (`modules`/`operators`/`roles` all empty) render no `<table>` at
-    // all - there is genuinely nothing on this page to click to reach the channel grant except the
-    // form this section adds, unlike a real module's quantity dialog which opens from a table row.
-    expect(container.querySelector("table")).toBeNull();
-
-    const input = one<HTMLInputElement>(container, 'form input[type="number"]');
-    await setInput(input, "3");
-    await interact(() => byText<HTMLButtonElement>(container, "button", "Grant channel quantity").click());
-
-    expect(ownerApi.grantOwnerModuleQuantity).toHaveBeenCalledWith("token", SITE_ID, "channel", 3);
-    expect(container.textContent).toContain("Just granted: 3");
-  });
-
-  // `25-114`: the read-side half - the site's own real, persisted value (`OwnerSiteDetailResponse.
-  // ChannelQuantity`), not merely what this browser session itself just granted. Proves the gap the
-  // worker who first built this section reported honestly as out of its own scope is now closed.
-  it("shows the site's own persisted channel quantity on load, and prefills the input with it", async () => {
-    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail({ channelQuantity: 5 }) });
-
-    const container = await render(shellAt());
-
-    expect(container.textContent).toContain("Currently granted: 5");
-    const input = one<HTMLInputElement>(container, 'form input[type="number"]');
-    expect(input.value).toBe("5");
-  });
-
-  it("shows a 'never granted' message, not zero, when no channel quantity has ever been granted", async () => {
-    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail({ channelQuantity: null }) });
-
-    const container = await render(shellAt());
-
-    expect(container.textContent).toContain("No channel quantity has been granted yet.");
-    expect(container.textContent).not.toContain("Currently granted:");
-  });
-
-  it("refuses to submit a blank channel quantity, without calling the server", async () => {
-    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
-
-    const container = await render(shellAt());
-    await interact(() => byText<HTMLButtonElement>(container, "button", "Grant channel quantity").click());
-
-    expect(container.textContent).toMatch(/enter a quantity/i);
-    expect(ownerApi.grantOwnerModuleQuantity).not.toHaveBeenCalled();
-  });
-
-  it("shows the server's own refusal text inline for an invalid channel quantity", async () => {
-    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
-    ownerApi.grantOwnerModuleQuantity.mockResolvedValue({
-      status: "invalid",
-      message: "A granted quantity cannot be negative.",
+// `25-115`: replaces `25-114`'s single numeric quantity suite entirely - a per-channel-kind table
+// with provenance and expiry, a dropdown of not-yet-granted kinds, and a grant/revoke pair each
+// requiring a reason, per `docs/backlog/25-115-*.md`'s own Scope. Fixtures build
+// `channelEntitlements` explicitly per test (`detail()`'s own default `[]` - true of a site whose
+// deployment has not priced any channel kind at all), the same "opt in, do not beg the question"
+// shape `25-114`'s own removed suite used for `modules: []`.
+describe("the site detail page's own channel entitlement section (25-115)", () => {
+  it("shows an empty-state message, not a broken table, when no channel is entitled yet", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ channelEntitlements: [oneChannelEntitlement({ kind: "Telegram", granted: false })] }),
     });
 
     const container = await render(shellAt());
-    const input = one<HTMLInputElement>(container, 'form input[type="number"]');
-    await setInput(input, "9");
-    await interact(() => byText<HTMLButtonElement>(container, "button", "Grant channel quantity").click());
 
-    expect(container.textContent).toContain("cannot be negative");
+    expect(container.textContent).toContain("No channel is entitled yet.");
+    expect(container.querySelectorAll("table").length).toBe(0);
+  });
+
+  it("renders a table of the site's currently entitled channels, with provenance and expiry", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({
+        channelEntitlements: [
+          oneChannelEntitlement({
+            kind: "Telegram",
+            moduleKey: "channel-telegram",
+            granted: true,
+            grantedByOwner: true,
+            expiresAt: null,
+          }),
+          oneChannelEntitlement({
+            kind: "Vk",
+            moduleKey: "channel-vk",
+            granted: true,
+            grantedByOwner: false,
+            expiresAt: "2026-12-01T00:00:00Z",
+          }),
+        ],
+      }),
+    });
+
+    const container = await render(shellAt());
+    const table = one<HTMLElement>(container, "table");
+
+    expect(table.textContent).toContain("Telegram");
+    expect(table.textContent).toContain("VK");
+    // `grantedByOwner: true` -> "Platform owner" (`ownerSiteDetailGrantedByOwner`, the identical
+    // label the real-module table above uses); `grantedByOwner: false` -> "Paid" - real per the wire
+    // contract but currently unreachable (this item's own "do not fake data" warning).
+    expect(table.textContent).toContain("Platform owner");
+    expect(table.textContent).toContain("Paid");
+    // `expiresAt: null` -> "No end date" (`formatModuleExpiry`, shared with the module table above).
+    expect(table.textContent).toContain("No end date");
+  });
+
+  it("offers only the not-yet-granted channel kinds in the grant dropdown", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({
+        channelEntitlements: [
+          oneChannelEntitlement({ kind: "Telegram", moduleKey: "channel-telegram", granted: true }),
+          oneChannelEntitlement({ kind: "Vk", moduleKey: "channel-vk", granted: false }),
+          oneChannelEntitlement({ kind: "WhatsApp", moduleKey: "channel-whatsapp", granted: false }),
+        ],
+      }),
+    });
+
+    const container = await render(shellAt());
+    const select = channelKindSelect(container);
+    const optionLabels = Array.from(select.options).map((option) => option.textContent);
+
+    expect(optionLabels).toEqual(["VK", "WhatsApp"]);
+  });
+
+  it("shows an empty-state message in the grant form when every priced channel is already granted", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({
+        channelEntitlements: [
+          oneChannelEntitlement({ kind: "Telegram", moduleKey: "channel-telegram", granted: true }),
+        ],
+      }),
+    });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).toMatch(/nothing left to grant/i);
+  });
+
+  it("grants the selected channel with the typed reason and expiry, and reloads the site", async () => {
+    ownerApi.fetchOwnerSiteDetail
+      .mockResolvedValueOnce({
+        status: "ok",
+        site: detail({
+          channelEntitlements: [oneChannelEntitlement({ kind: "Vk", moduleKey: "channel-vk", granted: false })],
+        }),
+      })
+      .mockResolvedValueOnce({
+        status: "ok",
+        site: detail({
+          channelEntitlements: [oneChannelEntitlement({ kind: "Vk", moduleKey: "channel-vk", granted: true })],
+        }),
+      });
+    ownerApi.grantOwnerChannelEntitlement.mockResolvedValue({
+      status: "ok",
+      moduleKey: "channel-vk",
+      granted: true,
+      expiresAt: null,
+    });
+
+    const container = await render(shellAt());
+    const form = channelGrantFormOf(container);
+
+    await setTextarea(form, "Piloting VK for this tenant.");
+    await chooseNeverExpires(form);
+    await interact(() => byText<HTMLButtonElement>(form, "button", "Add").click());
+
+    expect(ownerApi.grantOwnerChannelEntitlement).toHaveBeenCalledWith("token", SITE_ID, "channel-vk", {
+      grant: true,
+      reason: "Piloting VK for this tenant.",
+      expiresAt: null,
+    });
+    expect(ownerApi.fetchOwnerSiteDetail).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses to submit the grant form with a blank reason, without calling the server", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({
+        channelEntitlements: [oneChannelEntitlement({ kind: "Vk", moduleKey: "channel-vk", granted: false })],
+      }),
+    });
+
+    const container = await render(shellAt());
+    const form = channelGrantFormOf(container);
+    await chooseNeverExpires(form);
+
+    await interact(() => byText<HTMLButtonElement>(form, "button", "Add").click());
+
+    expect(form.textContent).toMatch(/write the reason/i);
+    expect(ownerApi.grantOwnerChannelEntitlement).not.toHaveBeenCalled();
+  });
+
+  it("refuses to submit the grant form with no expiry chosen, without calling the server", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({
+        channelEntitlements: [oneChannelEntitlement({ kind: "Vk", moduleKey: "channel-vk", granted: false })],
+      }),
+    });
+
+    const container = await render(shellAt());
+    const form = channelGrantFormOf(container);
+    await setTextarea(form, "Piloting VK for this tenant.");
+
+    await interact(() => byText<HTMLButtonElement>(form, "button", "Add").click());
+
+    expect(form.textContent).toMatch(/choose whether this grant expires/i);
+    expect(ownerApi.grantOwnerChannelEntitlement).not.toHaveBeenCalled();
+  });
+
+  it("shows the server's own refusal text inline for an invalid grant", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({
+        channelEntitlements: [oneChannelEntitlement({ kind: "Vk", moduleKey: "channel-vk", granted: false })],
+      }),
+    });
+    ownerApi.grantOwnerChannelEntitlement.mockResolvedValue({
+      status: "invalid",
+      message: "This expiry has already passed.",
+    });
+
+    const container = await render(shellAt());
+    const form = channelGrantFormOf(container);
+    await setTextarea(form, "Piloting VK for this tenant.");
+    await chooseNeverExpires(form);
+
+    await interact(() => byText<HTMLButtonElement>(form, "button", "Add").click());
+
+    expect(container.textContent).toContain("This expiry has already passed.");
+  });
+
+  it("revokes a granted channel with the typed reason, and reloads the site", async () => {
+    ownerApi.fetchOwnerSiteDetail
+      .mockResolvedValueOnce({
+        status: "ok",
+        site: detail({
+          channelEntitlements: [
+            oneChannelEntitlement({ kind: "Telegram", moduleKey: "channel-telegram", granted: true }),
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        status: "ok",
+        site: detail({
+          channelEntitlements: [
+            oneChannelEntitlement({ kind: "Telegram", moduleKey: "channel-telegram", granted: false }),
+          ],
+        }),
+      });
+    ownerApi.grantOwnerChannelEntitlement.mockResolvedValue({
+      status: "ok",
+      moduleKey: "channel-telegram",
+      granted: false,
+      expiresAt: null,
+    });
+
+    const container = await render(shellAt());
+    const dialog = await openChannelRevokeDialog(container);
+
+    await setTextarea(dialog, "Tenant asked to disconnect Telegram.");
+    await interact(() => byText<HTMLButtonElement>(dialog, "button", "Revoke").click());
+
+    expect(ownerApi.grantOwnerChannelEntitlement).toHaveBeenCalledWith("token", SITE_ID, "channel-telegram", {
+      grant: false,
+      reason: "Tenant asked to disconnect Telegram.",
+      expiresAt: null,
+    });
+    expect(ownerApi.fetchOwnerSiteDetail).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses to confirm a channel revoke with a blank reason, without calling the server", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({
+        channelEntitlements: [
+          oneChannelEntitlement({ kind: "Telegram", moduleKey: "channel-telegram", granted: true }),
+        ],
+      }),
+    });
+
+    const container = await render(shellAt());
+    const dialog = await openChannelRevokeDialog(container);
+
+    await interact(() => byText<HTMLButtonElement>(dialog, "button", "Revoke").click());
+
+    expect(dialog.textContent).toMatch(/write the reason/i);
+    expect(ownerApi.grantOwnerChannelEntitlement).not.toHaveBeenCalled();
+  });
+
+  // `docs/backlog/25-115-*.md`'s own instruction: whether an *expired* entitlement still shows as
+  // granted is the backend's own now-aware decision (`ModuleQuantityGrant.EffectiveQuantity`), never
+  // something this screen re-derives by comparing `expiresAt` to its own clock. A past `expiresAt`
+  // alongside `granted: true` from the server must still render as granted here.
+  it("renders exactly what the server's own 'granted' says, even when expiresAt is already in the past", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({
+        channelEntitlements: [
+          oneChannelEntitlement({
+            kind: "Telegram",
+            moduleKey: "channel-telegram",
+            granted: true,
+            expiresAt: "2020-01-01T00:00:00Z",
+          }),
+        ],
+      }),
+    });
+
+    const container = await render(shellAt());
+    const table = one<HTMLElement>(container, "table");
+
+    expect(table.textContent).toContain("Telegram");
+    expect(container.textContent).not.toContain("No channel is entitled yet.");
   });
 });
 
@@ -1311,6 +1532,46 @@ function moduleKeySelect(container: HTMLElement): HTMLSelectElement {
     throw new Error("no 'Module key' label found");
   }
   return one<HTMLSelectElement>(container, `#${label.htmlFor}`);
+}
+
+/** `25-115`: the channel grant form's own kind `<select>` - found by its `Field` label, the identical
+ * approach `moduleKeySelect` above already establishes for its own sibling form. */
+function channelKindSelect(container: HTMLElement): HTMLSelectElement {
+  const label = byText<HTMLLabelElement>(container, "label", "Channel");
+  if (label === null) {
+    throw new Error("no 'Channel' label found");
+  }
+  return one<HTMLSelectElement>(container, `#${label.htmlFor}`);
+}
+
+/** `25-115`: the channel grant form's own `<form>` element, found via its kind `<select>` - scoping
+ * every later query (the reason textarea, the expiry radios, the "Add" button) to this one form
+ * rather than `container` avoids colliding with the "Grant a module" form above, which shares the
+ * identical "Never expires"/"Expires on" radio labels for its own, unrelated expiry fieldset. */
+function channelGrantFormOf(container: HTMLElement): HTMLElement {
+  const form = channelKindSelect(container).closest("form");
+  if (form === null) {
+    throw new Error("the channel kind select is not inside a form");
+  }
+  return form;
+}
+
+/** Picks "Never expires" within `scope` - shared by the channel grant form's own tests, scoped so it
+ * never touches the module-grant form's identical-looking radio above it on the same page. */
+async function chooseNeverExpires(scope: HTMLElement) {
+  const label = byText<HTMLLabelElement>(scope, "label", "Never expires");
+  if (label === null) {
+    throw new Error("no 'Never expires' label found in the given scope");
+  }
+  await interact(() => one<HTMLInputElement>(label, 'input[type="radio"]').click());
+}
+
+/** Clicks the channel table row's own "Revoke" action and returns the dialog it opens - the identical
+ * "first match in document order is the real trigger, not a still-mounted dialog confirm" shape
+ * `openRevokeDialog` above already relies on for the module table's own revoke. */
+async function openChannelRevokeDialog(container: HTMLElement): Promise<HTMLElement> {
+  await interact(() => byText<HTMLButtonElement>(container, "button", "Revoke").click());
+  return one<HTMLElement>(container, "dialog[open]");
 }
 
 /** Fills every field of the grant form except (by default) the expiry, so each test opts into

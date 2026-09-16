@@ -199,10 +199,10 @@ export interface OwnerSiteDetail {
    * `modulesApi.ts`'s "currently active only" shape. A support agent repairing a tenant needs to see
    * a lapsed trial, not just its absence.
    *
-   * `25-114`: never carries a `"channel"` row, by design - a channel entitlement (Telegram today) is
-   * a `ModuleQuantityGrant` with no `enabled_modules` row behind it at all (`ChannelEntitlement.cs`'s
+   * `25-114`/`25-115`: never carries a channel row, by design - a channel entitlement is a
+   * `ModuleQuantityGrant` with no `enabled_modules` row behind it at all (`ChannelEntitlement.cs`'s
    * own remarks, `ago-chat`), so `GetSiteForOwnerHandler` has nothing here to project one from. See
-   * `channelQuantity` below for that value's own field. */
+   * `channelEntitlements` below for that value's own field. */
   modules: OwnerSiteModule[];
   /** `23-48`: this tenant's own `Site.AllowedOrigins`, added so the owner's detail screen - the only
    * place any of it may now be edited - has something to show and edit without a second round trip.
@@ -224,13 +224,49 @@ export interface OwnerSiteDetail {
    * permission" picker has a closed vocabulary to offer without keeping its own copy that could drift
    * from the server's. */
   allKnownPermissions: string[];
-  /** `25-114`: this site's own standing channel-entitlement quantity, mirroring
-   * `Ago.Chat.Contracts.OwnerSiteDetailResponse.ChannelQuantity` field for field - `null` means no
-   * grant exists yet, the same "absent, not zero" reading `OwnerSiteModule.quantity` already gives its
-   * sibling field, never rendered as `0`. This is the tenant's real, persisted value, read fresh on
-   * every load - not `channelQuantitySaved` below, which is only ever this browser's own memory of a
-   * quantity it just granted in the current session. */
-  channelQuantity: number | null;
+  /** `25-115`: replaces `25-114`'s single `channelQuantity: number | null` - one row per channel
+   * kind this deployment has actually priced (`Ago.Chat.Application.Abstractions.
+   * IBillingOptionEntitlementProvider` resolves a `ModuleKey` for it), not a single number for one
+   * hardcoded kind. A kind absent from this list has no entitlement mapping configured at all and
+   * cannot be granted - never offered in the grant dropdown even though `Ago.Chat.Domain.ChannelKind`
+   * itself has more members than this list will ever show. */
+  channelEntitlements: OwnerSiteChannelEntitlement[];
+}
+
+/**
+ * `25-115`: one row of `OwnerSiteDetail.channelEntitlements` - mirrors
+ * `Ago.Chat.Contracts.OwnerSiteChannelEntitlementDto` (`ago-chat`) field for field.
+ *
+ * `moduleKey` is opaque and must be echoed back verbatim on grant/revoke, never constructed from
+ * `kind` client-side - the same "the wire carries values, the client does not derive them" shape
+ * `OwnerSiteModuleDto.ModuleKey` already establishes; the deployment's own naming convention for a
+ * channel's `ModuleKey` (`"channel-" + kind.ToLower()`, per `docs/backlog/25-115-*.md`'s Scope) is an
+ * implementation detail of `ago-deploy`'s configuration, not a contract this console may assume.
+ *
+ * `grantedByOwner: false` ("paid") is a real, honest field even though nothing today can produce it -
+ * there is no self-service channel purchase path yet (`docs/backlog/25-115-*.md`'s own "do not fake
+ * data" warning) - so the console must render it plainly rather than treat it as dead code to strip.
+ */
+export interface OwnerSiteChannelEntitlement {
+  /** `Ago.Chat.Domain.ChannelKind.ToString()` - `"Max" | "Telegram" | "Vk" | "WhatsApp" | "Avito"`
+   * today, of the seven real members that enum has. Rendered through a label lookup
+   * (`channelKindLabel` in `ownerSites.ts`), never shown raw. */
+  kind: string;
+  /** Opaque - echo this back verbatim to `grantOwnerChannelEntitlement` for this row, never construct
+   * it from `kind`. */
+  moduleKey: string;
+  /** Whether this channel is currently entitled - already accounts for an expired unconditional grant
+   * server-side (`ModuleQuantityGrant.EffectiveQuantity`'s own now-aware check, `25-115`'s Domain
+   * scope); this console must never re-derive it by comparing `expiresAt` against the browser's own
+   * clock. */
+  granted: boolean;
+  /** `true` = an owner override (`SetUnconditionalGrantAsync`, the only real path today). `false` =
+   * billing-driven - not reachable yet, kept honest rather than hidden (see this interface's own
+   * remarks above). */
+  grantedByOwner: boolean;
+  /** ISO-8601, or `null` for an indefinite grant - the identical "absent, not zero/never" shape
+   * `OwnerSiteModule.expiresAt` already uses, rendered with the same `formatModuleExpiry`. */
+  expiresAt: string | null;
 }
 
 /**
@@ -483,6 +519,92 @@ export async function grantOwnerModuleQuantity(
 
   const body = (await response.json()) as { moduleKey: string; quantity: number };
   return { status: "ok", moduleKey: body.moduleKey, quantity: body.quantity };
+}
+
+/**
+ * `25-115`: the body a channel-entitlement grant or revoke takes - one shape for both acts, `grant`
+ * decides which (matches the wire's own `unconditionallyGranted` boolean - named `grant` here for the
+ * console's own reading, translated at the call site below). `reason` is required for both
+ * directions - `SetUnconditionalGrantAsync` already refuses a blank one regardless of which way the
+ * flag is moving, so there is no "reason only matters one way" asymmetry here the way
+ * `RevokeOwnerModuleDraft.reason` has for a real module's `force`. `expiresAt` is only meaningful
+ * when `grant` is `true`; a revoke always sends `null`.
+ */
+export interface GrantOwnerChannelEntitlementDraft {
+  grant: boolean;
+  reason: string;
+  expiresAt: string | null;
+}
+
+/**
+ * `25-115`: the outcome of granting or lifting a channel entitlement as the platform owner - the same
+ * shape `GrantOwnerModuleQuantityOutcome` uses (no `"unavailable"`: this write never asks a module
+ * anything over HTTP, the identical CLAUDE.md rule 8 reasoning that outcome's own remarks give).
+ * `"invalid"` covers a blank reason or an expiry the server refuses (in the past, or too far out).
+ */
+export type GrantOwnerChannelEntitlementOutcome =
+  | { status: "ok"; moduleKey: string; granted: boolean; expiresAt: string | null }
+  | { status: "not-authorized" }
+  | { status: "not-found" }
+  | { status: "invalid"; message: string };
+
+/**
+ * `25-115`: sets or lifts one channel's owner-driven entitlement - confirmed against the merged
+ * `ago-chat` handler (`Ago.Chat.Api.Owner.OwnerModuleEndpoints.HandleSetUnconditionalGrantAsync`).
+ *
+ * This channel-entitlement write reuses `23-86`'s own generic, module-key-agnostic
+ * `PUT .../modules/{moduleKey}/unconditional-grant` route wholesale - there is no separate
+ * `channel-entitlements` route, and no separate revoke route (lifting a grant is the same call with
+ * `grant: false`). The wire's own request field is `unconditionallyGranted`, not `grant` - translated
+ * here rather than renaming `GrantOwnerChannelEntitlementDraft` itself, since `grant` reads better at
+ * every call site in this file.
+ */
+export async function grantOwnerChannelEntitlement(
+  accessToken: string,
+  siteId: string,
+  moduleKey: string,
+  draft: GrantOwnerChannelEntitlementDraft,
+): Promise<GrantOwnerChannelEntitlementOutcome> {
+  const url = new URL(
+    `${config.apiBaseUrl}/api/v1/owner/sites/${siteId}/modules/${encodeURIComponent(moduleKey)}/unconditional-grant`,
+  );
+
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: withActiveSiteHeader({
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify({
+      unconditionallyGranted: draft.grant,
+      reason: draft.reason,
+      expiresAt: draft.expiresAt,
+    }),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    return { status: "not-authorized" };
+  }
+
+  if (response.status === 404) {
+    return { status: "not-found" };
+  }
+
+  if (response.status === 400) {
+    const problem = (await response.json()) as { detail?: string };
+    return { status: "invalid", message: problem.detail ?? "This value was refused." };
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to update the channel entitlement: ${response.status}`);
+  }
+
+  const body = (await response.json()) as {
+    moduleKey: string;
+    unconditionallyGranted: boolean;
+    expiresAt: string | null;
+  };
+  return { status: "ok", moduleKey: body.moduleKey, granted: body.unconditionallyGranted, expiresAt: body.expiresAt };
 }
 
 /**

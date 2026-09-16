@@ -7,6 +7,7 @@ import {
   addOwnerRolePermissions,
   extendOwnerSuspension,
   fetchOwnerSiteDetail,
+  grantOwnerChannelEntitlement,
   grantOwnerModule,
   grantOwnerModuleQuantity,
   removeOwnerRolePermissions,
@@ -15,6 +16,7 @@ import {
   suspendOwnerSite,
   unblockOwnerSuspension,
   updateOwnerSiteAllowedOrigins,
+  type OwnerSiteChannelEntitlement,
   type OwnerSiteDetail,
   type OwnerSiteModule,
   type OwnerSiteOperator,
@@ -39,6 +41,7 @@ import { parseTriggerWords } from "../pages/moduleConfigValidation.js";
 import { generateModuleCredential } from "./generateModuleCredential.js";
 import { formatAbsolute, formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
 import {
+  channelKindLabel,
   describeRecentWindow,
   formatByteSize,
   formatCount,
@@ -87,17 +90,6 @@ type ExpiryChoice = "unset" | "never" | "date";
  * to keep it honest automatically.
  */
 const KNOWN_MODULE_KEYS: readonly string[] = ["calendar", "faq"];
-
-/**
- * `25-114`: the `ModuleKey` a channel entitlement is granted under - `ChannelEntitlement.
- * IsEntitledAsync` resolves a channel kind (Telegram today) to this exact literal through
- * `IBillingOptionEntitlementProvider.TryGet("channel-telegram")`, which the live deployment
- * configures as `"channel"` (`ago-deploy/k8s/base/{api,worker}.yaml`, `25-113`). Unlike
- * `KNOWN_MODULE_KEYS` above, this is not a menu of choices this screen offers - there is exactly one
- * channel-quantity grant per site today, so this constant names the one key `handleChannelQuantitySubmit`
- * below always sends, never a value the platform owner picks.
- */
-const CHANNEL_MODULE_KEY = "channel";
 
 /** What the server has said so far about this caller's access to `23-14`'s endpoint, and whether the
  * named site exists at all - the same `OwnerAccess` shape `OwnerSitesPage` uses, plus `"not-found"`
@@ -193,20 +185,32 @@ export function OwnerSiteDetailPage() {
   const [quantitySaved, setQuantitySaved] = useState<{ moduleKey: string; quantity: number } | null>(null);
   const [quantitySubmitting, setQuantitySubmitting] = useState(false);
 
-  // `25-114`: the channel entitlement's own state - a dedicated section below, not a row spliced
-  // into `moduleColumns`/`quantityModule` above. `"channel"` never gets an `enabled_modules` row
-  // (`ChannelEntitlement.cs`'s own remarks: a billing-driven grant with no entry point and no
-  // credential would make chat believe a real module is registered when nothing routes to it), so
-  // there is no row in `site.modules` this section could reuse the existing dialog for without first
-  // faking one - exactly the confusion that class's own comment warns against. `channelQuantitySaved`
-  // is a transient success confirmation only, the same role `quantitySaved` plays for a real module
-  // above - the site's own standing value now comes from `site.channelQuantity`
-  // (`OwnerSiteDetailResponse.ChannelQuantity`, added once this item's own read-side gap was closed),
-  // read fresh on every load exactly like every other field on this screen, never guessed at.
-  const [channelQuantityInput, setChannelQuantityInput] = useState("");
-  const [channelQuantityError, setChannelQuantityError] = useState<string | null>(null);
-  const [channelQuantitySaved, setChannelQuantitySaved] = useState<number | null>(null);
-  const [channelQuantitySubmitting, setChannelQuantitySubmitting] = useState(false);
+  // `25-115`: the channel entitlement section's own state - replaces `25-114`'s single numeric
+  // quantity form with a per-kind grant/revoke, the identical reasoning that item's own removed
+  // comment gave for keeping this a dedicated section rather than a row spliced into
+  // `moduleColumns`/`quantityModule` above (a channel never gets an `enabled_modules` row -
+  // `ChannelEntitlement.cs`'s own remarks). `channelGrantKind` tracks the dropdown's own selection
+  // among not-yet-granted kinds - kept in sync with `site.channelEntitlements` by the effect below it
+  // rather than left to grow stale once a grant/revoke reloads the list.
+  const [channelGrantKind, setChannelGrantKind] = useState("");
+  const [channelGrantReason, setChannelGrantReason] = useState("");
+  // `adr/0150`'s own "a grant with no expiry is a discount nobody remembers giving" - the identical
+  // `ExpiryChoice` shape and default the module-grant form above uses, restated for this form so it
+  // cannot submit until the platform owner has actively chosen never/a date either.
+  const [channelExpiryChoice, setChannelExpiryChoice] = useState<ExpiryChoice>("unset");
+  const [channelExpiryDateInput, setChannelExpiryDateInput] = useState("");
+  const [channelGrantError, setChannelGrantError] = useState<string | null>(null);
+  const [channelGrantSaved, setChannelGrantSaved] = useState(false);
+  const [channelGrantSubmitting, setChannelGrantSubmitting] = useState(false);
+
+  // `25-115`: the channel revoke dialog's own state - `channelRevoking` doubles as the dialog's own
+  // open flag, the same shape `revokingModule` above already establishes. Unlike that dialog, a
+  // reason is required unconditionally here (`SetUnconditionalGrantAsync` refuses a blank one either
+  // way the flag moves), so there is no provenance branch deciding whether to even show the field.
+  const [channelRevoking, setChannelRevoking] = useState<OwnerSiteChannelEntitlement | null>(null);
+  const [channelRevokeReason, setChannelRevokeReason] = useState("");
+  const [channelRevokeError, setChannelRevokeError] = useState<string | null>(null);
+  const [channelRevokeSubmitting, setChannelRevokeSubmitting] = useState(false);
 
   // `23-68`: the operator roster's own restore-seat action. `restoringOperatorId` is which row's own
   // button shows a busy state, not a dialog flag - the ordinary restore (within the seat limit, this
@@ -288,12 +292,6 @@ export function OwnerSiteDetailPage() {
         setAccess("granted");
         setSite(outcome.site);
         setOriginsDraft(outcome.site.allowedOrigins.join("\n"));
-        // `25-114`: prefill with the site's own real standing value, the same "show what the server
-        // actually holds" reasoning `originsDraft` above already follows for `allowedOrigins` - never
-        // left at whatever this browser tab's own last submit happened to type in.
-        setChannelQuantityInput(
-          outcome.site.channelQuantity === null ? "" : String(outcome.site.channelQuantity),
-        );
       })
       .catch((err: unknown) => {
         // Same "the API is broken" vs. "you may not see this" split every owner screen makes.
@@ -336,6 +334,49 @@ export function OwnerSiteDetailPage() {
           setQuantitySaved(null);
         },
       ),
+    [timeZone, strings],
+  );
+
+  // `25-115`: split once, here, rather than filtered inline at each render site below - the granted
+  // table and the ungranted dropdown are two different views of the identical
+  // `site.channelEntitlements` list, never two separately-fetched things that could disagree.
+  // Wrapped in its own `useMemo` (rather than a bare `site?.channelEntitlements ?? []`) so the `??`
+  // does not hand the two `useMemo`s below a fresh array identity on every render this component does
+  // for an unrelated reason - `react-hooks/exhaustive-deps`' own warning for exactly this shape.
+  const channelEntitlements = useMemo(() => site?.channelEntitlements ?? [], [site]);
+  const grantedChannelEntitlements = useMemo(
+    () => channelEntitlements.filter((entitlement) => entitlement.granted),
+    [channelEntitlements],
+  );
+  const ungrantedChannelEntitlements = useMemo(
+    () => channelEntitlements.filter((entitlement) => !entitlement.granted),
+    [channelEntitlements],
+  );
+
+  // `25-115`: the grant dropdown's own *effective* selection - derived at render time rather than
+  // synchronised into `channelGrantKind` by an effect (which `react-hooks/set-state-in-effect` rightly
+  // refuses: a `setState` inside an effect body is a cascading render, not a synchronisation with an
+  // external system). `channelGrantKind` itself only ever changes because the platform owner picked
+  // an option; this is what falls back to the first remaining ungranted kind once a grant/revoke
+  // reloads the site and removes whatever was selected before (or once nothing is left to pick).
+  const effectiveChannelGrantKind = useMemo(() => {
+    if (
+      channelGrantKind !== "" &&
+      ungrantedChannelEntitlements.some((entitlement) => entitlement.moduleKey === channelGrantKind)
+    ) {
+      return channelGrantKind;
+    }
+
+    return ungrantedChannelEntitlements[0]?.moduleKey ?? "";
+  }, [channelGrantKind, ungrantedChannelEntitlements]);
+
+  const channelColumns = useMemo(
+    () =>
+      buildChannelColumns(timeZone, strings, (entitlement) => {
+        setChannelRevoking(entitlement);
+        setChannelRevokeReason("");
+        setChannelRevokeError(null);
+      }),
     [timeZone, strings],
   );
 
@@ -630,50 +671,76 @@ export function OwnerSiteDetailPage() {
       });
   };
 
-  // `25-114`: the channel entitlement's own submit - always `CHANNEL_MODULE_KEY`, never a value read
-  // from the form the way `moduleKeyInput`/`quantityModule.moduleKey` are for a real module. Still no
-  // "lowering" confirm stage the way `handleQuantitySubmit` has, even though `site.channelQuantity` is
-  // now a trustworthy current value this form could compare against - deliberately kept as the smaller
-  // one-step form this item's own scope covers (closing the read-side gap), not a limitation of the
-  // data anymore; a lowering-confirm stage for this form is a separate, later decision.
-  const handleChannelQuantitySubmit = (event: React.FormEvent) => {
+  // `25-115`: the channel grant form's own submit - `channelGrantKind` names which of the
+  // deployment's priced-but-ungranted kinds this grant is for; the moment it is chosen at all, that
+  // exact `moduleKey` is what gets echoed back (this interface's own remarks: never derived from
+  // `kind` client-side). Validation mirrors the module-grant form above: a reason is required
+  // (`SetUnconditionalGrantAsync` refuses a blank one), and the expiry choice follows the identical
+  // `adr/0150` "decide, don't default" fieldset - copied rather than shared, per this item's own
+  // instruction to reuse the *established pattern*, not extract a third form control type for two
+  // call sites.
+  const handleChannelGrantSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    setChannelQuantityError(null);
+    setChannelGrantSaved(false);
+    setChannelGrantError(null);
+
+    if (effectiveChannelGrantKind === "") {
+      // Unreachable through the UI (the submit button only renders once the dropdown has at least
+      // one option), kept as a guard rather than assumed away.
+      return;
+    }
+
+    const trimmedReason = channelGrantReason.trim();
+    if (trimmedReason.length === 0) {
+      setChannelGrantError(strings.ownerReasonRequiredValidation);
+      return;
+    }
+
+    let expiresAt: string | null;
+    if (channelExpiryChoice === "unset") {
+      setChannelGrantError(strings.ownerSiteDetailExpiryChoiceRequired);
+      return;
+    } else if (channelExpiryChoice === "never") {
+      expiresAt = null;
+    } else {
+      if (channelExpiryDateInput.trim().length === 0) {
+        setChannelGrantError(strings.ownerSiteDetailExpiryDateRequired);
+        return;
+      }
+      const parsed = new Date(channelExpiryDateInput);
+      if (Number.isNaN(parsed.getTime())) {
+        setChannelGrantError(strings.ownerSiteDetailExpiryDateUnreadable);
+        return;
+      }
+      expiresAt = parsed.toISOString();
+    }
 
     const accessToken = user?.access_token;
     if (!accessToken || !siteId) {
       return;
     }
 
-    const trimmed = channelQuantityInput.trim();
-    if (trimmed.length === 0) {
-      setChannelQuantityError(strings.ownerSiteDetailQuantityRequired);
-      return;
-    }
-
-    const parsed = Number(trimmed);
-    if (!Number.isInteger(parsed) || parsed < 0) {
-      setChannelQuantityError(strings.ownerSiteDetailQuantityInvalid);
-      return;
-    }
-
-    setChannelQuantitySubmitting(true);
-
-    grantOwnerModuleQuantity(accessToken, siteId, CHANNEL_MODULE_KEY, parsed)
+    setChannelGrantSubmitting(true);
+    grantOwnerChannelEntitlement(accessToken, siteId, effectiveChannelGrantKind, {
+      grant: true,
+      reason: trimmedReason,
+      expiresAt,
+    })
       .then((outcome) => {
         if (outcome.status === "ok") {
-          setChannelQuantitySaved(outcome.quantity);
-          setChannelQuantityInput(String(outcome.quantity));
-          // `25-114`: re-read rather than splice a locally-built value in - the identical
-          // "the server's own read is the only source" reasoning `submitQuantity` above already
-          // follows for a real module, so `site.channelQuantity` reflects this grant immediately
-          // rather than only this session's own transient `channelQuantitySaved` banner.
+          setChannelGrantSaved(true);
+          setChannelGrantReason("");
+          setChannelExpiryChoice("unset");
+          setChannelExpiryDateInput("");
+          // Re-read rather than splice a locally-built row in - the identical "the server's own read
+          // is the only source for this table" reasoning every other write on this page already
+          // follows.
           loadSiteDetail();
           return;
         }
 
         if (outcome.status === "invalid") {
-          setChannelQuantityError(outcome.message);
+          setChannelGrantError(outcome.message);
           return;
         }
 
@@ -682,10 +749,57 @@ export function OwnerSiteDetailPage() {
         setError(strings.ownerCouldNotBeReached);
       })
       .catch((err: unknown) => {
-        setChannelQuantityError(err instanceof Error ? err.message : strings.ownerSiteDetailGrantQuantityFailed);
+        setChannelGrantError(err instanceof Error ? err.message : strings.ownerSiteDetailChannelGrantFailed);
       })
       .finally(() => {
-        setChannelQuantitySubmitting(false);
+        setChannelGrantSubmitting(false);
+      });
+  };
+
+  // `25-115`: the channel revoke dialog's own confirm - unlike `handleRevokeConfirm` above, there is
+  // no provenance branch deciding whether a reason is needed: `SetUnconditionalGrantAsync` requires
+  // one regardless of which way the flag moves, so this dialog always collects one.
+  const handleChannelRevokeConfirm = () => {
+    const accessToken = user?.access_token;
+    if (!accessToken || !siteId || !channelRevoking) {
+      return;
+    }
+
+    const trimmedReason = channelRevokeReason.trim();
+    if (trimmedReason.length === 0) {
+      setChannelRevokeError(strings.ownerReasonRequiredValidation);
+      return;
+    }
+
+    setChannelRevokeSubmitting(true);
+    setChannelRevokeError(null);
+
+    grantOwnerChannelEntitlement(accessToken, siteId, channelRevoking.moduleKey, {
+      grant: false,
+      reason: trimmedReason,
+      expiresAt: null,
+    })
+      .then((outcome) => {
+        if (outcome.status === "ok") {
+          setChannelRevoking(null);
+          setChannelRevokeReason("");
+          loadSiteDetail();
+          return;
+        }
+
+        if (outcome.status === "invalid") {
+          setChannelRevokeError(outcome.message);
+          return;
+        }
+
+        setChannelRevoking(null);
+        setError(strings.ownerCouldNotBeReached);
+      })
+      .catch((err: unknown) => {
+        setChannelRevokeError(err instanceof Error ? err.message : strings.ownerSiteDetailChannelRevokeFailed);
+      })
+      .finally(() => {
+        setChannelRevokeSubmitting(false);
       });
   };
 
@@ -1470,65 +1584,121 @@ export function OwnerSiteDetailPage() {
             </form>
           </Panel>
 
-          {/* `25-114`: a dedicated section, deliberately not a row in the Entitlements table above -
-              "channel" is not a module the way `calendar`/`faq` are (no entry point, no
-              `enabled_modules` row - `ChannelEntitlement.cs`'s own remarks), and giving it a
-              module-shaped row just to reuse the table/dialog above would tell a reader it is
-              registered the same way a real module is, which is exactly the confusion that class's
-              own comment warns a real row would cause. This still calls the identical
-              `grantOwnerModuleQuantity`/`GrantModuleQuantityAsOwnerHandler` (`23-66`) the table's own
-              quantity dialog calls - the write is the same act, only the surface reaching it differs. */}
-          <h2>{strings.ownerSiteDetailChannelEntitlementHeading}</h2>
+          {/* `25-115`: replaces `25-114`'s single numeric "channel" quantity form - a per-kind
+              table with provenance and expiry, plus a grant/revoke pair, not a bare number for one
+              hardcoded kind. Still a dedicated section, deliberately not a row in the Entitlements
+              table above - the identical reasoning `25-114`'s own removed comment gave: a channel
+              entitlement has no `enabled_modules` row (`ChannelEntitlement.cs`'s own remarks), so
+              giving it a module-shaped row would tell a reader it is registered the same way a real
+              module is. This calls the new `grantOwnerChannelEntitlement` use case, never
+              `grantOwnerModuleQuantity`/`GrantModuleQuantityAsOwnerHandler` (`23-66`) - that
+              handler's whole contract is the numeric path this item replaces. */}
+          <h2>{strings.ownerSiteDetailChannelEntitlementsHeading}</h2>
+
+          <Alert tone="info">{strings.ownerSiteDetailChannelScreenNote}</Alert>
+
+          {channelGrantSaved && !channelGrantError && (
+            <Alert tone="success">{strings.ownerSiteDetailChannelGrantSaved}</Alert>
+          )}
+
+          {grantedChannelEntitlements.length === 0 ? (
+            <p className="ago-empty">{strings.ownerSiteDetailChannelNoneGranted}</p>
+          ) : (
+            <Table
+              caption={strings.ownerSiteDetailChannelEntitlementsCaption}
+              columns={channelColumns}
+              rows={grantedChannelEntitlements}
+              rowKey={(entitlement) => entitlement.moduleKey}
+            />
+          )}
 
           <Panel
-            title={strings.ownerSiteDetailChannelEntitlementTitle}
-            description={strings.ownerSiteDetailChannelEntitlementDescription}
+            title={strings.ownerSiteDetailChannelGrantTitle}
+            description={strings.ownerSiteDetailChannelGrantDescription}
           >
-            <Alert tone="info">{strings.ownerSiteDetailChannelEntitlementNote}</Alert>
+            {ungrantedChannelEntitlements.length === 0 ? (
+              <p className="ago-empty">{strings.ownerSiteDetailChannelNoneAvailable}</p>
+            ) : (
+              <form className="ago-stack" onSubmit={handleChannelGrantSubmit}>
+                <Field label={strings.ownerSiteDetailChannelKindLabel}>
+                  {(controlProps) => (
+                    <Select
+                      {...controlProps}
+                      value={effectiveChannelGrantKind}
+                      onChange={(event) => setChannelGrantKind(event.target.value)}
+                      disabled={channelGrantSubmitting}
+                    >
+                      {ungrantedChannelEntitlements.map((entitlement) => (
+                        <option key={entitlement.moduleKey} value={entitlement.moduleKey}>
+                          {channelKindLabel(entitlement.kind, strings)}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </Field>
 
-            {/* `25-114`: the site's own real standing value, from `site.channelQuantity` - "absent,
-                not zero" exactly like `OwnerSiteModule.quantity` above, never rendered as a blank or a
-                0. */}
-            <p className="ago-meta">
-              {site.channelQuantity === null
-                ? strings.ownerSiteDetailChannelQuantityUnknown
-                : `${strings.ownerSiteDetailChannelQuantityCurrentPrefix}${formatModuleQuantity(site.channelQuantity, strings)}`}
-            </p>
+                <Field label={strings.ownerReasonFieldLabel} description={strings.ownerReasonFieldDescription}>
+                  {(controlProps) => (
+                    <Textarea
+                      {...controlProps}
+                      rows={3}
+                      value={channelGrantReason}
+                      onChange={(event) => setChannelGrantReason(event.target.value)}
+                      disabled={channelGrantSubmitting}
+                    />
+                  )}
+                </Field>
 
-            {channelQuantitySaved !== null && (
-              <Alert tone="success">
-                {strings.ownerSiteDetailChannelQuantityGrantedThisSessionPrefix}
-                {formatModuleQuantity(channelQuantitySaved, strings)}
-              </Alert>
+                {/* `adr/0150`'s own "a grant with no expiry is a discount nobody remembers giving" -
+                    the identical fieldset the module-grant form above uses, copied rather than
+                    shared (this item's own instruction: reuse the established pattern, not extract a
+                    shared control for two call sites). A distinct radio `name` keeps this form's own
+                    group independent of that one's. */}
+                <fieldset>
+                  <legend>{strings.ownerSiteDetailExpiryLegend}</legend>
+                  <label className="ago-row">
+                    <input
+                      type="radio"
+                      name="owner-channel-expiry"
+                      checked={channelExpiryChoice === "never"}
+                      onChange={() => setChannelExpiryChoice("never")}
+                      disabled={channelGrantSubmitting}
+                    />
+                    <span>{strings.ownerSiteDetailNeverExpiresLabel}</span>
+                  </label>
+                  <label className="ago-row">
+                    <input
+                      type="radio"
+                      name="owner-channel-expiry"
+                      checked={channelExpiryChoice === "date"}
+                      onChange={() => setChannelExpiryChoice("date")}
+                      disabled={channelGrantSubmitting}
+                    />
+                    <span>{strings.ownerSiteDetailExpiresOnLabel}</span>
+                    <input
+                      type="datetime-local"
+                      value={channelExpiryDateInput}
+                      onFocus={() => setChannelExpiryChoice("date")}
+                      onChange={(event) => {
+                        setChannelExpiryChoice("date");
+                        setChannelExpiryDateInput(event.target.value);
+                      }}
+                      disabled={channelGrantSubmitting}
+                    />
+                  </label>
+                </fieldset>
+
+                {channelGrantError && <Alert tone="danger">{channelGrantError}</Alert>}
+
+                <div className="ago-row">
+                  <Button type="submit" variant="primary" disabled={channelGrantSubmitting}>
+                    {channelGrantSubmitting
+                      ? strings.ownerSiteDetailGrantingLabel
+                      : strings.ownerSiteDetailChannelGrantButton}
+                  </Button>
+                </div>
+              </form>
             )}
-
-            <form className="ago-stack" onSubmit={handleChannelQuantitySubmit}>
-              <Field
-                label={strings.ownerSiteDetailQuantityFieldLabel}
-                description={strings.ownerSiteDetailQuantityFieldDescription}
-                error={channelQuantityError}
-              >
-                {(controlProps) => (
-                  <Input
-                    {...controlProps}
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={channelQuantityInput}
-                    onChange={(event) => setChannelQuantityInput(event.target.value)}
-                    disabled={channelQuantitySubmitting}
-                  />
-                )}
-              </Field>
-
-              <div className="ago-row">
-                <Button type="submit" variant="primary" disabled={channelQuantitySubmitting}>
-                  {channelQuantitySubmitting
-                    ? strings.ownerSiteDetailGrantingLabel
-                    : strings.ownerSiteDetailChannelQuantityButton}
-                </Button>
-              </div>
-            </form>
           </Panel>
         </>
       )}
@@ -1590,6 +1760,53 @@ export function OwnerSiteDetailPage() {
             )}
             {revokingModule.grantedByOwner && revokeError && <Alert tone="danger">{revokeError}</Alert>}
           </>
+        )}
+      </Dialog>
+
+      {/* `25-115`: the channel entitlement's own revoke - unlike the module-revoke dialog above, a
+          reason is required unconditionally (`SetUnconditionalGrantAsync` refuses a blank one either
+          way the flag moves), so this dialog always shows the reason field, the identical "no
+          provenance branch" shape the role-removal dialog below already uses for its own
+          unconditional reason. */}
+      <Dialog
+        open={channelRevoking !== null}
+        title={
+          channelRevoking
+            ? `${strings.ownerSiteDetailChannelRevokeDialogTitlePrefix}${channelKindLabel(channelRevoking.kind, strings)}`
+            : strings.ownerSiteDetailRevokeDialogTitleFallback
+        }
+        onClose={() => {
+          if (!channelRevokeSubmitting) {
+            setChannelRevoking(null);
+          }
+        }}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setChannelRevoking(null)} disabled={channelRevokeSubmitting}>
+              {strings.cancelButton}
+            </Button>
+            <Button variant="danger" onClick={handleChannelRevokeConfirm} disabled={channelRevokeSubmitting}>
+              {channelRevokeSubmitting ? strings.ownerSiteDetailRevokingLabel : strings.ownerSiteDetailRevokeButton}
+            </Button>
+          </>
+        }
+      >
+        {channelRevoking && (
+          <Field
+            label={strings.ownerReasonFieldLabel}
+            description={strings.ownerReasonFieldDescription}
+            error={channelRevokeError}
+          >
+            {(controlProps) => (
+              <Textarea
+                {...controlProps}
+                rows={3}
+                value={channelRevokeReason}
+                onChange={(event) => setChannelRevokeReason(event.target.value)}
+                disabled={channelRevokeSubmitting}
+              />
+            )}
+          </Field>
         )}
       </Dialog>
 
@@ -1989,6 +2206,65 @@ function buildModuleColumns(
             {strings.ownerSiteDetailRevokeButton}
           </Button>
         </div>
+      ),
+    },
+  ];
+}
+
+/** `25-115`: the granted-channels table's own columns - the identical "kind, provenance, expiry,
+ * revoke" shape `buildModuleColumns` above gives its own real modules, over
+ * `OwnerSiteChannelEntitlement` instead of `OwnerSiteModule`. No quantity/trigger-words/status
+ * columns here: a channel entitlement is a plain yes/no, and this table only ever holds rows where
+ * `granted` is already `true` (`grantedChannelEntitlements`'s own filter in the component above) - a
+ * "status" column would say nothing a row's mere presence here does not already say. */
+function buildChannelColumns(
+  timeZone: string | null,
+  strings: ConsoleStrings,
+  onRevoke: (entitlement: OwnerSiteChannelEntitlement) => void,
+): TableColumn<OwnerSiteChannelEntitlement>[] {
+  return [
+    {
+      key: "kind",
+      header: strings.ownerSiteDetailChannelColumnKind,
+      render: (entitlement) => <Badge tone="neutral">{channelKindLabel(entitlement.kind, strings)}</Badge>,
+    },
+    {
+      key: "provenance",
+      header: strings.ownerSiteDetailColumnGrantedBy,
+      render: (entitlement) => (
+        // `docs/backlog/25-115-*.md`'s own "do not fake data": `grantedByOwner: false` ("Paid") is a
+        // real, honest branch even though nothing today can produce it - there is no self-service
+        // channel purchase path yet. Rendered exactly as `buildModuleColumns`' own equivalent column
+        // renders a real module's provenance, not special-cased away as unreachable.
+        <Badge tone={entitlement.grantedByOwner ? "accent" : "neutral"}>
+          {entitlement.grantedByOwner ? strings.ownerSiteDetailGrantedByOwner : strings.ownerSiteDetailChannelPaid}
+        </Badge>
+      ),
+    },
+    {
+      key: "expires",
+      header: strings.ownerSiteDetailColumnExpires,
+      render: (entitlement) => {
+        const explicit = formatModuleExpiry(entitlement.expiresAt, strings);
+        if (explicit !== null) {
+          return <span className="ago-meta">{explicit}</span>;
+        }
+
+        const parsed = parseInstant(entitlement.expiresAt);
+        if (parsed === null) {
+          return <span className="ago-meta">{strings.ownerSiteDetailUnknown}</span>;
+        }
+
+        return <span title={formatAbsolute(parsed, timeZone)}>{formatDateStamp(parsed, timeZone)}</span>;
+      },
+    },
+    {
+      key: "actions",
+      header: "",
+      render: (entitlement) => (
+        <Button size="sm" variant="ghost" onClick={() => onRevoke(entitlement)}>
+          {strings.ownerSiteDetailRevokeButton}
+        </Button>
       ),
     },
   ];
