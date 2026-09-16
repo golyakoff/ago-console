@@ -1166,6 +1166,58 @@ describe("the site detail page's own quantity dialog", () => {
   });
 });
 
+// `25-114`: the channel entitlement's own dedicated section - proves the actual gap this item was
+// filed for: a channel quantity grant (`ModuleKey` `"channel"`) reached with no pre-existing
+// `enabled_modules` row to click, on a fixture that is genuinely module-less (`detail()`'s own
+// default `modules: []` - true of every real site before `25-113`/`25-114`, not a seeded stand-in
+// that would beg the question this item exists to answer).
+describe("the site detail page's own channel entitlement section (25-114)", () => {
+  it("grants a channel quantity for a site with no enabled_modules rows at all, with no row to click first", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
+    ownerApi.grantOwnerModuleQuantity.mockResolvedValue({ status: "ok", moduleKey: "channel", quantity: 3 });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).toContain("Channel entitlement");
+    // `detail()`'s own defaults (`modules`/`operators`/`roles` all empty) render no `<table>` at
+    // all - there is genuinely nothing on this page to click to reach the channel grant except the
+    // form this section adds, unlike a real module's quantity dialog which opens from a table row.
+    expect(container.querySelector("table")).toBeNull();
+
+    const input = one<HTMLInputElement>(container, 'form input[type="number"]');
+    await setInput(input, "3");
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Grant channel quantity").click());
+
+    expect(ownerApi.grantOwnerModuleQuantity).toHaveBeenCalledWith("token", SITE_ID, "channel", 3);
+    expect(container.textContent).toContain("Granted in this session: 3");
+  });
+
+  it("refuses to submit a blank channel quantity, without calling the server", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
+
+    const container = await render(shellAt());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Grant channel quantity").click());
+
+    expect(container.textContent).toMatch(/enter a quantity/i);
+    expect(ownerApi.grantOwnerModuleQuantity).not.toHaveBeenCalled();
+  });
+
+  it("shows the server's own refusal text inline for an invalid channel quantity", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
+    ownerApi.grantOwnerModuleQuantity.mockResolvedValue({
+      status: "invalid",
+      message: "A granted quantity cannot be negative.",
+    });
+
+    const container = await render(shellAt());
+    const input = one<HTMLInputElement>(container, 'form input[type="number"]');
+    await setInput(input, "9");
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Grant channel quantity").click());
+
+    expect(container.textContent).toContain("cannot be negative");
+  });
+});
+
 /** Clicks the table row's own "Set quantity" action and returns the dialog it opens. */
 async function openQuantityDialog(container: HTMLElement): Promise<HTMLElement> {
   await interact(() => byText<HTMLButtonElement>(container, "button", "Set quantity").click());

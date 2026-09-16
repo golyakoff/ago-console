@@ -88,6 +88,17 @@ type ExpiryChoice = "unset" | "never" | "date";
  */
 const KNOWN_MODULE_KEYS: readonly string[] = ["calendar", "faq"];
 
+/**
+ * `25-114`: the `ModuleKey` a channel entitlement is granted under - `ChannelEntitlement.
+ * IsEntitledAsync` resolves a channel kind (Telegram today) to this exact literal through
+ * `IBillingOptionEntitlementProvider.TryGet("channel-telegram")`, which the live deployment
+ * configures as `"channel"` (`ago-deploy/k8s/base/{api,worker}.yaml`, `25-113`). Unlike
+ * `KNOWN_MODULE_KEYS` above, this is not a menu of choices this screen offers - there is exactly one
+ * channel-quantity grant per site today, so this constant names the one key `handleChannelQuantitySubmit`
+ * below always sends, never a value the platform owner picks.
+ */
+const CHANNEL_MODULE_KEY = "channel";
+
 /** What the server has said so far about this caller's access to `23-14`'s endpoint, and whether the
  * named site exists at all - the same `OwnerAccess` shape `OwnerSitesPage` uses, plus `"not-found"`
  * for a real 404 (the platform owner may legitimately name a site that does not exist, which is a
@@ -181,6 +192,23 @@ export function OwnerSiteDetailPage() {
   const [quantityError, setQuantityError] = useState<string | null>(null);
   const [quantitySaved, setQuantitySaved] = useState<{ moduleKey: string; quantity: number } | null>(null);
   const [quantitySubmitting, setQuantitySubmitting] = useState(false);
+
+  // `25-114`: the channel entitlement's own state - a dedicated section below, not a row spliced
+  // into `moduleColumns`/`quantityModule` above. `"channel"` never gets an `enabled_modules` row
+  // (`ChannelEntitlement.cs`'s own remarks: a billing-driven grant with no entry point and no
+  // credential would make chat believe a real module is registered when nothing routes to it), so
+  // there is no row in `site.modules` this section could reuse the existing dialog for without first
+  // faking one - exactly the confusion that class's own comment warns against. `channelQuantitySaved`
+  // starts `null` and stays `null` across a page reload: `OwnerSiteDetailResponse` only ever surfaces
+  // `IModuleQuantityGrantStore`'s quantities as enrichment of a `modules` row that already exists
+  // (`GetSiteForOwnerHandler.ToModuleDto`), so a quantity granted for a moduleless pseudo-module never
+  // reaches this screen's own read at all - this section can show only what it itself just granted in
+  // this browser session, not the site's actual standing entitlement. See this file's own report for
+  // `25-114` for the read-side field this leaves genuinely missing, deliberately not added here.
+  const [channelQuantityInput, setChannelQuantityInput] = useState("");
+  const [channelQuantityError, setChannelQuantityError] = useState<string | null>(null);
+  const [channelQuantitySaved, setChannelQuantitySaved] = useState<number | null>(null);
+  const [channelQuantitySubmitting, setChannelQuantitySubmitting] = useState(false);
 
   // `23-68`: the operator roster's own restore-seat action. `restoringOperatorId` is which row's own
   // button shows a busy state, not a dialog flag - the ordinary restore (within the seat limit, this
@@ -595,6 +623,62 @@ export function OwnerSiteDetailPage() {
       })
       .finally(() => {
         setQuantitySubmitting(false);
+      });
+  };
+
+  // `25-114`: the channel entitlement's own submit - always `CHANNEL_MODULE_KEY`, never a value read
+  // from the form the way `moduleKeyInput`/`quantityModule.moduleKey` are for a real module. No
+  // "lowering" confirm stage the way `handleQuantitySubmit` has: that stage compares the new number
+  // against `quantityModule.quantity`, a value this screen actually holds because the row it came from
+  // is real; there is no equivalent trustworthy "current" value here to compare against (this file's
+  // own remarks on `channelQuantitySaved` above), so a smaller, honest one-step form is what the
+  // available data supports rather than a dialog that would imply a comparison this screen cannot
+  // actually make.
+  const handleChannelQuantitySubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    setChannelQuantityError(null);
+
+    const accessToken = user?.access_token;
+    if (!accessToken || !siteId) {
+      return;
+    }
+
+    const trimmed = channelQuantityInput.trim();
+    if (trimmed.length === 0) {
+      setChannelQuantityError(strings.ownerSiteDetailQuantityRequired);
+      return;
+    }
+
+    const parsed = Number(trimmed);
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      setChannelQuantityError(strings.ownerSiteDetailQuantityInvalid);
+      return;
+    }
+
+    setChannelQuantitySubmitting(true);
+
+    grantOwnerModuleQuantity(accessToken, siteId, CHANNEL_MODULE_KEY, parsed)
+      .then((outcome) => {
+        if (outcome.status === "ok") {
+          setChannelQuantitySaved(outcome.quantity);
+          setChannelQuantityInput(String(outcome.quantity));
+          return;
+        }
+
+        if (outcome.status === "invalid") {
+          setChannelQuantityError(outcome.message);
+          return;
+        }
+
+        // `not-authorized`/`not-found` mid-session - the same genuinely-unexpected-here handling
+        // every other write on this page gives its own equivalent outcomes.
+        setError(strings.ownerCouldNotBeReached);
+      })
+      .catch((err: unknown) => {
+        setChannelQuantityError(err instanceof Error ? err.message : strings.ownerSiteDetailGrantQuantityFailed);
+      })
+      .finally(() => {
+        setChannelQuantitySubmitting(false);
       });
   };
 
@@ -1374,6 +1458,62 @@ export function OwnerSiteDetailPage() {
               <div className="ago-row">
                 <Button type="submit" variant="primary" disabled={grantSubmitting}>
                   {grantSubmitting ? strings.ownerSiteDetailGrantingLabel : strings.ownerSiteDetailGrantModuleButton}
+                </Button>
+              </div>
+            </form>
+          </Panel>
+
+          {/* `25-114`: a dedicated section, deliberately not a row in the Entitlements table above -
+              "channel" is not a module the way `calendar`/`faq` are (no entry point, no
+              `enabled_modules` row - `ChannelEntitlement.cs`'s own remarks), and giving it a
+              module-shaped row just to reuse the table/dialog above would tell a reader it is
+              registered the same way a real module is, which is exactly the confusion that class's
+              own comment warns a real row would cause. This still calls the identical
+              `grantOwnerModuleQuantity`/`GrantModuleQuantityAsOwnerHandler` (`23-66`) the table's own
+              quantity dialog calls - the write is the same act, only the surface reaching it differs. */}
+          <h2>{strings.ownerSiteDetailChannelEntitlementHeading}</h2>
+
+          <Panel
+            title={strings.ownerSiteDetailChannelEntitlementTitle}
+            description={strings.ownerSiteDetailChannelEntitlementDescription}
+          >
+            <Alert tone="info">{strings.ownerSiteDetailChannelEntitlementNote}</Alert>
+
+            {/* `25-114`'s own honest limitation, stated here rather than guessed at: this screen was
+                never sent this tenant's actual standing channel quantity (see this file's own remarks
+                on `channelQuantitySaved` above) - it can only report what was granted in this
+                browser's current session, not "the truth" the way the Entitlements table above can for
+                a real module row. */}
+            <p className="ago-meta">
+              {channelQuantitySaved === null
+                ? strings.ownerSiteDetailChannelQuantityUnknown
+                : `${strings.ownerSiteDetailChannelQuantityGrantedThisSessionPrefix}${formatModuleQuantity(channelQuantitySaved, strings)}`}
+            </p>
+
+            <form className="ago-stack" onSubmit={handleChannelQuantitySubmit}>
+              <Field
+                label={strings.ownerSiteDetailQuantityFieldLabel}
+                description={strings.ownerSiteDetailQuantityFieldDescription}
+                error={channelQuantityError}
+              >
+                {(controlProps) => (
+                  <Input
+                    {...controlProps}
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={channelQuantityInput}
+                    onChange={(event) => setChannelQuantityInput(event.target.value)}
+                    disabled={channelQuantitySubmitting}
+                  />
+                )}
+              </Field>
+
+              <div className="ago-row">
+                <Button type="submit" variant="primary" disabled={channelQuantitySubmitting}>
+                  {channelQuantitySubmitting
+                    ? strings.ownerSiteDetailGrantingLabel
+                    : strings.ownerSiteDetailChannelQuantityButton}
                 </Button>
               </div>
             </form>

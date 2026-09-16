@@ -2085,6 +2085,16 @@ export const en: ConsoleStrings = {
   ownerSiteDetailQuantityRequired: "Enter a quantity.",
   ownerSiteDetailQuantityInvalid: "Enter a whole number, zero or more.",
   ownerSiteDetailGrantQuantityFailed: "Failed to grant the quantity.",
+  ownerSiteDetailChannelEntitlementHeading: "Channel entitlement",
+  ownerSiteDetailChannelEntitlementTitle: "Grant a channel entitlement",
+  ownerSiteDetailChannelEntitlementDescription:
+    "Whether this tenant may connect a channel account at all (Telegram today) - separate from the module list above, because a channel is not a module with its own entry point.",
+  ownerSiteDetailChannelEntitlementNote:
+    "Any quantity greater than zero means entitled - the number itself carries no other meaning today, unlike a calendar's worker count. There is no pre-existing row to click here: a channel entitlement never appears in the module list above, by design.",
+  ownerSiteDetailChannelQuantityUnknown:
+    "This screen does not read back a previously granted channel quantity - it can only show what you grant below, in this browser session.",
+  ownerSiteDetailChannelQuantityGrantedThisSessionPrefix: "Granted in this session: ",
+  ownerSiteDetailChannelQuantityButton: "Grant channel quantity",
   ownerSiteDetailForceDialogTitlePrefix: "Restore ",
   ownerSiteDetailForceDialogTitleInfix: "'s seat",
   ownerSiteDetailForceDialogTitleFallback: "Restore seat",
