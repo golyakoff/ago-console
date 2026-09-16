@@ -3180,6 +3180,7 @@ export interface ConsoleStrings {
   ownerSiteDetailChannelEntitlementDescription: string;
   ownerSiteDetailChannelEntitlementNote: string;
   ownerSiteDetailChannelQuantityUnknown: string;
+  ownerSiteDetailChannelQuantityCurrentPrefix: string;
   ownerSiteDetailChannelQuantityGrantedThisSessionPrefix: string;
   ownerSiteDetailChannelQuantityButton: string;
   ownerSiteDetailForceDialogTitlePrefix: string;

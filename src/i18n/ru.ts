@@ -2096,9 +2096,9 @@ export const ru: ConsoleStrings = {
     "Может ли этот арендатор вообще подключить аккаунт канала (сегодня - Telegram) - отдельно от списка модулей выше, потому что канал не является модулем со своей точкой входа.",
   ownerSiteDetailChannelEntitlementNote:
     "Любое количество больше нуля означает наличие права - само число сегодня не несёт другого смысла, в отличие от числа мастеров у календаря. Здесь нет уже существующей строки, по которой можно было бы кликнуть: право на канал никогда не появляется в списке модулей выше - так и задумано.",
-  ownerSiteDetailChannelQuantityUnknown:
-    "Этот экран не читает ранее выделенное количество для канала - он может показать только то, что вы выделите ниже, в текущей сессии браузера.",
-  ownerSiteDetailChannelQuantityGrantedThisSessionPrefix: "Выделено в этой сессии: ",
+  ownerSiteDetailChannelQuantityUnknown: "Право на канал ещё не выделялось.",
+  ownerSiteDetailChannelQuantityCurrentPrefix: "Выделено сейчас: ",
+  ownerSiteDetailChannelQuantityGrantedThisSessionPrefix: "Только что выделено: ",
   ownerSiteDetailChannelQuantityButton: "Выделить право на канал",
   ownerSiteDetailForceDialogTitlePrefix: "Восстановить место оператора «",
   ownerSiteDetailForceDialogTitleInfix: "»",
