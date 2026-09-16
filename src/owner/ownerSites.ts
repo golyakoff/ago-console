@@ -188,3 +188,29 @@ export function moduleStatusTone(status: string): "success" | "neutral" | "dange
 export function formatModuleQuantity(quantity: number | null, strings: ConsoleStrings = en): string {
   return quantity === null ? strings.ownerModuleQuantityNotGranted : formatCount(quantity);
 }
+
+/**
+ * `25-115`: `OwnerSiteChannelEntitlement.kind` is `Ago.Chat.Domain.ChannelKind.ToString()` - a wire
+ * value, not a phrase to show a Russian-reading platform owner as-is, the identical "the mapping
+ * happens once, here" reasoning `formatModuleStatus` above gives for a different backend enum. An
+ * unrecognised kind still passes through raw - a defensive fallback for a kind this file has not been
+ * taught yet, never a blank cell, matching that function's own fallback.
+ */
+export function channelKindLabel(kind: string, strings: ConsoleStrings = en): string {
+  if (kind === "Max") {
+    return strings.ownerChannelKindMax;
+  }
+  if (kind === "Telegram") {
+    return strings.ownerChannelKindTelegram;
+  }
+  if (kind === "Vk") {
+    return strings.ownerChannelKindVk;
+  }
+  if (kind === "WhatsApp") {
+    return strings.ownerChannelKindWhatsApp;
+  }
+  if (kind === "Avito") {
+    return strings.ownerChannelKindAvito;
+  }
+  return kind;
+}

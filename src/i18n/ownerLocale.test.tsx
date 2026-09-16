@@ -91,7 +91,7 @@ function emptySiteDetail(): OwnerSiteDetail {
     suspendedUntil: null,
     roles: [],
     allKnownPermissions: [],
-    channelQuantity: null,
+    channelEntitlements: [],
   };
 }
 
