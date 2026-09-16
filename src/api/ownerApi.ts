@@ -197,7 +197,20 @@ export interface OwnerSiteDetail {
   recentWindowDays: number;
   /** Every module this site has ever had enabled, expired grants included - deliberately not
    * `modulesApi.ts`'s "currently active only" shape. A support agent repairing a tenant needs to see
-   * a lapsed trial, not just its absence. */
+   * a lapsed trial, not just its absence.
+   *
+   * `25-114`: never carries a `"channel"` row, by design - a channel entitlement (Telegram today) is
+   * a `ModuleQuantityGrant` with no `enabled_modules` row behind it at all (`ChannelEntitlement.cs`'s
+   * own remarks, `ago-chat`), so `GetSiteForOwnerHandler` has nothing here to project one from. Its
+   * own `quantities` dictionary (read from `IModuleQuantityGrantStore.GetAllForSiteAsync`, keyed by
+   * every `ModuleKey` this site has a grant for, `"channel"` included when one exists) is used only to
+   * enrich a row that is already in this array - never as an independent source of a row - so a
+   * channel entitlement's own current quantity genuinely does not reach this response at all today.
+   * `OwnerSiteDetailPage.tsx`'s own "Channel entitlement" section can therefore only show what it
+   * itself just granted in the current browser session, not this tenant's real standing value; closing
+   * that gap needs a field added to `OwnerSiteDetailResponse` on the wire (the value is already read
+   * server-side, so no new query - see this item's own report for the exact shape), which is out of
+   * this console-only item's scope. */
   modules: OwnerSiteModule[];
   /** `23-48`: this tenant's own `Site.AllowedOrigins`, added so the owner's detail screen - the only
    * place any of it may now be edited - has something to show and edit without a second round trip.

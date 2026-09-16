@@ -3173,6 +3173,15 @@ export interface ConsoleStrings {
   ownerSiteDetailQuantityRequired: string;
   ownerSiteDetailQuantityInvalid: string;
   ownerSiteDetailGrantQuantityFailed: string;
+  /** `25-114`: the channel entitlement's own dedicated section - see `OwnerSiteDetailPage.tsx`'s own
+   * remarks on why this is a section of its own rather than a row in the Entitlements table above it. */
+  ownerSiteDetailChannelEntitlementHeading: string;
+  ownerSiteDetailChannelEntitlementTitle: string;
+  ownerSiteDetailChannelEntitlementDescription: string;
+  ownerSiteDetailChannelEntitlementNote: string;
+  ownerSiteDetailChannelQuantityUnknown: string;
+  ownerSiteDetailChannelQuantityGrantedThisSessionPrefix: string;
+  ownerSiteDetailChannelQuantityButton: string;
   ownerSiteDetailForceDialogTitlePrefix: string;
   ownerSiteDetailForceDialogTitleInfix: string;
   ownerSiteDetailForceDialogTitleFallback: string;
