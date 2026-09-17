@@ -103,6 +103,16 @@ export interface WidgetConfigDto {
    * on.
    */
   allowAttachmentUploadsByDefault: boolean;
+  /**
+   * `25-129`: the tenant's own override for the contact-capture control's confirmation sentence
+   * (`ago-widget`'s `ui/contactCapture.ts`) - `null` (every site before this item, and any site that
+   * leaves it blank) means the widget falls back to its own default sentence, never an AGO-authored
+   * one on the tenant's behalf, the identical "no default we supply" posture `noticeText`/
+   * `autoOpenGreetingText` already state for their own tenant-facing text. May contain the literal
+   * substring `{name}`, a placeholder `ago-widget` substitutes with the visitor's own just-submitted
+   * name - never expanded here or anywhere server-side.
+   */
+  contactCaptureConfirmationText: string | null;
 }
 
 /**

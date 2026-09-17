@@ -642,6 +642,19 @@ export interface ConsoleStrings {
   widgetNoticeEditButton: string;
   /** `25-24`: `requireContactConsent`'s own card, split out of the notice-text panel above. */
   widgetContactConsentPanelTitle: string;
+  /** `25-129`: a sixth widget-config panel, kept separate from the others for the same reason each of
+   * them stays its own panel - this is neither the notice's own text nor the gate on collecting
+   * contact details, it is what the contact-capture control (`ago-widget`'s `ui/contactCapture.ts`)
+   * says back to the visitor once they submit it. Placed next to `widgetContactConsentPanelTitle`
+   * since both are about the same visitor-facing control. `widgetContactCaptureConfirmationPlaceholder`
+   * is the widget's own real default sentence (not a made-up example) - an empty field shows exactly
+   * that placeholder, so a tenant who leaves it blank can already see what visitors will read. `{name}`
+   * is named explicitly in the description as the one placeholder the widget substitutes, on both
+   * sides of the wire, with the visitor's own just-submitted name. */
+  widgetContactCaptureConfirmationPanelTitle: string;
+  widgetContactCaptureConfirmationFieldLabel: string;
+  widgetContactCaptureConfirmationFieldDescription: string;
+  widgetContactCaptureConfirmationPlaceholder: string;
   /** `23-63`: the launcher-attention toggle, on the identical "Launcher" panel `widgetPositionFieldLabel`
    * already lives on - a boolean, off by default, no separate description field the way `noticeText`
    * has: the one sentence worth saying (that reduced motion overrides it regardless) is short enough
