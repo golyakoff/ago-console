@@ -92,6 +92,19 @@
  *   `callbackOperatorLookupFailedDetailSuffix`), none of which this gate's own five screens happened
  *   to render, so nothing had exercised the gap until an actually-gated screen's own text used the
  *   word too.
+ * - **`"email"`** - `25-129`'s own `widgetContactCaptureConfirmationFieldDescription` (rendered on
+ *   `settings-widget`). The identical "already an established loanword, just never on a gated screen
+ *   before" story `"API"` above tells - `ru.ts` already used `"email"` inline in three other, older
+ *   strings (`contactDetailsValuePlaceholder`, `operatorsTeamInviteEmailValidationEmpty`,
+ *   `redeemInviteErrorEmailMismatch`), none of which this gate's own screens happened to render until
+ *   `25-129` added text using the word to one that is.
+ * - **`"{name}"`** - `25-129`'s own `widgetContactCaptureConfirmationFieldDescription` again, naming
+ *   the literal placeholder syntax a tenant types into the confirmation-text field to have the
+ *   visitor's own name substituted in. The identical "a translator must not touch it" reasoning the
+ *   `</body>`/`https` exemptions above already give a tag name and a protocol scheme - a template
+ *   token is a fact about the feature, not a phrase to render in the reader's language. Kept as the
+ *   whole braced token (not bare `"name"`), so an unrelated English word "name" elsewhere would still
+ *   be caught as a real violation rather than silently exempted by a suffix match.
  *
  * `/owner` (`owner-sites`) is still a further exemption, applied at the screen level in
  * `ux-gate/gate.spec.ts` rather than as a phrase in this function - but no longer for the reason it
@@ -163,7 +176,7 @@ export function measureUntranslatedLatinText(): UntranslatedTextResult {
   // See this function's own file-level doc comment above for why each of these is here. Longer
   // phrases first, so "AGO Chat" is removed whole rather than leaving a stray "Chat" behind once
   // "AGO" has already matched inside it.
-  const EXEMPT_PHRASES = ["AGO Chat", "AGO", "WhatsApp", "Telegram", "VK", "Escape", "Shift", "Enter", "SMS", "MAX", "ID", "hex", "smtp", "API", "https", "</body>", "Europe/Moscow"];
+  const EXEMPT_PHRASES = ["AGO Chat", "AGO", "WhatsApp", "Telegram", "VK", "Escape", "Shift", "Enter", "SMS", "MAX", "ID", "hex", "smtp", "API", "https", "</body>", "Europe/Moscow", "email", "{name}"];
   const EXEMPT_ANCESTOR_SELECTOR = ".ago-mono, .ago-badge--mono";
   const LATIN_RUN = /[A-Za-z]{2,}/g;
 
