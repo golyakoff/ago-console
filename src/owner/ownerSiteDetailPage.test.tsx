@@ -353,6 +353,96 @@ describe("the site detail page's own entitlements table", () => {
     expect(statuses.some((text) => text.includes("Active"))).toBe(true);
   });
 
+  // `25-125`: a revoked row's own actions - `RevokeModuleForSiteAsOwnerHandler`'s repository read
+  // excludes an already-revoked row (`Module.NotEnabled` on a second Revoke), and
+  // `GrantModuleQuantityAsOwnerHandler` never checks the module's status at all before writing a
+  // quantity nothing reads - both confirmed by reading those handlers, not assumed. Neither button
+  // belongs on a row the Status column already calls Revoked.
+  describe("its own actions column, for a revoked row", () => {
+    it("does not offer to revoke a module that is already revoked", async () => {
+      ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+        status: "ok",
+        site: detail({
+          modules: [oneModule({ moduleKey: "calendar", revokedAt: "2026-09-08T06:33:22Z", status: "Revoked" })],
+        }),
+      });
+
+      const container = await render(shellAt());
+      const row = one<HTMLTableRowElement>(container, "table tbody tr");
+
+      expect(byText<HTMLButtonElement>(row, "button", "Revoke")).toBeNull();
+    });
+
+    it("does not offer to set a quantity on a module that is already revoked", async () => {
+      ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+        status: "ok",
+        site: detail({
+          modules: [oneModule({ moduleKey: "calendar", revokedAt: "2026-09-08T06:33:22Z", status: "Revoked" })],
+        }),
+      });
+
+      const container = await render(shellAt());
+      const row = one<HTMLTableRowElement>(container, "table tbody tr");
+
+      expect(byText<HTMLButtonElement>(row, "button", "Set quantity")).toBeNull();
+    });
+
+    it("leaves the actions cell with no buttons at all for a revoked row, rather than an empty group", async () => {
+      ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+        status: "ok",
+        site: detail({
+          modules: [oneModule({ moduleKey: "calendar", revokedAt: "2026-09-08T06:33:22Z", status: "Revoked" })],
+        }),
+      });
+
+      const container = await render(shellAt());
+      const row = one<HTMLTableRowElement>(container, "table tbody tr");
+
+      // The last cell is the actions column (module/triggerWords/grantedBy/expires/status/quantity/actions) -
+      // asserting no buttons anywhere in the row would pass even if the render still returned an empty
+      // wrapper element; this checks the cell itself rendered nothing to click.
+      const actionsCell = row.cells[row.cells.length - 1];
+      expect(actionsCell.querySelectorAll("button")).toHaveLength(0);
+    });
+
+    /** The regression this item could most easily introduce: hiding the actions for every
+     * non-Active status, which would also silence a legitimate re-grant on an Expired row
+     * (this item's own warning against conflating the two). Proven directly, in the same table as a
+     * revoked row, rather than trusted to the existing suite catching it by accident. */
+    it("keeps both actions on an Active row and an Expired row, only hiding them on the Revoked one", async () => {
+      ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+        status: "ok",
+        site: detail({
+          modules: [
+            oneModule({ moduleKey: "calendar", status: "Active" }),
+            oneModule({ moduleKey: "faq", expiresAt: "2020-01-01T00:00:00Z", status: "Expired" }),
+            oneModule({ moduleKey: "widget", revokedAt: "2026-09-08T06:33:22Z", status: "Revoked" }),
+          ],
+        }),
+      });
+
+      const container = await render(shellAt());
+      const rows = all(container, "table tbody tr");
+      expect(rows).toHaveLength(3);
+
+      // Rendered in the order `modules` was given, exactly like the sibling
+      // "renders two rows for the same module key" test above already relies on - Active/Expired/Revoked
+      // by position, not re-found by text, so this test cannot pass by accident on a table that sorted
+      // rows some other way.
+      const [activeRow, expiredRow, revokedRow] = rows;
+      expect(activeRow.textContent).toContain("Active");
+      expect(expiredRow.textContent).toContain("Expired");
+      expect(revokedRow.textContent).toContain("Revoked");
+
+      expect(byText<HTMLButtonElement>(activeRow, "button", "Revoke")).not.toBeNull();
+      expect(byText<HTMLButtonElement>(activeRow, "button", "Set quantity")).not.toBeNull();
+      expect(byText<HTMLButtonElement>(expiredRow, "button", "Revoke")).not.toBeNull();
+      expect(byText<HTMLButtonElement>(expiredRow, "button", "Set quantity")).not.toBeNull();
+      expect(byText<HTMLButtonElement>(revokedRow, "button", "Revoke")).toBeNull();
+      expect(byText<HTMLButtonElement>(revokedRow, "button", "Set quantity")).toBeNull();
+    });
+  });
+
   it("states in words what an expiry does and does not do", async () => {
     ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
 

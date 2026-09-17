@@ -2197,16 +2197,32 @@ function buildModuleColumns(
       // confirmation dialog this opens is where the reason/force asymmetry actually lives, not here.
       // `23-66`: the quantity dialog opens the same way, alongside it - which stage it opens in
       // (edit vs. the lowering confirm) is decided once a number is actually typed, not here.
-      render: (module) => (
-        <div className="ago-row">
-          <Button size="sm" variant="ghost" onClick={() => onSetQuantity(module)}>
-            {strings.ownerSiteDetailSetQuantityButton}
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => onRevoke(module)}>
-            {strings.ownerSiteDetailRevokeButton}
-          </Button>
-        </div>
-      ),
+      //
+      // `25-125`: both actions are withheld once `status === "Revoked"` - never for `"Expired"`, which
+      // stays a real, live grant a tenant might reasonably be re-granted via "Set quantity" (this
+      // item's own warning against conflating the two). Confirmed against both handlers this column
+      // calls, not assumed from the console side alone:
+      // `RevokeModuleForSiteAsOwnerHandler`'s own repository read (`EnabledModuleRepository.GetAsync`)
+      // excludes an already-revoked row, so a second Revoke click returns `Module.NotEnabled` - the
+      // console surfaces that as the generic "could not be reached" page error (`handleRevokeConfirm`'s
+      // own `not-found` branch), a confusing outcome for a row the screen itself just called Revoked,
+      // not a clean no-op. `GrantModuleQuantityAsOwnerHandler` never reads `EnabledModule`/its status at
+      // all - it writes straight to `IModuleQuantityGrantStore`, so "Set quantity" on a revoked row
+      // would silently accept a number nothing reads while the module stays off, with no re-grant
+      // meaning: reaching this table's Active state again is `EnableModuleForSiteAsOwner`'s own route,
+      // not this one. Hiding both, rather than disabling them, is the same "nothing to click" shape
+      // `buildOperatorColumns`' own seat-restore action already uses for its own inapplicable case.
+      render: (module) =>
+        module.status === "Revoked" ? null : (
+          <div className="ago-row">
+            <Button size="sm" variant="ghost" onClick={() => onSetQuantity(module)}>
+              {strings.ownerSiteDetailSetQuantityButton}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => onRevoke(module)}>
+              {strings.ownerSiteDetailRevokeButton}
+            </Button>
+          </div>
+        ),
     },
   ];
 }
