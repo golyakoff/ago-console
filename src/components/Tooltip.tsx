@@ -18,24 +18,31 @@ export interface TooltipProps {
  * minimum, not this component's normal size. */
 const MIN_BUBBLE_WIDTH_PX = 96;
 
-/** `25-111`: the nearest ancestor, walking up from `element`, whose own `overflow-x`/`overflow-y` is
- * not `visible` - the box that would actually clip an absolutely-positioned descendant, which is what
- * a left-aligned tooltip bubble is. Falls back to the viewport when nothing up the tree clips at all,
- * which folds the "does not attempt viewport-collision detection" gap this component's own doc comment
- * used to name into the same measurement rather than a second one - not a deliberate second feature,
- * just what is left when the walk reaches `<html>` with nothing to report. */
-function findClippingRect(element: HTMLElement): { left: number; right: number } {
+/** `25-111`/`25-123`: the nearest ancestor, walking up from `element`, whose own `overflow-x`/
+ * `overflow-y` is not `visible` - the box that would actually clip an absolutely-positioned
+ * descendant, which is what a left-aligned or top-aligned tooltip bubble is. Falls back to the
+ * viewport when nothing up the tree clips at all, which folds the "does not attempt viewport-collision
+ * detection" gap this component's own doc comment used to name into the same measurement rather than a
+ * second one - not a deliberate second feature, just what is left when the walk reaches `<html>` with
+ * nothing to report.
+ *
+ * `25-123`: one walk, four numbers - `top`/`bottom` ride along with the same ancestor `left`/`right`
+ * already walks to, because it is the same box on both axes: whatever element clips this tooltip
+ * horizontally is the identical element that clips it vertically, `overflow-x`/`overflow-y` are
+ * checked together in the one condition above precisely so a second, vertical-only walk is never
+ * needed. */
+function findClippingRect(element: HTMLElement): { left: number; right: number; top: number; bottom: number } {
   let node = element.parentElement;
   while (node !== null) {
     const style = window.getComputedStyle(node);
     if (style.overflowX !== "visible" || style.overflowY !== "visible") {
       const rect = node.getBoundingClientRect();
-      return { left: rect.left, right: rect.right };
+      return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
     }
     node = node.parentElement;
   }
 
-  return { left: 0, right: document.documentElement.clientWidth };
+  return { left: 0, right: document.documentElement.clientWidth, top: 0, bottom: document.documentElement.clientHeight };
 }
 
 /**
@@ -127,6 +134,24 @@ function findClippingRect(element: HTMLElement): { left: number; right: number }
  * (`ux-gate/tooltipPositioning.spec.ts`'s own `expect.poll`, not a single read), not in this component -
  * this measurement was correct all along, and deferring it would only have traded a real one-frame
  * flash of the unclamped bubble for a test bug the deferral itself could never fix.
+ *
+ * **`25-123`: the same shape, mirrored onto the vertical axis.** `25-111` above only ever measured
+ * `left`/`right` - `components.css`'s own `top: calc(100% + var(--ago-space-2))` stayed unconditional,
+ * so a bubble had no way to avoid clipping against the *bottom* of a clipping ancestor either, and
+ * `Thread`'s own delivery-scope tooltip (pinned to the very top of the scrollable `.ago-thread-scroll`
+ * it opens inside) is exactly the trigger a short conversation clips this way - reported live, with a
+ * screenshot, not a hunch, the identical bar `25-111`'s own trigger had to clear. `findClippingRect`
+ * above now returns `top`/`bottom` off the same walk, no second one; `spaceBelow`/`spaceAbove` mirror
+ * `spaceRight`/`spaceLeft` exactly; and when the bubble does not fit below, it flips to open **above**
+ * the trigger (`top: "auto", bottom: "calc(100% + var(--ago-space-2))"`, the CSS default's own gap
+ * value, quoted back as a `calc()` string inside the inline `style` object - confirmed against a real
+ * rendered bubble, not assumed, the same discipline `25-111`'s own width arithmetic was held to).
+ * Deliberately asymmetric with the block above in one place: there is no vertical counterpart to the
+ * `maxWidth` shrink-as-last-resort, and the code at that point says why, rather than leaving a reader
+ * to wonder whether it was missed. Both axes write into the same `nextStyle` object - never a second
+ * piece of state - for the reason given where it is built: a bubble can need an aligned side and a
+ * flipped-open direction at once, and the measurement above is the one place, inside the one
+ * `useLayoutEffect`, this component's own doc comment already insists it has to happen synchronously.
  */
 export function Tooltip({ content }: TooltipProps) {
   const strings = useStrings();
@@ -159,7 +184,9 @@ export function Tooltip({ content }: TooltipProps) {
 
     const wrapperRect = wrapper.getBoundingClientRect();
     const clipRect = findClippingRect(wrapper);
-    const bubbleWidth = bubble.getBoundingClientRect().width;
+    const bubbleRect = bubble.getBoundingClientRect();
+    const bubbleWidth = bubbleRect.width;
+    const bubbleHeight = bubbleRect.height;
 
     // `--ago-space-2` (8px, `tokens.css`) kept as a plain number rather than read from the token:
     // this is a safety gutter against the clip edge itself, not a gap between two rendered elements
@@ -167,10 +194,19 @@ export function Tooltip({ content }: TooltipProps) {
     const gutter = 8;
     const spaceRight = wrapperRect.left <= clipRect.right ? clipRect.right - wrapperRect.left - gutter : 0;
     const spaceLeft = wrapperRect.right >= clipRect.left ? wrapperRect.right - clipRect.left - gutter : 0;
+    // `25-123`: the vertical mirror of `spaceRight`/`spaceLeft` above - room below/above the trigger,
+    // inside the same `clipRect` the horizontal pair already measures, guarded the same way (only
+    // counted when the wrapper's own edge is still on the near side of the clip edge, `0` otherwise).
+    const spaceBelow = wrapperRect.bottom <= clipRect.bottom ? clipRect.bottom - wrapperRect.bottom - gutter : 0;
+    const spaceAbove = wrapperRect.top >= clipRect.top ? wrapperRect.top - clipRect.top - gutter : 0;
 
-    // Fits left-aligned, exactly as the default CSS already renders it, at every call site but
-    // `VisitorPanel` today - `nextStyle` stays `undefined`, so nothing here can be told apart from
-    // the pre-`25-111` component at any of those sites.
+    // Fits left-aligned and opens downward, exactly as the default CSS already renders it, at every
+    // call site but `VisitorPanel` (horizontally) today - `nextStyle` stays `undefined`, so nothing
+    // here can be told apart from the pre-`25-111` component at any of those sites. Both axes write
+    // into this one object rather than two: a corner case can be narrow *and* short at once (`25-123`),
+    // needing an aligned side and a flipped-open bubble simultaneously, and `setBubbleStyle` below is
+    // the one piece of state this effect is allowed to touch - see this component's own doc comment on
+    // why the measurement stays synchronous, in this one effect, rather than split across a second one.
     let nextStyle: CSSProperties | undefined;
     if (bubbleWidth > spaceRight) {
       const alignRight = spaceLeft > spaceRight;
@@ -178,6 +214,20 @@ export function Tooltip({ content }: TooltipProps) {
       nextStyle = alignRight ? { left: "auto", right: 0 } : {};
       if (bubbleWidth > available) {
         nextStyle.maxWidth = `${Math.max(available, MIN_BUBBLE_WIDTH_PX)}px`;
+      }
+    }
+
+    // `25-123`: the vertical mirror of the block above, with one deliberate asymmetry - no
+    // `maxWidth`-shaped shrink-as-last-resort here. Shrinking a bubble's *width* lets its text reflow
+    // into more lines, so a narrower box still shows the same content; shrinking its *height* does not
+    // reflow anything, it only clips whatever no longer fits or forces the bubble to grow its own
+    // scrollbar, and both are worse than simply leaving the bubble on whichever side already has more
+    // room. So when neither side fully fits, this picks the better one and stops, rather than also
+    // trying to squeeze the bubble into it.
+    if (bubbleHeight > spaceBelow) {
+      const alignAbove = spaceAbove > spaceBelow;
+      if (alignAbove) {
+        nextStyle = { ...nextStyle, top: "auto", bottom: "calc(100% + var(--ago-space-2))" };
       }
     }
 

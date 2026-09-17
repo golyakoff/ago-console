@@ -2,6 +2,11 @@ import { test, expect } from "@playwright/test";
 import { openScreen } from "./fixtures/openScreen.js";
 import { UX_GATE_SCREENS } from "./fixtures/screens.js";
 import { measureTooltipTriggerOverflow } from "./lib/tooltipOverflow.js";
+import { signInAsSeededOperator } from "./fixtures/auth.js";
+import { installApiStubs } from "./fixtures/apiStubs.js";
+import { installFontStubs } from "./fixtures/fontStubs.js";
+import { installOperatorHubMock } from "./fixtures/hubMock.js";
+import { OPEN_CONVERSATION_ID } from "./fixtures/data.js";
 
 /**
  * `25-111`: `Tooltip.tsx`'s own hidden-by-default bubble has no rendering-position test anywhere in
@@ -35,6 +40,15 @@ import { measureTooltipTriggerOverflow } from "./lib/tooltipOverflow.js";
  * runs out - which is exactly why this is not "wait long enough and always pass regardless of the
  * code": a genuinely unfixed `Tooltip.tsx` never converges to zero, and this same poll times out and
  * fails for real, which the fails-before run for this item confirmed before this comment was written.
+ *
+ * `25-123`: the third test below is this same file's own vertical counterpart, for `Tooltip.tsx`'s own
+ * vertical-clipping fix - the one call site that fix exists for (`Thread`'s delivery-scope tooltip)
+ * needs its own hub-mock fixture rather than `CONVERSATION_SCREEN`'s default one (that test's own doc
+ * comment says why), so it does not reuse `openScreen`/`CONVERSATION_SCREEN` the way the two tests
+ * above do; it stays inside this `describe` regardless, because the same "only the desktop project,
+ * only above the one-column breakpoint" reasoning above still gates whether there is anything
+ * meaningful to measure at all - this gate's own mobile project renders the workspace as stacked
+ * full-width blocks, not the fixed three-region layout `Thread`'s own scrollable thread lives inside.
  */
 const CONVERSATION_SCREEN = UX_GATE_SCREENS[0]; // queue-conversation - the one screen with a real VisitorPanel aside.
 
@@ -114,5 +128,70 @@ test.describe("tooltip bubble positioning (25-111)", () => {
         throw new Error(`trigger #${i}, bubble/clip rects: ${JSON.stringify(lastOverflow)}`, { cause: err });
       }
     }
+  });
+
+  test("Thread's own delivery-scope tooltip opens above the trigger when its thread is too short to hold the bubble below (25-123)", async ({
+    page,
+  }) => {
+    // `25-123`: `CONVERSATION_SCREEN`/`openScreen` above seed the ordinary four-message exchange,
+    // which never renders `.ago-thread-scroll` (the clipping ancestor confirmed by `Tooltip.tsx`'s own
+    // `findClippingRect` walk for this trigger, not assumed) shorter than this bubble - reproducing
+    // the reported clip needs a shorter one. Composed by hand from the same three fixtures
+    // `openScreen.ts` itself calls, in the same order (every one of them has to run before
+    // `page.goto`, that file's own doc comment on why), swapping only `installOperatorHubMock`'s own
+    // optional overrides for a conversation this screen's default fixture cannot express.
+    await signInAsSeededOperator(page);
+    await installApiStubs(page);
+    await installFontStubs(page);
+    // Both arguments matter together, not just the empty message list. `Thread.tsx` renders this
+    // tooltip as the very first thing inside `.ago-thread-scroll`, ahead of every message - so an
+    // empty conversation alone still leaves *less* room above the trigger than below it (only the
+    // container's own top padding can ever sit above it), and the fix below would never actually
+    // prefer opening upward without something real above the trigger to make that true. A truthy
+    // `nextBeforeSequence` is exactly that: `ConversationPage.tsx`'s own
+    // `canLoadOlder={nextBeforeSequence !== null}` then renders a genuine "Load older messages"
+    // button ahead of the tooltip - a state `ConversationPage` reaches whenever its keyset cursor
+    // is not yet exhausted, not a fixture invented only to pass this test.
+    await installOperatorHubMock(page, [], 1);
+
+    await page.goto(`/conversations/${OPEN_CONVERSATION_ID}`);
+    await page.waitForSelector(".ago-thread__delivery-tooltip .ago-tooltip__trigger", { state: "visible" });
+
+    const trigger = page.locator(".ago-thread__delivery-tooltip .ago-tooltip__trigger");
+    await trigger.hover();
+    const bubble = trigger.locator('xpath=following-sibling::*[@role="tooltip"]');
+    await expect(bubble).toBeVisible();
+
+    // Unlike the two tests above, this does not expect `overflowPx` itself to reach `0`.
+    // `Tooltip.tsx`'s own doc comment on this fix is explicit that there is no vertical
+    // shrink-to-fit fallback: when a scrollable ancestor is shorter than the bubble on *both* sides
+    // of the trigger, the fix picks whichever side has more room and stops - it does not also force
+    // a fit the way the horizontal case's `maxWidth` shrink does. What this fixture proves is the one
+    // promise the item actually makes: the defect it exists to fix - an unconditional, always-
+    // downward bubble silently clipping past the *bottom* of its own container, regardless of how
+    // little room is actually there - is gone. `overflowBottomPx` is the direct measurement of
+    // exactly that clip, and reaching `0` is this fixture's own load-bearing assertion.
+    // `expect.poll`, not a single read, for the identical two-React-commits reason this file's own
+    // header already gives for the two tests above.
+    let lastOverflow: Awaited<ReturnType<typeof measureTooltipTriggerOverflow>> | undefined;
+    try {
+      await expect
+        .poll(async () => {
+          lastOverflow = await trigger.evaluate(measureTooltipTriggerOverflow);
+          return lastOverflow.overflowBottomPx;
+        })
+        .toBe(0);
+    } catch (err) {
+      throw new Error(`bubble/clip rects: ${JSON.stringify(lastOverflow)}`, { cause: err });
+    }
+
+    // Ties that `0` to the actual mechanism (a genuine flip to opening above the trigger) rather than
+    // some unrelated reason the bottom edge happened to read clear - `toBeVisible()` above already
+    // rules out "the bubble did not render at all".
+    const triggerTop = await trigger.evaluate((el) => el.getBoundingClientRect().top);
+    expect(
+      lastOverflow?.bubbleRect?.bottom,
+      "expected the bubble to have flipped above the trigger, not merely avoided the bottom edge",
+    ).toBeLessThanOrEqual(triggerTop);
   });
 });
