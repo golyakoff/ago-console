@@ -62,6 +62,19 @@ export function ChannelIdentitiesPanel({
   const [identities, setIdentities] = useState<ChannelIdentityDto[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pickerValue, setPickerValue] = useState<string>(LINKABLE_CHANNEL_KINDS[0]);
+  // `25-122`: a kind the visitor already has a verified identity for is not offered again - relinking
+  // an already-linked kind sends a code the visitor has nothing to do with. `identities` before its
+  // first load resolves is `null`, treated the same as "nothing linked yet" here (the same as this
+  // panel's own pre-`25-122` behaviour for that brief window - every kind was offered either way).
+  const linkedKinds = new Set((identities ?? []).map((identity) => identity.kind));
+  const availableChannelKinds = LINKABLE_CHANNEL_KINDS.filter((kind) => !linkedKinds.has(kind));
+  // `pickerValue` can name a kind that just became unavailable (this row's own "link" action linked it,
+  // or a fresh load already had it linked) - derived here rather than reset via an effect, the same
+  // "adjust during render" shape `prevConversationId` above already uses for the identical
+  // `react-hooks/set-state-in-effect` reason.
+  const effectivePickerValue = (availableChannelKinds as readonly string[]).includes(pickerValue)
+    ? pickerValue
+    : availableChannelKinds[0];
   const [requestedCode, setRequestedCode] = useState<{ code: string; kind: string; expiresAt: string } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -121,7 +134,7 @@ export function ChannelIdentitiesPanel({
     setBusy(true);
     setActionError(null);
     try {
-      const result = await requestChannelLink(accessToken, conversationId, pickerValue);
+      const result = await requestChannelLink(accessToken, conversationId, effectivePickerValue);
       setRequestedCode({ code: result.code, kind: result.kind, expiresAt: result.expiresAt });
       // Deliberately not run through `strings`: `HandleLinkIdentityCommandHandler`'s own visitor-
       // facing reply text (`ago-chat`) is plain, hardcoded English regardless of the widget's own
@@ -239,14 +252,14 @@ export function ChannelIdentitiesPanel({
         </ul>
       )}
 
-      {canRequestLink && (
+      {canRequestLink && availableChannelKinds.length > 0 && (
         <div className="ago-row">
           <Select
             aria-label={strings.channelIdentitiesLinkKindLabel}
-            value={pickerValue}
+            value={effectivePickerValue}
             onChange={(e) => setPickerValue(e.target.value)}
           >
-            {LINKABLE_CHANNEL_KINDS.map((kind) => (
+            {availableChannelKinds.map((kind) => (
               <option key={kind} value={kind}>
                 {kind}
               </option>
