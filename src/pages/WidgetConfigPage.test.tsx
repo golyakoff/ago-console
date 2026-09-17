@@ -536,6 +536,23 @@ function autoOpenGreetingField(container: HTMLElement): HTMLTextAreaElement {
   return field;
 }
 
+/** `25-129`: the contact-capture confirmation field, found the same `<label>`-`htmlFor` way as
+ * `noticeTextField`/`autoOpenGreetingField` above. */
+function contactCaptureConfirmationField(container: HTMLElement): HTMLTextAreaElement {
+  const label = byText<HTMLLabelElement>(container, ".ago-field__label", "Confirmation text (optional)");
+  if (label === null) {
+    throw new Error("no 'Confirmation text (optional)' field label found");
+  }
+
+  const id = label.getAttribute("for");
+  const field = id ? document.getElementById(id) : null;
+  if (!(field instanceof HTMLTextAreaElement)) {
+    throw new Error("'Confirmation text (optional)' field is not a <textarea>");
+  }
+
+  return field;
+}
+
 function attractAttentionCheckbox(container: HTMLElement): HTMLInputElement {
   const label = byText<HTMLLabelElement>(container, "label", "Attract attention while closed");
   if (label === null) {
@@ -977,5 +994,86 @@ describe("the widget auto-open fields", () => {
     );
 
     expect(options).toEqual(["15", "30", "45", "60", "90", "120"]);
+  });
+});
+
+/**
+ * `25-129`: the console half of the item - a single optional `<textarea>`, saved through the same one
+ * PUT every other field on this screen already uses. Modeled on "the widget processing notice fields"
+ * block above for the load/save shape, and on "the widget auto-open fields" block for the "no
+ * client-side validation beyond trimming" posture - unlike auto-open's own greeting, there is no
+ * enabling flag this field is required alongside, so there is no equivalent rejection test.
+ */
+describe("the widget contact-capture confirmation field", () => {
+  it("is empty by default when the site has never configured one", async () => {
+    const container = await render(page());
+
+    expect(contactCaptureConfirmationField(container).value).toBe("");
+  });
+
+  it("loads the site's current confirmation text into the field", async () => {
+    widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
+      siteId: SITE_ID,
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "En",
+      noticeText: null,
+      noticeUrl: null,
+      contactCaptureConfirmationText: "Спасибо, {name}, мы всё записали.",
+    });
+    const container = await render(page());
+
+    expect(contactCaptureConfirmationField(container).value).toBe("Спасибо, {name}, мы всё записали.");
+  });
+
+  it("saves the typed text alongside every other field, in one PUT", async () => {
+    const container = await render(page());
+
+    setTextValue(contactCaptureConfirmationField(container), "Спасибо, {name}, мы всё записали.");
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(widgetConfigApi.updateWidgetConfig).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({ contactCaptureConfirmationText: "Спасибо, {name}, мы всё записали." }),
+    );
+  });
+
+  it("sends null, not an empty string, when the field is left blank", async () => {
+    const container = await render(page());
+
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(widgetConfigApi.updateWidgetConfig).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({ contactCaptureConfirmationText: null }),
+    );
+  });
+
+  it("reflects the server's saved text back into the field", async () => {
+    const container = await render(page());
+    widgetConfigApi.updateWidgetConfig.mockResolvedValue({
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "En",
+      noticeText: null,
+      noticeUrl: null,
+      contactCaptureConfirmationText: "Спасибо, {name}, мы всё записали.",
+    });
+
+    setTextValue(contactCaptureConfirmationField(container), "Спасибо, {name}, мы всё записали.");
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(contactCaptureConfirmationField(container).value).toBe("Спасибо, {name}, мы всё записали.");
+    expect(container.textContent).toContain("Saved.");
+  });
+
+  it("shows the widget's own real default sentence as the field's placeholder", async () => {
+    const container = await render(page());
+
+    expect(contactCaptureConfirmationField(container).placeholder).toBe(
+      "Thanks, {name} - your details have been added.",
+    );
   });
 });

@@ -395,6 +395,13 @@ export const ru: ConsoleStrings = {
   widgetNoticeShowLess: "Скрыть",
   widgetNoticeEditButton: "Изменить",
   widgetContactConsentPanelTitle: "Согласие на сбор контактных данных",
+  widgetContactCaptureConfirmationPanelTitle: "Подтверждение после контактных данных",
+  widgetContactCaptureConfirmationFieldLabel: "Текст подтверждения (необязательно)",
+  widgetContactCaptureConfirmationFieldDescription:
+    "Показывается после того, как посетитель укажет имя, телефон и email. Впишите {name} в любом месте " +
+    "текста - вместо этого подставится только что указанное имя. AGO не пишет эту фразу за вас, а если " +
+    "оставить поле пустым, будет показан текст по умолчанию ниже.",
+  widgetContactCaptureConfirmationPlaceholder: "Спасибо, {name}, ваши контакты добавлены.",
   widgetAttractAttentionLabel: "Привлекать внимание, пока виджет закрыт",
   widgetAttractAttentionDescription:
     "Кнопка несколько раз слегка подрагивает, затем перестаёт - никогда, пока панель открыта, и никогда после того, как посетитель её закрыл. Всегда отключено, если браузер посетителя просит уменьшить анимацию, независимо от этой настройки.",

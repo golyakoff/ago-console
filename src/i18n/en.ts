@@ -397,6 +397,13 @@ export const en: ConsoleStrings = {
   widgetNoticeShowLess: "Show less",
   widgetNoticeEditButton: "Edit",
   widgetContactConsentPanelTitle: "Contact consent",
+  widgetContactCaptureConfirmationPanelTitle: "Contact-capture confirmation",
+  widgetContactCaptureConfirmationFieldLabel: "Confirmation text (optional)",
+  widgetContactCaptureConfirmationFieldDescription:
+    "Shown once a visitor submits their name, phone and email. Use {name} anywhere in the text and " +
+    "we'll fill in the name they just gave - AGO does not write this sentence for you, and leaving it " +
+    "empty shows the default below instead.",
+  widgetContactCaptureConfirmationPlaceholder: "Thanks, {name} - your details have been added.",
   widgetAttractAttentionLabel: "Attract attention while closed",
   widgetAttractAttentionDescription:
     "Pulses the launcher a few times, then stops - never while the panel is open, never after it has been dismissed. Always off for a visitor whose browser asks for reduced motion, whatever this setting says.",

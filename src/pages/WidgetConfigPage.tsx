@@ -128,6 +128,11 @@ export function WidgetConfigPage() {
   // screen already states for itself, so a slow load never briefly implies attachments are already
   // allowed by default.
   const [allowAttachmentUploadsByDefault, setAllowAttachmentUploadsByDefault] = useState(false);
+  // `25-129`: the tenant's own override for the contact-capture control's confirmation sentence -
+  // empty by default until the load call resolves, the identical "textarea starts blank, an empty
+  // trimmed value means null" shape `noticeTextInput`/`autoOpenGreetingTextInput` already establish
+  // for their own tenant-facing text.
+  const [contactCaptureConfirmationTextInput, setContactCaptureConfirmationTextInput] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [noticeUrlValidationError, setNoticeUrlValidationError] = useState<string | null>(null);
@@ -157,6 +162,7 @@ export function WidgetConfigPage() {
         setAutoOpenGreetingTextInput(dto.autoOpenGreetingText ?? "");
         setAcceptUnverifiedPhone(dto.acceptUnverifiedPhone);
         setAllowAttachmentUploadsByDefault(dto.allowAttachmentUploadsByDefault);
+        setContactCaptureConfirmationTextInput(dto.contactCaptureConfirmationText ?? "");
         setLoadError(null);
       })
       .catch((err: unknown) =>
@@ -231,6 +237,11 @@ export function WidgetConfigPage() {
     }
 
     const trimmedNoticeText = noticeTextInput.trim();
+    // `25-129`: the identical "no client-side format to check beyond what the textarea itself already
+    // enforces (nothing)" posture `trimmedNoticeText` above already states for itself - a whitespace-
+    // only or over-length value is left to the server's own `WidgetConfig.InvalidContactCaptureConfirmationText`,
+    // surfaced as `submitError` like any other rejection.
+    const trimmedContactCaptureConfirmationText = contactCaptureConfirmationTextInput.trim();
 
     setSubmitting(true);
     try {
@@ -247,6 +258,8 @@ export function WidgetConfigPage() {
         autoOpenGreetingText: trimmedAutoOpenGreetingText.length > 0 ? trimmedAutoOpenGreetingText : null,
         acceptUnverifiedPhone,
         allowAttachmentUploadsByDefault,
+        contactCaptureConfirmationText:
+          trimmedContactCaptureConfirmationText.length > 0 ? trimmedContactCaptureConfirmationText : null,
       });
       setCurrent(dto);
       setColorInput(dto.primaryColorHex ?? "");
@@ -261,6 +274,7 @@ export function WidgetConfigPage() {
       setAutoOpenGreetingTextInput(dto.autoOpenGreetingText ?? "");
       setAcceptUnverifiedPhone(dto.acceptUnverifiedPhone);
       setAllowAttachmentUploadsByDefault(dto.allowAttachmentUploadsByDefault);
+      setContactCaptureConfirmationTextInput(dto.contactCaptureConfirmationText ?? "");
       // `25-24`: collapses the notice editor back behind its toggle now that the read view above it
       // has the freshly saved text to show instead - the same "the read view is what replaces the
       // form, so the form does not need to stay open next to it" reasoning `ConsentDocumentPanel`'s
@@ -558,10 +572,33 @@ export function WidgetConfigPage() {
             </div>
           </Panel>
 
-          {/* `25-39`: a fourth panel, kept separate from "Launcher"/"Consent notice"/"Contact consent" -
-              this is not an appearance choice or a data-handling statement, it is a temporary
-              workaround for a missing SMS/voice gateway account (`14-15`), and the panel title plus
-              description say so plainly rather than reading like an ordinary feature toggle. */}
+          {/* `25-129`: a sixth panel, placed right next to "Contact consent" since both are about the
+              same visitor-facing control (`ago-widget`'s `ui/contactCapture.ts`) - this one is what it
+              says back to the visitor once they submit it, not whether it requires a consent first. */}
+          <Panel title={strings.widgetContactCaptureConfirmationPanelTitle}>
+            <div className="ago-stack">
+              <Field
+                label={strings.widgetContactCaptureConfirmationFieldLabel}
+                description={strings.widgetContactCaptureConfirmationFieldDescription}
+              >
+                {(controlProps) => (
+                  <Textarea
+                    {...controlProps}
+                    rows={2}
+                    value={contactCaptureConfirmationTextInput}
+                    onChange={(e) => setContactCaptureConfirmationTextInput(e.target.value)}
+                    placeholder={strings.widgetContactCaptureConfirmationPlaceholder}
+                    disabled={submitting}
+                  />
+                )}
+              </Field>
+            </div>
+          </Panel>
+
+          {/* `25-39`: kept separate from "Launcher"/"Consent notice"/"Contact consent"/"Contact-capture
+              confirmation" - this is not an appearance choice or a data-handling statement, it is a
+              temporary workaround for a missing SMS/voice gateway account (`14-15`), and the panel
+              title plus description say so plainly rather than reading like an ordinary feature toggle. */}
           <Panel title={strings.widgetBookingPanelTitle}>
             <div className="ago-stack">
               <label className="ago-row">
@@ -577,8 +614,8 @@ export function WidgetConfigPage() {
             </div>
           </Panel>
 
-          {/* `25-104`: a fifth panel, kept separate from "Launcher"/"Consent notice"/"Contact consent"/
-              "Booking (temporary)" - this is neither an appearance choice, a data-handling statement, a
+          {/* `25-104`: kept separate from "Launcher"/"Consent notice"/"Contact consent"/"Contact-capture
+              confirmation"/"Booking (temporary)" - this is neither an appearance choice, a data-handling statement, a
               gate on collecting contact details, nor a temporary phone-verification workaround. It is
               its own question (can a new conversation's visitor send a file from their first message,
               with no operator having granted it yet), so it gets its own panel the same way
