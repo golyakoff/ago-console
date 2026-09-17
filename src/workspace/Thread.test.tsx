@@ -112,3 +112,78 @@ describe("channel delivery badges", () => {
     expect(bubble.hidden).toBe(false);
   });
 });
+
+/** `25-119`: the widget's own delivery signal - `message.deliveredAt`, gated to exactly the messages
+ * `channelDeliveries` above can never cover (see `Thread.tsx`'s own `widgetDeliveredAt` doc comment).
+ * `channelDeliveries` is passed as `[]` throughout, the same "no channel delivery was ever recorded"
+ * shape a widget conversation's own fetch returns. */
+describe("widget delivery badge", () => {
+  afterEach(async () => {
+    await unmount();
+  });
+
+  it("shows the identical delivered badge on a widget operator message once deliveredAt is set", async () => {
+    const container = await mount(
+      [
+        message("m1", 1, {
+          authorKind: "Operator",
+          authorId: "op-1",
+          body: "hi there",
+          deliveredAt: "2026-08-25T09:00:02+00:00",
+        }),
+      ],
+      [],
+    );
+
+    expect(byText(container, "span", "Delivered")).not.toBeNull();
+  });
+
+  it("shows no badge at all on a widget operator message whose deliveredAt is still null - pending, not refused", async () => {
+    const container = await mount(
+      [message("m1", 1, { authorKind: "Operator", authorId: "op-1", body: "hi there", deliveredAt: null })],
+      [],
+    );
+
+    expect(byText(container, "span", "Delivered")).toBeNull();
+    expect(byText(container, "span", "Not delivered")).toBeNull();
+  });
+
+  it("shows no badge on a visitor message even if it somehow carried a deliveredAt", async () => {
+    const container = await mount(
+      [message("m1", 1, { authorKind: "Visitor", deliveredAt: "2026-08-25T09:00:02+00:00" })],
+      [],
+    );
+
+    expect(byText(container, "span", "Delivered")).toBeNull();
+  });
+
+  it("prefers the channel-kind badge over the widget one when both a delivery and deliveredAt are present", async () => {
+    // Not a real server state (a channel-kind visitor never acks through VisitorHub), but proves the
+    // gate is `delivery === undefined`, not "authorKind is Operator" alone - the channel-kind path
+    // must win whenever it applies, unconditionally.
+    const container = await mount(
+      [
+        message("m1", 1, {
+          authorKind: "Operator",
+          authorId: "op-1",
+          body: "hi there",
+          deliveredAt: "2026-08-25T09:00:02+00:00",
+        }),
+      ],
+      [
+        {
+          id: "dddddddd-dddd-dddd-dddd-dddddddddddd",
+          messageId: "m1",
+          channelKind: "Sms",
+          status: "Refused",
+          providerMessageId: null,
+          failureReason: "unknown number",
+          attemptedAt: "2026-08-25T09:00:01+00:00",
+        },
+      ],
+    );
+
+    expect(byText(container, "span", "Not delivered")).not.toBeNull();
+    expect(byText(container, "span", "Delivered")).toBeNull();
+  });
+});

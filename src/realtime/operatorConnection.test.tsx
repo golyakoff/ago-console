@@ -434,6 +434,63 @@ describe("OperatorConnection's subscription record", () => {
 });
 
 /**
+ * `25-119`: the widget's own delivery ack, relayed - `onMessageDelivered`'s own field-level remarks.
+ * Exercised directly against `OperatorConnection` (the same shape as the presence-control tests
+ * above) rather than through the full `Harness`: this behaviour lives entirely inside the class's own
+ * `subscribedConversationId` filter, which neither `Subscriber` nor a rendered `ConversationPage` adds
+ * anything to prove.
+ */
+describe("the widget's own delivery ack (`MessageDelivered`, name assumed)", () => {
+  it("reaches the listener for the currently joined conversation", async () => {
+    const connection = new OperatorConnection({ current: "token" });
+    await connection.start();
+    await connection.joinConversation(CONVERSATION_ID);
+
+    const received: unknown[] = [];
+    connection.onMessageDelivered((dto) => received.push(dto));
+
+    const hub = signalr.hubs[0];
+    const dto = { conversationId: CONVERSATION_ID, messageId: "m1", deliveredAt: "2026-08-25T09:00:02+00:00" };
+    hub.push("MessageDelivered", dto);
+
+    expect(received).toEqual([dto]);
+  });
+
+  it("is dropped for a conversation other than the one currently joined", async () => {
+    const connection = new OperatorConnection({ current: "token" });
+    await connection.start();
+    await connection.joinConversation(CONVERSATION_ID);
+
+    const received: unknown[] = [];
+    connection.onMessageDelivered((dto) => received.push(dto));
+
+    const hub = signalr.hubs[0];
+    hub.push("MessageDelivered", {
+      conversationId: "99999999-9999-9999-9999-999999999999",
+      messageId: "m1",
+      deliveredAt: "2026-08-25T09:00:02+00:00",
+    });
+
+    expect(received).toEqual([]);
+  });
+
+  it("is dropped once the conversation has been left, the same as a MessageReceived push would be", async () => {
+    const connection = new OperatorConnection({ current: "token" });
+    await connection.start();
+    await connection.joinConversation(CONVERSATION_ID);
+    connection.leaveConversation();
+
+    const received: unknown[] = [];
+    connection.onMessageDelivered((dto) => received.push(dto));
+
+    const hub = signalr.hubs[0];
+    hub.push("MessageDelivered", { conversationId: CONVERSATION_ID, messageId: "m1", deliveredAt: "2026-08-25T09:00:02+00:00" });
+
+    expect(received).toEqual([]);
+  });
+});
+
+/**
  * `5-18`: what the console does when the server refuses the connection.
  *
  * The live failure this covers: `OperatorHub` aborted every operator's connection immediately after a

@@ -6,7 +6,7 @@ import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsContext, type PermissionsState } from "../auth/PermissionsContext.js";
 import { OperatorConnectionContext, type OperatorConnectionState } from "../realtime/OperatorConnectionContext.js";
 import { NotConnectedError, SendOutcomeUnknownError, type OperatorConnection } from "../realtime/operatorConnection.js";
-import type { ConversationSummaryDto, MessageDto } from "../realtime/protocol/types.js";
+import type { ConversationSummaryDto, MessageDeliveredDto, MessageDto } from "../realtime/protocol/types.js";
 import type { WorkspaceOutletContext } from "../workspace/workspaceContext.js";
 import { AttachmentApiError } from "../api/attachmentsApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
@@ -130,10 +130,15 @@ function fakeConnection() {
   const sends: SendAttempt[] = [];
   let nextSendResult: "ok" | "unknown" | "not-connected" = "ok";
   let pushMessage: ((message: MessageDto) => void) | null = null;
+  // `25-119`: the widget's own delivery ack - see `pushDelivered` below.
+  let pushDeliveredListener: ((dto: MessageDeliveredDto) => void) | null = null;
 
   const connection = {
     onMessage(listener: (message: MessageDto) => void) {
       pushMessage = listener;
+    },
+    onMessageDelivered(listener: (dto: MessageDeliveredDto) => void) {
+      pushDeliveredListener = listener;
     },
     joinConversation: vi.fn(() => Promise.resolve({ messages: [] as MessageDto[], nextBeforeSequence: null })),
     leaveConversation: vi.fn(),
@@ -177,6 +182,12 @@ function fakeConnection() {
     },
     push(message: MessageDto) {
       pushMessage?.(message);
+    },
+    /** `25-119`: stands in for the server's own `MessageDelivered` push, the same way `push` above
+     * stands in for `MessageReceived` - `ConversationPage`'s join effect registers this listener
+     * unconditionally, so it is always present by the time a test calls this. */
+    pushDelivered(dto: MessageDeliveredDto) {
+      pushDeliveredListener?.(dto);
     },
   };
 }
@@ -468,6 +479,52 @@ describe("opening a conversation", () => {
 
     expect(markRead).toHaveBeenCalledTimes(2);
     expect(markRead).toHaveBeenLastCalledWith(CONVERSATION_ID, 14);
+  });
+});
+
+/**
+ * `25-119`: the widget's own live delivery signal - `MessageDelivered` patching one message's
+ * `deliveredAt` in local state, without a refetch, while the operator is still looking. No
+ * `channelDeliveries` fetch is stubbed for any test in this file (`fetchChannelDeliveries` is called
+ * for real and its failure is swallowed by `ConversationPage`'s own effect - see that effect's doc
+ * comment), so every message here renders the widget-conversation shape, the identical situation a
+ * real widget conversation is in.
+ */
+describe("the widget's own live delivery ack (25-119)", () => {
+  it("shows no delivered badge on an operator message until the ack arrives", async () => {
+    const fake = fakeConnection();
+    fake.joinReturns([message("m1", 11, { authorKind: "Operator", authorId: "op-1" })]);
+
+    const container = await render(<Harness connection={fake.connection} />);
+
+    expect(byText(container, "span", "Delivered")).toBeNull();
+  });
+
+  it("shows the delivered badge live, without a reload, once MessageDelivered arrives for the message on screen", async () => {
+    const fake = fakeConnection();
+    fake.joinReturns([message("m1", 11, { authorKind: "Operator", authorId: "op-1" })]);
+
+    const container = await render(<Harness connection={fake.connection} />);
+    expect(byText(container, "span", "Delivered")).toBeNull();
+
+    await interact(() =>
+      fake.pushDelivered({ conversationId: CONVERSATION_ID, messageId: "m1", deliveredAt: "2026-08-25T09:00:02+00:00" }),
+    );
+
+    expect(byText(container, "span", "Delivered")).not.toBeNull();
+  });
+
+  it("ignores a MessageDelivered push naming a message not on screen", async () => {
+    const fake = fakeConnection();
+    fake.joinReturns([message("m1", 11, { authorKind: "Operator", authorId: "op-1" })]);
+
+    const container = await render(<Harness connection={fake.connection} />);
+
+    await interact(() =>
+      fake.pushDelivered({ conversationId: CONVERSATION_ID, messageId: "no-such-message", deliveredAt: "2026-08-25T09:00:02+00:00" }),
+    );
+
+    expect(byText(container, "span", "Delivered")).toBeNull();
   });
 });
 

@@ -62,6 +62,7 @@ function signedIn(): User {
 function fakeConnection(): OperatorConnection {
   return {
     onMessage: vi.fn(),
+    onMessageDelivered: vi.fn(),
     onAnyMessage: vi.fn(),
     onConversationAssigned: vi.fn(),
     onReconnectHint: vi.fn(),

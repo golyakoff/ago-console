@@ -24,6 +24,27 @@ export interface MessageDto {
    * `handleIncoming` cannot tell a push meant for the currently-open conversation from one that
    * belongs to another conversation this operator is also assigned to. */
   conversationId?: string | null;
+  /** `25-119`: `Message.DeliveredAt` (`Ago.Chat.Domain`) - when the recipient's own live connection
+   * actually received this operator-authored message, as opposed to `ChannelDelivery`'s
+   * `channelDeliveries` (a *different*, provider-scoped signal for a linked-channel conversation,
+   * fetched separately and keyed by `messageId` - see `Thread.tsx`'s own `channelDeliveries` doc
+   * comment). `null` until the widget's own `VisitorHub.AcknowledgeDeliveredAsync` round trip
+   * completes; stays `null` forever for a visitor- or system-authored message, which never carries
+   * this concept. Additive, per api-design.md's versioning rule - absent on any server that predates
+   * this field, which `Thread.tsx` treats identically to `null`. */
+  deliveredAt?: string | null;
+}
+
+/** `25-119`: `Ago.Chat.Contracts.MessageDeliveredDto` - pushed to the message's own operator author as
+ * `"MessageDelivered"` once `MessageDeliveredFanoutConsumer` (`ago-chat`) has relayed the widget's
+ * ack. Mirrors `ConversationAssignedDto`'s shape one field over: enough to patch one message's own
+ * `deliveredAt` in local state without re-fetching the conversation. Confirmed against the merged
+ * backend contract - the event name and this shape match `ago-chat`'s own
+ * `MessageDeliveredFanoutConsumer`/`Ago.Chat.Contracts.MessageDeliveredDto` exactly. */
+export interface MessageDeliveredDto {
+  conversationId: string;
+  messageId: string;
+  deliveredAt: string;
 }
 
 export interface HistoryPage {
