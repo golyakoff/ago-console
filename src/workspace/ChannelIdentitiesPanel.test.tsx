@@ -135,6 +135,46 @@ describe("listing identities", () => {
   });
 });
 
+describe("requesting a link (25-122: already-linked kinds are excluded)", () => {
+  it("does not offer a kind the visitor already has a linked, verified identity for", async () => {
+    channelIdentitiesApi.fetchChannelIdentities.mockResolvedValue([
+      {
+        channelIdentityId: "id-1",
+        kind: "Telegram",
+        address: "tg-user-1",
+        firstSeenAt: "x",
+        lastSeenAt: "x",
+        isPreferred: false,
+      },
+    ]);
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+
+    const options = all(container, "option").map((o) => (o as HTMLOptionElement).value);
+    expect(options).not.toContain("Telegram");
+    expect(options).toEqual(["WhatsApp", "Vk", "Max", "Avito", "Sms"]);
+  });
+
+  it("hides the whole link-a-channel row once every kind is already linked", async () => {
+    const allKinds = ["Telegram", "WhatsApp", "Vk", "Max", "Avito", "Sms"];
+    channelIdentitiesApi.fetchChannelIdentities.mockResolvedValue(
+      allKinds.map((kind, i) => ({
+        channelIdentityId: `id-${i}`,
+        kind,
+        address: `addr-${i}`,
+        firstSeenAt: "x",
+        lastSeenAt: "x",
+        isPreferred: false,
+      })),
+    );
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+
+    expect(byText(container, "button", "Generate code")).toBeNull();
+    expect(all(container, "select")).toHaveLength(0);
+  });
+});
+
 describe("requesting a link", () => {
   it("generates a code, shows it, and drops the relay instruction into the composer", async () => {
     channelIdentitiesApi.requestChannelLink.mockResolvedValue({
