@@ -297,6 +297,20 @@ export function ConversationPage() {
       setMessages((prev) => [...prev, message]);
     });
 
+    // `25-119`: the widget's own delivery ack, live - patches the one message's `deliveredAt` in
+    // place rather than refetching the conversation, the same "backstop is the next page load, not
+    // the only path" shape `channelDeliveries`'s own one-shot fetch above already relies on for the
+    // channel-kind case, just pushed instead of polled because this signal *can* arrive while the
+    // operator is still looking. Event name assumed - see `operatorConnection.ts`'s own remarks.
+    connection.onMessageDelivered((dto) => {
+      if (cancelled) {
+        return;
+      }
+      setMessages((prev) =>
+        prev.map((message) => (message.id === dto.messageId ? { ...message, deliveredAt: dto.deliveredAt } : message)),
+      );
+    });
+
     connection
       .joinConversation(conversationId)
       .then((page) => {

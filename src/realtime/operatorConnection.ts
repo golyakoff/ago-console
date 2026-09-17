@@ -8,6 +8,7 @@ import type {
   ConversationAssignedDto,
   HistoryPage,
   JoinConversationResult,
+  MessageDeliveredDto,
   MessageDto,
   ReconnectHint,
   TeamHistoryPage,
@@ -104,6 +105,11 @@ export class OperatorConnection {
   // (`Ago.Chat.Contracts.TeamMessageRemoved`'s own remarks, `ago-chat`). Applying the same removal
   // twice is a harmless idempotent state update, so no dedup is needed here at all.
   private teamMessageRemovedListener: ((message: TeamMessageDto) => void) | null = null;
+  // `25-119`: the widget's own delivery ack, relayed - filtered by `subscribedConversationId` the
+  // identical way `handleIncoming` filters `MessageReceived`, since this only ever updates a badge on
+  // whichever thread is actually on screen (there is no unread-style "any conversation" consumer for
+  // this signal the way `onAnyMessage` exists for new messages).
+  private messageDeliveredListener: ((dto: MessageDeliveredDto) => void) | null = null;
 
   /**
    * `accessTokenFactory` (the field, not this parameter) is a factory, not a token, and is called on
@@ -220,6 +226,13 @@ export class OperatorConnection {
     // doc/code drift this corrects), since the drain sequence's own subsequent disconnect is what
     // actually triggers `onreconnecting`/`onreconnected` below.
     connection.on("Reconnect", (hint: ReconnectHint) => this.reconnectHintListener?.(hint));
+    // `25-119`: event name and payload confirmed against the merged `ago-chat` contract -
+    // `MessageDeliveredFanoutConsumer` pushes exactly this event name and `MessageDeliveredDto` shape.
+    connection.on("MessageDelivered", (dto: MessageDeliveredDto) => {
+      if (dto.conversationId === this.subscribedConversationId) {
+        this.messageDeliveredListener?.(dto);
+      }
+    });
 
     connection.onreconnecting(() => this.stateListener?.("reconnecting"));
     connection.onreconnected(() => void this.resumeAfterReconnect());
@@ -263,6 +276,13 @@ export class OperatorConnection {
 
   onReconnectHint(listener: (hint: ReconnectHint) => void): void {
     this.reconnectHintListener = listener;
+  }
+
+  /** `25-119`: the widget's own delivery ack, already filtered to whichever conversation is currently
+   * joined - see `messageDeliveredListener`'s own field-level remarks. A caller patches the named
+   * message's `deliveredAt` in its local state; there is nothing else to fetch. */
+  onMessageDelivered(listener: (dto: MessageDeliveredDto) => void): void {
+    this.messageDeliveredListener = listener;
   }
 
   /** `23-32`: the team chat's own push listener - see this class's own field-level remarks on

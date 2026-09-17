@@ -190,6 +190,20 @@ export function Thread({
           const delivery =
             item.message.authorKind === "Operator" ? deliveryByMessageId.get(item.message.id) : undefined;
 
+          // `25-119`: the widget's own signal, gated to exactly the messages `delivery` above can
+          // never cover - a widget conversation carries no `ChannelDelivery` row at all (it has no
+          // `ChannelIdentity` to key one on, `channelDeliveries`'s own doc comment), so
+          // `deliveryByMessageId` never has an entry for it and `delivery` is always `undefined`
+          // there. This is the conservative gate the item's own brief asks for rather than a
+          // dedicated channel-kind flag this component is not otherwise handed: a channel-kind
+          // message merely still waiting on `DeliverChannelMessageHandler` also has `delivery ===
+          // undefined` for a moment, but its `deliveredAt` can only ever be set by
+          // `VisitorHub.AcknowledgeDeliveredAsync` - a hub a channel-kind visitor's own identity never
+          // holds a connection to - so that moment renders nothing here today and keeps rendering
+          // nothing, exactly as before.
+          const widgetDeliveredAt =
+            delivery === undefined && item.message.authorKind === "Operator" ? item.message.deliveredAt : undefined;
+
           return (
             <li
               key={item.message.id}
@@ -245,6 +259,17 @@ export function Thread({
                       <Badge tone="danger">{strings.threadDeliveryNotDeliveredBadge}</Badge>
                     </span>
                   ))}
+                {/* `25-119`: the widget's own signal - the identical badge the channel-kind case
+                    renders above, deliberately reusing `threadDeliveryDeliveredBadge` rather than a
+                    second string, because to an operator this is the same fact ("this reached the
+                    other side") over a different transport. No "not delivered" counterpart: unlike
+                    `ChannelDeliveryStatus.Refused` (a definite, provider-reported failure),
+                    `deliveredAt: null` here just means "no ack yet" - the visitor may be mid-page-load,
+                    briefly offline, or the ack may simply not have arrived yet, none of which is the
+                    "this failed" claim `threadDeliveryNotDeliveredBadge`'s own wording makes. Showing
+                    that string here would be misleading, so this renders nothing at all for that case -
+                    the same silence a message with no delivery information already renders today. */}
+                {widgetDeliveredAt && <Badge tone="success">{strings.threadDeliveryDeliveredBadge}</Badge>}
               </div>
             </li>
           );
