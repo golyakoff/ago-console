@@ -55,13 +55,15 @@ function encode(message: unknown): string {
   return JSON.stringify(message) + RECORD_SEPARATOR;
 }
 
-function joinConversationResult() {
+function joinConversationResult(messages: typeof SEEDED_MESSAGES, nextBeforeSequence: number | null) {
   // `JoinConversationAsync`'s own contract (`operatorConnection.ts#joinConversation`'s doc comment):
-  // newest-first, a fresh join's `nextBeforeSequence` is `null` once every seeded message fits on
-  // one page - true here, four messages against `HISTORY_PAGE_SIZE` (50) in `ConversationPage.tsx`.
+  // newest-first; `nextBeforeSequence` is `null` once every seeded message fits on one page - true
+  // for the default four-message seed against `HISTORY_PAGE_SIZE` (50) in `ConversationPage.tsx`, and
+  // parameterised (`25-123`) for the one caller that needs `ConversationPage` to believe there is
+  // older history still to load (`canLoadOlder={nextBeforeSequence !== null}`).
   return {
-    messages: [...SEEDED_MESSAGES].reverse(),
-    nextBeforeSequence: null,
+    messages: [...messages].reverse(),
+    nextBeforeSequence,
   };
 }
 
@@ -75,7 +77,15 @@ function teamHistoryResult() {
   };
 }
 
-export async function installOperatorHubMock(page: Page): Promise<void> {
+export async function installOperatorHubMock(
+  page: Page,
+  // `25-123`: both default to every caller but `tooltipPositioning.spec.ts`'s own vertical-clipping
+  // reproduction - every other screen wants the ordinary four-message `SEEDED_MESSAGES` exchange with
+  // no older page to load, the identical "override only where a test needs a different seeded state"
+  // shape `installApiStubs`'s own `permissionsOverride`/`installationOverride` already use.
+  conversationMessages: typeof SEEDED_MESSAGES = SEEDED_MESSAGES,
+  conversationNextBeforeSequence: number | null = null,
+): Promise<void> {
   // The negotiate POST - an ordinary HTTP request, so `page.route` (not `routeWebSocket`) is what
   // intercepts it.
   await page.route("**/hubs/operator/negotiate**", async (route) => {
@@ -122,7 +132,13 @@ export async function installOperatorHubMock(page: Page): Promise<void> {
           const { invocationId, target, arguments: args = [] } = record;
 
           if (target === "JoinConversationAsync") {
-            ws.send(encode({ type: 3, invocationId, result: joinConversationResult() }));
+            ws.send(
+              encode({
+                type: 3,
+                invocationId,
+                result: joinConversationResult(conversationMessages, conversationNextBeforeSequence),
+              }),
+            );
             continue;
           }
 
