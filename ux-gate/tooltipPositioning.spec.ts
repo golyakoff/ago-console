@@ -92,6 +92,58 @@ test.describe("tooltip bubble positioning (25-111)", () => {
     }
   });
 
+  /**
+   * `25-132`: reported live as "works, then breaks, then works, then breaks - forever, every *other*
+   * open" - a shape the two tests above could never have caught, since both open a trigger exactly
+   * once. Reproduced deterministically with a real repeated hover/unhover script before any fix
+   * landed: `Tooltip.tsx`'s own positioning state was never reset on close, so a bubble reopening
+   * rendered *with the previous cycle's own override still applied*, in the same commit this
+   * component's own measurement effect reads from - the odd-numbered opens (1st, 3rd, 5th, ...)
+   * measured a bubble already narrowed by the *even*-numbered open's own fix, read that as "already
+   * narrow enough", and cleared the override outright; the next even-numbered open then measured the
+   * bubble's true (unclamped) width again and correctly reintroduced it - alternating without limit.
+   * Eight cycles, not two, because the first regression fix attempt (a raw DOM reset with no
+   * corresponding fix to *how* the override was applied) traded the alternation for a different,
+   * *stable* wrong state that two cycles cannot tell apart from "fixed" - only a longer run does.
+   */
+  test("VisitorPanel's own tooltip bubble does not overflow on the second, third, or any later open", async ({
+    page,
+  }) => {
+    await openScreen(page, CONVERSATION_SCREEN);
+
+    const trigger = page.locator('.ago-tooltip-row:has(#ago-visitor-panel-title) .ago-tooltip__trigger');
+    await expect(trigger).toBeVisible();
+    const bubble = trigger.locator('xpath=following-sibling::*[@role="tooltip"]');
+
+    for (let cycle = 0; cycle < 8; cycle++) {
+      await trigger.hover();
+      await expect(bubble).toBeVisible();
+      await page.waitForTimeout(150);
+
+      const lastOverflow = await trigger.evaluate(measureTooltipTriggerOverflow);
+      if (lastOverflow.overflowPx !== 0) {
+        throw new Error(`cycle ${cycle}, bubble/clip rects: ${JSON.stringify(lastOverflow)}`);
+      }
+
+      // Away from the trigger entirely (not just off the bubble) - `onMouseLeave` is what this
+      // component's own `close()` path listens for, the same event a visitor's real cursor produces
+      // moving on to read something else.
+      await page.mouse.move(0, 0);
+      await expect(bubble).toBeHidden();
+
+      // A real cursor takes real time between "leaves" and "comes back" - `trigger.hover()` on the
+      // very next loop iteration, with nothing between it and the `mouse.move` above, can fire its
+      // own `mouseenter` closely enough behind this `mouseleave` that React coalesces the resulting
+      // `setOpen(false)` immediately followed by `setOpen(true)` into one batched commit where `open`
+      // net-changes not at all - skipping this component's own measurement effect for that "cycle"
+      // entirely rather than genuinely re-running it, which would make this test pass by accident
+      // regardless of whether the underlying bug is fixed (confirmed live: without this wait, this
+      // test could not be made to fail against the pre-`25-132` component at all). This is not a
+      // convenience delay, it is what makes each iteration a real, separate open cycle.
+      await page.waitForTimeout(150);
+    }
+  });
+
   test("every tooltip trigger rendered on this screen keeps its bubble inside its own container", async ({ page }) => {
     // `docs/backlog/25-111-*.md`'s own scope: the fix must not regress any of the six other call
     // sites wherever they already had room. Rather than naming each by its own selector (several are
