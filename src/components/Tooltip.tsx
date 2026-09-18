@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useStrings } from "../i18n/StringsContext.js";
 
 export interface TooltipProps {
@@ -159,26 +159,56 @@ export function Tooltip({ content }: TooltipProps) {
   const bubbleId = useId();
   const wrapperRef = useRef<HTMLSpanElement>(null);
   const bubbleRef = useRef<HTMLSpanElement>(null);
-  const [bubbleStyle, setBubbleStyle] = useState<CSSProperties | undefined>(undefined);
 
   // `25-111`: measured only while open - the bubble is `display: none` (the `hidden` attribute's own
-  // UA default) whenever it is not, so measuring earlier would read a zero-size box. Nothing resets
-  // `bubbleStyle` on close: the render below masks it with `open ? bubbleStyle : undefined` instead
-  // (the identical "mask at render time rather than write a reset into the effect" shape
-  // `useSiteSuspensionStatus.ts`'s own doc comment already uses for `react-hooks/set-state-in-effect`),
-  // so a bubble that reopens elsewhere always gets this same synchronous recomputation, regardless of
-  // what a *previous* open cycle, anywhere, last left this state holding. This function's own doc
-  // comment above has the full account of why this stayed synchronous rather than deferred - a
-  // same-frame measurement was suspected, then ruled out, as the cause of an intermittent failure this
-  // item's own review found.
+  // UA default) whenever it is not, so measuring earlier would read a zero-size box.
+  //
+  // `25-132`: the positioning override is applied **imperatively, directly on the DOM node**, never
+  // through a React `style` prop backed by state - found live, reproduced deterministically (every
+  // *other* open, forever, proven with a real repeated-hover script before this was touched). The
+  // original shape kept a `bubbleStyle` state variable and rendered `style={open ? bubbleStyle :
+  // undefined}`; state was never reset on close, so a bubble reopening rendered *with the previous
+  // cycle's own override already applied*, in the same commit this effect's own measurement reads
+  // from - a stale `max-width` read back as "already narrow enough", clearing the override outright,
+  // which the *next* cycle then read as a clean slate and correctly reintroduced, which the cycle
+  // after *that* then read as stale and cleared again - alternating forever, exactly matching the
+  // live report.
+  //
+  // The first fix attempt reset the bubble's own inline style with a *raw* DOM write
+  // (`bubble.style.left = ""`, etc.) at the top of this effect, before measuring - which fixed the
+  // *measurement* (every cycle now read the bubble's true, unconstrained size) but broke the
+  // *application*: React's own DOM renderer tracks, per element, the style object it last rendered,
+  // and diffs a new `style` prop against *that memory* to decide which CSS properties to touch - it
+  // has no way to know a raw `element.style.x = ...` write happened outside its own reconciliation.
+  // Once this effect's own fresh computation produced a style with the *same field values* as what
+  // React remembered already being applied (the identical shrink was needed every cycle, since
+  // nothing about the layout ever actually changes between cycles here), React saw no value-level
+  // change from its own point of view and skipped writing to the DOM at all - leaving the bubble
+  // stuck in the *raw-reset, unstyled* state forever, never once reapplying the real override. Proven
+  // with the same repeated-hover script: no more alternation, but now permanently wrong instead.
+  //
+  // Applying the style with the same `element.style.<prop> = value` calls this effect already needs
+  // for the reset - never through a React-managed `style` prop at all - removes the whole class of
+  // bug: there is only ever one writer of this element's `style` attribute (this effect), so nothing
+  // can develop a belief about it that the DOM itself disagrees with.
   useLayoutEffect(() => {
-    if (!open) {
+    const bubble = bubbleRef.current;
+    if (bubble === null) {
       return;
     }
 
+    // Cleared unconditionally, on every run of this effect - including the one that fires when
+    // `open` becomes `false`, so a closed bubble never carries a stale override into whatever
+    // measurement its *next* open cycle takes. Cheap even when it changes nothing (the bubble is
+    // `display: none` while closed, so these writes never cause a visible reflow).
+    bubble.style.left = "";
+    bubble.style.right = "";
+    bubble.style.top = "";
+    bubble.style.bottom = "";
+    bubble.style.maxWidth = "";
+
     const wrapper = wrapperRef.current;
-    const bubble = bubbleRef.current;
-    if (wrapper === null || bubble === null) {
+    if (!open || wrapper === null) {
       return;
     }
 
@@ -201,19 +231,17 @@ export function Tooltip({ content }: TooltipProps) {
     const spaceAbove = wrapperRect.top >= clipRect.top ? wrapperRect.top - clipRect.top - gutter : 0;
 
     // Fits left-aligned and opens downward, exactly as the default CSS already renders it, at every
-    // call site but `VisitorPanel` (horizontally) today - `nextStyle` stays `undefined`, so nothing
-    // here can be told apart from the pre-`25-111` component at any of those sites. Both axes write
-    // into this one object rather than two: a corner case can be narrow *and* short at once (`25-123`),
-    // needing an aligned side and a flipped-open bubble simultaneously, and `setBubbleStyle` below is
-    // the one piece of state this effect is allowed to touch - see this component's own doc comment on
-    // why the measurement stays synchronous, in this one effect, rather than split across a second one.
-    let nextStyle: CSSProperties | undefined;
+    // call site but `VisitorPanel` (horizontally) today - nothing written below, so nothing here can
+    // be told apart from the pre-`25-111` component at any of those sites.
     if (bubbleWidth > spaceRight) {
       const alignRight = spaceLeft > spaceRight;
       const available = alignRight ? spaceLeft : spaceRight;
-      nextStyle = alignRight ? { left: "auto", right: 0 } : {};
+      if (alignRight) {
+        bubble.style.left = "auto";
+        bubble.style.right = "0";
+      }
       if (bubbleWidth > available) {
-        nextStyle.maxWidth = `${Math.max(available, MIN_BUBBLE_WIDTH_PX)}px`;
+        bubble.style.maxWidth = `${Math.max(available, MIN_BUBBLE_WIDTH_PX)}px`;
       }
     }
 
@@ -227,11 +255,10 @@ export function Tooltip({ content }: TooltipProps) {
     if (bubbleHeight > spaceBelow) {
       const alignAbove = spaceAbove > spaceBelow;
       if (alignAbove) {
-        nextStyle = { ...nextStyle, top: "auto", bottom: "calc(100% + var(--ago-space-2))" };
+        bubble.style.top = "auto";
+        bubble.style.bottom = "calc(100% + var(--ago-space-2))";
       }
     }
-
-    setBubbleStyle(nextStyle);
   }, [open, content]);
 
   return (
@@ -254,14 +281,7 @@ export function Tooltip({ content }: TooltipProps) {
       >
         ?
       </button>
-      <span
-        className="ago-tooltip__bubble"
-        id={bubbleId}
-        role="tooltip"
-        hidden={!open}
-        ref={bubbleRef}
-        style={open ? bubbleStyle : undefined}
-      >
+      <span className="ago-tooltip__bubble" id={bubbleId} role="tooltip" hidden={!open} ref={bubbleRef}>
         {content}
       </span>
     </span>
