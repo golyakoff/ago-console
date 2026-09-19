@@ -860,6 +860,26 @@ describe("25-56: the visitor emoji pair in the open-dialog header", () => {
 });
 
 /**
+ * `25-162`'s own Done-when: "the visitor emoji-pair icon is visibly larger on both the card list and
+ * the individual conversation page header" - `ConversationList.test.tsx` covers the card list; this
+ * covers the header. Asserts the emoji sits in its own `.ago-visitor-emoji` element - the class the
+ * CSS fix (`components.css`) actually targets - not merely that the glyphs appear somewhere in the
+ * heading text, the identical "a dropped wrapper would still pass a plain text check" reasoning that
+ * file's own test states for itself.
+ */
+describe("25-162: the visitor emoji pair renders in its own, deliberately larger element", () => {
+  it("wraps only the emoji pair in .ago-visitor-emoji", async () => {
+    const fake = fakeConnection();
+    const container = await render(
+      <Harness connection={fake.connection} conversation={conversationSummary({ emojiCreature: "🐔", emojiFood: "🍊" })} />,
+    );
+
+    const emojiSpan = one(container, ".ago-visitor-emoji");
+    expect(emojiSpan.textContent?.trim()).toBe("🐔🍊");
+  });
+});
+
+/**
  * `25-56`'s own second half: the visitor's own name, in the same header, between the emoji pair and
  * the short code - `ConversationList.test.tsx` covers the other of the item's exactly-two render
  * locations.

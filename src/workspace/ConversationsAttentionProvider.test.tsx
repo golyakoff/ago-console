@@ -127,7 +127,7 @@ describe("ConversationsAttentionProvider", () => {
 
     expect(results.at(-1)).toBe(2);
 
-    await interact(() => applyEvent({ kind: "incoming", conversationId: "conv-1" }));
+    await interact(() => applyEvent({ kind: "incoming", conversationId: "conv-1", at: "2026-08-24T10:05:00+00:00" }));
 
     expect(results.at(-1)).toBe(3);
   });

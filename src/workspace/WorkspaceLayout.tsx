@@ -350,7 +350,9 @@ export function WorkspaceLayout() {
         return;
       }
 
-      const event: AttentionEvent = { kind: "incoming", conversationId };
+      // `25-162`: `message.createdAt` - a server-assigned timestamp, not this tab's own clock - feeds
+      // `LocalReadState.lastActivityAt`, which `mostRecentlyActiveFirst` sorts "Мои" by.
+      const event: AttentionEvent = { kind: "incoming", conversationId, at: message.createdAt };
       setAttention((prev) => applyAttentionEvent(prev, event));
       // `25-51`: the Диалоги nav badge's own live increment - see `reportAttentionEvent`'s own remarks.
       reportAttentionEvent(event);

@@ -50,6 +50,15 @@ export interface LocalReadState {
    * over while they were sitting here. Drives the "New" marker; see `WorkspaceLayout` for why an
    * arrival is announced rather than acted on. */
   newlyAssigned: boolean;
+  /** `25-162`: when a visitor message last arrived for this conversation, this session - the one
+   * signal `mostRecentlyActiveFirst` sorts "Мои" by. `undefined` for a conversation with no
+   * locally-observed activity yet (every conversation at page load, until its first live message) -
+   * that function falls back to `ConversationSummaryDto.createdAt` for those, so the initial order is
+   * unchanged from before this item until a real message actually reorders something. Caller-supplied
+   * (the pushed message's own `createdAt`, a server-assigned timestamp - `date-and-time.md` rule 6),
+   * never computed in here, the same "pure function of state the caller holds... testable without a
+   * clock" discipline this module's own top-of-file doc comment already states. */
+  lastActivityAt?: string;
 }
 
 export type ReadStateMap = Readonly<Record<string, LocalReadState>>;
@@ -116,6 +125,37 @@ export function oldestFirst(conversations: readonly ConversationSummaryDto[]): C
 }
 
 /**
+ * `25-162`: "Мои" own order, most-recently-active first - genuinely different from `oldestFirst`'s
+ * own `createdAt` (a conversation's age, which never changes once it is open) and deliberately not
+ * reused for this list: an assigned conversation an operator answered an hour ago and one that just
+ * got a fresh reply from the visitor should not sit in the same position just because they were
+ * *opened* around the same time. `ConversationSummaryDto` carries no per-conversation activity
+ * timestamp of its own (`ConversationList`'s own doc comment already states this honestly for a
+ * different field), so this reads `LocalReadState.lastActivityAt` - a session-local fact this same
+ * reducer already tracks for the unread badge (`unreadCountFor`'s own `arrivedSinceFetch` sibling), not
+ * a new field invented for this one call site. A conversation with no observed activity this session
+ * falls back to its own `createdAt`, so a freshly loaded page (nothing bumped yet) reads in the exact
+ * same order it always has, and only starts reordering once a real message actually arrives.
+ */
+export function mostRecentlyActiveFirst(
+  conversations: readonly ConversationSummaryDto[], states: ReadStateMap,
+): ConversationSummaryDto[] {
+  return [...conversations].sort((a, b) => {
+    const byRecency = activityTimestamp(b, states) - activityTimestamp(a, states);
+    if (byRecency !== 0 && !Number.isNaN(byRecency)) {
+      return byRecency;
+    }
+
+    return a.conversationId.localeCompare(b.conversationId);
+  });
+}
+
+function activityTimestamp(conversation: ConversationSummaryDto, states: ReadStateMap): number {
+  const iso = stateFor(states, conversation.conversationId).lastActivityAt ?? conversation.createdAt;
+  return Date.parse(iso);
+}
+
+/**
  * The reducer behind the map above. Kept as one exported function over a plain object rather than a
  * class with mutable fields, so React state updates stay ordinary immutable updates and the whole
  * thing is trivially testable.
@@ -124,8 +164,10 @@ export type AttentionEvent =
   /** The operator opened this conversation. Local-only: it drops the "New" marker and any locally
    * counted arrivals. The actual clearing of the count is `cleared`, raised when the server says so. */
   | { kind: "opened"; conversationId: string }
-  /** A visitor message was pushed for this conversation while it was not the one on screen. */
-  | { kind: "incoming"; conversationId: string }
+  /** A visitor message was pushed for this conversation while it was not the one on screen.
+   * `at`: `25-162`'s own addition - the pushed message's own `createdAt`, feeding
+   * `LocalReadState.lastActivityAt` (that field's own remarks on why the caller supplies it). */
+  | { kind: "incoming"; conversationId: string; at: string }
   /** `POST /api/v1/conversations/{id}/read` succeeded (`5-15`). */
   | { kind: "cleared"; conversationId: string }
   /** `4-02`'s engine assigned this conversation during this session. */
@@ -137,10 +179,17 @@ export function applyAttentionEvent(states: ReadStateMap, event: AttentionEvent)
   if (event.kind === "refetched") {
     // `newlyAssigned` deliberately survives: it is not something the snapshot carries, so a refetch
     // is not evidence against it. Only the two freshness adjustments reset.
+    //
+    // `25-162`: `lastActivityAt` survives for the identical reason - a fresh queue snapshot carries no
+    // per-conversation activity timestamp of its own (`ConversationSummaryDto` still only has
+    // `createdAt`), so a refetch is not evidence against a real message this session already observed.
+    // Without this, the very message that is supposed to move a conversation to the top of "Мои" would
+    // fall back to `createdAt` again at the next 15-second poll - the sort order would revert on its
+    // own, rather than reflecting the operator's actual session.
     const next: Record<string, LocalReadState> = {};
     for (const [conversationId, state] of Object.entries(states)) {
-      if (state.newlyAssigned) {
-        next[conversationId] = { ...UNSEEN, newlyAssigned: true };
+      if (state.newlyAssigned || state.lastActivityAt !== undefined) {
+        next[conversationId] = { ...UNSEEN, newlyAssigned: state.newlyAssigned, lastActivityAt: state.lastActivityAt };
       }
     }
 
@@ -165,7 +214,7 @@ export function applyAttentionEvent(states: ReadStateMap, event: AttentionEvent)
     case "incoming":
       return {
         ...states,
-        [event.conversationId]: { ...current, arrivedSinceFetch: current.arrivedSinceFetch + 1 },
+        [event.conversationId]: { ...current, arrivedSinceFetch: current.arrivedSinceFetch + 1, lastActivityAt: event.at },
       };
 
     case "cleared":

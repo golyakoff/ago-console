@@ -5,8 +5,8 @@ import { Skeleton } from "../components/Spinner.js";
 import { Tooltip } from "../components/Tooltip.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { formatAbsolute, formatElapsed, formatElapsedWords, parseInstant } from "../time/format.js";
-import { isNewlyAssigned, oldestFirst, unreadCountFor, type ReadStateMap } from "./attention.js";
-import { visitorDisplayPrefix } from "./visitorEmoji.js";
+import { isNewlyAssigned, mostRecentlyActiveFirst, oldestFirst, unreadCountFor, type ReadStateMap } from "./attention.js";
+import { visitorEmojiPrefix, visitorNameSuffix } from "./visitorEmoji.js";
 
 export interface ConversationListProps {
   /** `null` while the first queue fetch is in flight - "not yet known", never "empty". */
@@ -94,7 +94,7 @@ export function ConversationList({ queue, attention, now, timeZone, waitingRefre
           </>
         ) : (
           <ul className="ago-list">
-            {oldestFirst(queue.assignedToMe).map((c) => {
+            {mostRecentlyActiveFirst(queue.assignedToMe, attention).map((c) => {
               const unread = unreadCountFor(c, attention);
               const started = parseInstant(c.createdAt);
 
@@ -106,7 +106,8 @@ export function ConversationList({ queue, attention, now, timeZone, waitingRefre
                   >
                     <span className="ago-list__row-top">
                       <Badge tone="brand" mono>
-                        {visitorDisplayPrefix(c)}
+                        <span className="ago-visitor-emoji">{visitorEmojiPrefix(c)}</span>
+                        {visitorNameSuffix(c)}
                         {c.visitorId.slice(0, 8)}
                       </Badge>
                       {isNewlyAssigned(c, attention) && <Badge tone="accent">{strings.queueNewBadge}</Badge>}
@@ -176,7 +177,8 @@ export function ConversationList({ queue, attention, now, timeZone, waitingRefre
                   >
                     <span className="ago-list__row-top">
                       <Badge tone="neutral" mono>
-                        {visitorDisplayPrefix(c)}
+                        <span className="ago-visitor-emoji">{visitorEmojiPrefix(c)}</span>
+                        {visitorNameSuffix(c)}
                         {c.visitorId.slice(0, 8)}
                       </Badge>
                     </span>
