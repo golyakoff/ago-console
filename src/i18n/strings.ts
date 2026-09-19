@@ -120,8 +120,11 @@ export interface ConsoleStrings {
   /** `23-31` drew this as a reserved place; `25-15` gives it a real screen (`VkChannelPage`,
    * `/channels/vk`) - the section header label for that route in `consoleNav.ts`. */
   navChannelsVk: string;
-  /** `23-31`: a reserved place for WhatsApp/Avito/Email - `25-15` gave VK its own real screen, so this
-   * label now covers the remaining three adapters with no screen yet, not four. */
+  /** `23-31` drew this as a reserved place; `25-160` gives it a real screen (`EmailChannelPage`,
+   * `/channels/email`) - the section header label for that route in `consoleNav.ts`. */
+  navChannelsEmail: string;
+  /** `23-31`: a reserved place for WhatsApp/Avito - `25-15`/`25-160` gave VK and Email their own real
+   * screens, so this label now covers the remaining two adapters with no screen yet, not four. */
   navChannelsOther: string;
   /** `23-31`: a reserved place - the AI-suggestion module has no screen yet. */
   navAutomationAiSuggestions: string;
@@ -1680,6 +1683,42 @@ export interface ConsoleStrings {
   telegramChannelDisconnectDialogBody: string;
   telegramChannelDisconnectConfirmButton: string;
   telegramChannelDisconnectError: string;
+
+  // `25-160`: EmailChannelPage (`/channels/email`) - the fourth of `23-31`'s reserved channel places
+  // to become a real screen, and the first that is a settings form rather than a connect/disconnect
+  // flow (`EmailChannelPage`'s own doc comment has the full reasoning). Gated on `site:configure`
+  // (`EMAIL_CHANNEL_PERMISSION`), not `channel:manage` - this channel has no per-tenant credential.
+  emailChannelTitle: string;
+  emailChannelDescription: string;
+  emailChannelForbidden: string;
+  emailChannelLoadError: string;
+  emailChannelLoadingLabel: string;
+  emailChannelPanelTitle: string;
+  emailChannelCompanyNameFieldLabel: string;
+  emailChannelCompanyNameFieldDescription: string;
+  emailChannelSaveButton: string;
+  emailChannelSavingButton: string;
+  emailChannelSaveError: string;
+  emailChannelSaveSuccess: string;
+  emailChannelLogoFieldLabel: string;
+  emailChannelLogoFieldDescription: string;
+  emailChannelLogoPreviewAlt: string;
+  emailChannelLogoUploadingButton: string;
+  emailChannelUploadError: string;
+  /** The three client-side courtesy-check failures (`emailChannelLogoValidation.ts`'s own
+   * `LogoValidationFailureReason`) - never the authority, `Ago.Chat.Worker.SiteLogoValidator`'s own
+   * decode is. `"undecodable"` reuses this same message - a file the browser itself cannot even
+   * decode as an image is, from a tenant's own point of view, the identical "wrong format" mistake. */
+  emailChannelLogoInvalidFormatClientError: string;
+  emailChannelLogoTooLargeClientError: string;
+  emailChannelLogoInvalidDimensionsClientError: string;
+  emailChannelLogoStatusPending: string;
+  emailChannelLogoStatusReady: string;
+  emailChannelLogoStatusRejected: string;
+  /** `${emailChannelLogoRejectedReasonPrefix} ${branding.logoRejectionReason}` - the server's own
+   * rejection reason, the same "state the server's real reason" shape `telegramChannelUnverifiedBody`
+   * already establishes for its own refusal text. */
+  emailChannelLogoRejectedReasonPrefix: string;
 
   // `25-09`: MaxChannelPage (`/channels/max`) - the second of `23-31`'s three reserved channel places
   // to become a real screen, built on `TelegramChannelPage`'s own shape above but deliberately narrower

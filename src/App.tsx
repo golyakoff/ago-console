@@ -30,6 +30,7 @@ import { InstallSnippetPage } from "./pages/InstallSnippetPage.js";
 import { TelegramChannelPage } from "./pages/TelegramChannelPage.js";
 import { MaxChannelPage } from "./pages/MaxChannelPage.js";
 import { VkChannelPage } from "./pages/VkChannelPage.js";
+import { EmailChannelPage } from "./pages/EmailChannelPage.js";
 import { AiAddOnPage } from "./pages/AiAddOnPage.js";
 import { AiReplyDraftPage } from "./pages/AiReplyDraftPage.js";
 import { FaqModulePage } from "./pages/FaqModulePage.js";
@@ -404,10 +405,18 @@ export function App() {
         <Route path="/channels/telegram" element={<TelegramChannelPage />} />
         {/* `25-15`: same "route stays outside the workspace layout, page gates itself internally"
             shape as the channel routes around it - `VkChannelPage` checks `channel:manage` itself.
-            The third of `23-31`'s three reserved channel places to become a real screen; "Другие
-            каналы" now covers only Email/WhatsApp/Avito (`consoleNav.ts`'s own remarks). Placed after
-            Telegram's own route, matching `consoleNav.ts`'s unchanged list order. */}
+            The third of `23-31`'s reserved channel places to become a real screen; "Другие каналы" now
+            covers only Email/WhatsApp/Avito, until `25-160` narrows it once more (this file's own
+            remarks a few lines below). Placed after Telegram's own route, matching `consoleNav.ts`'s
+            unchanged list order. */}
         <Route path="/channels/vk" element={<VkChannelPage />} />
+        {/* `25-160`: same "route stays outside the workspace layout, page gates itself internally"
+            shape as the channel routes around it - `EmailChannelPage` checks `site:configure` itself,
+            not `channel:manage` (this channel has no per-tenant credential to connect at all, unlike
+            the three channel screens above it). The fourth of `23-31`'s reserved channel places to
+            become a real screen; "Другие каналы" now covers only WhatsApp/Avito (`consoleNav.ts`'s own
+            remarks). Placed after VK's own route, matching `consoleNav.ts`'s unchanged list order. */}
+        <Route path="/channels/email" element={<EmailChannelPage />} />
         {/* `19-03`: same "route stays outside the workspace layout, page gates itself internally"
             shape as the ones around it - `FaqModulePage` gates itself on `site:configure` internally,
             exactly like `WidgetConfigPage` above it. `23-31`: moved from `/settings/faq` into the

@@ -342,9 +342,9 @@ function buildTeamItems(
  * five, which is the "Каналы целиком требует прав арендатора" half of the item's own reasoning.
  * `10-06`: "Установка виджета" stays first, above the list - a task, not a channel (this section's
  * own naming rule, decided 2026-09-06: every *other* entry here is named for the channel it is, not
- * for an action). "Другие каналы" stays `reserved` - Email, WhatsApp and Avito each have a working
- * adapter (`14-09`/`14-10`/`14-11`) but no console screen yet; VK (`14-08`) is no longer among them
- * (`25-15`).
+ * for an action). "Другие каналы" stays `reserved` - WhatsApp and Avito each have a working adapter
+ * (`14-10`/`14-11`) but no console screen yet; VK (`14-08`, `25-15`) and Email (`14-09`, `25-160`) are
+ * no longer among them.
  *
  * `23-36`: "Бот Telegram" is no longer `reserved` - `TelegramChannelPage` (`/channels/telegram`) is a
  * real screen, the first of these three places to become one (rule 15: one channel end to end, not
@@ -360,7 +360,13 @@ function buildTeamItems(
  *
  * `25-15`: "Сообщество VK" is the third - `VkChannelPage` (`/channels/vk`) - placed after Telegram,
  * before the now-narrower "Другие каналы" catch-all (Email/WhatsApp/Avito only), the same "kept in
- * position, list does not shuffle" discipline `25-09` already established for MAX. */
+ * position, list does not shuffle" discipline `25-09` already established for MAX.
+ *
+ * `25-160`: "Почта @" is the fourth - `EmailChannelPage` (`/channels/email`) - placed after VK, before
+ * the now-narrower "Другие каналы" catch-all (WhatsApp/Avito only), the same "kept in position, list
+ * does not shuffle" discipline every promotion before it already established. Unlike the three before
+ * it, this one is a settings form, not a connect/disconnect flow - `EmailChannelPage`'s own doc comment
+ * has the full reasoning for why it still shares this section's one `site:configure`/`isAdmin` gate. */
 function buildChannelsItems(isAdmin: boolean, strings: ConsoleStrings): AppShellNavItem[] {
   if (!isAdmin) {
     return [];
@@ -371,6 +377,7 @@ function buildChannelsItems(isAdmin: boolean, strings: ConsoleStrings): AppShell
     { to: "/channels/max", label: strings.navChannelsMax },
     { to: "/channels/telegram", label: strings.navChannelsTelegram },
     { to: "/channels/vk", label: strings.navChannelsVk },
+    { to: "/channels/email", label: strings.navChannelsEmail },
     { label: strings.navChannelsOther, reserved: true },
   ];
 }
