@@ -4,6 +4,7 @@ import { OperatorConnectionContext, type OperatorConnectionState } from "../real
 import { NotConnectedError, type OperatorConnection } from "../realtime/operatorConnection.js";
 import type { TeamMessageDto } from "../realtime/protocol/types.js";
 import { TeamChatPage } from "./TeamChatPage.js";
+import { TeamChatUnreadProvider } from "../workspace/TeamChatUnreadProvider.js";
 import { all, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
@@ -129,7 +130,11 @@ function harness(
   return (
     <PermissionsContext.Provider value={permissionsValue}>
       <OperatorConnectionContext.Provider value={state}>
-        <TeamChatPage />
+        {/* `25-163`: TeamChatPage's own new dependency - it no longer calls `connection.onTeamMessage`
+            itself, only `TeamChatUnreadProvider` does (`TeamChatUnreadContext`'s own remarks on why). */}
+        <TeamChatUnreadProvider>
+          <TeamChatPage />
+        </TeamChatUnreadProvider>
       </OperatorConnectionContext.Provider>
     </PermissionsContext.Provider>
   );

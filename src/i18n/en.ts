@@ -108,6 +108,8 @@ export const en: ConsoleStrings = {
   queueNewBadge: "New",
   queueUnreadMessageOne: "unread message",
   queueUnreadMessageOther: "unread messages",
+  teamChatUnreadMessageOne: "unread team message",
+  teamChatUnreadMessageOther: "unread team messages",
   queueConversationStartedTitle: "Conversation started",
   queueOpenLabel: "Open",
   queueStartUnknown: "Start time unknown",

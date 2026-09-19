@@ -107,6 +107,8 @@ export const ru: ConsoleStrings = {
   queueNewBadge: "Новое",
   queueUnreadMessageOne: "непрочитанное сообщение",
   queueUnreadMessageOther: "непрочитанных сообщений",
+  teamChatUnreadMessageOne: "непрочитанное сообщение команды",
+  teamChatUnreadMessageOther: "непрочитанных сообщений команды",
   queueConversationStartedTitle: "Диалог начат",
   queueOpenLabel: "Открыт",
   queueStartUnknown: "Время начала неизвестно",

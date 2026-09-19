@@ -275,6 +275,14 @@ export interface ConsoleStrings {
   /** The visually-hidden unread count suffix - `${count} ${queueUnreadMessageOne|Other}`. */
   queueUnreadMessageOne: string;
   queueUnreadMessageOther: string;
+  /** `25-163`: "Общение"'s own nav badge label - `${count} ${teamChatUnreadMessageOne|Other}`, the
+   * identical binary singular/plural convention `queueUnreadMessageOne`/`Other` already uses,
+   * `badgeFor`'s own accessible-suffix shape (`consoleNav.ts`). A distinct pair rather than a reuse of
+   * `queueUnreadMessage*` - the two badges count genuinely different things (visitor conversations
+   * assigned to this operator, versus operator-to-operator team messages), and a reader hearing the
+   * accessible label alone should be told which. */
+  teamChatUnreadMessageOne: string;
+  teamChatUnreadMessageOther: string;
   /** `${queueConversationStartedTitle} ${absolute} — ${elapsedWords} ${agoSuffix}`, an assigned row's
    * `title`. Reused by `VisitorPanel`'s "Conversation started" fact - identical phrase, one field. */
   queueConversationStartedTitle: string;
