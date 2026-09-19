@@ -245,7 +245,12 @@ export function seededAllConversations() {
  * both name renderings (a real name, and the id-fallback) appear in the same screenshot.
  * `23-72`: `roleNames` joined the wire shape - one row holds `["Admin"]` so the role column's own
  * two `Badge` tones (and the `ChangeOperatorRoleButton` action, offering the opposite direction on
- * each row) both appear in the same screenshot the same way the seat column already does. */
+ * each row) both appear in the same screenshot the same way the seat column already does.
+ * `25-170`: `roleNames`/the account-level `holdsSeat` are both gone from the wire - each held role
+ * now carries its own seat flag (`roles: OperatorRoleSeatDto[]`, `Operator.HoldsSeat` no longer
+ * exists at all). Мария still holds only Admin, seated; Иван only Operator, seated; the unseated row
+ * still holds only Operator, unseated - the identical three states this fixture always tested, just
+ * addressed through the role-scoped shape now. */
 export function seededOperatorTeam() {
   return {
     operators: [
@@ -255,9 +260,18 @@ export function seededOperatorTeam() {
       // screen's own "no untranslated interface text" run has nothing incidentally Latin to flag
       // (found live: an ASCII `@example-shop.ru` address failed that assertion the first time this
       // screen ran).
-      { operatorId: OPERATOR_ID, displayName: "Мария Кузнецова", email: "мария@кофейня.рф", holdsSeat: true, roleNames: ["Admin"] },
-      { operatorId: OTHER_OPERATOR_ID, displayName: "Иван Петров", email: "иван@кофейня.рф", holdsSeat: true, roleNames: ["Operator"] },
-      { operatorId: UNSEATED_OPERATOR_ID, displayName: null, email: null, holdsSeat: false, roleNames: ["Operator"] },
+      {
+        operatorId: OPERATOR_ID, displayName: "Мария Кузнецова", email: "мария@кофейня.рф",
+        roles: [{ roleName: "Admin", holdsSeat: true }],
+      },
+      {
+        operatorId: OTHER_OPERATOR_ID, displayName: "Иван Петров", email: "иван@кофейня.рф",
+        roles: [{ roleName: "Operator", holdsSeat: true }],
+      },
+      {
+        operatorId: UNSEATED_OPERATOR_ID, displayName: null, email: null,
+        roles: [{ roleName: "Operator", holdsSeat: false }],
+      },
     ],
   };
 }
@@ -291,12 +305,21 @@ export function seededOperatorInvites() {
   };
 }
 
-/** `23-22`: the same screen's other call - `GET .../operators/seat-assignment-summary`
- * (`GetSeatAssignmentSummaryHandler`, unchanged by this item). `seatLimit: 1` against the two held
- * seats `seededOperatorTeam` above seeds makes `overSeats: true`, so the default gate run exercises
- * `operatorsTeamOverSeatsBody`'s own banner without a second, dedicated screen. */
+/** `23-22`/`25-170`: the same screen's other call - `GET .../operators/seat-assignment-summary`
+ * (`GetSeatAssignmentSummaryHandler`) - now one row per seeded role instead of one flat
+ * `heldSeats`/`seatLimit`/`overSeats` triple. The Operator role's own `limit: 1` against `heldSeats: 2`
+ * keeps the exact over-limit scenario this fixture always seeded (independent of
+ * `seededOperatorTeam`'s own three rows above, which is a separate mocked call), so the default gate
+ * run still exercises `operatorsTeamOverSeatsBody`'s own banner without a second, dedicated screen -
+ * now for the Operator role specifically. The Admin role is seeded at capacity but not over, so both
+ * "over" and "not over" role rows appear in the same screenshot. */
 export function seededSeatAssignmentSummary() {
-  return { heldSeats: 2, seatLimit: 1, overSeats: true };
+  return {
+    roles: [
+      { roleName: "Operator", heldSeats: 2, limit: 1, overLimit: true },
+      { roleName: "Admin", heldSeats: 1, limit: 1, overLimit: false },
+    ],
+  };
 }
 
 /** The **raw HTTP body** `GET /api/v1/owner/sites` returns - a plain `OwnerSitesPage`, not
