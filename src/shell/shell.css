@@ -180,7 +180,11 @@
   justify-content: center;
   font-family: var(--ago-font-display);
   font-weight: 700;
-  font-size: var(--ago-text-sm);
+  /* `25-167`: was `--ago-text-sm` (13px) - the field-label/table-header token, unrelated to this
+     glyph's own job of standing in for the wordmark's own opening letter. Matched to
+     `--ago-shell__wordmark`'s own `--ago-text-display` (22px) instead, so the two "A"s the author
+     is comparing read as the same size - the square itself (2.75rem) is unchanged. */
+  font-size: var(--ago-text-display);
 }
 
 /* The only Unbounded on any console screen - the item confines display type to the shell's
