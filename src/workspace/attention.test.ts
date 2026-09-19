@@ -3,6 +3,7 @@ import {
   applyAttentionEvent,
   documentTitleFor,
   isNewlyAssigned,
+  mostRecentlyActiveFirst,
   oldestFirst,
   totalUnread,
   unreadCountFor,
@@ -51,15 +52,15 @@ describe("unreadCountFor", () => {
   it("counts messages that arrive while the operator is looking at a different conversation", () => {
     const c = conversation("a", { operatorUnreadCount: 12 });
     let states = applyAttentionEvent({}, { kind: "cleared", conversationId: "a" });
-    states = applyAttentionEvent(states, { kind: "incoming", conversationId: "a" });
-    states = applyAttentionEvent(states, { kind: "incoming", conversationId: "a" });
+    states = applyAttentionEvent(states, { kind: "incoming", conversationId: "a", at: "2026-08-24T10:05:00+00:00" });
+    states = applyAttentionEvent(states, { kind: "incoming", conversationId: "a", at: "2026-08-24T10:05:00+00:00" });
 
     expect(unreadCountFor(c, states)).toBe(2);
   });
 
   it("adds arrivals on top of the server count for a conversation nothing has happened to here", () => {
     const c = conversation("a", { operatorUnreadCount: 1 });
-    const states = applyAttentionEvent({}, { kind: "incoming", conversationId: "a" });
+    const states = applyAttentionEvent({}, { kind: "incoming", conversationId: "a", at: "2026-08-24T10:05:00+00:00" });
 
     expect(unreadCountFor(c, states)).toBe(2);
   });
@@ -69,7 +70,7 @@ describe("unreadCountFor", () => {
     // of every later snapshot, including the ones that already contained it.
     const before = conversation("a", { operatorUnreadCount: 1 });
     const afterPoll = conversation("a", { operatorUnreadCount: 2 });
-    let states = applyAttentionEvent({}, { kind: "incoming", conversationId: "a" });
+    let states = applyAttentionEvent({}, { kind: "incoming", conversationId: "a", at: "2026-08-24T10:05:00+00:00" });
     expect(unreadCountFor(before, states)).toBe(2);
 
     states = applyAttentionEvent(states, { kind: "refetched" });
@@ -167,6 +168,61 @@ describe("oldestFirst", () => {
   it("does not mutate the array it was given", () => {
     const rows = [conversation("b", { createdAt: "2026-08-24T12:00:00+00:00" }), conversation("a")];
     oldestFirst(rows);
+
+    expect(rows.map((c) => c.conversationId)).toEqual(["b", "a"]);
+  });
+});
+
+/** `25-162`'s own Done-when: "'Мои' cards render most-recently-active conversation first, oldest
+ * last - proven by a test with cards seeded out of order." */
+describe("mostRecentlyActiveFirst", () => {
+  it("falls back to createdAt when nothing has been locally observed - the same order as before this item", () => {
+    const rows = [
+      conversation("new", { createdAt: "2026-08-24T12:00:00+00:00" }),
+      conversation("old", { createdAt: "2026-08-24T09:00:00+00:00" }),
+      conversation("middle", { createdAt: "2026-08-24T10:30:00+00:00" }),
+    ];
+
+    expect(mostRecentlyActiveFirst(rows, {}).map((c) => c.conversationId)).toEqual(["new", "middle", "old"]);
+  });
+
+  it("moves a conversation to the top once a message arrives for it, even though it is the oldest by createdAt", () => {
+    const rows = [
+      conversation("recent", { createdAt: "2026-08-24T12:00:00+00:00" }),
+      conversation("oldest-but-just-active", { createdAt: "2026-08-24T09:00:00+00:00" }),
+      conversation("middle", { createdAt: "2026-08-24T10:30:00+00:00" }),
+    ];
+    const states = applyAttentionEvent(
+      {}, { kind: "incoming", conversationId: "oldest-but-just-active", at: "2026-08-24T13:00:00+00:00" },
+    );
+
+    expect(mostRecentlyActiveFirst(rows, states).map((c) => c.conversationId)).toEqual([
+      "oldest-but-just-active", "recent", "middle",
+    ]);
+  });
+
+  it("orders two locally-active conversations by which one was active more recently", () => {
+    const rows = [conversation("a"), conversation("b")];
+    let states = applyAttentionEvent({}, { kind: "incoming", conversationId: "a", at: "2026-08-24T13:00:00+00:00" });
+    states = applyAttentionEvent(states, { kind: "incoming", conversationId: "b", at: "2026-08-24T14:00:00+00:00" });
+
+    expect(mostRecentlyActiveFirst(rows, states).map((c) => c.conversationId)).toEqual(["b", "a"]);
+  });
+
+  it("keeps a conversation's activity at the top across a queue refetch, unlike arrivedSinceFetch", () => {
+    const rows = [
+      conversation("bumped", { createdAt: "2026-08-24T09:00:00+00:00" }),
+      conversation("newer-but-quiet", { createdAt: "2026-08-24T12:00:00+00:00" }),
+    ];
+    let states = applyAttentionEvent({}, { kind: "incoming", conversationId: "bumped", at: "2026-08-24T13:00:00+00:00" });
+    states = applyAttentionEvent(states, { kind: "refetched" });
+
+    expect(mostRecentlyActiveFirst(rows, states).map((c) => c.conversationId)).toEqual(["bumped", "newer-but-quiet"]);
+  });
+
+  it("does not mutate the array it was given", () => {
+    const rows = [conversation("b", { createdAt: "2026-08-24T12:00:00+00:00" }), conversation("a")];
+    mostRecentlyActiveFirst(rows, {});
 
     expect(rows.map((c) => c.conversationId)).toEqual(["b", "a"]);
   });

@@ -40,7 +40,7 @@ import { CloseConversationButton } from "../workspace/CloseConversationButton.js
 import { Composer } from "../workspace/Composer.js";
 import { Thread } from "../workspace/Thread.js";
 import { VisitorPanel } from "../workspace/VisitorPanel.js";
-import { visitorDisplayPrefix } from "../workspace/visitorEmoji.js";
+import { visitorEmojiPrefix, visitorNameSuffix } from "../workspace/visitorEmoji.js";
 import { useWorkspace } from "../workspace/workspaceContext.js";
 
 const PRESENCE_POLL_INTERVAL_MS = 10_000;
@@ -727,7 +727,11 @@ export function ConversationPage() {
               <>
                 {strings.conversationWithPrefix}{" "}
                 <span className="ago-mono">
-                  {visitorDisplayPrefix(conversation)}
+                  {/* `25-162`: the emoji pair gets its own, deliberately larger span
+                      (`.ago-visitor-emoji`) - the same split `ConversationList.tsx`'s own cards use,
+                      so the two places this icon renders never drift apart. */}
+                  <span className="ago-visitor-emoji">{visitorEmojiPrefix(conversation)}</span>
+                  {visitorNameSuffix(conversation)}
                   {conversation.visitorId.slice(0, 8)}
                 </span>
               </>

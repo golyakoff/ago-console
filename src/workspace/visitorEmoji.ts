@@ -42,3 +42,15 @@ export function visitorDisplayPrefix(visitor: {
   const name = visitor.visitorName?.trim();
   return name ? `${visitorEmojiPrefix(visitor)}${name} ` : visitorEmojiPrefix(visitor);
 }
+
+/**
+ * `25-162`: the name-or-nothing half of `visitorDisplayPrefix`, split out so a render site can give
+ * the emoji pair its own, deliberately larger `<span>` (`.ago-visitor-emoji`, this item's own Scope -
+ * "a real, deliberately larger size") while the name stays plain text at the surrounding size.
+ * `visitorDisplayPrefix` itself is unchanged, still the single combined string for a caller with no
+ * reason to style the two halves differently (its own pre-existing test coverage).
+ */
+export function visitorNameSuffix(visitor: { visitorName?: string | null }): string {
+  const name = visitor.visitorName?.trim();
+  return name ? `${name} ` : "";
+}

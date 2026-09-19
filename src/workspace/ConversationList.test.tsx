@@ -1,6 +1,7 @@
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
 import { ConversationList } from "./ConversationList.js";
+import { applyAttentionEvent, type ReadStateMap } from "./attention.js";
 import type { ConversationSummaryDto } from "../realtime/protocol/types.js";
 import { all, interact, one, render, unmount } from "../testing/dom.js";
 
@@ -32,10 +33,13 @@ function waitingSummary(overrides: Partial<ConversationSummaryDto> = {}): Conver
   };
 }
 
-async function mount(queue: { assignedToMe: ConversationSummaryDto[]; waiting: ConversationSummaryDto[] }): Promise<HTMLElement> {
+async function mount(
+  queue: { assignedToMe: ConversationSummaryDto[]; waiting: ConversationSummaryDto[] },
+  attention: ReadStateMap = {},
+): Promise<HTMLElement> {
   return render(
     <MemoryRouter>
-      <ConversationList queue={queue} attention={{}} now={NOW} timeZone={null} waitingRefreshSeconds={15} />
+      <ConversationList queue={queue} attention={attention} now={NOW} timeZone={null} waitingRefreshSeconds={15} />
     </MemoryRouter>,
   );
 }
@@ -159,5 +163,69 @@ describe("25-54: the section notes become tooltips", () => {
     await interact(() => triggers[1].focus());
     expect(bubbles[1].hidden).toBe(false);
     expect(bubbles[1].textContent).toContain("15");
+  });
+});
+
+/**
+ * `25-162`'s own Done-when: "'Мои' cards render most-recently-active conversation first, oldest
+ * last - proven by a test with cards seeded out of order." Three assigned rows, seeded in an order
+ * `createdAt` alone would not produce, so a test that accidentally passed under the old `oldestFirst`
+ * sort would fail here.
+ */
+describe("25-162: the assigned section sorts by most recent activity, not by createdAt", () => {
+  it("renders the most-recently-active conversation first, oldest last", async () => {
+    const rows = [
+      assignedSummary({
+        conversationId: "aaaaaaaa-0000-0000-0000-000000000000", visitorId: "aaaaaaaa-1111-1111-1111-111111111111",
+        createdAt: "2026-09-09T08:00:00+00:00",
+      }),
+      assignedSummary({
+        conversationId: "bbbbbbbb-0000-0000-0000-000000000000", visitorId: "bbbbbbbb-1111-1111-1111-111111111111",
+        createdAt: "2026-09-09T09:00:00+00:00",
+      }),
+      assignedSummary({
+        conversationId: "cccccccc-0000-0000-0000-000000000000", visitorId: "cccccccc-1111-1111-1111-111111111111",
+        createdAt: "2026-09-09T07:00:00+00:00",
+      }),
+    ];
+    // The oldest-by-createdAt row is the one a real visitor message just arrived for - it must render
+    // first anyway, which is exactly what `oldestFirst` would have gotten wrong.
+    const attention = applyAttentionEvent(
+      {}, { kind: "incoming", conversationId: "cccccccc-0000-0000-0000-000000000000", at: "2026-09-09T09:59:00+00:00" },
+    );
+
+    const container = await mount({ assignedToMe: rows, waiting: [] }, attention);
+
+    const badges = all(container, ".ago-badge--brand") as HTMLElement[];
+    expect(badges.map((b) => b.textContent?.trim())).toEqual(["cccccccc", "bbbbbbbb", "aaaaaaaa"]);
+  });
+});
+
+/**
+ * `25-162`'s own Done-when: "the visitor emoji-pair icon is visibly larger on both the card list and
+ * the individual conversation page header." `ConversationPage.test.tsx` covers the header; this
+ * covers both rows this component renders. Asserts the emoji sits in its own `.ago-visitor-emoji`
+ * element (the class the CSS fix actually targets), not merely that the glyphs are present somewhere
+ * in the badge - a regression that dropped the wrapping `<span>` but kept the characters would still
+ * pass the plain text-content checks above.
+ */
+describe("25-162: the visitor emoji pair renders in its own, deliberately larger element", () => {
+  it("wraps only the emoji pair in .ago-visitor-emoji, in both the assigned and waiting rows", async () => {
+    const container = await mount({
+      assignedToMe: [assignedSummary({ emojiCreature: "🐔", emojiFood: "🍊" })],
+      waiting: [waitingSummary({ emojiCreature: "🐠", emojiFood: "🥝" })],
+    });
+
+    const emojiSpans = all(container, ".ago-visitor-emoji") as HTMLElement[];
+    expect(emojiSpans).toHaveLength(2);
+    expect(emojiSpans[0].textContent?.trim()).toBe("🐔🍊");
+    expect(emojiSpans[1].textContent?.trim()).toBe("🐠🥝");
+  });
+
+  it("renders an empty .ago-visitor-emoji, not a missing one, when the visitor has no pair yet", async () => {
+    const container = await mount({ assignedToMe: [assignedSummary()], waiting: [] });
+
+    const emojiSpan = one(container, ".ago-visitor-emoji");
+    expect(emojiSpan.textContent?.trim()).toBe("");
   });
 });

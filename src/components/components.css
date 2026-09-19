@@ -606,6 +606,20 @@
   color: var(--ago-ink-soft);
 }
 
+/* `25-162`: the visitor emoji pair (`visitorEmojiPrefix`) rendered "почти не видно" - practically
+   invisible - at both its render sites (`ConversationList.tsx`'s cards, `ConversationPage.tsx`'s own
+   header) because each inherits its surrounding context's tiny text size (`.ago-badge`'s
+   `--ago-text-xs`, `.ago-mono`'s own identical override). `em`-relative, not an absolute size, so it
+   scales the same deliberate amount larger than whatever text size it happens to sit inside rather
+   than fixing one context and leaving the other inconsistent. `line-height: 1` and a small negative
+   `vertical-align` keep the taller glyph from pushing the row's own line height around or floating
+   above the text baseline it sits beside. */
+.ago-visitor-emoji {
+  font-size: 1.75em;
+  line-height: 1;
+  vertical-align: -0.2em;
+}
+
 /* `18-14`: BookingFlowConversionPage's own two-number stat block - a plain `<dl>`, not a `Table`, the
    same "the honest shape for two numbers" call that page's own doc comment makes. Sits beside an
    `Alert tone="info"` for the report's honesty caveat, so this block itself carries no warning
