@@ -165,4 +165,49 @@ describe("buildTenantNavSections - nav badges", () => {
     expect(waiting?.muted).toBe(true);
     expect(waiting?.badge).toBeUndefined();
   });
+
+  /**
+   * `25-163`'s own Done-when: "'Общение' shows an unread-count badge in the nav... using the same
+   * `badgeFor` shape 'Мои' already uses" - proved here at the identical pure-function level
+   * `buildTenantNavSections - nav badges` above already uses for its own two badges, with the third
+   * parameter this item adds. `teamChatItems`'s own default of `0` (this function's own third
+   * argument's default) is what the very next test proves does not regress "Мои"'s own badge.
+   */
+  function teamChatItems(teamChatUnreadCount: number) {
+    const sections = buildTenantNavSections(() => false, en, [], true, 0, 0, teamChatUnreadCount);
+    return sections.find((section) => section.id === "team")?.items ?? [];
+  }
+
+  it("draws the unread badge on Общение alone, with the singular label at exactly one", () => {
+    const items = teamChatItems(1);
+    expect(items.find((item) => item.to === "/team/chat")?.badge).toEqual({
+      count: 1,
+      label: en.teamChatUnreadMessageOne,
+    });
+  });
+
+  it("uses the plural label once the team-chat unread count is more than one", () => {
+    const items = teamChatItems(4);
+    expect(items.find((item) => item.to === "/team/chat")?.badge).toEqual({
+      count: 4,
+      label: en.teamChatUnreadMessageOther,
+    });
+  });
+
+  it("draws no team-chat badge at all when the count is zero", () => {
+    const items = teamChatItems(0);
+    expect(items.find((item) => item.to === "/team/chat")?.badge).toBeUndefined();
+  });
+
+  it("leaves 'Мои''s own badge unaffected by a nonzero team-chat count - the two are independent totals", () => {
+    const sections = buildTenantNavSections(() => false, en, [], true, 1, 0, 9);
+    const talkItems = sections.find((section) => section.id === "talk")?.items ?? [];
+    const teamItems = sections.find((section) => section.id === "team")?.items ?? [];
+
+    expect(talkItems.find((item) => item.to === "/")?.badge).toEqual({ count: 1, label: en.queueUnreadMessageOne });
+    expect(teamItems.find((item) => item.to === "/team/chat")?.badge).toEqual({
+      count: 9,
+      label: en.teamChatUnreadMessageOther,
+    });
+  });
 });

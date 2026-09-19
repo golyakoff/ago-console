@@ -29,6 +29,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const accessToken = user?.access_token;
   const [permissions, setPermissions] = useState<string[] | null>(null);
+  const [operatorId, setOperatorId] = useState<string | null>(null);
   const [siteId, setSiteId] = useState<string | null>(null);
   const [locale, setLocale] = useState<string | null>(null);
   const [enabledModules, setEnabledModules] = useState<string[] | null>(null);
@@ -66,6 +67,10 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         }
 
         setPermissions(response.permissions);
+        // `25-163`: same response, same reasoning - `operatorId` has always been on the wire
+        // (`operatorPermissionsRequiredKeys`'s own required-key list), just never forwarded into this
+        // context until `TeamChatUnreadProvider` gave it a first real reader.
+        setOperatorId(response.operatorId);
         // `11-02`: the same response already carries `siteId` - one fetch, two pieces of state,
         // not a second call `WidgetConfigPage` would otherwise need to make on its own.
         setSiteId(response.siteId);
@@ -110,8 +115,14 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<PermissionsState>(
-    () => ({ permissions, siteId, locale, enabledModules, credentialsArePublished, hasPermission, tenancies, activeSiteId, switchTenancy }),
-    [permissions, siteId, locale, enabledModules, credentialsArePublished, hasPermission, tenancies, activeSiteId, switchTenancy],
+    () => ({
+      permissions, operatorId, siteId, locale, enabledModules, credentialsArePublished, hasPermission, tenancies,
+      activeSiteId, switchTenancy,
+    }),
+    [
+      permissions, operatorId, siteId, locale, enabledModules, credentialsArePublished, hasPermission, tenancies,
+      activeSiteId, switchTenancy,
+    ],
   );
 
   return <PermissionsContext.Provider value={value}>{children}</PermissionsContext.Provider>;

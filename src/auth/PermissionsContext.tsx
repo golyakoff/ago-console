@@ -6,6 +6,17 @@ export interface PermissionsState {
    * to gate a whole page (`AdminConversationsPage`) should treat this as "not yet known", not "no
    * permissions", the same way the workspace's own `queue === null` means "still loading". */
   permissions: string[] | null;
+  /** `25-163`: the signed-in operator's own id (`OperatorPermissionsResponse.operatorId`), from the
+   * identical `GET /api/v1/operators/me` response every other field on this interface already rides -
+   * `TeamChatUnreadProvider` is this field's first real reader, to tell a team message this operator
+   * just sent (echoed back through the same hub push every other operator's own message arrives
+   * through) apart from one that actually needs to bump the unread badge. Optional, unlike the other
+   * "not yet known" fields on this interface (`null` under the identical rule when it is known to be
+   * absent), so the ~18 existing test harnesses that construct a `PermissionsState` by hand and predate
+   * this field keep compiling unchanged - a caller that has no opinion on it simply omits it, the same
+   * "additive, does not force every existing caller to answer a question it never asked" precedent
+   * every additive field on a wire DTO in this codebase already follows. */
+  operatorId?: string | null;
   /** `11-02`: the signed-in operator's own site, from the same `GET /api/v1/operators/me` response -
    * `WidgetConfigPage` needs this to build `11-01`'s site-scoped URL (`GET`/`PUT
    * /api/v1/sites/{siteId}/widget-config`), the same reason that endpoint reads `siteId` from the

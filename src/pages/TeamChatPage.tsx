@@ -4,6 +4,7 @@ import type { ConnectionState } from "../realtime/operatorConnection.js";
 import { newClientMessageId } from "../realtime/protocol/dedup.js";
 import type { TeamMessageDto } from "../realtime/protocol/types.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
+import { useTeamChatUnread } from "../workspace/TeamChatUnreadContext.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Badge } from "../components/Badge.js";
@@ -73,6 +74,7 @@ const TEAM_MESSAGE_REMOVE_PERMISSION = "site:manage_operators";
  */
 export function TeamChatPage() {
   const { connection, connectionState } = useOperatorConnection();
+  const { subscribe, notifyOpen } = useTeamChatUnread();
   const { hasPermission } = usePermissions();
   const canRemove = hasPermission(TEAM_MESSAGE_REMOVE_PERMISSION);
   const strings = useStrings();
@@ -105,9 +107,19 @@ export function TeamChatPage() {
     lastSequenceRef.current = Math.max(lastSequenceRef.current, dto.sequence);
   }, []);
 
+  // `25-163`: `TeamChatUnreadProvider` is the one place that ever calls `connection.onTeamMessage`
+  // now (that context's own remarks explain why - a single-listener setter, and this page is no
+  // longer its only caller) - this page receives its own copy of every message through `subscribe`
+  // instead, the ordinary `useEffect`-with-cleanup shape.
+  useEffect(() => subscribe(appendIncoming), [subscribe, appendIncoming]);
+
+  // `25-163`: reports this page open for as long as it is mounted - the nav badge treats every
+  // message that arrives in that window as already seen, and opening clears whatever was already
+  // counted (`TeamChatUnreadContext.notifyOpen`'s own remarks).
   useEffect(() => {
-    connection.onTeamMessage(appendIncoming);
-  }, [connection, appendIncoming]);
+    notifyOpen(true);
+    return () => notifyOpen(false);
+  }, [notifyOpen]);
 
   /** `23-33`: updates the message already on screen by `id` - never appended, and deliberately not
    * routed through `appendIncoming`'s own "already seen, skip" dedup above (that logic exists for a

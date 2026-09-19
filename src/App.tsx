@@ -7,6 +7,7 @@ import { CalendarOperatorConnectionProvider } from "./realtime/CalendarOperatorC
 import { PreSessionStringsProvider } from "./i18n/PreSessionStringsProvider.js";
 import { OwnerStringsProvider } from "./i18n/OwnerStringsProvider.js";
 import { ConversationsAttentionProvider } from "./workspace/ConversationsAttentionProvider.js";
+import { TeamChatUnreadProvider } from "./workspace/TeamChatUnreadProvider.js";
 import { OperatorShell } from "./shell/OperatorShell.js";
 import { CallbackPage } from "./pages/CallbackPage.js";
 import { SignupPage } from "./pages/SignupPage.js";
@@ -324,7 +325,15 @@ export function App() {
                       carries no functional weight (`App.tsx`'s own remarks on `PermissionsProvider`
                       make the identical point for an unrelated pair). */}
                   <ConversationsAttentionProvider>
-                    <OperatorShell />
+                    {/* `25-163`: "Общение"'s own nav badge source - unlike `ConversationsAttentionProvider`,
+                        this one genuinely needs `OperatorConnectionProvider`'s connection (its own doc
+                        comment explains why there is no poll-based alternative), so it cannot sit any
+                        higher than here. Wraps `OperatorShell` for the identical reason
+                        `ConversationsAttentionProvider` does - `TeamChatPage`, a descendant route
+                        rendered through `OperatorShell`'s own `<Outlet />`, needs it too. */}
+                    <TeamChatUnreadProvider>
+                      <OperatorShell />
+                    </TeamChatUnreadProvider>
                   </ConversationsAttentionProvider>
                 </CalendarOperatorConnectionProvider>
               </OperatorConnectionProvider>

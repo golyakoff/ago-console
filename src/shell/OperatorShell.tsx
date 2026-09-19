@@ -8,6 +8,7 @@ import { usePendingBookingsBadge } from "../calendar/usePendingBookingsBadge.js"
 import { getStrings, parseConsoleLocale } from "../i18n/resolve.js";
 import { StringsProvider } from "../i18n/StringsProvider.js";
 import { useConversationsAttention } from "../workspace/ConversationsAttentionContext.js";
+import { useTeamChatUnreadBadge } from "../workspace/TeamChatUnreadContext.js";
 import { AppShell, ShellIdentity, type AppShellNavSection } from "./AppShell.js";
 import { buildTenantNavSections } from "./consoleNav.js";
 import { RenderErrorAlert, RenderErrorBoundary } from "./RenderErrorBoundary.js";
@@ -57,6 +58,11 @@ export function OperatorShell() {
   // source configured" - rather than a masked wiring bug).
   const { unreadTotal } = useConversationsAttention();
   const { pendingTotal } = usePendingBookingsBadge();
+  // `25-163`: the third left-nav badge total - "Общение"'s own unread count, read through the
+  // tolerant `useTeamChatUnreadBadge()` (not the throwing `useTeamChatUnread()`) for the identical
+  // "several test harnesses mount this shell without every provider" reason `usePendingBookingsBadge`
+  // already states for itself.
+  const teamChatUnreadCount = useTeamChatUnreadBadge();
   // `25-70`: the shell-wide suspension banner's own data - fetched once per site the same way
   // `credentialsArePublished` above is resolved once and handed to `AppShell` as a prop, rather than
   // `AppShell` reaching for it itself (that component's own doc comment: presentational, reads no
@@ -130,6 +136,7 @@ export function OperatorShell() {
     permissions !== null,
     unreadTotal,
     pendingTotal,
+    teamChatUnreadCount,
   );
 
   // `12-03`: the platform owner's own route, for the one identity on the deployment that holds it.

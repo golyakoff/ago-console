@@ -77,6 +77,10 @@ export function buildTenantNavSections(
   // being made to pass two new arguments it has no answer for.
   unreadCount = 0,
   pendingCount = 0,
+  // `25-163`: a third nav badge total, the identical "defaulted to 0, every existing call site that
+  // does not know about it keeps building the identical badge-less item" shape `unreadCount`'s own
+  // remarks already state for itself.
+  teamChatUnreadCount = 0,
 ): AppShellNavSection[] {
   // `ProductsPage.PRODUCTS_PERMISSION`: the same gate that screen already uses for "may this identity
   // see what the tenant could buy at all" - reused here rather than a second constant, so a change to
@@ -95,7 +99,9 @@ export function buildTenantNavSections(
       buildCalendarItems(hasPermission, isAdmin, strings, pendingCount),
     ),
     buildSection("analytics", strings.navAnalytics, buildAnalyticsItems(hasPermission, isAdmin, strings)),
-    buildSection("team", strings.navSectionTeam, buildTeamItems(permissionsKnown, hasPermission, strings)),
+    buildSection(
+      "team", strings.navSectionTeam, buildTeamItems(permissionsKnown, hasPermission, strings, teamChatUnreadCount),
+    ),
     buildSection("channels", strings.navSectionChannels, buildChannelsItems(isAdmin, strings)),
     buildSection("automation", strings.navSectionAutomation, buildAutomationItems(isAdmin, strings)),
     buildSection("admin", strings.navSectionAdmin, buildAdminItems(isAdmin, permissionsKnown, hasPermission, strings)),
@@ -322,10 +328,18 @@ function buildCalendarItems(
  * is one of the four sections `23-31`'s own Done-when names. `23-22`: "Сотрудники" (renamed from
  * "Команда", which now names the section) keeps its own `site:manage_operators` gate, hidden rather
  * than muted when lacking it. */
+/**
+ * `25-163`: `teamChatUnreadCount` lands on "Общение" alone - the identical "one item, one badge
+ * source" shape `buildTalkItems`'s own `unreadCount` already establishes for "Мои". Defaulted to `0`
+ * at this function's own single call site is not needed here (that default lives on
+ * `buildTenantNavSections`'s own parameter, this function's only caller), so this parameter is
+ * required - a caller that forgets to pass it is a compile error, not a silently badge-less item.
+ */
 function buildTeamItems(
   permissionsKnown: boolean,
   hasPermission: (permission: string) => boolean,
   strings: ConsoleStrings,
+  teamChatUnreadCount: number,
 ): AppShellNavItem[] {
   const items: AppShellNavItem[] = [];
   if (permissionsKnown && hasPermission("site:manage_operators")) {
@@ -333,7 +347,11 @@ function buildTeamItems(
   }
   // `23-32`: no longer reserved - TeamChatPage is a real route, unconditional like every other entry
   // in this function (see this function's own top-level remarks on why "Общение" carries no gate).
-  items.push({ to: "/team/chat", label: strings.navTeamChat });
+  items.push({
+    to: "/team/chat",
+    label: strings.navTeamChat,
+    badge: badgeFor(teamChatUnreadCount, strings.teamChatUnreadMessageOne, strings.teamChatUnreadMessageOther),
+  });
   return items;
 }
 
