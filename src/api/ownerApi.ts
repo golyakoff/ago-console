@@ -152,17 +152,29 @@ export interface OwnerSiteModule {
  * `Ago.Chat.Contracts.OwnerSiteOperatorDto` field for field, the same reasoning `OwnerSiteModule`'s own
  * remarks give for tracking `OwnerSiteModuleDto`.
  */
+/** `25-170`: one role this operator holds, and whether that specific `(operator, role)` pairing
+ * currently holds a seat - mirrors `Ago.Chat.Contracts.OwnerSiteRoleSeatDto` field for field. */
+export interface OwnerSiteRoleSeat {
+  roleName: string;
+  holdsSeat: boolean;
+}
+
 export interface OwnerSiteOperator {
   operatorId: string;
   displayName: string | null;
   email: string | null;
-  /** `false` is the locked-out candidate this item exists for - the console offers "Restore seat"
-   * exactly for a row where this is `false`. */
-  holdsSeat: boolean;
-  /** Every role this operator currently holds. An empty list is the "stripped their own last role"
-   * case `23-68`'s own scope names but does not fix - shown plainly, not hidden, so restoring a seat
-   * is never mistaken for restoring a role. */
-  roleNames: string[];
+  /** `23-72`/`25-170`: every role this operator currently holds, each with its own seat status -
+   * replaces the pre-`25-170` flat `holdsSeat`/`roleNames` pair now that "holds a seat" is a fact about
+   * one `(operator, role)` pairing, not the operator account as a whole. An empty list is the "stripped
+   * their own last role" case `23-68`'s own scope names but does not fix - shown plainly, not hidden,
+   * so restoring a seat is never mistaken for restoring a role.
+   *
+   * `RestoreOperatorSeatAsOwnerHandler` stays scoped to the seeded Operator role's own seat specifically
+   * (that handler's own remarks: "restoring an Admin-role seat by hand, if ever needed, goes through
+   * the same generalised `ToggleOperatorSeatHandler` a tenant's own operator already uses") - this
+   * page's own "Restore seat" affordance reads and writes that one role's entry in this list, never a
+   * row-wide flag, and offers nothing for the Admin role specifically. */
+  roles: OwnerSiteRoleSeat[];
 }
 
 /**

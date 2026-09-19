@@ -158,8 +158,9 @@ function oneOperator(overrides: Partial<OwnerSiteOperator> = {}): OwnerSiteOpera
     operatorId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
     displayName: "Jamie Locked-Out",
     email: "jamie@shop.example",
-    holdsSeat: false,
-    roleNames: ["Operator"],
+    // `25-170`: holds the Operator role, but not its seat - the default "locked out" scenario this
+    // fixture's own name describes. Replaces the pre-`25-170` flat `holdsSeat`/`roleNames` pair.
+    roles: [{ roleName: "Operator", holdsSeat: false }],
     ...overrides,
   };
 }
@@ -561,8 +562,8 @@ describe("the site detail page's own operator roster", () => {
       status: "ok",
       site: detail({
         operators: [
-          oneOperator({ operatorId: "seated-1", displayName: "Sam Seated", holdsSeat: true, roleNames: ["Admin"] }),
-          oneOperator({ operatorId: "locked-out-1", displayName: "Jamie Locked-Out", holdsSeat: false, roleNames: ["Operator"] }),
+          oneOperator({ operatorId: "seated-1", displayName: "Sam Seated", roles: [{ roleName: "Admin", holdsSeat: true }] }),
+          oneOperator({ operatorId: "locked-out-1", displayName: "Jamie Locked-Out", roles: [{ roleName: "Operator", holdsSeat: false }] }),
         ],
       }),
     });
@@ -582,7 +583,7 @@ describe("the site detail page's own operator roster", () => {
   it("shows 'No role' for an operator who holds none, rather than a blank cell", async () => {
     ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
       status: "ok",
-      site: detail({ operators: [oneOperator({ holdsSeat: false, roleNames: [] })] }),
+      site: detail({ operators: [oneOperator({ roles: [] })] }),
     });
 
     const container = await render(shellAt());
@@ -595,7 +596,7 @@ describe("the site detail page's own operator roster", () => {
   it("restores a seat within the seat limit with one click, and reloads the tenant's own detail", async () => {
     ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
       status: "ok",
-      site: detail({ operators: [oneOperator({ holdsSeat: false })] }),
+      site: detail({ operators: [oneOperator()] }),
     });
     ownerApi.restoreOwnerOperatorSeat.mockResolvedValue({
       status: "ok",
@@ -621,7 +622,7 @@ describe("the site detail page's own operator roster", () => {
   it("opens the override dialog when the server says the seat limit would be exceeded, and sends no request until a reason is given", async () => {
     ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
       status: "ok",
-      site: detail({ operators: [oneOperator({ holdsSeat: false })] }),
+      site: detail({ operators: [oneOperator()] }),
     });
     ownerApi.restoreOwnerOperatorSeat.mockResolvedValue({
       status: "requires-force",
@@ -642,7 +643,7 @@ describe("the site detail page's own operator roster", () => {
   it("overrides the seat limit with force and the typed reason, once one is given", async () => {
     ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
       status: "ok",
-      site: detail({ operators: [oneOperator({ holdsSeat: false })] }),
+      site: detail({ operators: [oneOperator()] }),
     });
     ownerApi.restoreOwnerOperatorSeat.mockResolvedValueOnce({
       status: "requires-force",

@@ -17,6 +17,7 @@ import {
   type CreateOperatorInviteResponseDto,
   type OperatorInviteListEntryDto,
   type OperatorTeamMemberDto,
+  type RoleSeatAssignmentSummaryDto,
   type SeatAssignmentSummaryDto,
 } from "../api/operatorTeamApi.js";
 import { formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
@@ -33,6 +34,7 @@ import { Input } from "../components/Input.js";
 import { Alert } from "../components/Alert.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
+import type { ConsoleStrings } from "../i18n/strings.js";
 import { RemoveOperatorButton } from "./RemoveOperatorButton.js";
 import { SeatToggleButton } from "./SeatToggleButton.js";
 import { ChangeOperatorRoleButton } from "./ChangeOperatorRoleButton.js";
@@ -54,6 +56,21 @@ function operatorLabel(operatorId: string, displayName: string | null): ReactNod
   return displayName ? <span>{displayName}</span> : <span className="ago-mono">{operatorId.slice(0, 8)}</span>;
 }
 
+/** `25-170`: the one place this page turns a bare role name into its own displayed word - every seat
+ * badge, seat-toggle button and summary line that now renders per role goes through this rather than
+ * repeating the `roleName === ROLE_ADMIN ? ... : ...` ternary the Role column badge used inline before
+ * this item. */
+function roleDisplayName(roleName: string, strings: ConsoleStrings): string {
+  return roleName === ROLE_ADMIN ? strings.operatorsTeamRoleAdmin : strings.operatorsTeamRoleOperator;
+}
+
+/** `25-170`: one seeded role's own seat summary off the site-wide response, or `null` before the
+ * summary has loaded - the single lookup every per-role rendering below (the seats line, the over-
+ * limit banner, the invite dialog's own pre-flight check) shares rather than re-deriving. */
+function roleSummary(summary: SeatAssignmentSummaryDto | null, roleName: string): RoleSeatAssignmentSummaryDto | null {
+  return summary?.roles.find((r) => r.roleName === roleName) ?? null;
+}
+
 /**
  * `23-22`: `/settings/operators` - "a tenant can invite a colleague, see who is on the site, see who
  * occupies a paid seat, and remove somebody who has left - from the console, in one place"
@@ -61,29 +78,31 @@ function operatorLabel(operatorId: string, displayName: string | null): ReactNod
  *
  * ## What this screen calls, and what it had to add
  *
- * `GET .../operators/seat-assignment-summary` (`13-03`) already existed and already answers the three
- * aggregate numbers (`heldSeats`/`seatLimit`/`overSeats`) - but it carries **no per-operator rows**,
- * contrary to what this item's own backlog text implied ("its rows carry names"). The rows this
- * screen actually needs - every active operator, named, with which hold seats - came from a new read
- * this console change added to `ago-chat` alongside it: `GET /api/v1/sites/{siteId}/operators`
- * (`GetOperatorTeamHandler`). Invite creation, seat toggle and removal all reuse `13-01`/`13-03`'s
- * existing write endpoints unchanged - `operatorTeamApi.ts` is a thin wire-shape file over all four,
- * new and old alike.
+ * `GET .../operators/seat-assignment-summary` (`13-03`) already existed and answered three aggregate
+ * numbers for the Operator role alone (`heldSeats`/`seatLimit`/`overSeats`) - but it carried **no
+ * per-operator rows**, contrary to what this item's own backlog text implied ("its rows carry names").
+ * The rows this screen actually needs - every active operator, named, with which roles hold seats -
+ * came from a new read this console change added to `ago-chat` alongside it: `GET
+ * /api/v1/sites/{siteId}/operators` (`GetOperatorTeamHandler`). Invite creation, seat toggle and removal
+ * all reuse `13-01`/`13-03`'s existing write endpoints (seat toggle now also takes `roleName`,
+ * `25-170`) - `operatorTeamApi.ts` is a thin wire-shape file over all four, new and old alike.
  *
- * ## The pre-invite seat check, and why it counts the team list rather than using `heldSeats`
+ * ## `25-170`: the pre-invite seat check, and why it is now role-scoped
  *
- * `RedeemOperatorInviteHandler`'s own real refusal predicate at redemption time is
- * `operatorCount >= seatLimit`, where `operatorCount` counts every `operators` row with
- * `removed_at IS NULL` (`OperatorInviteRedemptionRepository`'s own remarks: "how many operator rows
- * does this site have", unchanged since `13-03`) - never `heldSeats` (`HoldsSeat AND RemovedAt IS
- * NULL`), the number `/settings/billing` shows as "seats used". A site with one operator who toggled
- * their own seat off has `heldSeats` one lower than its real row count, so predicting the redemption
- * refusal from `heldSeats` would tell an inviter "you have room" the moment before the server
- * disagrees. `23-72`: an administrator invite is not exempt from this count either - a role is not a
- * purchase (`adr/0151`), and the row it creates is still an ordinary `operators` row.
- * `activeOperatorCount` mirrors the server's own predicate exactly (every active row) rather than a
- * narrower, more optimistic one - the same "predict the exact refusal" goal this paragraph always
- * described.
+ * Before this item, `OperatorInviteRedemptionRepository`'s own real refusal predicate at redemption
+ * time was `operatorCount >= seatLimit` - every `operators` row with `removed_at IS NULL`, regardless
+ * of role or seat-holding status - which is why this screen used to predict from the team list's own
+ * row count (`activeOperatorCount`) rather than `summary.heldSeats`: the two could genuinely diverge
+ * (an operator who toggled their own seat off still counted as a row), and predicting from `heldSeats`
+ * would have told an inviter "you have room" the moment before the server disagreed.
+ *
+ * That predicate is gone. Both invite redemption and this screen's own pre-flight check now go through
+ * the one unified `OperatorRoleSeatCapacity.CheckAsync(siteId, roleName, ct)` - "does this *specific
+ * role's own* live held-seat count already meet its own limit" - so `activeOperatorCount` is retired
+ * entirely and the prediction is read straight off `summary.roles`, scoped to whichever role the
+ * dialog's own picker currently has selected (`roleSummary`/`selectedRoleSummary` below). An
+ * administrator invite is checked against the Admin role's own `Site.AdminLimit`, never the Operator
+ * role's - the two counted pools this item's own design gave each seeded role.
  *
  * ## The removal consequence, said before the click
  *
@@ -172,20 +191,18 @@ export function OperatorsTeamPage() {
     return <AccessRefusal title={strings.operatorsTeamTitle} message={strings.operatorsTeamForbidden} strings={strings} />;
   }
 
-  // See this component's own doc comment for why this is derived from the team list's own rows, never
-  // `summary.heldSeats` - `OperatorInviteRedemptionRepository`'s own real refusal predicate counts every
-  // active `operators` row regardless of role or current seat-holding status, so predicting it from
-  // `summary.heldSeats` would tell an inviter "you have room" the moment before the server disagrees.
-  // `23-72`: an administrator invite is not exempt from this count - a role is not a purchase (`adr/0151`
-  // keeps entitlement and permission apart), but the row it creates is still an ordinary `operators` row
-  // and the seat-limit check has always counted rows, not seats held, since `13-03`. No `inviteRoleName`
-  // check belongs here: the role picker itself only renders once this is already false (see the JSX
-  // below), so a role-based exemption here could never be reached in the one case - at the limit - where
-  // it would matter. An earlier draft carried `&& inviteRoleName === ROLE_OPERATOR`, which every test
-  // still passed with removed, because nothing can ever exercise it; found while independently verifying
-  // this item rather than by a failing test.
-  const activeOperatorCount = team?.length ?? 0;
-  const atSeatLimit = summary !== null && activeOperatorCount >= summary.seatLimit;
+  // `25-170`: this used to be derived from the team list's own row count (`activeOperatorCount`), never
+  // `summary.heldSeats` - because `OperatorInviteRedemptionRepository`'s own real refusal predicate used
+  // to count every active `operators` row regardless of role or current seat-holding status. That
+  // predicate is gone: invite-time capacity is now checked by the one unified
+  // `OperatorRoleSeatCapacity.CheckAsync(siteId, roleName, ct)` - "does this *specific role's* own live
+  // held-seat count already meet its own limit" (`IsAtCapacity = heldSeats >= limit`) - so the honest
+  // prediction is exactly that, read straight off `summary.roles`, per the role actually selected in the
+  // dialog below. Not `overLimit` (`RoleSeatAssignmentSummaryDto`'s own `heldSeats > limit`) - that flag
+  // answers a different question (the informational "you are already over" banner), one strictly higher
+  // threshold than "no room for one more" (`>=`).
+  const selectedRoleSummary = roleSummary(summary, inviteRoleName);
+  const atSeatLimit = selectedRoleSummary !== null && selectedRoleSummary.heldSeats >= selectedRoleSummary.limit;
 
   const openInviteDialog = () => {
     setInviteError(null);
@@ -300,19 +317,24 @@ export function OperatorsTeamPage() {
       ) : (
         <div className="ago-stack">
           {/* `13-03`'s own over-seats case: a site sitting above its seat limit after a downgrade -
-              rendered honestly, every row still listed below, never hidden. */}
-          {summary.overSeats && (
-            // `23-107`: a real link to where a tenant actually raises the limit or frees a seat, not
-            // a name for the tenant to go find in the nav themselves - the same fix
-            // `CalendarWorkersPage.tsx`'s own no-calendar note got.
-            <Alert
-              tone="info"
-              title={strings.operatorsTeamOverSeatsTitle}
-              action={<Link to="/account/billing">{strings.navBilling}</Link>}
-            >
-              {strings.operatorsTeamOverSeatsBody} {summary.heldSeats}/{summary.seatLimit}.
-            </Alert>
-          )}
+              rendered honestly, every row still listed below, never hidden. `25-170`: one alert per
+              over-limit role - the Admin role now gets the identical visibility the Operator role
+              always had, rather than one role-agnostic check. */}
+          {summary.roles
+            .filter((role) => role.overLimit)
+            .map((role) => (
+              // `23-107`: a real link to where a tenant actually raises the limit or frees a seat, not
+              // a name for the tenant to go find in the nav themselves - the same fix
+              // `CalendarWorkersPage.tsx`'s own no-calendar note got.
+              <Alert
+                key={role.roleName}
+                tone="info"
+                title={strings.operatorsTeamOverSeatsTitle}
+                action={<Link to="/account/billing">{strings.navBilling}</Link>}
+              >
+                {roleDisplayName(role.roleName, strings)}: {strings.operatorsTeamOverSeatsBody} {role.heldSeats}/{role.limit}.
+              </Alert>
+            ))}
 
           <Panel
             title={strings.operatorsTeamPanelTitle}
@@ -323,9 +345,13 @@ export function OperatorsTeamPage() {
             }
           >
             <div className="ago-stack">
-              <p>
-                {strings.operatorsTeamSeatsSummaryLabel} {summary.heldSeats}/{summary.seatLimit}
-              </p>
+              {/* `25-170`: one line per seeded role - was a single, Operator-role-only line before
+                  the Admin role got its own counted pool. */}
+              {summary.roles.map((role) => (
+                <p key={role.roleName}>
+                  {roleDisplayName(role.roleName, strings)} {strings.operatorsTeamSeatsSummaryLabel} {role.heldSeats}/{role.limit}
+                </p>
+              ))}
 
               <Table<OperatorTeamMemberDto>
                 caption={strings.operatorsTeamTableCaption}
@@ -346,8 +372,8 @@ export function OperatorsTeamPage() {
                     key: "role",
                     header: strings.operatorsTeamRoleColumn,
                     render: (row) => (
-                      <Badge tone={row.roleNames.includes(ROLE_ADMIN) ? "brand" : "neutral"}>
-                        {row.roleNames.includes(ROLE_ADMIN) ? strings.operatorsTeamRoleAdmin : strings.operatorsTeamRoleOperator}
+                      <Badge tone={row.roles.some((r) => r.roleName === ROLE_ADMIN) ? "brand" : "neutral"}>
+                        {row.roles.some((r) => r.roleName === ROLE_ADMIN) ? strings.operatorsTeamRoleAdmin : strings.operatorsTeamRoleOperator}
                       </Badge>
                     ),
                   },
@@ -355,9 +381,19 @@ export function OperatorsTeamPage() {
                     key: "seat",
                     header: strings.operatorsTeamSeatColumn,
                     render: (row) => (
-                      <Badge tone={row.holdsSeat ? "success" : "neutral"}>
-                        {row.holdsSeat ? strings.operatorsTeamSeatHeld : strings.operatorsTeamSeatNotHeld}
-                      </Badge>
+                      // `25-170`: one badge per role this operator holds - a founder holding both
+                      // seeded roles can hold one role's seat while having lost the other's, so a
+                      // single row-wide badge could no longer say "holds a seat" truthfully.
+                      <div className="ago-stack">
+                        {row.roles.map((r) => (
+                          <div key={r.roleName} className="ago-row ago-row--tight">
+                            <span className="ago-meta">{roleDisplayName(r.roleName, strings)}:</span>
+                            <Badge tone={r.holdsSeat ? "success" : "neutral"}>
+                              {r.holdsSeat ? strings.operatorsTeamSeatHeld : strings.operatorsTeamSeatNotHeld}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
                     ),
                   },
                   {
@@ -366,7 +402,7 @@ export function OperatorsTeamPage() {
                     render: (row) => (
                       <div className="ago-row">
                         <ChangeOperatorRoleButton
-                          isAdmin={row.roleNames.includes(ROLE_ADMIN)}
+                          isAdmin={row.roles.some((r) => r.roleName === ROLE_ADMIN)}
                           displayName={row.displayName ?? row.operatorId.slice(0, 8)}
                           onChange={(newRoleName) => {
                             if (!accessToken || !siteId) {
@@ -376,16 +412,23 @@ export function OperatorsTeamPage() {
                           }}
                           onChanged={load}
                         />
-                        <SeatToggleButton
-                          holdsSeat={row.holdsSeat}
-                          onToggle={(holdsSeat) => {
-                            if (!accessToken || !siteId) {
-                              return Promise.resolve();
-                            }
-                            return toggleOperatorSeat(accessToken, siteId, row.operatorId, holdsSeat);
-                          }}
-                          onToggled={load}
-                        />
+                        {/* `25-170`: one seat toggle per role this operator holds - generalised from
+                            the pre-`25-170` single, Operator-role-only toggle, the same way the badge
+                            above it now renders per role. */}
+                        {row.roles.map((r) => (
+                          <SeatToggleButton
+                            key={r.roleName}
+                            roleName={r.roleName}
+                            holdsSeat={r.holdsSeat}
+                            onToggle={(holdsSeat) => {
+                              if (!accessToken || !siteId) {
+                                return Promise.resolve();
+                              }
+                              return toggleOperatorSeat(accessToken, siteId, row.operatorId, r.roleName, holdsSeat);
+                            }}
+                            onToggled={load}
+                          />
+                        ))}
                         <RemoveOperatorButton
                           displayName={row.displayName ?? row.operatorId.slice(0, 8)}
                           onRemove={() => {
@@ -541,16 +584,16 @@ export function OperatorsTeamPage() {
         ) : atSeatLimit ? (
           // Done-when: "inviting when the seat limit is already reached is refused *before* the
           // invite is created, and says so in the tenant's own words" - no `createOperatorInvite`
-          // call is ever made from this branch; the dialog's only footer action is `Close`. Applies
-          // regardless of the role picked below - `activeOperatorCount`'s own remarks state why an
-          // administrator invite is not exempt.
+          // call is ever made from this branch; the dialog's only footer action is `Close`. `25-170`:
+          // the *selected role's own* limit, not a shared one - an administrator invite is refused by
+          // the Admin role's own capacity, never exempted by the Operator role happening to have room.
           // `23-107`: same fix as the over-seats Alert above - a real link, not a name.
           <Alert
             tone="info"
             title={strings.operatorsTeamInviteAtLimitTitle}
             action={<Link to="/account/billing">{strings.navBilling}</Link>}
           >
-            {strings.operatorsTeamInviteAtLimitBody} {summary?.seatLimit}.
+            {strings.operatorsTeamInviteAtLimitBody} {selectedRoleSummary?.limit}.
           </Alert>
         ) : (
           <div className="ago-stack">
@@ -579,15 +622,16 @@ export function OperatorsTeamPage() {
               </Select>
             </label>
 
-            {/* `25-18`: names which seat is being spent, reactively - re-reads `inviteRoleName` on
-                every render, so switching the picker above updates this line before submit, never
-                only at the values the dialog opened with. The count and limit stay the site's one
-                combined `activeOperatorCount`/`summary.seatLimit` - see `operatorsTeamInviteCostBodyOperator`'s
-                own doc comment in `strings.ts` for why a second, per-role figure is not fabricated
-                here. */}
+            {/* `25-18`/`25-170`: names which seat is being spent, reactively - re-reads
+                `inviteRoleName` on every render, so switching the picker above updates this line before
+                submit, never only at the values the dialog opened with. The count and limit are now the
+                *selected role's own* real figures (`selectedRoleSummary`), not the pre-`25-170` shared
+                `activeOperatorCount`/`summary.seatLimit` - see `operatorsTeamInviteCostBodyOperator`'s
+                own doc comment in `strings.ts` for why this is now a real per-role number rather than a
+                fabricated one. */}
             <p>
               {(inviteRoleName === ROLE_ADMIN ? strings.operatorsTeamInviteCostBodyAdmin : strings.operatorsTeamInviteCostBodyOperator)}{" "}
-              {activeOperatorCount + 1}/{summary?.seatLimit}.
+              {(selectedRoleSummary?.heldSeats ?? 0) + 1}/{selectedRoleSummary?.limit}.
             </p>
 
             {inviteError && <Alert tone="danger">{inviteError}</Alert>}

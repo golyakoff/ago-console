@@ -99,17 +99,33 @@ function fillInviteEmail(container: HTMLElement, email: string): void {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-function twoOperatorsAndASummary(seatLimit: number) {
-  // Both `Operator`-role rows, one with a toggled-off seat - this is what `heldSeats` (1) and this
-  // screen's own seat-row-count prediction (2, `activeOperatorCount`) genuinely diverge on, which is
-  // the scenario `OperatorsTeamPage`'s own doc comment names.
+/** `25-170`: `adminLimit` defaults to 5 - high enough that no test in this file which cares only about
+ * the Operator role's own limit (`seatLimit`) accidentally trips the Admin role's own over-limit
+ * banner or pre-invite refusal, the same "give the other axis plenty of room" shape a two-independent-
+ * limits model needs wherever a test exercises only one of them. */
+function twoOperatorsAndASummary(seatLimit: number, adminLimit = 5) {
+  // Both `Operator`-role rows, one with a toggled-off seat - this is what `heldSeats` (1) and the
+  // pre-`25-170` seat-row-count prediction (2, `activeOperatorCount`) used to genuinely diverge on,
+  // before the unified `OperatorRoleSeatCapacity` replaced that row-counting predicate with this
+  // screen's own current one (`summary.roles`'s own held-seat count, matched exactly).
   operatorTeamApi.fetchOperatorTeam.mockResolvedValue({
     operators: [
-      { operatorId: NAMED_ID, displayName: "Ada Lovelace", email: "ada@example.invalid", holdsSeat: true, roleNames: ["Operator"] },
-      { operatorId: UNNAMED_ID, displayName: null, email: null, holdsSeat: false, roleNames: ["Operator"] },
+      {
+        operatorId: NAMED_ID, displayName: "Ada Lovelace", email: "ada@example.invalid",
+        roles: [{ roleName: "Operator", holdsSeat: true }],
+      },
+      {
+        operatorId: UNNAMED_ID, displayName: null, email: null,
+        roles: [{ roleName: "Operator", holdsSeat: false }],
+      },
     ],
   });
-  operatorTeamApi.fetchSeatAssignmentSummary.mockResolvedValue({ heldSeats: 1, seatLimit, overSeats: 1 > seatLimit });
+  operatorTeamApi.fetchSeatAssignmentSummary.mockResolvedValue({
+    roles: [
+      { roleName: "Operator", heldSeats: 1, limit: seatLimit, overLimit: 1 > seatLimit },
+      { roleName: "Admin", heldSeats: 0, limit: adminLimit, overLimit: false },
+    ],
+  });
 }
 
 let writeTextMock: ReturnType<typeof vi.fn>;
@@ -175,11 +191,22 @@ describe("the team list", () => {
   it("shows the administrator badge for an Admin-role operator, and the operator badge otherwise", async () => {
     operatorTeamApi.fetchOperatorTeam.mockResolvedValue({
       operators: [
-        { operatorId: NAMED_ID, displayName: "Ada Lovelace", email: "ada@example.invalid", holdsSeat: true, roleNames: ["Operator"] },
-        { operatorId: UNNAMED_ID, displayName: null, email: null, holdsSeat: false, roleNames: ["Admin"] },
+        {
+          operatorId: NAMED_ID, displayName: "Ada Lovelace", email: "ada@example.invalid",
+          roles: [{ roleName: "Operator", holdsSeat: true }],
+        },
+        {
+          operatorId: UNNAMED_ID, displayName: null, email: null,
+          roles: [{ roleName: "Admin", holdsSeat: false }],
+        },
       ],
     });
-    operatorTeamApi.fetchSeatAssignmentSummary.mockResolvedValue({ heldSeats: 1, seatLimit: 2, overSeats: false });
+    operatorTeamApi.fetchSeatAssignmentSummary.mockResolvedValue({
+      roles: [
+        { roleName: "Operator", heldSeats: 1, limit: 2, overLimit: false },
+        { roleName: "Admin", heldSeats: 0, limit: 5, overLimit: false },
+      ],
+    });
 
     const container = await render(page());
 
@@ -203,12 +230,54 @@ describe("the team list", () => {
 
     expect(container.textContent).not.toContain("Over your seat limit");
   });
+
+  /** `25-170`: this item's own headline generalization, proven directly - the Admin role gets the
+   * identical over-limit banner the Operator role always had, on its own independent limit, shown
+   * alongside (not instead of) the Operator role's own banner when both happen to be over at once. */
+  it("shows a separate over-limit banner for the Admin role, independently of the Operator role", async () => {
+    operatorTeamApi.fetchOperatorTeam.mockResolvedValue({
+      operators: [
+        {
+          operatorId: NAMED_ID, displayName: "Ada Lovelace", email: "ada@example.invalid",
+          roles: [{ roleName: "Operator", holdsSeat: true }, { roleName: "Admin", holdsSeat: true }],
+        },
+      ],
+    });
+    operatorTeamApi.fetchSeatAssignmentSummary.mockResolvedValue({
+      roles: [
+        { roleName: "Operator", heldSeats: 1, limit: 5, overLimit: false },
+        { roleName: "Admin", heldSeats: 2, limit: 1, overLimit: true },
+      ],
+    });
+
+    const container = await render(page());
+
+    // Exactly one over-limit banner - the Operator role is within its own limit, so only the Admin
+    // role's own over-limit condition renders, not a second, redundant one.
+    const banners = all(container, ".ago-alert--info").filter((el) => el.textContent?.includes("Over your seat limit"));
+    expect(banners).toHaveLength(1);
+    expect(banners[0]?.textContent).toContain("Administrator");
+  });
+
+  /** `25-170`: the seats-summary line now renders once per seeded role - both are always visible,
+   * not only the Operator role's own figure the pre-`25-170` single line showed. */
+  it("shows the seats-occupied summary for both the Operator and Admin roles", async () => {
+    const container = await render(page());
+
+    // `twoOperatorsAndASummary`'s own default seed: Operator 1/2, Admin 0/5.
+    expect(container.textContent).toContain("1/2");
+    expect(container.textContent).toContain("0/5");
+  });
 });
 
 describe("the pre-invite seat check", () => {
-  it("refuses before ever calling createOperatorInvite, when the team list's own count is at the seat limit", async () => {
-    // Two active operators already (named + unnamed), seatLimit 2 - at limit.
-    twoOperatorsAndASummary(2);
+  it("refuses before ever calling createOperatorInvite, when the Operator role's own held-seat count is at its limit", async () => {
+    // `25-170`: one HELD Operator seat already (`twoOperatorsAndASummary`'s own fixed seed - Ada
+    // holds hers, the unnamed row does not), limit 1 - at capacity. Before this item this test used
+    // limit 2 against a *row count* of two operators, matching the retired `operatorCount >= seatLimit`
+    // predicate; the real check is now `OperatorRoleSeatCapacity`'s own `heldSeats >= limit`, which
+    // this fixture's one held seat (not two active rows) is what actually has to meet the limit.
+    twoOperatorsAndASummary(1);
 
     const container = await render(page());
     await interact(() => byText<HTMLButtonElement>(container, "button", "Invite a colleague").click());
@@ -279,11 +348,16 @@ describe("the pre-invite seat check", () => {
 
 describe("the invite dialog's role picker", () => {
   // `23-72`: the API already took `roleName` at invite creation (`13-01`); this item adds the choice
-  // to the dialog. An administrator invite is not exempt from the seat-limit check - a role is not a
-  // purchase (`adr/0151`), and the row it creates is still an ordinary `operators` row (`13-03`'s own
-  // seat-limit predicate, unchanged), so choosing Admin at the limit refuses exactly like Operator does.
-  it("stays refused at the seat limit no matter which role is picked", async () => {
-    twoOperatorsAndASummary(2);
+  // to the dialog. `25-170`: the dialog opens on the Operator default - when that role's own held-
+  // seat count already meets its own limit, no picker is offered at all, the same "Close only" branch
+  // this page renders regardless of which role happens to be selected. The two roles are genuinely
+  // independent pools now (`Site.AdminLimit` is real, `25-170`'s own design) - this test proves the
+  // *default* role's own refusal is honest, not that every role would refuse (a picked-then-switched
+  // Admin role with room of its own is exactly what `OperatorRoleSeatReconciler`'s own per-role
+  // capacity is for; that path is `sends an Admin-role invite when there is room` below, on a
+  // fixture with actual Operator-role room to open the picker in the first place).
+  it("offers no role picker while the default (Operator) role is already at its own limit", async () => {
+    twoOperatorsAndASummary(1);
 
     const container = await render(page());
     await interact(() => byText<HTMLButtonElement>(container, "button", "Invite a colleague").click());
@@ -385,14 +459,46 @@ describe("row actions (seat and removal)", () => {
     const container = await render(page());
     expect(operatorTeamApi.fetchOperatorTeam).toHaveBeenCalledTimes(1);
 
+    // `25-170`: role-qualified now - "Revoke Operator seat", since a row can show one toggle per role.
     await interact(() =>
       all(container, "button")
-        .find((b) => b.textContent === "Revoke seat")
+        .find((b) => b.textContent === "Revoke Operator seat")
         ?.dispatchEvent(new MouseEvent("click", { bubbles: true })),
     );
 
-    expect(operatorTeamApi.toggleOperatorSeat).toHaveBeenCalledWith("token", SITE_ID, NAMED_ID, false);
+    expect(operatorTeamApi.toggleOperatorSeat).toHaveBeenCalledWith("token", SITE_ID, NAMED_ID, "Operator", false);
     expect(operatorTeamApi.fetchOperatorTeam).toHaveBeenCalledTimes(2);
+  });
+
+  /** `25-170`: the item's own headline generalization - the Admin role gets the identical manual
+   * seat toggle the Operator role already had, proven with a dedicated Admin-role-holding row (not
+   * `twoOperatorsAndASummary`'s own Operator-only seed). */
+  it("toggles an Admin-role seat, naming the Admin role on the wire call", async () => {
+    operatorTeamApi.fetchOperatorTeam.mockResolvedValue({
+      operators: [
+        {
+          operatorId: NAMED_ID, displayName: "Ada Lovelace", email: "ada@example.invalid",
+          roles: [{ roleName: "Operator", holdsSeat: true }, { roleName: "Admin", holdsSeat: true }],
+        },
+      ],
+    });
+    operatorTeamApi.fetchSeatAssignmentSummary.mockResolvedValue({
+      roles: [
+        { roleName: "Operator", heldSeats: 1, limit: 2, overLimit: false },
+        { roleName: "Admin", heldSeats: 1, limit: 5, overLimit: false },
+      ],
+    });
+    operatorTeamApi.toggleOperatorSeat.mockResolvedValue(undefined);
+
+    const container = await render(page());
+
+    await interact(() =>
+      all(container, "button")
+        .find((b) => b.textContent === "Revoke Administrator seat")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true })),
+    );
+
+    expect(operatorTeamApi.toggleOperatorSeat).toHaveBeenCalledWith("token", SITE_ID, NAMED_ID, "Admin", false);
   });
 
   it("removes an operator, after confirming, and reloads the team", async () => {

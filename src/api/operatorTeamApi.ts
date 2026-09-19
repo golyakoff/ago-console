@@ -12,26 +12,50 @@ import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
  * OperatorsEndpoints`) - see this item's own report for why that gap was real rather than assumed
  * away.
  */
+/** `25-170`: one role this operator holds, and whether that specific `(operator, role)` pairing
+ * currently holds a seat - mirrors `Ago.Chat.Application.UseCases.GetOperatorTeam.OperatorRoleSeatDto`
+ * field for field. Replaces the pre-`25-170` flat `holdsSeat`/`roleNames` pair: "holds a seat" moved off
+ * the operator account onto one `(operator, role)` pairing (`Operator.HoldsSeat` is gone entirely), so a
+ * founder holding both seeded roles can hold one role's seat while having lost the other's. */
+export interface OperatorRoleSeatDto {
+  roleName: string;
+  holdsSeat: boolean;
+}
+
 export interface OperatorTeamMemberDto {
   operatorId: string;
   displayName: string | null;
   email: string | null;
-  holdsSeat: boolean;
-  /** `23-72`: every role this operator currently holds - plural because the account's own founder
-   * holds both seeded roles at once (`RegisterSiteHandler`'s own remarks), not a single "the" role. */
-  roleNames: string[];
+  /** `23-72`/`25-170`: every role this operator currently holds, each with its own seat status -
+   * plural because the account's own founder holds both seeded roles at once (`RegisterSiteHandler`'s
+   * own remarks), not a single "the" role. */
+  roles: OperatorRoleSeatDto[];
 }
 
 export interface OperatorTeamResponseDto {
   operators: OperatorTeamMemberDto[];
 }
 
-/** `GetSeatAssignmentSummary.SeatAssignmentSummaryDto`'s own wire shape - `overSeats` is a derived,
- * read-time fact (`13-03`'s own Scope), never a stored flag. */
-export interface SeatAssignmentSummaryDto {
+/** `25-170`: one seeded role's own seat summary - mirrors `Ago.Chat.Application.UseCases.
+ * GetSeatAssignmentSummary.RoleSeatAssignmentSummaryDto` field for field. `overLimit` is `heldSeats >
+ * limit`, a derived, read-time fact (`13-03`'s own Scope), never a stored flag - distinct from the
+ * *invite-time* refusal predicate (`OperatorRoleSeatCapacity.CheckAsync`'s own `heldSeats >= limit`,
+ * "at capacity"), which `OperatorsTeamPage`'s own pre-invite check computes directly from `heldSeats`/
+ * `limit` rather than reusing this flag - see that page's own remarks for why the two thresholds
+ * answer different questions. */
+export interface RoleSeatAssignmentSummaryDto {
+  roleName: string;
   heldSeats: number;
-  seatLimit: number;
-  overSeats: boolean;
+  limit: number;
+  overLimit: boolean;
+}
+
+/** `GetSeatAssignmentSummary.SeatAssignmentSummaryDto`'s own wire shape. `25-170`: generalises the
+ * pre-`25-170` flat `heldSeats`/`seatLimit`/`overSeats` (Operator-role only) to one row per role that
+ * carries a seat concept at all - always exactly the two seeded roles today (`"Operator"`, `"Admin"`),
+ * in that order. */
+export interface SeatAssignmentSummaryDto {
+  roles: RoleSeatAssignmentSummaryDto[];
 }
 
 /** `CreateOperatorInviteEndpoints.CreateOperatorInviteResponse`'s own wire shape - `code` is the
@@ -155,15 +179,19 @@ export function changeOperatorRole(
   });
 }
 
+/** `25-170`: `roleName` is now required - `ToggleOperatorSeatHandler`'s own `ToggleOperatorSeat` command
+ * gained it (`Ago.Chat.Api.Operators.OperatorsEndpoints.ToggleOperatorSeatRequest`), since a seat is now
+ * a fact about one `(operator, role)` pairing, not the operator account as a whole. */
 export function toggleOperatorSeat(
   accessToken: string,
   siteId: string,
   operatorId: string,
+  roleName: string,
   holdsSeat: boolean,
 ): Promise<void> {
   return operatorTeamVoidFetch(accessToken, `/api/v1/sites/${siteId}/operators/${operatorId}/seat`, {
     method: "POST",
-    body: JSON.stringify({ holdsSeat }),
+    body: JSON.stringify({ roleName, holdsSeat }),
   });
 }
 
