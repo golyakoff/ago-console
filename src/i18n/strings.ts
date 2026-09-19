@@ -1468,20 +1468,33 @@ export interface ConsoleStrings {
   operatorsTeamEmailColumn: string;
   operatorsTeamSeatColumn: string;
   operatorsTeamActionsColumn: string;
+  /** `25-170`: rendered once per role held on a row's own Seat column, each prefixed with that role's
+   * own display name (`operatorsTeamRoleOperator`/`operatorsTeamRoleAdmin`) - was a single, role-
+   * agnostic badge per row before the per-role wire shape. */
   operatorsTeamSeatHeld: string;
   operatorsTeamSeatNotHeld: string;
-  /** Trailing interpolation - `${operatorsTeamSeatsSummaryLabel} ${heldSeats}/${seatLimit}`, the same
-   * "fixed label, one value appended" shape `searchRangeLabel`'s own doc comment establishes. */
+  /** `25-170`: rendered once per seeded role, each prefixed with that role's own display name -
+   * `${roleDisplayName} ${operatorsTeamSeatsSummaryLabel} ${role.heldSeats}/${role.limit}`, the same
+   * "fixed label, one value appended" shape `searchRangeLabel`'s own doc comment establishes, applied
+   * per role instead of once for the whole site. */
   operatorsTeamSeatsSummaryLabel: string;
 
-  /** `13-03`'s own over-seats case: a site sitting above its seat limit after a downgrade. Trailing
-   * interpolation, same shape as `operatorsTeamSeatsSummaryLabel` above - `${operatorsTeamOverSeatsBody}
-   * ${heldSeats}/${seatLimit}.` */
+  /** `13-03`'s own over-seats case: a site sitting above its seat limit after a downgrade. `25-170`:
+   * rendered once per over-limit role (`summary.roles.filter((r) => r.overLimit)`) - the Admin role now
+   * gets the identical visibility the Operator role always had, not a role-agnostic single check.
+   * Trailing interpolation, same shape as `operatorsTeamSeatsSummaryLabel` above -
+   * `${roleDisplayName}: ${operatorsTeamOverSeatsBody} ${role.heldSeats}/${role.limit}.` */
   operatorsTeamOverSeatsTitle: string;
   operatorsTeamOverSeatsBody: string;
 
-  operatorsTeamGrantSeatButton: string;
-  operatorsTeamRevokeSeatButton: string;
+  /** `25-170`: role-qualified, replacing the pre-`25-170` role-agnostic `operatorsTeamGrantSeatButton`/
+   * `operatorsTeamRevokeSeatButton` - a row can now show one seat toggle per role the operator holds
+   * (`SeatToggleButton`'s own remarks: an unqualified "Grant seat"/"Revoke seat" would leave which
+   * seat is being toggled ambiguous the moment a row shows more than one). */
+  operatorsTeamGrantOperatorSeatButton: string;
+  operatorsTeamRevokeOperatorSeatButton: string;
+  operatorsTeamGrantAdminSeatButton: string;
+  operatorsTeamRevokeAdminSeatButton: string;
   operatorsTeamSeatToggleError: string;
 
   operatorsTeamRemoveButton: string;
@@ -1503,28 +1516,27 @@ export interface ConsoleStrings {
    * names which seat it is about to spend - "This will use one more Operator seat" /
    * "...Administrator seat", never "one more of your seats" regardless of the role picked below it.
    * Trailing interpolation, same shape as the string this replaces -
-   * `${operatorsTeamInviteCostBodyOperator | operatorsTeamInviteCostBodyAdmin} ${activeCount +
-   * 1}/${seatLimit}.`
+   * `${operatorsTeamInviteCostBodyOperator | operatorsTeamInviteCostBodyAdmin} ${roleHeldSeats +
+   * 1}/${roleLimit}.`
    *
-   * The count and limit after the role-specific prefix are still the site's one combined figure -
-   * `OperatorsTeamPage`'s own `activeOperatorCount`/`summary.seatLimit`, unchanged by this item -
-   * not a second, per-role figure. `ago-business` decision `0011` calls for a genuinely separate
-   * Administrator limit, but `ago-chat`'s `Site` aggregate carries exactly one `SeatLimit` today and
-   * `GetSeatAssignmentSummaryHandler`/`ToggleOperatorSeatHandler`/`RedeemOperatorInviteHandler` all
-   * gate every role against it identically (verified by reading those handlers directly, not
-   * assumed) - `23-71` gave the account's administrator a seatless sign-in, but did not give
-   * Administrators their own counted pool. Showing a fabricated second limit here would tell an
-   * inviter a number the server does not enforce; naming the role without inventing a number it does
-   * not have is the honest version of this item until that backend work lands (see this item's own
-   * worker report for the specific gap named for the author to act on).
+   * **`25-170`: the count and limit are now the *selected role's own* figures**
+   * (`summary.roles.find((r) => r.roleName === inviteRoleName)`), not the shared, Operator-role-only
+   * `activeOperatorCount`/`summary.seatLimit` this string's own doc comment used to describe as the
+   * only honest option. `ago-business` decision `0011`'s call for a genuinely separate Administrator
+   * limit is what `25-170` actually built: `Site.AdminLimit` is real now, and
+   * `OperatorRoleSeatCapacity`/`GetSeatAssignmentSummaryHandler` both gate/report each seeded role
+   * against its own limit - so a real per-role number is shown here, not a fabricated one and not the
+   * old shared figure either. The prior "not decided here yet" framing is resolved, not merely
+   * rephrased: this backend work is what the previous version of this comment named as the gap.
    */
   operatorsTeamInviteCostBodyOperator: string;
   operatorsTeamInviteCostBodyAdmin: string;
   operatorsTeamInviteConfirmButton: string;
   operatorsTeamInviteSendingButton: string;
-  /** Shown, and the invite never created, when the site is already at its seat limit -
-   * `${operatorsTeamInviteAtLimitBody} ${seatLimit}.` Done-when: "refused *before* the invite is
-   * created" - no `createOperatorInvite` call happens on this branch at all. */
+  /** Shown, and the invite never created, when the *selected role* is already at its own capacity -
+   * `${operatorsTeamInviteAtLimitBody} ${selectedRoleSummary.limit}.` (`25-170`: the role-scoped limit,
+   * not the old shared `seatLimit`). Done-when: "refused *before* the invite is created" - no
+   * `createOperatorInvite` call happens on this branch at all. */
   operatorsTeamInviteAtLimitTitle: string;
   operatorsTeamInviteAtLimitBody: string;
   operatorsTeamInviteSubmitError: string;
@@ -1582,8 +1594,11 @@ export interface ConsoleStrings {
   // `23-72`: "a tenant can appoint another administrator" - the role column, the invite dialog's role
   // picker, and the per-row change-role action.
   operatorsTeamRoleColumn: string;
-  /** The team-list role badges - `roleNames.includes(ROLE_ADMIN)` decides which shows, and a name that
-   * holds neither (should not happen in practice) falls back to `operatorsTeamRoleOperator`. */
+  /** The team-list role badges - `25-170`: `row.roles.some((r) => r.roleName === ROLE_ADMIN)` decides
+   * which shows (was `roleNames.includes(ROLE_ADMIN)` before the per-role wire shape), and a name that
+   * holds neither (should not happen in practice) falls back to `operatorsTeamRoleOperator`. Also the
+   * per-role label prefixing each row's own seat badge/toggle in the Seat/Actions columns
+   * (`OperatorsTeamPage`'s own `roleDisplayName` helper). */
   operatorsTeamRoleOperator: string;
   operatorsTeamRoleAdmin: string;
 

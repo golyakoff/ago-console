@@ -959,8 +959,10 @@ export const en: ConsoleStrings = {
     "This site is holding more seats than its plan allows - most likely after a downgrade. Everyone below still " +
     "works; free a seat, or raise your limit, when you are ready. Occupied:",
 
-  operatorsTeamGrantSeatButton: "Grant seat",
-  operatorsTeamRevokeSeatButton: "Revoke seat",
+  operatorsTeamGrantOperatorSeatButton: "Grant Operator seat",
+  operatorsTeamRevokeOperatorSeatButton: "Revoke Operator seat",
+  operatorsTeamGrantAdminSeatButton: "Grant Administrator seat",
+  operatorsTeamRevokeAdminSeatButton: "Revoke Administrator seat",
   operatorsTeamSeatToggleError: "Could not change that seat. Try again.",
 
   operatorsTeamRemoveButton: "Remove",

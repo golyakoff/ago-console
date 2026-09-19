@@ -962,8 +962,10 @@ export const ru: ConsoleStrings = {
     "ниже по-прежнему работают; освободите место или повысьте лимит, когда будете готовы. " +
     "Занято:",
 
-  operatorsTeamGrantSeatButton: "Выделить место",
-  operatorsTeamRevokeSeatButton: "Забрать место",
+  operatorsTeamGrantOperatorSeatButton: "Выделить место оператора",
+  operatorsTeamRevokeOperatorSeatButton: "Забрать место оператора",
+  operatorsTeamGrantAdminSeatButton: "Выделить место администратора",
+  operatorsTeamRevokeAdminSeatButton: "Забрать место администратора",
   operatorsTeamSeatToggleError: "Не удалось изменить место. Попробуйте ещё раз.",
 
   operatorsTeamRemoveButton: "Удалить",

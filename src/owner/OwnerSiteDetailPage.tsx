@@ -2299,6 +2299,15 @@ function operatorLabel(operator: OwnerSiteOperator, strings: ConsoleStrings): st
     : strings.ownerSiteDetailUnnamedOperator;
 }
 
+/** `25-170`: `RestoreOperatorSeatAsOwnerHandler` stays scoped to the seeded Operator role's own seat
+ * specifically (see `OwnerSiteOperator.roles`'s own remarks in `ownerApi.ts`) - this page's own
+ * "Restore seat" affordance reads and writes that one role's entry, never a row-wide flag. An operator
+ * who does not hold the Operator role at all has nothing here to restore, so this reads as `true`
+ * (no action offered) rather than `false` (which would offer a restore that could not apply to them). */
+function holdsOperatorRoleSeat(operator: OwnerSiteOperator): boolean {
+  return operator.roles.find((r) => r.roleName === "Operator")?.holdsSeat ?? true;
+}
+
 function buildOperatorColumns(
   strings: ConsoleStrings,
   restoringOperatorId: string | null,
@@ -2323,22 +2332,22 @@ function buildOperatorColumns(
       key: "roles",
       header: strings.ownerSiteDetailColumnRoles,
       render: (operator) =>
-        operator.roleNames.length === 0 ? (
+        operator.roles.length === 0 ? (
           // `23-68`'s own warning made visible: an empty role list is the "stripped their own last
           // role" case this item names but does not fix - never rendered as a blank cell.
           <span className="ago-meta" title={strings.ownerSiteDetailNoRoleTitle}>
             {strings.ownerSiteDetailNoRoleLabel}
           </span>
         ) : (
-          operator.roleNames.join(", ")
+          operator.roles.map((r) => r.roleName).join(", ")
         ),
     },
     {
       key: "seat",
       header: strings.ownerSiteDetailColumnSeat,
       render: (operator) => (
-        <Badge tone={operator.holdsSeat ? "success" : "danger"}>
-          {operator.holdsSeat ? strings.ownerSiteDetailHoldsSeat : strings.ownerSiteDetailNoSeat}
+        <Badge tone={holdsOperatorRoleSeat(operator) ? "success" : "danger"}>
+          {holdsOperatorRoleSeat(operator) ? strings.ownerSiteDetailHoldsSeat : strings.ownerSiteDetailNoSeat}
         </Badge>
       ),
     },
@@ -2346,7 +2355,7 @@ function buildOperatorColumns(
       key: "actions",
       header: "",
       render: (operator) =>
-        operator.holdsSeat ? null : (
+        holdsOperatorRoleSeat(operator) ? null : (
           <Button
             size="sm"
             variant="ghost"
