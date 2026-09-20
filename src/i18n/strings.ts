@@ -3183,6 +3183,21 @@ export interface ConsoleStrings {
   ownerSiteDetailSuspensionUpdateFailed: string;
   ownerSiteDetailOperatorsHeading: string;
   ownerSiteDetailOperatorsNote: string;
+  /** `25-181`: the summary line above the users table - "Администраторов: 1/1" / "Операторов: 1/2",
+   * held/limit per role, each limit already including any live owner-granted extra. */
+  ownerSiteDetailSeatSummaryAdministratorsLabel: string;
+  ownerSiteDetailSeatSummaryOperatorsLabel: string;
+  ownerSiteDetailSeatSummaryLoadFailed: string;
+  /** `25-181`: "Добавить сверх тарифа" - the platform owner's own hand-granted extra, 1-5 seats of
+   * either role, optionally expiring, always with a reason. */
+  ownerSiteDetailSeatGrantHeading: string;
+  ownerSiteDetailSeatGrantQuantityLabel: string;
+  ownerSiteDetailSeatGrantRoleLabel: string;
+  ownerSiteDetailSeatGrantExpiryCheckboxLabel: string;
+  ownerSiteDetailSeatGrantButton: string;
+  ownerSiteDetailSeatGrantingLabel: string;
+  ownerSiteDetailSeatGrantSaved: string;
+  ownerSiteDetailSeatGrantFailed: string;
   ownerSiteDetailSeatRestoredPrefix: string;
   ownerSiteDetailSeatRestoredOverLimit: string;
   ownerSiteDetailSeatRestoredOk: string;

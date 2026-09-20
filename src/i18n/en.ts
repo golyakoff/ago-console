@@ -2020,9 +2020,23 @@ export const en: ConsoleStrings = {
   ownerSiteDetailSuspensionReasonRequired:
     "A reason is required - state why this account is being frozen, extended, or unblocked.",
   ownerSiteDetailSuspensionUpdateFailed: "Failed to update this account's suspension.",
-  ownerSiteDetailOperatorsHeading: "Operators",
+  // `25-181`: renamed from "Operators" - the heading collided with "Operator" the specific role (a
+  // row's own Roles column can say "Operator, Admin" right below it). "Users" names what the table
+  // actually lists - every person who can sign in, regardless of role.
+  ownerSiteDetailOperatorsHeading: "Users",
   ownerSiteDetailOperatorsNote:
     "Restoring a seat lets an operator sign in again - it does not restore a role. An operator with no roles below signed in but was stripped of every permission; nothing here grants one back.",
+  ownerSiteDetailSeatSummaryAdministratorsLabel: "Administrators",
+  ownerSiteDetailSeatSummaryOperatorsLabel: "Operators",
+  ownerSiteDetailSeatSummaryLoadFailed: "Failed to load the seat summary.",
+  ownerSiteDetailSeatGrantHeading: "Add beyond the tariff",
+  ownerSiteDetailSeatGrantQuantityLabel: "How many",
+  ownerSiteDetailSeatGrantRoleLabel: "Who",
+  ownerSiteDetailSeatGrantExpiryCheckboxLabel: "Expires on a date",
+  ownerSiteDetailSeatGrantButton: "Grant",
+  ownerSiteDetailSeatGrantingLabel: "Granting...",
+  ownerSiteDetailSeatGrantSaved: "Extra seats granted.",
+  ownerSiteDetailSeatGrantFailed: "Failed to grant extra seats.",
   ownerSiteDetailSeatRestoredPrefix: "Seat restored. ",
   ownerSiteDetailSeatRestoredOverLimit: "This put the site over its own seat limit, as stated when confirming.",
   ownerSiteDetailSeatRestoredOk: "The operator can sign in again now.",

@@ -1364,3 +1364,125 @@ export async function fetchOwnerTenantIsolationSummary(
 
   return { status: "ok", summary: (await response.json()) as OwnerTenantIsolationSummary };
 }
+
+/**
+ * `25-181`: one site's own held/limit for both seeded roles, mirrors
+ * `Ago.Chat.Application.UseCases.GetOwnerSeatSummary.OwnerSeatSummaryDto` field for field - each limit
+ * already includes the platform owner's own live hand-granted extra
+ * (`Ago.Chat.Domain.OwnerSeatGrant.EffectiveQuantity`), computed fresh on every read, never cached here.
+ */
+export interface OwnerSeatSummary {
+  operatorsHeld: number;
+  operatorsLimit: number;
+  administratorsHeld: number;
+  administratorsLimit: number;
+}
+
+/** The same `"not-authorized"`/`"not-found"` shape `fetchOwnerSiteDetail` already establishes. */
+export type OwnerSeatSummaryOutcome =
+  | { status: "ok"; summary: OwnerSeatSummary }
+  | { status: "not-authorized" }
+  | { status: "not-found" };
+
+/**
+ * `25-181`: `GET /api/v1/owner/sites/{siteId}/seat-summary` - the owner console's own "Пользователи"
+ * summary line, read separately from `fetchOwnerSiteDetail` so a successful grant can refresh just
+ * this number without re-fetching the whole site detail payload.
+ */
+export async function fetchOwnerSeatSummary(accessToken: string, siteId: string): Promise<OwnerSeatSummaryOutcome> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/owner/sites/${siteId}/seat-summary`);
+
+  const response = await fetch(url, {
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    return { status: "not-authorized" };
+  }
+
+  if (response.status === 404) {
+    return { status: "not-found" };
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to load the seat summary: ${response.status}`);
+  }
+
+  return { status: "ok", summary: (await response.json()) as OwnerSeatSummary };
+}
+
+/** `25-181`: which capacity a grant counts toward - mirrors `Ago.Chat.Domain.OwnerSeatGrantRole`'s own
+ * two members, spelled out as the plain strings the wire actually carries (`OwnerOperatorsEndpoints.HandleGrantSeatsAsync`
+ * parses this same spelling back into the enum server-side). */
+export type OwnerSeatGrantRoleName = "Operator" | "Administrator";
+
+/**
+ * `25-181`: the body `POST /api/v1/owner/sites/{siteId}/seat-grants` takes - mirrors
+ * `Ago.Chat.Api.Owner.OwnerOperatorsEndpoints.GrantOwnerSeatsRequest`. `quantity` is 1-5
+ * (`Ago.Chat.Domain.OwnerSeatGrant.MinQuantity`/`MaxQuantity`); `expiresAt` is `null` for an indefinite
+ * grant ("бессрочно") - the identical convention `OwnerSiteChannelEntitlement.expiresAt` already uses.
+ */
+export interface GrantOwnerSeatsDraft {
+  role: OwnerSeatGrantRoleName;
+  quantity: number;
+  reason: string;
+  expiresAt: string | null;
+}
+
+/**
+ * `25-181`: the outcome of granting a tenant extra seats as the platform owner - the identical
+ * `"invalid"` shape `AddOwnerRolePermissionsOutcome`'s own remarks describe: the server names what was
+ * wrong (a blank/over-length reason, a quantity outside 1-5, or an unrecognised role -
+ * `Site.OwnerSeatGrantReasonRequired`/`Site.OwnerSeatGrantQuantityInvalid`/`Site.OwnerSeatGrantRoleInvalid`,
+ * all `400`), one shape because the field this console shows an error next to is the same regardless
+ * of which.
+ */
+export type GrantOwnerSeatsOutcome =
+  | { status: "ok" }
+  | { status: "not-authorized" }
+  | { status: "not-found" }
+  | { status: "invalid"; message: string };
+
+/**
+ * `25-181`: `POST /api/v1/owner/sites/{siteId}/seat-grants` - the platform owner's own "Добавить сверх
+ * тарифа" write, reached from the identical `/owner` tenant detail screen `restoreOwnerOperatorSeat`
+ * already is. Returns only a bare `"ok"` on success - the caller re-reads the summary through
+ * `fetchOwnerSeatSummary` afterward rather than compute the new held/limit numbers itself, the
+ * identical "the server's own read is the only source" reasoning `addOwnerRolePermissions`'s own
+ * remarks give for its own write.
+ */
+export async function grantOwnerSeats(
+  accessToken: string,
+  siteId: string,
+  draft: GrantOwnerSeatsDraft,
+): Promise<GrantOwnerSeatsOutcome> {
+  const url = new URL(`${config.apiBaseUrl}/api/v1/owner/sites/${siteId}/seat-grants`);
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: withActiveSiteHeader({
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify(draft),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    return { status: "not-authorized" };
+  }
+
+  if (response.status === 404) {
+    return { status: "not-found" };
+  }
+
+  if (response.status === 400) {
+    const problem = (await response.json()) as { detail?: string };
+    return { status: "invalid", message: problem.detail ?? "This grant could not be saved." };
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to grant extra seats: ${response.status}`);
+  }
+
+  return { status: "ok" };
+}

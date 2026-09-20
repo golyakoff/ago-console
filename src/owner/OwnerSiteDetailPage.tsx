@@ -6,16 +6,20 @@ import { usePermissions } from "../auth/PermissionsContext.js";
 import {
   addOwnerRolePermissions,
   extendOwnerSuspension,
+  fetchOwnerSeatSummary,
   fetchOwnerSiteDetail,
   grantOwnerChannelEntitlement,
   grantOwnerModule,
   grantOwnerModuleQuantity,
+  grantOwnerSeats,
   removeOwnerRolePermissions,
   restoreOwnerOperatorSeat,
   revokeOwnerModule,
   suspendOwnerSite,
   unblockOwnerSuspension,
   updateOwnerSiteAllowedOrigins,
+  type OwnerSeatGrantRoleName,
+  type OwnerSeatSummary,
   type OwnerSiteChannelEntitlement,
   type OwnerSiteDetail,
   type OwnerSiteModule,
@@ -230,6 +234,25 @@ export function OwnerSiteDetailPage() {
   const [forceError, setForceError] = useState<string | null>(null);
   const [forceSubmitting, setForceSubmitting] = useState(false);
 
+  // `25-181`: the seat-summary line above the users table - held/limit per role, read separately from
+  // `site` so a grant can refresh just this number (`loadSeatSummary` below) without re-fetching the
+  // whole site detail payload the way `loadSiteDetail` does for the table under it.
+  const [seatSummary, setSeatSummary] = useState<OwnerSeatSummary | null>(null);
+  const [seatSummaryError, setSeatSummaryError] = useState<string | null>(null);
+
+  // `25-181`: "Добавить сверх тарифа" - the grant form's own state. `seatGrantExpires` is a plain
+  // checkbox (the author's own explicit ask), unlike `expiryChoice`/`channelExpiryChoice` above's
+  // three-way "unset/never/date" fieldset - unchecked means indefinite, checked reveals the date
+  // input, so there is no third "not yet decided" state to force a choice out of here.
+  const [seatGrantRole, setSeatGrantRole] = useState<OwnerSeatGrantRoleName>("Operator");
+  const [seatGrantQuantity, setSeatGrantQuantity] = useState("1");
+  const [seatGrantExpires, setSeatGrantExpires] = useState(false);
+  const [seatGrantExpiryDateInput, setSeatGrantExpiryDateInput] = useState("");
+  const [seatGrantReason, setSeatGrantReason] = useState("");
+  const [seatGrantError, setSeatGrantError] = useState<string | null>(null);
+  const [seatGrantSaved, setSeatGrantSaved] = useState(false);
+  const [seatGrantSubmitting, setSeatGrantSubmitting] = useState(false);
+
   // `25-76`: the role-permission tool's own state. `permissionSelections` is keyed by role name
   // rather than a single value, because more than one role's own picker is on screen at once
   // (`"Operator"` and `"Admin"`, `site.roles`) and choosing one must not clear the other.
@@ -299,6 +322,31 @@ export function OwnerSiteDetailPage() {
       });
   }, [accessToken, siteId, strings]);
 
+  // `25-181`: a separate read from `loadSiteDetail` above - granting extra seats changes only this
+  // number, never the operator roster `loadSiteDetail` re-fetches, so a successful grant re-runs this
+  // alone rather than the whole site-detail payload.
+  const loadSeatSummary = useCallback(() => {
+    if (!accessToken || !siteId) {
+      return;
+    }
+
+    fetchOwnerSeatSummary(accessToken, siteId)
+      .then((outcome) => {
+        if (outcome.status === "ok") {
+          setSeatSummary(outcome.summary);
+          return;
+        }
+
+        // `not-authorized`/`not-found` here mean the page-level access check above would already have
+        // caught the same fact - reported next to this one summary line rather than as a second,
+        // competing page-level gate.
+        setSeatSummaryError(strings.ownerSiteDetailSeatSummaryLoadFailed);
+      })
+      .catch(() => {
+        setSeatSummaryError(strings.ownerSiteDetailSeatSummaryLoadFailed);
+      });
+  }, [accessToken, siteId, strings]);
+
   useEffect(() => {
     if (!accessToken || !siteId) {
       // `RequireAuth` guarantees a signed-in user, and this route only ever mounts with a `:siteId`
@@ -308,11 +356,12 @@ export function OwnerSiteDetailPage() {
     }
 
     loadSiteDetail();
-    // `loadSiteDetail` is recreated only when `accessToken`/`siteId` change, so this still runs
-    // exactly once per those - the identical effect this file had before extracting the loader, minus
-    // the `cancelled` guard a single mount-time call never needed once `loadSiteDetail` itself is the
-    // thing re-invoked deliberately (by the grant/revoke handlers below), not raced by an unmount.
-  }, [accessToken, siteId, loadSiteDetail]);
+    loadSeatSummary();
+    // `loadSiteDetail`/`loadSeatSummary` are recreated only when `accessToken`/`siteId` change, so this
+    // still runs exactly once per those - the identical effect this file had before extracting the
+    // loader, minus the `cancelled` guard a single mount-time call never needed once these are the
+    // things re-invoked deliberately (by the grant/revoke handlers below), not raced by an unmount.
+  }, [accessToken, siteId, loadSiteDetail, loadSeatSummary]);
 
   const moduleColumns = useMemo(
     () =>
@@ -899,6 +948,81 @@ export function OwnerSiteDetailPage() {
       });
   };
 
+  // `25-181`: "Добавить сверх тарифа" - the grant form's own submit. Quantity comes from a `1`-`5`
+  // `<select>` (always well-formed) and role from a two-option `<select>` (always one of the two real
+  // values), so the only client-side checks left are the ones a `<select>` cannot make impossible: a
+  // reason (required, the same `ownerReasonRequiredValidation` wording every other owner-only override
+  // on this page already uses) and, when the checkbox is ticked, a real date.
+  const handleSeatGrantSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    setSeatGrantSaved(false);
+    setSeatGrantError(null);
+
+    const trimmedReason = seatGrantReason.trim();
+    if (trimmedReason.length === 0) {
+      setSeatGrantError(strings.ownerReasonRequiredValidation);
+      return;
+    }
+
+    // Unchecked means indefinite ("бессрочно") - `null`, the identical convention the module/channel
+    // grant forms above already use for their own expiry, restated here for a plain checkbox rather
+    // than their three-way fieldset (this form's own explicit shape, per the backlog).
+    let expiresAt: string | null = null;
+    if (seatGrantExpires) {
+      if (seatGrantExpiryDateInput.trim().length === 0) {
+        setSeatGrantError(strings.ownerSiteDetailExpiryDateRequired);
+        return;
+      }
+      const parsed = new Date(seatGrantExpiryDateInput);
+      if (Number.isNaN(parsed.getTime())) {
+        setSeatGrantError(strings.ownerSiteDetailExpiryDateUnreadable);
+        return;
+      }
+      expiresAt = parsed.toISOString();
+    }
+
+    const accessToken = user?.access_token;
+    if (!accessToken || !siteId) {
+      return;
+    }
+
+    setSeatGrantSubmitting(true);
+    grantOwnerSeats(accessToken, siteId, {
+      role: seatGrantRole,
+      quantity: Number(seatGrantQuantity),
+      reason: trimmedReason,
+      expiresAt,
+    })
+      .then((outcome) => {
+        if (outcome.status === "ok") {
+          setSeatGrantSaved(true);
+          setSeatGrantReason("");
+          setSeatGrantExpires(false);
+          setSeatGrantExpiryDateInput("");
+          // Re-read rather than compute the new held/limit numbers locally - the identical "the
+          // server's own read is the only source" reasoning every other write on this page already
+          // follows (`handleGrantSubmit`'s own remarks).
+          loadSeatSummary();
+          return;
+        }
+
+        if (outcome.status === "invalid") {
+          setSeatGrantError(outcome.message);
+          return;
+        }
+
+        // `not-authorized`/`not-found` mid-session - the same genuinely-unexpected-here handling every
+        // other write on this page gives its own equivalent outcomes.
+        setError(strings.ownerCouldNotBeReached);
+      })
+      .catch((err: unknown) => {
+        setSeatGrantError(err instanceof Error ? err.message : strings.ownerSiteDetailSeatGrantFailed);
+      })
+      .finally(() => {
+        setSeatGrantSubmitting(false);
+      });
+  };
+
   // `25-76`: the role-permission tool's own submit - one permission at a time, the picker's own
   // current selection for this role. No client-side vocabulary check: `site.allKnownPermissions` is
   // exactly what populates the picker's own options (`buildMissingPermissionOptions` below), so a
@@ -1295,10 +1419,110 @@ export function OwnerSiteDetailPage() {
             )}
           </Panel>
 
-          {/* `23-68`: "a locked-out tenant can be let back in without a database" - the recovery this
-              item exists to build, reached from the same screen `23-65`'s own module grant/revoke
-              already lives on, not a new one. */}
+          {/* `25-181`: renamed from "Операторы" - the heading used to collide with "Operator" the
+              specific role, right above a table whose own Roles column can say "Operator, Admin".
+              "Пользователи" names what this table actually lists: every person who can sign in,
+              regardless of role. */}
           <h2>{strings.ownerSiteDetailOperatorsHeading}</h2>
+
+          {/* `25-181`: the summary line - current held/limit for both seeded roles, each limit already
+              including the platform owner's own live grant. Read separately from `site.operators`
+              (`loadSeatSummary`, above) so granting seats refreshes just this number. */}
+          {seatSummaryError && <Alert tone="danger">{seatSummaryError}</Alert>}
+          {seatSummary && (
+            <p className="ago-owner-seat-summary">
+              <span>
+                {strings.ownerSiteDetailSeatSummaryAdministratorsLabel}: {seatSummary.administratorsHeld}/
+                {seatSummary.administratorsLimit}
+              </span>
+              <span>
+                {strings.ownerSiteDetailSeatSummaryOperatorsLabel}: {seatSummary.operatorsHeld}/
+                {seatSummary.operatorsLimit}
+              </span>
+            </p>
+          )}
+
+          {/* `25-181`: "Добавить сверх тарифа" - the platform owner's own hand-granted extra, modeled on
+              `Domain.ModuleQuantityGrant.SetUnconditionalGrant`'s own validated shape: 1-5 seats of
+              either role, an optional expiry (a plain checkbox here, the author's own explicit ask,
+              rather than the three-way fieldset the module/channel grant forms above use), and a
+              required reason. */}
+          <Panel title={strings.ownerSiteDetailSeatGrantHeading}>
+            <form className="ago-stack" onSubmit={handleSeatGrantSubmit}>
+              <Field label={strings.ownerSiteDetailSeatGrantQuantityLabel}>
+                {(controlProps) => (
+                  <Select
+                    {...controlProps}
+                    value={seatGrantQuantity}
+                    onChange={(event) => setSeatGrantQuantity(event.target.value)}
+                    disabled={seatGrantSubmitting}
+                  >
+                    {[1, 2, 3, 4, 5].map((quantity) => (
+                      <option key={quantity} value={quantity}>
+                        {quantity}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+
+              <Field label={strings.ownerSiteDetailSeatGrantRoleLabel}>
+                {(controlProps) => (
+                  <Select
+                    {...controlProps}
+                    value={seatGrantRole}
+                    onChange={(event) => setSeatGrantRole(event.target.value as OwnerSeatGrantRoleName)}
+                    disabled={seatGrantSubmitting}
+                  >
+                    <option value="Operator">{strings.ownerSiteDetailSeatSummaryOperatorsLabel}</option>
+                    <option value="Administrator">{strings.ownerSiteDetailSeatSummaryAdministratorsLabel}</option>
+                  </Select>
+                )}
+              </Field>
+
+              <label className="ago-row">
+                <input
+                  type="checkbox"
+                  checked={seatGrantExpires}
+                  onChange={(event) => setSeatGrantExpires(event.target.checked)}
+                  disabled={seatGrantSubmitting}
+                />
+                <span>{strings.ownerSiteDetailSeatGrantExpiryCheckboxLabel}</span>
+              </label>
+              {seatGrantExpires && (
+                <input
+                  type="datetime-local"
+                  aria-label={strings.ownerSiteDetailSeatGrantExpiryCheckboxLabel}
+                  value={seatGrantExpiryDateInput}
+                  onChange={(event) => setSeatGrantExpiryDateInput(event.target.value)}
+                  disabled={seatGrantSubmitting}
+                />
+              )}
+
+              <Field label={strings.ownerReasonFieldLabel} description={strings.ownerReasonFieldDescription}>
+                {(controlProps) => (
+                  <Textarea
+                    {...controlProps}
+                    rows={3}
+                    value={seatGrantReason}
+                    onChange={(event) => setSeatGrantReason(event.target.value)}
+                    disabled={seatGrantSubmitting}
+                  />
+                )}
+              </Field>
+
+              {seatGrantError && <Alert tone="danger">{seatGrantError}</Alert>}
+              {seatGrantSaved && !seatGrantError && (
+                <Alert tone="success">{strings.ownerSiteDetailSeatGrantSaved}</Alert>
+              )}
+
+              <div className="ago-row">
+                <Button type="submit" variant="primary" disabled={seatGrantSubmitting}>
+                  {seatGrantSubmitting ? strings.ownerSiteDetailSeatGrantingLabel : strings.ownerSiteDetailSeatGrantButton}
+                </Button>
+              </div>
+            </form>
+          </Panel>
 
           <Alert tone="info">{strings.ownerSiteDetailOperatorsNote}</Alert>
 

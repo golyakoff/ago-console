@@ -48,6 +48,10 @@ const ownerApi = vi.hoisted(() => ({
   fetchOwnerPricing: vi.fn(),
   fetchOwnerSuspensions: vi.fn(),
   fetchOwnerTenantIsolationSummary: vi.fn(),
+  // `25-181`: the seat-summary read `OwnerSiteDetailPage` now fires on mount alongside
+  // `fetchOwnerSiteDetail` - mocked from the start so this file's own render of that page does not
+  // crash on an unmocked call.
+  fetchOwnerSeatSummary: vi.fn(),
 }));
 const calendarApi = vi.hoisted(() => ({ fetchOwnerTenantScopeSummary: vi.fn() }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
@@ -115,6 +119,12 @@ beforeEach(() => {
   vi.clearAllMocks();
   tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [] });
   operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: [], siteId: null });
+  // `25-181`: a default resolved value so the `/owner/sites/:siteId` render below does not crash on
+  // an unmocked call - this file never asserts on the seat summary itself.
+  ownerApi.fetchOwnerSeatSummary.mockResolvedValue({
+    status: "ok",
+    summary: { operatorsHeld: 0, operatorsLimit: 2, administratorsHeld: 0, administratorsLimit: 1 },
+  });
 });
 
 afterEach(async () => {
@@ -166,9 +176,10 @@ describe("the owner panel, wrapped exactly as App.tsx wraps it (25-89)", () => {
     );
 
     expect(container.textContent).toContain("Разрешённые источники");
-    expect(container.textContent).toContain("Операторы");
+    // `25-181`: renamed from "Операторы" - see OwnerSiteDetailPage's own remarks for why.
+    expect(container.textContent).toContain("Пользователи");
     expect(container.textContent).not.toContain("Allowed origins");
-    expect(container.textContent).not.toContain("Operators");
+    expect(container.textContent).not.toContain("Users");
   });
 
   it("/owner/pricing renders Russian with no tenant to read a locale from", async () => {
