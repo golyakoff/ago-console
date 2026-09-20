@@ -8,7 +8,7 @@ import {
   fetchMaxChannelStatus,
   type MaxChannelStatusDto,
 } from "../api/maxChannelApi.js";
-import { formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
+import { formatAbsolute, formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
 import { PageHead } from "../shell/AppShell.js";
 import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
@@ -45,35 +45,42 @@ export const MAX_CHANNEL_PERMISSION = "channel:manage";
  * VK/Email/WhatsApp/Avito all still share, which is a standing signal MAX was meant to be the second
  * screen rather than an arbitrary pick.
  *
- * ## This screen is not `TelegramChannelPage` with the labels swapped
+ * ## `MaxChannelPage` is now `TelegramChannelPage` with the labels swapped, on purpose
  *
- * Copying that screen's live-verification badge here would claim something MAX's backend cannot back
- * up. `TelegramChannelPage` shows `Verified`/`Not responding`/`Could not check just now` because
- * `TelegramChannelEndpoints.HandleStatusAsync` re-asks Telegram's own `getMe` live, on every read
- * (`adr/0143`). `MaxChannelEndpoints.HandleStatusAsync` does not, and cannot: MAX's public API has no
- * cheap, side-effect-free equivalent of `getMe` (that endpoint's own remarks) - its only two
- * credential-shaped calls are `POST /subscriptions` (a write that would re-register the live webhook as
- * a side effect of a tenant merely loading this screen) and the long-polling `GET /updates`
- * `MaxLongPollingService` already owns exclusively (a second caller would race it for the same marker).
- * So this screen renders one honest state - `Connected` means "an active credential row exists", the
- * same, narrower fact Telegram's own status endpoint reported before `23-36`/`adr/0143` gave it a live
- * check - never a green tick implying MAX was just asked and agreed, because on every read after the
- * first, nobody asked it anything.
+ * This screen used to render one honest-but-narrower state - `Connected` meaning only "an active
+ * credential row exists" - because `MaxChannelEndpoints.HandleStatusAsync` had no cheap, side-effect-
+ * free way to ask MAX anything on a status read. `25-174` gave it exactly that: a `MaxLiveTokenCheck`
+ * wrapping `MaxApiClient.GetMeAsync`, called on every read the same place Telegram's own handler calls
+ * `TelegramLiveTokenCheck` (`adr/0143`). `status.verified` is now what actually decides the badge and
+ * the message below it, the identical `TelegramChannelPage` shape this doc comment used to argue
+ * against copying - `status.connected` on its own still only means a credential row exists. A tenant
+ * whose bot was deleted or blocked at MAX's own side now sees that here, on this screen, the moment
+ * they look, not a green tick that quietly lies.
  *
- * ## What "connected" is actually evidence of, for MAX
+ * The same bounded live check (`MaxLiveTokenCheck.Timeout`, matching `TelegramLiveTokenCheck.Timeout`)
+ * means this screen also renders the same third state - `status.unreachable` - distinct from both the
+ * verified and the refused cases: the live check itself could not complete, which says nothing about
+ * whether the token is actually good. Rendered as its own neutral badge and its own `Alert`, never
+ * folded into the refused case's red "get a new token" message - the two facts call for opposite
+ * tenant actions (wait and retry, versus reconnect).
  *
- * The one moment MAX is genuinely asked is at connect time, inside `MaxChannelEndpoints.HandleConnectAsync`
- * - when `MaxBotApiOptions.PublicWebhookBaseUrl` is configured (the deployed system, not the local
- * compose loop), a bad or revoked token is refused there via `POST /subscriptions`, rolled back the
- * identical way Telegram's `getMe` rejection is. `connectError` below surfaces that refusal text
- * verbatim, matching `TelegramChannelPage`'s own "show what the provider said" discipline
- * (`connectMaxChannelError` is a fallback only, never overwriting a real `ApiProblemError.message`).
+ * ## What "connected" was already evidence of, at connect time
+ *
+ * The one moment MAX was already genuinely asked is at connect time, inside `MaxChannelEndpoints.
+ * HandleConnectAsync` - when `MaxBotApiOptions.PublicWebhookBaseUrl` is configured (the deployed
+ * system, not the local compose loop), a bad or revoked token is refused there via `POST /subscriptions`,
+ * rolled back the identical way Telegram's `getMe` rejection is. `connectError` below surfaces that
+ * refusal text verbatim, matching `TelegramChannelPage`'s own "show what the provider said" discipline
+ * (`maxChannelConnectError` is a fallback only, never overwriting a real `ApiProblemError.message`).
+ * `25-174` added the second, ongoing ask this doc comment above describes - connect time was never the
+ * only place MAX could be asked, just the only one that existed until then.
  *
  * ## The token is never rendered back, in either direction
  *
  * Same guarantee as `TelegramChannelPage`: `ConnectMaxChannelResponseDto` carries only an id and a
- * timestamp, and `MaxChannelStatusDto` after that carries only `connected`/`channelCredentialId`/
- * `createdAt`. No response this screen ever parses has a field the typed token could come back through.
+ * timestamp, and no field on `MaxChannelStatusDto` after that - `verified`/`unreachable`/
+ * `refusalReason`/`checkedAt` included - could be the token. No response this screen ever parses has a
+ * field the typed token could come back through.
  */
 export function MaxChannelPage() {
   const { user } = useAuth();
@@ -159,6 +166,7 @@ export function MaxChannelPage() {
   };
 
   const createdAtDate = status?.createdAt ? parseInstant(status.createdAt) : null;
+  const checkedAtDate = status?.checkedAt ? parseInstant(status.checkedAt) : null;
 
   return (
     <>
@@ -182,13 +190,45 @@ export function MaxChannelPage() {
           }
         >
           <div className="ago-stack">
-            <Badge tone="success" dot>
-              {strings.maxChannelConnectedBadge}
-            </Badge>
+            {status.unreachable ? (
+              <Badge tone="neutral" dot>
+                {strings.maxChannelUnreachableBadge}
+              </Badge>
+            ) : status.verified ? (
+              <Badge tone="success" dot>
+                {strings.maxChannelVerifiedBadge}
+              </Badge>
+            ) : (
+              <Badge tone="danger" dot>
+                {strings.maxChannelUnverifiedBadge}
+              </Badge>
+            )}
 
             {createdAtDate && (
               <p>
                 {strings.maxChannelConnectedSinceLabel} {formatDateStamp(createdAtDate, timeZone, strings)}
+              </p>
+            )}
+
+            {/* `25-174`/`adr/0143`: unreachable and refused are two different facts, rendered as two
+                different Alerts - a tenant acts on "try again in a moment" and "get a new token"
+                differently, so the two must never share one message. */}
+            {status.unreachable ? (
+              <Alert tone="info" title={strings.maxChannelUnreachableBadge}>
+                {strings.maxChannelUnreachableBody}
+              </Alert>
+            ) : (
+              !status.verified &&
+              status.refusalReason && (
+                <Alert tone="danger" title={strings.maxChannelUnverifiedBadge}>
+                  {strings.maxChannelUnverifiedBody} {status.refusalReason}
+                </Alert>
+              )
+            )}
+
+            {checkedAtDate && (
+              <p className="ago-muted">
+                {strings.maxChannelCheckedAtLabel} {formatAbsolute(checkedAtDate, timeZone, strings)}
               </p>
             )}
           </div>

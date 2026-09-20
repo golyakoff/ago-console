@@ -1123,7 +1123,12 @@ export const ru: ConsoleStrings = {
   maxChannelConnectingButton: "Подключаем…",
   maxChannelConnectError: "Не удалось подключить бота. Попробуйте ещё раз.",
   maxChannelConnectedSinceLabel: "Подключено с",
-  maxChannelConnectedBadge: "Подключено",
+  maxChannelVerifiedBadge: "Подключено",
+  maxChannelUnverifiedBadge: "Не отвечает",
+  maxChannelUnverifiedBody: "MAX ответил:",
+  maxChannelUnreachableBadge: "Не удалось проверить",
+  maxChannelUnreachableBody: "AGO не удалось связаться с MAX прямо сейчас. Это не значит, что токен неверный — попробуйте ещё раз через минуту.",
+  maxChannelCheckedAtLabel: "Проверено",
   maxChannelDisconnectButton: "Отключить",
   maxChannelDisconnectDialogTitle: "Отключить этого бота?",
   maxChannelDisconnectDialogBody:

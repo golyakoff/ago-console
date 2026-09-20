@@ -14,20 +14,35 @@ import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
  * `MaxChannelEndpoints.MapMaxChannelEndpoints` maps - the same "thin wire-shape file over every
  * endpoint one screen needs" shape `telegramChannelApi.ts` already established.
  *
- * ## Deliberately not the same status shape as Telegram's
+ * ## The same status shape as Telegram's, now for real
  *
- * {@link MaxChannelStatusDto} has three fields, not `TelegramChannelStatusDto`'s seven - there is no
- * `verified`/`unreachable`/`refusalReason`/`checkedAt` here because `MaxChannelEndpoints.HandleStatusAsync`
- * never asks MAX anything on a status read (that endpoint's own remarks: MAX's public API has no cheap,
- * side-effect-free equivalent of Telegram's `getMe`, and its two credential-shaped calls are either a
- * write `MaxLongPollingService` cannot safely share, or the long-polling read that service already owns
- * exclusively). Copying Telegram's seven-field status shape here would claim a live check this screen
- * cannot actually perform - `MaxChannelPage`'s own remarks have the console-side half of this reasoning.
+ * `25-174` gave `MaxChannelEndpoints.HandleStatusAsync` the same live check Telegram's own status route
+ * has always done - `MaxLiveTokenCheck` wrapping `MaxApiClient.GetMeAsync`, called on every read, the
+ * same bounded-timeout/three-outcome (`Verified`/`Refused`/`ProviderUnreachable`) shape
+ * `TelegramLiveTokenCheck` established first. {@link MaxChannelStatusDto} carries the identical four
+ * extra fields `TelegramChannelStatusDto` does as a result - this interface used to argue, from a since-
+ * corrected premise, that MAX's API had no cheap way to ask this live; `25-174` gave it exactly that
+ * (`docs/backlog/25-174-*.md`).
  */
 export interface MaxChannelStatusDto {
   connected: boolean;
   channelCredentialId: string | null;
   createdAt: string | null;
+  /** `null` when `connected` is `false`, or when `unreachable` is `true` - both mean "nothing was
+   * actually verified", for different reasons (nothing to check yet, versus couldn't check it). */
+  verified: boolean | null;
+  /** The live check could not complete at all - a timeout (bounded server-side, the same
+   * `MaxLiveTokenCheck.Timeout` `TelegramLiveTokenCheck.Timeout`'s own reasoning applies to
+   * unchanged) or a transient failure reaching MAX. Structurally distinct from a refusal on purpose:
+   * a tenant acts on the two differently (wait and retry, versus get a new token). Always `false`
+   * when `connected` is `false` - the live check is never attempted when there is no credential to
+   * check. */
+  unreachable: boolean;
+  /** MAX's own refusal text - present only when `verified` is `false` **and** `unreachable` is
+   * `false` (a real refusal, not an unreachable provider). Never anything this console generated from
+   * the token itself - matching `TelegramChannelStatusDto.refusalReason`'s own guarantee. */
+  refusalReason: string | null;
+  checkedAt: string;
 }
 
 export interface ConnectMaxChannelResponseDto {

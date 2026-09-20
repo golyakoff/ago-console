@@ -1765,16 +1765,29 @@ export interface ConsoleStrings {
    * discipline `telegramChannelConnectError` already follows, against a different provider call. */
   maxChannelConnectError: string;
   /** `${maxChannelConnectedSinceLabel} ${date}` - `status.createdAt`, when the credential was first
-   * registered. Unlike `telegramChannelConnectedSinceLabel`, there is no sibling "checked at" label:
-   * `MaxChannelEndpoints.HandleStatusAsync` never re-checks anything after registration
-   * (`MaxChannelPage`'s own doc comment: MAX's API has no cheap live-check call to make on every read). */
+   * registered (not when it was last verified - see `maxChannelCheckedAtLabel` for that). */
   maxChannelConnectedSinceLabel: string;
-  /** The one badge this screen ever shows for a connected credential - never `telegramChannelVerifiedBadge`'s
-   * three-state sibling set (`Verified`/`Not responding`/`Could not check just now`), because none of
-   * those three facts is something `MaxChannelEndpoints.HandleStatusAsync` can actually tell this
-   * screen (`MaxChannelPage`'s own doc comment). "Connected" here means only "an active credential row
-   * exists", not "MAX was just asked and agreed". */
-  maxChannelConnectedBadge: string;
+  /** `25-174`: this status is asked of MAX live, on every load, the same `MaxLiveTokenCheck` mirrors
+   * `TelegramLiveTokenCheck` - `verified: true` is what this badge actually reflects, never `connected`
+   * alone. */
+  maxChannelVerifiedBadge: string;
+  /** Shown when the live check just failed - `status.verified === false` while `status.connected`
+   * is still `true` (the credential row exists; MAX just refused it). */
+  maxChannelUnverifiedBadge: string;
+  /** `${maxChannelUnverifiedBody} ${status.refusalReason}` - MAX's own refusal text, appended
+   * verbatim, never paraphrased (the same "show what the provider said" discipline
+   * `telegramChannelUnverifiedBody` already establishes). */
+  maxChannelUnverifiedBody: string;
+  /** `25-174`: shown instead of `maxChannelVerifiedBadge`/`maxChannelUnverifiedBadge` when
+   * `status.unreachable` - the live check itself could not complete (a bounded timeout, or a
+   * transient failure reaching MAX), never confused with a refusal. */
+  maxChannelUnreachableBadge: string;
+  /** The body text under `maxChannelUnreachableBadge` - explicitly "try again", never "get a new
+   * token", because nothing about the token itself is known in this state. */
+  maxChannelUnreachableBody: string;
+  /** `${maxChannelCheckedAtLabel} ${time}` - `status.checkedAt`, this load's own live check,
+   * distinct from `maxChannelConnectedSinceLabel` above. */
+  maxChannelCheckedAtLabel: string;
   maxChannelDisconnectButton: string;
   maxChannelDisconnectDialogTitle: string;
   /** States the consequence directly, the same `telegramChannelDisconnectDialogBody` precedent -
