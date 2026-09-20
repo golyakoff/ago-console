@@ -9,15 +9,12 @@ import { ApiProblemError } from "../api/maxChannelApi.js";
 import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
 
 /**
- * `25-09`: `/channels/max`. Modeled directly on `TelegramChannelPage.test.tsx` - same permission-gated-
- * page shape (the real `PermissionsProvider`, `GET /api/v1/operators/me` faked), same "the token a
- * tenant types is never, anywhere, rendered back onto the page" demand.
- *
- * Deliberately missing here: the three-state live-check suite (`connectedButRefused`/
- * `connectedButUnreachable` and their badges) `TelegramChannelPage.test.tsx` has. `MaxChannelPage`
- * itself only ever renders one connected state - see its own doc comment for why
- * `MaxChannelEndpoints.HandleStatusAsync` cannot re-verify the token the way Telegram's status endpoint
- * does. Testing three states this screen cannot produce would document a capability it does not have.
+ * `25-09`/`25-178`: `/channels/max`. Modeled directly on `TelegramChannelPage.test.tsx` - same
+ * permission-gated-page shape (the real `PermissionsProvider`, `GET /api/v1/operators/me` faked), same
+ * "the token a tenant types is never, anywhere, rendered back onto the page" demand, and now (`25-174`
+ * having given `MaxChannelEndpoints.HandleStatusAsync` the same live check Telegram's status route
+ * always had) the identical three-state live-check suite (`connectedAndVerified`/`connectedButRefused`/
+ * `connectedButUnreachable` and their badges) `TelegramChannelPage.test.tsx` proves for Telegram.
  */
 vi.mock("../config.js", () => ({
   config: {
@@ -87,14 +84,49 @@ function notConnected() {
     connected: false,
     channelCredentialId: null,
     createdAt: null,
+    verified: null,
+    unreachable: false,
+    refusalReason: null,
+    checkedAt: "2026-09-07T12:00:00Z",
   });
 }
 
-function connected() {
+function connectedAndVerified() {
   maxChannelApi.fetchMaxChannelStatus.mockResolvedValue({
     connected: true,
     channelCredentialId: CREDENTIAL_ID,
     createdAt: "2026-09-01T12:00:00Z",
+    verified: true,
+    unreachable: false,
+    refusalReason: null,
+    checkedAt: "2026-09-07T12:00:00Z",
+  });
+}
+
+function connectedButRefused() {
+  maxChannelApi.fetchMaxChannelStatus.mockResolvedValue({
+    connected: true,
+    channelCredentialId: CREDENTIAL_ID,
+    createdAt: "2026-09-01T12:00:00Z",
+    verified: false,
+    unreachable: false,
+    refusalReason: "MAX refused the token (401): Unauthorized",
+    checkedAt: "2026-09-07T12:00:00Z",
+  });
+}
+
+/** `25-174`: the third live-check state - the bound fired, or MAX/the relay did not answer at all.
+ * `verified`/`refusalReason` are both `null` here, exactly as the backend's own response requires -
+ * this fixture would be wrong (and would silently pass as "refused") if it set either one. */
+function connectedButUnreachable() {
+  maxChannelApi.fetchMaxChannelStatus.mockResolvedValue({
+    connected: true,
+    channelCredentialId: CREDENTIAL_ID,
+    createdAt: "2026-09-01T12:00:00Z",
+    verified: null,
+    unreachable: true,
+    refusalReason: null,
+    checkedAt: "2026-09-07T12:00:00Z",
   });
 }
 
@@ -165,8 +197,8 @@ describe("not connected", () => {
 
     const container = await render(page());
     await interact(() => setTextValue(tokenField(container), FAKE_TOKEN));
-    // The second (post-connect) status read reports the newly-connected state.
-    connected();
+    // The second (post-connect) status read reports the newly-connected, verified state.
+    connectedAndVerified();
     await interact(() => byText<HTMLButtonElement>(container, "button", "Connect").click());
 
     expect(maxChannelApi.connectMaxChannel).toHaveBeenCalledWith("token", SITE_ID, FAKE_TOKEN);
@@ -205,7 +237,7 @@ describe("not connected", () => {
 
     const container = await render(page());
     await interact(() => setTextValue(tokenField(container), FAKE_TOKEN));
-    connected();
+    connectedAndVerified();
     await interact(() => byText<HTMLButtonElement>(container, "button", "Connect").click());
 
     expect(container.textContent).not.toContain(FAKE_TOKEN);
@@ -214,22 +246,45 @@ describe("not connected", () => {
 });
 
 describe("connected", () => {
-  /** Deliberately the only badge/state this suite proves - see this file's own top-of-file remarks on
-   * why `TelegramChannelPage.test.tsx`'s "not responding"/"could not check" cases have no analogue
-   * here: `MaxChannelPage` only ever has one connected state to show. Proven together with the token
-   * absence, since a connected credential is the one state that could plausibly leak it. */
-  it("shows the connected badge and the connected-since date, and never the token, once a credential exists", async () => {
-    connected();
+  it("shows the verified badge and the connected-since date, and never the token, once MAX just confirmed the bot", async () => {
+    connectedAndVerified();
 
     const container = await render(page());
 
     expect(container.textContent).toContain("Connected");
     expect(container.textContent).toContain("Connected since");
+    expect(container.textContent).not.toContain("Not responding");
     expect(container.textContent).not.toContain(FAKE_TOKEN);
   });
 
+  it("shows the not-responding badge and MAX's own refusal text when the live check just failed", async () => {
+    connectedButRefused();
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Not responding");
+    expect(container.textContent).toContain("MAX said:");
+    expect(container.textContent).toContain("MAX refused the token (401): Unauthorized");
+  });
+
+  /** `25-174`: the coordinator's own requirement, ported from `TelegramChannelPage.test.tsx`'s
+   * identical test - a timeout/unreachable provider must render as a plainly distinct message from
+   * "this token is invalid", never the same "Not responding" badge or "MAX said:" text a real refusal
+   * gets. A regression that collapsed the two states back into one would make this test (and the one
+   * right above it) fail on whichever assertion the collapse broke. */
+  it("shows a distinct could-not-reach badge, never the refused message, when the live check could not complete", async () => {
+    connectedButUnreachable();
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Could not check just now");
+    expect(container.textContent).toContain("AGO could not reach MAX just now");
+    expect(container.textContent).not.toContain("Not responding");
+    expect(container.textContent).not.toContain("MAX said:");
+  });
+
   it("disconnects after confirming, states the consequence first, and returns to the not-connected form", async () => {
-    connected();
+    connectedAndVerified();
     maxChannelApi.disconnectMaxChannel.mockResolvedValue(undefined);
 
     const container = await render(page());
@@ -251,7 +306,7 @@ describe("connected", () => {
   });
 
   it("cancelling the disconnect dialog calls nothing", async () => {
-    connected();
+    connectedAndVerified();
 
     const container = await render(page());
     const openDialogButton = all(container, "button").filter((b) => b.textContent === "Disconnect");

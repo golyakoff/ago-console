@@ -1120,7 +1120,12 @@ export const en: ConsoleStrings = {
   maxChannelConnectingButton: "Connecting…",
   maxChannelConnectError: "Could not connect that bot. Try again.",
   maxChannelConnectedSinceLabel: "Connected since",
-  maxChannelConnectedBadge: "Connected",
+  maxChannelVerifiedBadge: "Connected",
+  maxChannelUnverifiedBadge: "Not responding",
+  maxChannelUnverifiedBody: "MAX said:",
+  maxChannelUnreachableBadge: "Could not check just now",
+  maxChannelUnreachableBody: "AGO could not reach MAX just now. This does not mean your token is invalid - try again in a moment.",
+  maxChannelCheckedAtLabel: "Checked",
   maxChannelDisconnectButton: "Disconnect",
   maxChannelDisconnectDialogTitle: "Disconnect this bot?",
   maxChannelDisconnectDialogBody:
