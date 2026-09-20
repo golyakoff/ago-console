@@ -176,6 +176,53 @@
   cursor: pointer;
 }
 
+/* `25-186`: PhoneInput.tsx - the non-interactive 🇷🇺 +7 prefix wrapper, styled as one control shell
+   (border/radius/focus ring live on the wrapper) with the native `.ago-control` inside stripped of
+   its own border/background so the two pieces read as a single field, exactly the way a bordered
+   input with a leading icon usually looks. */
+.ago-phone-input {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  background: var(--ago-surface);
+  border: 1px solid var(--ago-line-strong);
+  border-radius: var(--ago-radius-sm);
+  transition:
+    border-color var(--ago-transition),
+    box-shadow var(--ago-transition);
+}
+
+.ago-phone-input:focus-within {
+  border-color: var(--ago-brand);
+  box-shadow: var(--ago-focus-halo);
+}
+
+.ago-phone-input--invalid {
+  border-color: var(--ago-danger);
+}
+
+.ago-phone-input__prefix {
+  display: flex;
+  align-items: center;
+  gap: var(--ago-space-1);
+  padding: 0 var(--ago-space-3);
+  border-right: 1px solid var(--ago-line-strong);
+  color: var(--ago-ink-soft);
+  font-size: var(--ago-text-base);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.ago-phone-input .ago-control {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ago-phone-input .ago-control:focus-visible {
+  box-shadow: none;
+}
+
 /* ============================================================================ Field */
 
 .ago-field {

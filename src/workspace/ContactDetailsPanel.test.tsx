@@ -249,6 +249,46 @@ describe("editing a contact detail (25-58)", () => {
   });
 });
 
+/** `25-186`: the flagged phone field only replaces the plain `Input` for a `Phone` row's own edit
+ * control - `Email`/`Name` rows are untouched, `ContactDetailsPanel.tsx`'s own remarks on the switch. */
+describe("the flagged phone field on edit (25-186)", () => {
+  it("renders PhoneInput's wrapper and 🇷🇺 +7 prefix when editing a Phone row", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([detail({ kind: "Phone" })]);
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Edit").click());
+
+    expect(all(container, ".ago-phone-input")).toHaveLength(1);
+    expect(container.textContent).toContain("🇷🇺 +7");
+  });
+
+  it("renders the plain Input, not PhoneInput's wrapper, when editing an Email row", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([
+      detail({ kind: "Email", value: "visitor@example.com" }),
+    ]);
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Edit").click());
+
+    expect(all(container, ".ago-phone-input")).toHaveLength(0);
+    expect(container.textContent).not.toContain("🇷🇺 +7");
+    expect(all(container, "input")).toHaveLength(1);
+  });
+
+  it("renders the plain Input, not PhoneInput's wrapper, when editing a Name row", async () => {
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([
+      detail({ kind: "Name", value: "prefers to be called Alex" }),
+    ]);
+
+    const container = await mount(["conversation:read", "conversation:send"]);
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Edit").click());
+
+    expect(all(container, ".ago-phone-input")).toHaveLength(0);
+    expect(container.textContent).not.toContain("🇷🇺 +7");
+    expect(all(container, "input")).toHaveLength(1);
+  });
+});
+
 describe("confirming or marking a contact detail invalid (25-58)", () => {
   it("confirms a Phone row, replacing the action with a Confirmed badge and only Mark invalid remains", async () => {
     contactDetailsApi.fetchContactDetails.mockResolvedValue([detail()]);

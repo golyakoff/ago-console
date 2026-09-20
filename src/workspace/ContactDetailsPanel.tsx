@@ -12,6 +12,7 @@ import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
 import { Input } from "../components/Input.js";
+import { PhoneInput } from "../components/PhoneInput.js";
 import { Skeleton } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
@@ -260,12 +261,27 @@ export function ContactDetailsPanel({ conversationId, accessToken }: ContactDeta
 
                 {isEditing ? (
                   <>
-                    <Input
-                      value={editDraft}
-                      onChange={(e) => setEditDraft(e.target.value)}
-                      disabled={isSaving}
-                      aria-label={strings.contactDetailsValuePlaceholder}
-                    />
+                    {/* `25-186`: a Phone row's correction is a real, currently-un-flagged phone field -
+                        the same 🇷🇺 +7 treatment `ago-widget`'s own contact-capture form and the
+                        brandbook's Field/Input demo now show, for the identical reason: nothing here
+                        told an operator this value is expected to be a Russian number. Email/Name rows
+                        are untouched - this is presentational only, `editContactDetail`'s own wire
+                        shape and validation are unchanged either way. */}
+                    {detail.kind === "Phone" ? (
+                      <PhoneInput
+                        value={editDraft}
+                        onChange={(e) => setEditDraft(e.target.value)}
+                        disabled={isSaving}
+                        aria-label={strings.contactDetailsValuePlaceholder}
+                      />
+                    ) : (
+                      <Input
+                        value={editDraft}
+                        onChange={(e) => setEditDraft(e.target.value)}
+                        disabled={isSaving}
+                        aria-label={strings.contactDetailsValuePlaceholder}
+                      />
+                    )}
                     <Button
                       type="button"
                       size="sm"
