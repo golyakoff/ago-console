@@ -136,6 +136,32 @@
   border-color: var(--ago-danger);
 }
 
+/* `25-185`: `type="date"`/`type="time"` draw their calendar/clock glyph
+   (`::-webkit-calendar-picker-indicator` in Chromium) through a separate rendering path that no
+   property above touches - confirmed live (Chromium 151, pixel-cropped screenshots, not eyeballed
+   at full size) that with no `color-scheme` declared the glyph is a fixed dark icon regardless of
+   the control's own `background`/`color`, so it is legible on the light theme's white surface and
+   nearly invisible on the dark theme's `--ago-surface`. `color-scheme` is the property that actually
+   tells the browser which native-control palette to paint the icon with (Chromium confirmed;
+   Firefox has implemented the same CSS property since version 96 - not independently screenshotted
+   here, a sandbox rendering limitation, not a skipped check), so this mirrors `tokens.css`'s own
+   three-state cascade (see that file's header comment) at the `.ago-control` selector instead of
+   `:root` - scoped to the control rather than the whole page, same as `components.html`'s own
+   `.console-demo` token block scopes the identical cascade to one section. */
+.ago-control {
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ago-control {
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] .ago-control {
+  color-scheme: dark;
+}
+
 .ago-control--textarea {
   min-height: 5rem;
   resize: vertical;
