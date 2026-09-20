@@ -1828,15 +1828,30 @@ export interface ConsoleStrings {
    * view instead of the form), but still reachable - a second operator/browser attempting to connect
    * a credential the first one already registered gets this exact refusal. */
   vkChannelAlreadyConnectedHint: string;
-  /** `${vkChannelConnectedSinceLabel} ${date}` - `status.createdAt` since `25-65` (persists across a
-   * reload, unlike the in-memory-only value this string's own `25-15` doc comment used to describe). */
+  /** `${vkChannelConnectedSinceLabel} ${date}` - `status.createdAt`, when the credential was first
+   * registered (not when it was last verified - see `vkChannelCheckedAtLabel` for that). */
   vkChannelConnectedSinceLabel: string;
-  /** The one badge this screen ever shows for a connected credential - "Connected" means VK's own
-   * `groups.getById` agreed at connect time (`VkChannelEndpoints.HandleConnectAsync`), the same
-   * "verified before ever written" fact Telegram's `getMe` and MAX's `POST /subscriptions` establish
-   * for their own connect calls. Shown for `status.connected`, not re-verified live on a reload
-   * (`vkChannelApi.ts`'s own remarks on why `VkChannelStatusDto` cannot carry a fresher answer). */
-  vkChannelConnectedBadge: string;
+  /** `25-175`: this status is asked of VK live, on every load, the same `VkLiveTokenCheck` mirrors
+   * `TelegramLiveTokenCheck`/`MaxLiveTokenCheck` - `verified: true` is what this badge actually
+   * reflects, never `connected` alone. */
+  vkChannelVerifiedBadge: string;
+  /** Shown when the live check just failed - `status.verified === false` while `status.connected`
+   * is still `true` (the credential row exists; VK just refused it). */
+  vkChannelUnverifiedBadge: string;
+  /** `${vkChannelUnverifiedBody} ${status.refusalReason}` - VK's own refusal text, appended
+   * verbatim, never paraphrased (the same "show what the provider said" discipline
+   * `telegramChannelUnverifiedBody`/`maxChannelUnverifiedBody` already establish). */
+  vkChannelUnverifiedBody: string;
+  /** `25-175`: shown instead of `vkChannelVerifiedBadge`/`vkChannelUnverifiedBadge` when
+   * `status.unreachable` - the live check itself could not complete (a bounded timeout, or a
+   * transient failure reaching VK), never confused with a refusal. */
+  vkChannelUnreachableBadge: string;
+  /** The body text under `vkChannelUnreachableBadge` - explicitly "try again", never "get a new
+   * token", because nothing about the token itself is known in this state. */
+  vkChannelUnreachableBody: string;
+  /** `${vkChannelCheckedAtLabel} ${time}` - `status.checkedAt`, this load's own live check,
+   * distinct from `vkChannelConnectedSinceLabel` above. */
+  vkChannelCheckedAtLabel: string;
   /** Title of the `Alert` explaining what the two values below it are for - shown only for the
    * `justConnected` case (`VkChannelPage`'s own remarks): the callback URL and secret key this alert
    * introduces are not values `status` (a reload) can ever reproduce. */
