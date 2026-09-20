@@ -154,6 +154,8 @@ beforeEach(() => {
     autoOpenEnabled: false,
     autoOpenDelaySeconds: 30,
     autoOpenGreetingText: null,
+    channelSwitcherPlacement: "AboveComposer",
+    channelSwitcherIconSize: "Medium",
   });
   widgetConfigApi.updateWidgetConfig.mockImplementation((_token: string, _siteId: string, dto: unknown) =>
     Promise.resolve(dto),
@@ -430,6 +432,222 @@ describe("the widget processing notice fields", () => {
     expect(container.textContent).toContain("We read what you send us.");
     expect(byText(container, "a", "https://tenant.example/privacy")).not.toBeNull();
     expect(container.textContent).toContain("Saved.");
+  });
+});
+
+/** `25-173`: the "Каналы"/"Channels" panel's own two `<select>`s, found the identical `<label>`-`htmlFor`
+ * way every other `Field`-wired control on this page's own test file already uses. */
+function channelSwitcherPlacementSelect(container: HTMLElement): HTMLSelectElement {
+  const label = byText<HTMLLabelElement>(container, ".ago-field__label", "Show channels as");
+  if (label === null) {
+    throw new Error("no 'Show channels as' field label found");
+  }
+
+  const id = label.getAttribute("for");
+  const select = id ? document.getElementById(id) : null;
+  if (!(select instanceof HTMLSelectElement)) {
+    throw new Error("'Show channels as' field is not a <select>");
+  }
+
+  return select;
+}
+
+function channelSwitcherIconSizeSelect(container: HTMLElement): HTMLSelectElement | null {
+  const label = byText<HTMLLabelElement>(container, ".ago-field__label", "Icon size");
+  if (label === null) {
+    return null;
+  }
+
+  const id = label.getAttribute("for");
+  const select = id ? document.getElementById(id) : null;
+  if (!(select instanceof HTMLSelectElement)) {
+    throw new Error("'Icon size' field is not a <select>");
+  }
+
+  return select;
+}
+
+/**
+ * `25-173`: the new, separate "Channels" panel placed immediately after "Launcher" - a placement
+ * `<select>` and a size `<select>` that only appears while the circles placement is chosen, both
+ * saved through the same one PUT every other field on this screen already uses. Modeled on "the
+ * widget language field" block above for the load/save shape.
+ */
+describe("the channel switcher panel", () => {
+  it("gives the two fields their own 'Channels' panel, placed right after 'Launcher'", async () => {
+    const container = await render(page());
+
+    const panelTitles = Array.from(container.querySelectorAll("h2")).map((h) => h.textContent);
+    const launcherIndex = panelTitles.indexOf("Launcher");
+    const channelsIndex = panelTitles.indexOf("Channels");
+
+    expect(launcherIndex).toBeGreaterThanOrEqual(0);
+    expect(channelsIndex).toBe(launcherIndex + 1);
+  });
+
+  it("defaults to the above-composer placement and hides the size field", async () => {
+    const container = await render(page());
+
+    expect(channelSwitcherPlacementSelect(container).value).toBe("AboveComposer");
+    expect(channelSwitcherIconSizeSelect(container)).toBeNull();
+  });
+
+  // The Done-when this item names explicitly: the size field shows/hides live as the placement
+  // selection changes - no page reload, no save round trip.
+  it("shows the size field the instant the circles placement is chosen, live, with no save", async () => {
+    const container = await render(page());
+
+    expect(channelSwitcherIconSizeSelect(container)).toBeNull();
+
+    await interact(() => {
+      const select = channelSwitcherPlacementSelect(container);
+      select.value = "BelowLauncher";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    const sizeSelect = channelSwitcherIconSizeSelect(container);
+    expect(sizeSelect).not.toBeNull();
+    expect(sizeSelect?.value).toBe("Medium");
+    expect(widgetConfigApi.updateWidgetConfig).not.toHaveBeenCalled();
+  });
+
+  it("hides the size field again the instant the placement is switched back", async () => {
+    const container = await render(page());
+
+    await interact(() => {
+      const select = channelSwitcherPlacementSelect(container);
+      select.value = "BelowLauncher";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(channelSwitcherIconSizeSelect(container)).not.toBeNull();
+
+    await interact(() => {
+      const select = channelSwitcherPlacementSelect(container);
+      select.value = "AboveComposer";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    expect(channelSwitcherIconSizeSelect(container)).toBeNull();
+  });
+
+  it("loads the site's current placement and size into the selects", async () => {
+    widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
+      siteId: SITE_ID,
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "En",
+      noticeText: null,
+      noticeUrl: null,
+      channelSwitcherPlacement: "BelowLauncher",
+      channelSwitcherIconSize: "Small",
+    });
+    const container = await render(page());
+
+    expect(channelSwitcherPlacementSelect(container).value).toBe("BelowLauncher");
+    expect(channelSwitcherIconSizeSelect(container)?.value).toBe("Small");
+  });
+
+  it("saves the chosen placement and size alongside every other field, in one PUT", async () => {
+    const container = await render(page());
+
+    await interact(() => {
+      const select = channelSwitcherPlacementSelect(container);
+      select.value = "BelowLauncher";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await interact(() => {
+      const select = channelSwitcherIconSizeSelect(container);
+      if (select === null) {
+        throw new Error("size select did not appear");
+      }
+      select.value = "Large";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(widgetConfigApi.updateWidgetConfig).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({
+        channelSwitcherPlacement: "BelowLauncher",
+        channelSwitcherIconSize: "Large",
+      }),
+    );
+  });
+
+  // The same "a save that never touched this field must carry it through unchanged" regression shape
+  // `acceptUnverifiedPhone`/`allowAttachmentUploadsByDefault`'s own tests already prove for their own
+  // fields - this page PUTs the whole object, so a field missing from the request would silently
+  // reset a tenant's chosen placement on the next unrelated save.
+  it("carries the placement and size through a save that never touched them", async () => {
+    widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "Ru",
+      noticeText: null,
+      noticeUrl: null,
+      channelSwitcherPlacement: "BelowLauncher",
+      channelSwitcherIconSize: "Small",
+    });
+
+    const container = await render(page());
+
+    await interact(() => {
+      const select = localeSelect(container);
+      select.value = "En";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(widgetConfigApi.updateWidgetConfig).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({
+        locale: "En",
+        channelSwitcherPlacement: "BelowLauncher",
+        channelSwitcherIconSize: "Small",
+      }),
+    );
+  });
+
+  it("reflects the server's saved placement and size back into the selects", async () => {
+    const container = await render(page());
+    widgetConfigApi.updateWidgetConfig.mockResolvedValue({
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "En",
+      noticeText: null,
+      noticeUrl: null,
+      channelSwitcherPlacement: "BelowLauncher",
+      channelSwitcherIconSize: "Large",
+    });
+
+    await interact(() => {
+      const select = channelSwitcherPlacementSelect(container);
+      select.value = "BelowLauncher";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(channelSwitcherPlacementSelect(container).value).toBe("BelowLauncher");
+    expect(channelSwitcherIconSizeSelect(container)?.value).toBe("Large");
+    expect(container.textContent).toContain("Saved.");
+  });
+
+  it("offers exactly the three sizes the backlog item fixes, largest to smallest", async () => {
+    const container = await render(page());
+
+    await interact(() => {
+      const select = channelSwitcherPlacementSelect(container);
+      select.value = "BelowLauncher";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    const options = Array.from(
+      channelSwitcherIconSizeSelect(container)?.querySelectorAll("option") ?? [],
+    ).map((o) => o.value);
+
+    expect(options).toEqual(["Large", "Medium", "Small"]);
   });
 });
 

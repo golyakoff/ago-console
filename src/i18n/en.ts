@@ -410,6 +410,14 @@ export const en: ConsoleStrings = {
   widgetAttractAttentionLabel: "Attract attention while closed",
   widgetAttractAttentionDescription:
     "Pulses the launcher a few times, then stops - never while the panel is open, never after it has been dismissed. Always off for a visitor whose browser asks for reduced motion, whatever this setting says.",
+  widgetChannelSwitcherPanelTitle: "Channels",
+  widgetChannelSwitcherPlacementFieldLabel: "Show channels as",
+  widgetChannelSwitcherPlacementAboveComposer: "Banners above the chat window",
+  widgetChannelSwitcherPlacementBelowLauncher: "Round icons below the chat window",
+  widgetChannelSwitcherIconSizeFieldLabel: "Icon size",
+  widgetChannelSwitcherIconSizeLarge: "Large",
+  widgetChannelSwitcherIconSizeMedium: "Medium",
+  widgetChannelSwitcherIconSizeSmall: "Small",
   widgetAutoOpenLabel: "Open the widget automatically",
   widgetAutoOpenDescription:
     "After the delay below, the panel opens itself and shows your greeting - drawn only in the visitor's " +

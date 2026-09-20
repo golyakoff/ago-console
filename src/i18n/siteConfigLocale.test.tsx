@@ -195,6 +195,7 @@ describe("the site-configuration screens for an active site with Locale = Ru", (
       "Язык виджета",
       "Задержка перед открытием",
       "Текст приветствия",
+      "Показывать каналы",
       "Текст уведомления (необязательно)",
       "Ссылка на уведомление (необязательно)",
       "Текст подтверждения (необязательно)",
@@ -206,10 +207,14 @@ describe("the site-configuration screens for an active site with Locale = Ru", (
     // (placed right after "Согласие на сбор контактных данных"), proving the same for the
     // contact-capture confirmation text. `25-39`: a fourth panel title, proving the same for the
     // temporary booking-relaxation checkbox. `25-104`: a fifth panel title, proving the same for the
-    // site-level attachment-upload default.
+    // site-level attachment-upload default. `25-173`: a new "Каналы" panel, placed immediately after
+    // "Кнопка запуска" - proving the Russian title renders there, not merged back into the launcher
+    // panel above it. The size field stays hidden here (the default placement is the above-composer
+    // one), so it does not appear in the field-label list above either.
     const panelTitles = all(container, ".ago-panel__title").map((t) => t.textContent?.trim());
     expect(panelTitles).toEqual([
       "Кнопка запуска",
+      "Каналы",
       "Согласие на обработку персональных данных",
       "Согласие на сбор контактных данных",
       "Подтверждение после контактных данных",

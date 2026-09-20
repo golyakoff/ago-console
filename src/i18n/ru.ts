@@ -408,6 +408,14 @@ export const ru: ConsoleStrings = {
   widgetAttractAttentionLabel: "Привлекать внимание, пока виджет закрыт",
   widgetAttractAttentionDescription:
     "Кнопка несколько раз слегка подрагивает, затем перестаёт - никогда, пока панель открыта, и никогда после того, как посетитель её закрыл. Всегда отключено, если браузер посетителя просит уменьшить анимацию, независимо от этой настройки.",
+  widgetChannelSwitcherPanelTitle: "Каналы",
+  widgetChannelSwitcherPlacementFieldLabel: "Показывать каналы",
+  widgetChannelSwitcherPlacementAboveComposer: "Баннеры над окном диалога",
+  widgetChannelSwitcherPlacementBelowLauncher: "Круглые значки под окном диалога",
+  widgetChannelSwitcherIconSizeFieldLabel: "Размер значков",
+  widgetChannelSwitcherIconSizeLarge: "Крупный",
+  widgetChannelSwitcherIconSizeMedium: "Средний",
+  widgetChannelSwitcherIconSizeSmall: "Мелкий",
   widgetAutoOpenLabel: "Раскрывать виджет автоматически",
   widgetAutoOpenDescription:
     "Через указанную задержку панель откроется сама и покажет ваше приветствие - оно рисуется только в " +

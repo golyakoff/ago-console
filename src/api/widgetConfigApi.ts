@@ -29,6 +29,21 @@ export type WidgetLocale = "En" | "Ru";
  */
 export type AutoOpenDelaySeconds = 15 | 30 | 45 | 60 | 90 | 120;
 
+/**
+ * `25-173`: `Ago.Chat.Domain.ChannelSwitcherPlacement`'s own PascalCase member names on the wire
+ * (`WidgetConfigEndpoints.WidgetConfigResponse`/`UpdateWidgetConfigRequest`, `ago-chat`) - the
+ * identical convention `WidgetPosition`/`WidgetLocale` above already use for their own enums. A named
+ * union, not a bare `string`, for the same reason those two are: a typo in this file cannot silently
+ * compile.
+ */
+export type ChannelSwitcherPlacement = "AboveComposer" | "BelowLauncher";
+
+/**
+ * `25-173`: `Ago.Chat.Domain.ChannelSwitcherIconSize`'s own PascalCase member names on the wire - the
+ * identical convention `ChannelSwitcherPlacement` above already uses.
+ */
+export type ChannelSwitcherIconSize = "Large" | "Medium" | "Small";
+
 export interface WidgetConfigDto {
   primaryColorHex: string | null;
   position: WidgetPosition;
@@ -113,6 +128,20 @@ export interface WidgetConfigDto {
    * name - never expanded here or anywhere server-side.
    */
   contactCaptureConfirmationText: string | null;
+  /**
+   * `25-173`: which of the two placements a visitor sees the site's connected channels in -
+   * `"AboveComposer"` (`25-149`'s own pre-existing card) for every site that predates this field, or
+   * has simply never configured it. `"BelowLauncher"` is the new horizontal row of circular icons at
+   * the launcher's own height.
+   */
+  channelSwitcherPlacement: ChannelSwitcherPlacement;
+  /**
+   * `25-173`: the circle diameter/gap `"BelowLauncher"` renders at - `"Medium"` for every site that
+   * predates this field, or has simply never configured it. Always present, even while
+   * `channelSwitcherPlacement` is `"AboveComposer"` (`Ago.Chat.Domain.WidgetConfig.ChannelSwitcherIconSize`'s
+   * own remarks on why this field is never nullable).
+   */
+  channelSwitcherIconSize: ChannelSwitcherIconSize;
 }
 
 /**
