@@ -673,6 +673,22 @@ export interface ConsoleStrings {
   widgetAttractAttentionLabel: string;
   widgetAttractAttentionDescription: string;
 
+  /** `25-173`: a new, separate panel - not fields bolted onto `widgetPanelTitle` above - placed
+   * immediately after it. Two plain `Select`s, the identical shape `widgetPositionFieldLabel`'s own
+   * Select already uses on this page: which placement a visitor sees the site's connected channels
+   * in, and (only when the new placement is chosen) which of the three closed icon sizes. The size
+   * field shows/hides live as the placement selection changes - no page reload, `WidgetConfigPage.tsx`'s
+   * own remarks on why the value itself still only takes effect on a visitor's next bootstrap either
+   * way. */
+  widgetChannelSwitcherPanelTitle: string;
+  widgetChannelSwitcherPlacementFieldLabel: string;
+  widgetChannelSwitcherPlacementAboveComposer: string;
+  widgetChannelSwitcherPlacementBelowLauncher: string;
+  widgetChannelSwitcherIconSizeFieldLabel: string;
+  widgetChannelSwitcherIconSizeLarge: string;
+  widgetChannelSwitcherIconSizeMedium: string;
+  widgetChannelSwitcherIconSizeSmall: string;
+
   /** `23-64`: the auto-open panel, on the same "Launcher" panel as the two toggles above - a
    * checkbox (off by default, `adr/0148`'s whole design), a delay `Select` (the closed six-value set
    * `Ago.Chat.Domain.AutoOpenDelay` fixes, not a free number), and a `Textarea` for the tenant's own

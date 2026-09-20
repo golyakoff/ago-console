@@ -6,6 +6,8 @@ import {
   updateWidgetConfig,
   WidgetConfigError,
   type AutoOpenDelaySeconds,
+  type ChannelSwitcherIconSize,
+  type ChannelSwitcherPlacement,
   type WidgetConfigDto,
   type WidgetLocale,
   type WidgetPosition,
@@ -63,6 +65,27 @@ function autoOpenDelayLabels(strings: ConsoleStrings): Record<AutoOpenDelaySecon
 
 const AUTO_OPEN_DELAY_OPTIONS: readonly AutoOpenDelaySeconds[] = [15, 30, 45, 60, 90, 120];
 
+// `25-173`: a fourth closed-set map on this page, the same shape `positionLabels`/`autoOpenDelayLabels`
+// already establish - a function of `strings` for the identical reason those two are.
+function channelSwitcherPlacementLabels(strings: ConsoleStrings): Record<ChannelSwitcherPlacement, string> {
+  return {
+    AboveComposer: strings.widgetChannelSwitcherPlacementAboveComposer,
+    BelowLauncher: strings.widgetChannelSwitcherPlacementBelowLauncher,
+  };
+}
+
+// `25-173`: the three closed icon sizes, largest to smallest - matching the backlog's own table order
+// and `Ago.Chat.Domain.ChannelSwitcherIconSize`'s own member order.
+function channelSwitcherIconSizeLabels(strings: ConsoleStrings): Record<ChannelSwitcherIconSize, string> {
+  return {
+    Large: strings.widgetChannelSwitcherIconSizeLarge,
+    Medium: strings.widgetChannelSwitcherIconSizeMedium,
+    Small: strings.widgetChannelSwitcherIconSizeSmall,
+  };
+}
+
+const CHANNEL_SWITCHER_ICON_SIZE_OPTIONS: readonly ChannelSwitcherIconSize[] = ["Large", "Medium", "Small"];
+
 const DEFAULT_SWATCH_COLOR = "#2f6fed";
 
 // `25-24`: the consent-notice card's own read-only preview - the item's own Scope names this exact
@@ -96,6 +119,8 @@ export function WidgetConfigPage() {
   const strings = useStrings();
   const POSITION_LABELS = positionLabels(strings);
   const AUTO_OPEN_DELAY_LABELS = autoOpenDelayLabels(strings);
+  const CHANNEL_SWITCHER_PLACEMENT_LABELS = channelSwitcherPlacementLabels(strings);
+  const CHANNEL_SWITCHER_ICON_SIZE_LABELS = channelSwitcherIconSizeLabels(strings);
   const [current, setCurrent] = useState<WidgetConfigDto | null>(null);
   const [colorInput, setColorInput] = useState("");
   const [position, setPosition] = useState<WidgetPosition>("BottomRight");
@@ -133,6 +158,13 @@ export function WidgetConfigPage() {
   // trimmed value means null" shape `noticeTextInput`/`autoOpenGreetingTextInput` already establish
   // for their own tenant-facing text.
   const [contactCaptureConfirmationTextInput, setContactCaptureConfirmationTextInput] = useState("");
+  // `25-173`: `AboveComposer`/`Medium` until the load call resolves - matching the server's own
+  // default, so a slow load never briefly implies a site has been switched to the new placement (the
+  // identical "off/default until loaded" posture `autoOpenDelaySeconds`/`autoOpenEnabled` already
+  // state for themselves).
+  const [channelSwitcherPlacement, setChannelSwitcherPlacement] =
+    useState<ChannelSwitcherPlacement>("AboveComposer");
+  const [channelSwitcherIconSize, setChannelSwitcherIconSize] = useState<ChannelSwitcherIconSize>("Medium");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [noticeUrlValidationError, setNoticeUrlValidationError] = useState<string | null>(null);
@@ -163,6 +195,8 @@ export function WidgetConfigPage() {
         setAcceptUnverifiedPhone(dto.acceptUnverifiedPhone);
         setAllowAttachmentUploadsByDefault(dto.allowAttachmentUploadsByDefault);
         setContactCaptureConfirmationTextInput(dto.contactCaptureConfirmationText ?? "");
+        setChannelSwitcherPlacement(dto.channelSwitcherPlacement);
+        setChannelSwitcherIconSize(dto.channelSwitcherIconSize);
         setLoadError(null);
       })
       .catch((err: unknown) =>
@@ -260,6 +294,8 @@ export function WidgetConfigPage() {
         allowAttachmentUploadsByDefault,
         contactCaptureConfirmationText:
           trimmedContactCaptureConfirmationText.length > 0 ? trimmedContactCaptureConfirmationText : null,
+        channelSwitcherPlacement,
+        channelSwitcherIconSize,
       });
       setCurrent(dto);
       setColorInput(dto.primaryColorHex ?? "");
@@ -275,6 +311,8 @@ export function WidgetConfigPage() {
       setAcceptUnverifiedPhone(dto.acceptUnverifiedPhone);
       setAllowAttachmentUploadsByDefault(dto.allowAttachmentUploadsByDefault);
       setContactCaptureConfirmationTextInput(dto.contactCaptureConfirmationText ?? "");
+      setChannelSwitcherPlacement(dto.channelSwitcherPlacement);
+      setChannelSwitcherIconSize(dto.channelSwitcherIconSize);
       // `25-24`: collapses the notice editor back behind its toggle now that the read view above it
       // has the freshly saved text to show instead - the same "the read view is what replaces the
       // form, so the form does not need to stay open next to it" reasoning `ConsentDocumentPanel`'s
@@ -459,6 +497,50 @@ export function WidgetConfigPage() {
                   />
                 )}
               </Field>
+            </div>
+          </Panel>
+
+          {/* `25-173`: a new, separate panel - not fields bolted onto "Launcher" above - placed
+              immediately after it via ordinary JSX ordering. Two plain `Select`s inside `Field`, the
+              identical shape the launcher-position `Select` a few lines up already uses on this same
+              page. The size field only renders while the circles placement is chosen - client-side
+              conditional rendering, no page reload - the value itself still only reaches a visitor on
+              their next bootstrap either way, the same `adr/0029` posture every other field on this
+              screen already states. */}
+          <Panel title={strings.widgetChannelSwitcherPanelTitle}>
+            <div className="ago-stack">
+              <Field label={strings.widgetChannelSwitcherPlacementFieldLabel}>
+                {(controlProps) => (
+                  <Select
+                    {...controlProps}
+                    value={channelSwitcherPlacement}
+                    onChange={(e) => setChannelSwitcherPlacement(e.target.value as ChannelSwitcherPlacement)}
+                    disabled={submitting}
+                  >
+                    <option value="AboveComposer">{CHANNEL_SWITCHER_PLACEMENT_LABELS.AboveComposer}</option>
+                    <option value="BelowLauncher">{CHANNEL_SWITCHER_PLACEMENT_LABELS.BelowLauncher}</option>
+                  </Select>
+                )}
+              </Field>
+
+              {channelSwitcherPlacement === "BelowLauncher" && (
+                <Field label={strings.widgetChannelSwitcherIconSizeFieldLabel}>
+                  {(controlProps) => (
+                    <Select
+                      {...controlProps}
+                      value={channelSwitcherIconSize}
+                      onChange={(e) => setChannelSwitcherIconSize(e.target.value as ChannelSwitcherIconSize)}
+                      disabled={submitting}
+                    >
+                      {CHANNEL_SWITCHER_ICON_SIZE_OPTIONS.map((size) => (
+                        <option key={size} value={size}>
+                          {CHANNEL_SWITCHER_ICON_SIZE_LABELS[size]}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </Field>
+              )}
             </div>
           </Panel>
 
