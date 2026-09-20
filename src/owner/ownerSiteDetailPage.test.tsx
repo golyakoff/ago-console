@@ -51,6 +51,9 @@ const ownerApi = vi.hoisted(() => ({
   suspendOwnerSite: vi.fn(),
   extendOwnerSuspension: vi.fn(),
   unblockOwnerSuspension: vi.fn(),
+  // `25-181`: the seat-summary read and the owner's own hand-grant write, mocked the same way.
+  fetchOwnerSeatSummary: vi.fn(),
+  grantOwnerSeats: vi.fn(),
 }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
 
@@ -179,6 +182,13 @@ beforeEach(() => {
   vi.clearAllMocks();
   tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [] });
   operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: [], siteId: null });
+  // `25-181`: a default resolved value so a test that never touches the seat-summary section does not
+  // crash on an unmocked call the way a bare `vi.fn()` with no return would - the identical
+  // "mocked from the start" reasoning this file's own `ownerApi` remarks give for every other write.
+  ownerApi.fetchOwnerSeatSummary.mockResolvedValue({
+    status: "ok",
+    summary: { operatorsHeld: 1, operatorsLimit: 2, administratorsHeld: 1, administratorsLimit: 1 },
+  });
   // `23-94`: the same "jsdom has no Clipboard API, every real browser this console ships to does"
   // stand-in `InstallSnippetPage.test.tsx`'s own setup already establishes for its own copy button.
   writeTextMock = vi.fn().mockResolvedValue(undefined);
@@ -669,6 +679,116 @@ describe("the site detail page's own operator roster", () => {
       { force: true, reason: "Tenant locked itself out during a live demo; overriding to restore access." },
     );
     expect(container.textContent).toMatch(/put the site over its own seat limit/i);
+  });
+});
+
+// `25-181`: "the owner can grant a tenant extra seats by hand, beyond the tariff" - the seat-summary
+// line and the grant form's own behaviour tests.
+describe("the site detail page's own seat-grant panel (25-181)", () => {
+  it("renders the heading as 'Users', not 'Operators'", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
+
+    const container = await render(shellAt());
+
+    expect(all(container, "h2").some((h) => h.textContent === "Users")).toBe(true);
+    expect(all(container, "h2").some((h) => h.textContent === "Operators")).toBe(false);
+  });
+
+  it("shows the current held/limit for both roles, each already including a live owner grant", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
+    ownerApi.fetchOwnerSeatSummary.mockResolvedValue({
+      status: "ok",
+      summary: { operatorsHeld: 1, operatorsLimit: 5, administratorsHeld: 1, administratorsLimit: 3 },
+    });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).toContain("Administrators: 1/3");
+    expect(container.textContent).toContain("Operators: 1/5");
+  });
+
+  it("grants extra Administrator seats with an indefinite expiry when the checkbox is left unchecked", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
+    ownerApi.grantOwnerSeats.mockResolvedValue({ status: "ok" });
+
+    const container = await render(shellAt());
+    const form = seatGrantFormOf(container);
+    await setSelect(seatGrantRoleSelect(container), "Administrator");
+    await setSelect(seatGrantQuantitySelect(container), "2");
+    await setTextarea(form, "Covering an incident while billing is sorted out.");
+    await interact(() => byText<HTMLButtonElement>(form, "button", "Grant").click());
+
+    expect(ownerApi.grantOwnerSeats).toHaveBeenCalledWith("token", SITE_ID, {
+      role: "Administrator",
+      quantity: 2,
+      reason: "Covering an incident while billing is sorted out.",
+      expiresAt: null,
+    });
+    // Re-read the summary, not the whole site detail - granting seats does not change the users table.
+    expect(ownerApi.fetchOwnerSeatSummary).toHaveBeenCalledTimes(2);
+    expect(ownerApi.fetchOwnerSiteDetail).toHaveBeenCalledTimes(1);
+  });
+
+  it("reveals a date field once the expiry checkbox is ticked, and sends that date", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
+    ownerApi.grantOwnerSeats.mockResolvedValue({ status: "ok" });
+
+    const container = await render(shellAt());
+    const form = seatGrantFormOf(container);
+    expect(all(form, 'input[type="datetime-local"]')).toHaveLength(0);
+
+    await interact(() => one<HTMLInputElement>(form, 'input[type="checkbox"]').click());
+    expect(all(form, 'input[type="datetime-local"]')).toHaveLength(1);
+
+    await setInput(one<HTMLInputElement>(form, 'input[type="datetime-local"]'), "2026-12-01T00:00");
+    await setTextarea(form, "A 30-day trial extra.");
+    await interact(() => byText<HTMLButtonElement>(form, "button", "Grant").click());
+
+    expect(ownerApi.grantOwnerSeats).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({ expiresAt: new Date("2026-12-01T00:00").toISOString() }),
+    );
+  });
+
+  it("refuses to submit with a blank reason, without calling the server", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
+
+    const container = await render(shellAt());
+    const form = seatGrantFormOf(container);
+
+    await interact(() => byText<HTMLButtonElement>(form, "button", "Grant").click());
+
+    expect(ownerApi.grantOwnerSeats).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("Write the reason you would be willing to show this tenant.");
+  });
+
+  it("shows the server's own refusal text inline for an invalid grant, without reloading the summary", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({ status: "ok", site: detail() });
+    ownerApi.grantOwnerSeats.mockResolvedValue({
+      status: "invalid",
+      message: "An owner seat grant must be between 1 and 5; 9 was requested.",
+    });
+
+    const container = await render(shellAt());
+    const form = seatGrantFormOf(container);
+    await setTextarea(form, "A reason.");
+    await interact(() => byText<HTMLButtonElement>(form, "button", "Grant").click());
+
+    expect(container.textContent).toContain("An owner seat grant must be between 1 and 5; 9 was requested.");
+    expect(ownerApi.fetchOwnerSeatSummary).toHaveBeenCalledTimes(1); // only the initial load, no reload
+  });
+
+  it("the existing users table still renders unchanged below the new summary and grant panel", async () => {
+    ownerApi.fetchOwnerSiteDetail.mockResolvedValue({
+      status: "ok",
+      site: detail({ operators: [oneOperator({ displayName: "Sam Seated" })] }),
+    });
+
+    const container = await render(shellAt());
+
+    expect(container.textContent).toContain("Sam Seated");
+    expect(byText<HTMLButtonElement>(container, "button", "Restore seat")).not.toBeNull();
   });
 });
 
@@ -1643,6 +1763,36 @@ function channelGrantFormOf(container: HTMLElement): HTMLElement {
   const form = channelKindSelect(container).closest("form");
   if (form === null) {
     throw new Error("the channel kind select is not inside a form");
+  }
+  return form;
+}
+
+/** `25-181`: the seat-grant form's own "How many" `<select>` - found by its `Field` label, the
+ * identical approach `moduleKeySelect`/`channelKindSelect` above already establish. */
+function seatGrantQuantitySelect(container: HTMLElement): HTMLSelectElement {
+  const label = byText<HTMLLabelElement>(container, "label", "How many");
+  if (label === null) {
+    throw new Error("no 'How many' label found");
+  }
+  return one<HTMLSelectElement>(container, `#${label.htmlFor}`);
+}
+
+/** `25-181`: the seat-grant form's own "Who" `<select>` - the role this grant counts toward. */
+function seatGrantRoleSelect(container: HTMLElement): HTMLSelectElement {
+  const label = byText<HTMLLabelElement>(container, "label", "Who");
+  if (label === null) {
+    throw new Error("no 'Who' label found");
+  }
+  return one<HTMLSelectElement>(container, `#${label.htmlFor}`);
+}
+
+/** `25-181`: the seat-grant form's own `<form>` element, found via its "How many" `<select>` -
+ * scoping every later query (the reason textarea, the checkbox, the "Grant" button) to this one form
+ * rather than `container`, the identical reason `channelGrantFormOf` above scopes its own queries. */
+function seatGrantFormOf(container: HTMLElement): HTMLElement {
+  const form = seatGrantQuantitySelect(container).closest("form");
+  if (form === null) {
+    throw new Error("the seat-grant quantity select is not inside a form");
   }
   return form;
 }

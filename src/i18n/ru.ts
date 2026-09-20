@@ -2025,9 +2025,23 @@ export const ru: ConsoleStrings = {
   ownerSiteDetailSuspensionReasonRequired:
     "Причина обязательна — укажите, почему этот аккаунт блокируется, продлевается или разблокируется.",
   ownerSiteDetailSuspensionUpdateFailed: "Не удалось обновить блокировку этого аккаунта.",
-  ownerSiteDetailOperatorsHeading: "Операторы",
+  // `25-181`: renamed from "Операторы" - the heading collided with "Operator" the specific role
+  // (a row's own Roles column can say "Operator, Admin" right below it). "Пользователи" names what
+  // the table actually lists - every person who can sign in, regardless of role.
+  ownerSiteDetailOperatorsHeading: "Пользователи",
   ownerSiteDetailOperatorsNote:
     "Восстановление места позволяет оператору снова войти — но не восстанавливает роль. Оператор без ролей ниже вошёл в систему, но лишился всех прав; здесь ничего из этого не возвращается.",
+  ownerSiteDetailSeatSummaryAdministratorsLabel: "Администраторов",
+  ownerSiteDetailSeatSummaryOperatorsLabel: "Операторов",
+  ownerSiteDetailSeatSummaryLoadFailed: "Не удалось загрузить сводку по местам.",
+  ownerSiteDetailSeatGrantHeading: "Добавить сверх тарифа",
+  ownerSiteDetailSeatGrantQuantityLabel: "Сколько",
+  ownerSiteDetailSeatGrantRoleLabel: "Кого",
+  ownerSiteDetailSeatGrantExpiryCheckboxLabel: "Истекает в дату",
+  ownerSiteDetailSeatGrantButton: "Предоставить",
+  ownerSiteDetailSeatGrantingLabel: "Предоставляем…",
+  ownerSiteDetailSeatGrantSaved: "Дополнительные места предоставлены.",
+  ownerSiteDetailSeatGrantFailed: "Не удалось предоставить дополнительные места.",
   ownerSiteDetailSeatRestoredPrefix: "Место восстановлено. ",
   ownerSiteDetailSeatRestoredOverLimit: "Это превысило собственный лимит мест сайта, как и было заявлено при подтверждении.",
   ownerSiteDetailSeatRestoredOk: "Оператор снова может войти.",
