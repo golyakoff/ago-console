@@ -1149,7 +1149,12 @@ export const en: ConsoleStrings = {
   vkChannelAlreadyConnectedHint:
     "This site already has a VK community connected. To connect a different one, the existing connection has to be revoked first.",
   vkChannelConnectedSinceLabel: "Connected since",
-  vkChannelConnectedBadge: "Connected",
+  vkChannelVerifiedBadge: "Connected",
+  vkChannelUnverifiedBadge: "Not responding",
+  vkChannelUnverifiedBody: "VK said:",
+  vkChannelUnreachableBadge: "Could not check just now",
+  vkChannelUnreachableBody: "AGO could not reach VK just now. This does not mean your token is invalid - try again in a moment.",
+  vkChannelCheckedAtLabel: "Checked",
   vkChannelSetupTitle: "Finish setup in VK",
   vkChannelSetupBody:
     "Paste these into your community's own Callback API settings (Управление → Работа с API → Callback API) to start receiving messages.",

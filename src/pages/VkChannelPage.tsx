@@ -9,7 +9,7 @@ import {
   type ConnectVkChannelResponseDto,
   type VkChannelStatusDto,
 } from "../api/vkChannelApi.js";
-import { formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
+import { formatAbsolute, formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
 import { PageHead } from "../shell/AppShell.js";
 import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
@@ -90,13 +90,29 @@ export const VK_CHANNEL_PERMISSION = "channel:manage";
  * `vkChannelSecretsShownOnceHint` instead of the setup instructions - stating plainly that those two
  * values are gone for this session, rather than silently omitting the panel with no explanation.
  *
+ * ## `25-175`: `status.verified` now decides the badge, not `status.connected` alone
+ *
+ * `vkChannelApi.ts`'s own doc comment has the backend half: `25-175` gave `VkChannelEndpoints.
+ * HandleStatusAsync` the same live check Telegram's own status route has always done (`VkLiveTokenCheck`
+ * wrapping `VkApiClient.GroupsGetById`, mirroring `TelegramLiveTokenCheck`'s and MAX's
+ * (`MaxLiveTokenCheck`, `25-174`) bounded-timeout/three-outcome shape). This screen used to render one
+ * badge for every `status.connected === true` - "Connected" meaning only "an active credential row
+ * exists" - because there was nothing else the status read could tell it. It now renders the identical
+ * three-state badge `TelegramChannelPage`/`MaxChannelPage` do (`status.unreachable` / `status.verified`
+ * / neither), the same `25-178` gave MAX. A tenant whose community access token was revoked at VK's own
+ * side now sees that here, the moment they look, not a green tick that quietly lies.
+ *
+ * The unreachable and refused states are rendered as two different `Alert`s on purpose, never folded
+ * into one message - a tenant acts on "try again in a moment" and "get a new token" differently.
+ *
  * ## The token is never rendered back, in either direction
  *
  * Same guarantee as `TelegramChannelPage`/`MaxChannelPage`: `ConnectVkChannelResponseDto`/
  * `VkChannelStatusDto` together carry an id, a timestamp, and (only on `ConnectVkChannelResponseDto`)
  * the two values VK itself needs handed to a human (`callbackUrl`/`webhookSecret`, `vkChannelApi.ts`'s
  * own remarks on why that response, uniquely among the three connect responses, carries a secret at
- * all) - never a field the community's own access token could come back through.
+ * all) - never a field the community's own access token could come back through, `verified`/
+ * `unreachable`/`refusalReason`/`checkedAt` included.
  */
 export function VkChannelPage() {
   const { user } = useAuth();
@@ -213,6 +229,7 @@ export function VkChannelPage() {
   };
 
   const createdAtDate = status?.createdAt ? parseInstant(status.createdAt) : null;
+  const checkedAtDate = status?.checkedAt ? parseInstant(status.checkedAt) : null;
 
   return (
     <>
@@ -264,13 +281,45 @@ export function VkChannelPage() {
           }
         >
           <div className="ago-stack">
-            <Badge tone="success" dot>
-              {strings.vkChannelConnectedBadge}
-            </Badge>
+            {status.unreachable ? (
+              <Badge tone="neutral" dot>
+                {strings.vkChannelUnreachableBadge}
+              </Badge>
+            ) : status.verified ? (
+              <Badge tone="success" dot>
+                {strings.vkChannelVerifiedBadge}
+              </Badge>
+            ) : (
+              <Badge tone="danger" dot>
+                {strings.vkChannelUnverifiedBadge}
+              </Badge>
+            )}
 
             {createdAtDate && (
               <p>
                 {strings.vkChannelConnectedSinceLabel} {formatDateStamp(createdAtDate, timeZone, strings)}
+              </p>
+            )}
+
+            {/* `25-175`/`adr/0143`: unreachable and refused are two different facts, rendered as two
+                different Alerts - a tenant acts on "try again in a moment" and "get a new token"
+                differently, so the two must never share one message. */}
+            {status.unreachable ? (
+              <Alert tone="info" title={strings.vkChannelUnreachableBadge}>
+                {strings.vkChannelUnreachableBody}
+              </Alert>
+            ) : (
+              !status.verified &&
+              status.refusalReason && (
+                <Alert tone="danger" title={strings.vkChannelUnverifiedBadge}>
+                  {strings.vkChannelUnverifiedBody} {status.refusalReason}
+                </Alert>
+              )
+            )}
+
+            {checkedAtDate && (
+              <p className="ago-muted">
+                {strings.vkChannelCheckedAtLabel} {formatAbsolute(checkedAtDate, timeZone, strings)}
               </p>
             )}
 

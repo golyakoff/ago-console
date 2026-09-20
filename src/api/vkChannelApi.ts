@@ -16,11 +16,19 @@ import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
  * `WhatsAppChannelEndpoints`/`AvitoChannelEndpoints` still have (out of `25-65`'s own scope; neither has
  * a console screen yet for this same reason). `25-65` added `GET`, backed by the channel-neutral
  * `GetChannelCredentialStatusHandler` `TelegramChannelEndpoints`/`MaxChannelEndpoints` already used -
- * mirroring `MaxChannelEndpoints.HandleStatusAsync` almost verbatim, the same three-field shape
- * ({@link VkChannelStatusDto}), not Telegram's live-checked seven: VK's own public API has no
- * side-effect-free per-request equivalent of Telegram's `getMe` any more than MAX's does
- * (`VkChannelEndpoints.HandleStatusAsync`'s own remarks), so this screen reports only "an active
- * credential row exists, and since when" - never a live re-verification.
+ * mirroring `MaxChannelEndpoints.HandleStatusAsync` almost verbatim, the same three-field shape this
+ * interface used to have, not Telegram's live-checked seven: at the time, VK's own public API had no
+ * side-effect-free per-request equivalent of Telegram's `getMe` any more than MAX's did.
+ *
+ * ## `25-175`: the same live check Telegram's route has always done, now here too
+ *
+ * `25-175` gave `VkChannelEndpoints.HandleStatusAsync` a live check on every read, the same
+ * `VkLiveTokenCheck` wrapping `VkApiClient.GroupsGetById` mirrors `TelegramLiveTokenCheck`'s and (since
+ * `25-174`) `MaxLiveTokenCheck`'s own bounded-timeout/three-outcome (`Verified`/`Refused`/
+ * `ProviderUnreachable`) shape. {@link VkChannelStatusDto} carries the identical four extra fields
+ * `TelegramChannelStatusDto`/`MaxChannelStatusDto` do as a result - this interface used to argue, from a
+ * since-corrected premise, that VK's API had no cheap way to ask this live; `25-175` gave it exactly
+ * that (`docs/backlog/25-175-*.md`).
  *
  * `VkChannelStatusDto` deliberately carries neither `callbackUrl` nor `webhookSecret` -
  * `GetChannelCredentialStatusHandler` never had either to give back (`ChannelCredentialStatus`'s own
@@ -34,6 +42,20 @@ export interface VkChannelStatusDto {
   connected: boolean;
   channelCredentialId: string | null;
   createdAt: string | null;
+  /** `null` when `connected` is `false`, or when `unreachable` is `true` - both mean "nothing was
+   * actually verified", for different reasons (nothing to check yet, versus couldn't check it). */
+  verified: boolean | null;
+  /** The live check could not complete at all - a timeout (bounded server-side, the same
+   * `VkLiveTokenCheck.Timeout` `TelegramLiveTokenCheck.Timeout`'s own reasoning applies to unchanged)
+   * or a transient failure reaching VK. Structurally distinct from a refusal on purpose: a tenant acts
+   * on the two differently (wait and retry, versus get a new token). Always `false` when `connected`
+   * is `false` - the live check is never attempted when there is no credential to check. */
+  unreachable: boolean;
+  /** VK's own refusal text - present only when `verified` is `false` **and** `unreachable` is
+   * `false` (a real refusal, not an unreachable provider). Never anything this console generated from
+   * the token itself - matching `TelegramChannelStatusDto.refusalReason`'s own guarantee. */
+  refusalReason: string | null;
+  checkedAt: string;
 }
 
 export interface ConnectVkChannelResponseDto {

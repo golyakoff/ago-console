@@ -1152,7 +1152,12 @@ export const ru: ConsoleStrings = {
   vkChannelAlreadyConnectedHint:
     "У этого сайта уже есть подключённое сообщество VK. Чтобы подключить другое, сначала нужно отключить текущее.",
   vkChannelConnectedSinceLabel: "Подключено с",
-  vkChannelConnectedBadge: "Подключено",
+  vkChannelVerifiedBadge: "Подключено",
+  vkChannelUnverifiedBadge: "Не отвечает",
+  vkChannelUnverifiedBody: "VK ответил:",
+  vkChannelUnreachableBadge: "Не удалось проверить",
+  vkChannelUnreachableBody: "AGO не удалось связаться с VK прямо сейчас. Это не значит, что токен неверный — попробуйте ещё раз через минуту.",
+  vkChannelCheckedAtLabel: "Проверено",
   vkChannelSetupTitle: "Завершите настройку в VK",
   vkChannelSetupBody:
     "Вставьте эти значения в настройки Callback API вашего сообщества (Управление → Работа с API → Callback API), чтобы начать получать сообщения.",
