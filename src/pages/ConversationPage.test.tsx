@@ -840,6 +840,9 @@ describe("suggesting a reply (19-01)", () => {
  * `ConversationSummaryDto`.
  */
 describe("25-56: the visitor emoji pair in the open-dialog header", () => {
+  // `25-207`: the fallback label now reads as each emoji's own localized name
+  // (`ConsoleStrings.visitorEmojiNames`, `en` here - `useStrings()`'s own built-in default) rather
+  // than nothing beyond the pair and the short code.
   it("prepends the emoji pair to the short code when the visitor has one", async () => {
     const fake = fakeConnection();
     const container = await render(
@@ -847,7 +850,9 @@ describe("25-56: the visitor emoji pair in the open-dialog header", () => {
     );
 
     const heading = one(container, ".ago-workspace__main-title");
-    expect(heading.textContent?.replace(/\s+/g, " ").trim()).toBe(`Conversation with 🐔🍊 ${VISITOR_ID.slice(0, 8)}`);
+    expect(heading.textContent?.replace(/\s+/g, " ").trim()).toBe(
+      `Conversation with 🐔🍊 Chicken · Orange ${VISITOR_ID.slice(0, 8)}`,
+    );
   });
 
   it("renders only the short code, no stray text, when the pair is absent", async () => {
@@ -860,22 +865,24 @@ describe("25-56: the visitor emoji pair in the open-dialog header", () => {
 });
 
 /**
- * `25-162`'s own Done-when: "the visitor emoji-pair icon is visibly larger on both the card list and
- * the individual conversation page header" - `ConversationList.test.tsx` covers the card list; this
- * covers the header. Asserts the emoji sits in its own `.ago-visitor-emoji` element - the class the
- * CSS fix (`components.css`) actually targets - not merely that the glyphs appear somewhere in the
+ * `25-162`'s own Done-when ("the visitor emoji-pair icon is visibly larger...") is now met by
+ * `25-207`'s badge composition - `ConversationList.test.tsx` covers the card list; this covers the
+ * header. Asserts the creature and food each sit in their own element - the classes the CSS
+ * composition (`components.css`) actually targets - not merely that the glyphs appear somewhere in the
  * heading text, the identical "a dropped wrapper would still pass a plain text check" reasoning that
  * file's own test states for itself.
  */
-describe("25-162: the visitor emoji pair renders in its own, deliberately larger element", () => {
-  it("wraps only the emoji pair in .ago-visitor-emoji", async () => {
+describe("25-207: the visitor emoji pair renders as the badge composition", () => {
+  it("renders the creature and food each in their own element, aria-hidden", async () => {
     const fake = fakeConnection();
     const container = await render(
       <Harness connection={fake.connection} conversation={conversationSummary({ emojiCreature: "🐔", emojiFood: "🍊" })} />,
     );
 
-    const emojiSpan = one(container, ".ago-visitor-emoji");
-    expect(emojiSpan.textContent?.trim()).toBe("🐔🍊");
+    const avatar = one(container, ".ago-visitor-avatar");
+    expect(avatar.getAttribute("aria-hidden")).toBe("true");
+    expect(one(container, ".ago-visitor-avatar__creature").textContent).toBe("🐔");
+    expect(one(container, ".ago-visitor-avatar__food").textContent).toBe("🍊");
   });
 });
 
@@ -900,15 +907,19 @@ describe("25-56: the visitor's own name in the open-dialog header", () => {
     );
   });
 
-  // The item's own Done-when: "no name yet" must still render exactly as it did before this item.
-  it("renders exactly the pair and the short code, no stray space, when no name is known yet", async () => {
+  // `25-207`'s own Done-when: "no name yet" now reads as the localized fallback label, not a stray
+  // double space and not the bare glyphs as text.
+  it("renders the localized fallback label, not a stray space, when no name is known yet", async () => {
     const fake = fakeConnection();
     const container = await render(
       <Harness connection={fake.connection} conversation={conversationSummary({ emojiCreature: "🐔", emojiFood: "🍊" })} />,
     );
 
     const heading = one(container, ".ago-workspace__main-title");
-    expect(heading.textContent?.replace(/\s+/g, " ").trim()).toBe(`Conversation with 🐔🍊 ${VISITOR_ID.slice(0, 8)}`);
+    expect(heading.textContent?.replace(/\s+/g, " ").trim()).toBe(
+      `Conversation with 🐔🍊 Chicken · Orange ${VISITOR_ID.slice(0, 8)}`,
+    );
+    expect(heading.textContent).not.toMatch(/ {2}/);
   });
 });
 

@@ -1,4 +1,5 @@
 import type { ConsoleStrings } from "./strings.js";
+import { visitorEmojiNamesRu } from "./visitorEmojiNames.js";
 
 export const ru: ConsoleStrings = {
   skipToContent: "Перейти к содержимому",
@@ -316,6 +317,8 @@ export const ru: ConsoleStrings = {
     "соединение не восстановится. Перезагрузка страницы редко помогает — если это продолжается, " +
     "консоль браузера содержит причину отказа в соединении (5-18).",
   connectionBadgeAriaPrefix: "Сервер оператора:",
+
+  visitorEmojiNames: visitorEmojiNamesRu,
 
   conversationBackLink: "← Диалоги",
   conversationWithPrefix: "Диалог с",

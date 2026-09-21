@@ -532,6 +532,15 @@ export interface ConsoleStrings {
   /** Visually-hidden prefix before the connection badge's word, e.g. "Operator hub: Live". */
   connectionBadgeAriaPrefix: string;
 
+  /** `25-207`: glyph -> localized name, one entry per `VisitorEmojiDictionary.Creatures`/`Foods`
+   * member (`visitorEmojiNames.ts`'s own doc comment carries the full byte-for-byte reasoning) - the
+   * table itself lives in that dedicated file rather than as 40 fields here, this field just points at
+   * whichever locale's copy of it applies. Read only through `localizedEmojiName`
+   * (`visitorEmojiNames.ts`), never indexed directly at a call site, so the one "glyph is missing"
+   * fallback decision lives in one place. Used by `visitorEmoji.ts`'s `visitorFallbackLabel`/
+   * `visitorLabel` to build a nameless visitor's `{creature} · {food}` label. */
+  visitorEmojiNames: Readonly<Record<string, string>>;
+
   // ConversationPage.
   conversationBackLink: string;
   /** `${conversationWithPrefix} ${visitorId.slice(0, 8)}` when a conversation is known. */

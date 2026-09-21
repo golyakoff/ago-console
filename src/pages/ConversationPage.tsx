@@ -39,8 +39,9 @@ import { CloseAsSpamButton } from "../workspace/CloseAsSpamButton.js";
 import { CloseConversationButton } from "../workspace/CloseConversationButton.js";
 import { Composer } from "../workspace/Composer.js";
 import { Thread } from "../workspace/Thread.js";
+import { VisitorAvatar } from "../workspace/VisitorAvatar.js";
 import { VisitorPanel } from "../workspace/VisitorPanel.js";
-import { visitorEmojiPrefix, visitorNameSuffix } from "../workspace/visitorEmoji.js";
+import { visitorLabel } from "../workspace/visitorEmoji.js";
 import { useWorkspace } from "../workspace/workspaceContext.js";
 
 const PRESENCE_POLL_INTERVAL_MS = 10_000;
@@ -727,12 +728,13 @@ export function ConversationPage() {
               <>
                 {strings.conversationWithPrefix}{" "}
                 <span className="ago-mono">
-                  {/* `25-162`: the emoji pair gets its own, deliberately larger span
-                      (`.ago-visitor-emoji`) - the same split `ConversationList.tsx`'s own cards use,
-                      so the two places this icon renders never drift apart. */}
-                  <span className="ago-visitor-emoji">{visitorEmojiPrefix(conversation)}</span>
-                  {visitorNameSuffix(conversation)}
-                  {conversation.visitorId.slice(0, 8)}
+                  {/* `25-207`: the badge composition (`VisitorAvatar.tsx`) - the same shared component
+                      `ConversationList.tsx`'s own cards use, so the two places this icon renders never
+                      drift apart (`25-162`'s original split, now against a component instead of a
+                      second copy of the same span markup). */}
+                  <VisitorAvatar emojiCreature={conversation.emojiCreature} emojiFood={conversation.emojiFood} />
+                  {visitorLabel(conversation, strings.visitorEmojiNames)}
+                  <span className="ago-visitor-shortcode">{conversation.visitorId.slice(0, 8)}</span>
                 </span>
               </>
             ) : (

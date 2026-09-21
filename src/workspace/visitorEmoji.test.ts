@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { visitorDisplayPrefix, visitorEmojiPrefix } from "./visitorEmoji.js";
+import { visitorEmojiNamesEn } from "../i18n/visitorEmojiNames.js";
+import {
+  hasEmojiPair,
+  visitorDisplayPrefix,
+  visitorEmojiPrefix,
+  visitorFallbackLabel,
+  visitorLabel,
+} from "./visitorEmoji.js";
 
 /** `25-56`: the null-handling this helper exists to centralise, proved once here rather than only
  * through the two components that call it (`ConversationList.test.tsx`, `ConversationPage.test.tsx`) -
@@ -51,5 +58,74 @@ describe("visitorDisplayPrefix", () => {
 
   it("treats a blank name the same as an absent one", () => {
     expect(visitorDisplayPrefix({ emojiCreature: "🐔", emojiFood: "🍊", visitorName: "   " })).toBe("🐔🍊 ");
+  });
+});
+
+describe("hasEmojiPair", () => {
+  it("is true only when both halves are present", () => {
+    expect(hasEmojiPair({ emojiCreature: "🐔", emojiFood: "🍊" })).toBe(true);
+  });
+
+  it("is false when both are absent, both are null, or only one half is present", () => {
+    expect(hasEmojiPair({})).toBe(false);
+    expect(hasEmojiPair({ emojiCreature: null, emojiFood: null })).toBe(false);
+    expect(hasEmojiPair({ emojiCreature: "🐔", emojiFood: null })).toBe(false);
+    expect(hasEmojiPair({ emojiCreature: null, emojiFood: "🍊" })).toBe(false);
+  });
+});
+
+/**
+ * `25-207`: the fallback half of this item's own Scope - a nameless visitor's label reads as
+ * `{localized creature} · {localized food}` rather than the bare glyphs. Uses the real English table
+ * (`visitorEmojiNamesEn`), not a hand-built stand-in - `visitorEmojiNames.test.ts` is the file that
+ * proves the table's own completeness against `VisitorEmojiDictionary.cs`; this file only proves the
+ * composition rule built on top of it.
+ */
+describe("visitorFallbackLabel", () => {
+  it("renders the localized pair, joined by a middle dot, with a trailing space", () => {
+    expect(visitorFallbackLabel({ emojiCreature: "🦉", emojiFood: "🍓" }, visitorEmojiNamesEn)).toBe(
+      "Owl · Strawberry ",
+    );
+  });
+
+  it("renders nothing when the pair is absent", () => {
+    expect(visitorFallbackLabel({}, visitorEmojiNamesEn)).toBe("");
+  });
+
+  it("renders nothing when only one half of the pair is present", () => {
+    expect(visitorFallbackLabel({ emojiCreature: "🦉", emojiFood: null }, visitorEmojiNamesEn)).toBe("");
+  });
+
+  it("falls back to the raw glyph for a glyph missing from the table, rather than throwing or going blank", () => {
+    expect(visitorFallbackLabel({ emojiCreature: "🦉", emojiFood: "🛸" }, visitorEmojiNamesEn)).toBe("Owl · 🛸 ");
+  });
+});
+
+/**
+ * `25-207`'s own call-site function: a real name always wins (reusing `visitorNameSuffix` unchanged -
+ * proving that branch is untouched, not merely asserting it), and the localized pair is only ever the
+ * fallback for the exact case `visitorNameSuffix` already treats as "no name".
+ */
+describe("visitorLabel", () => {
+  it("renders the real name, unchanged, when one is known - the pair plays no part", () => {
+    expect(
+      visitorLabel({ emojiCreature: "🦉", emojiFood: "🍓", visitorName: "Иван Иванов" }, visitorEmojiNamesEn),
+    ).toBe("Иван Иванов ");
+  });
+
+  it("falls through to the localized pair label when no real name is known", () => {
+    expect(visitorLabel({ emojiCreature: "🦉", emojiFood: "🍓", visitorName: null }, visitorEmojiNamesEn)).toBe(
+      "Owl · Strawberry ",
+    );
+  });
+
+  it("treats a blank name the same as an absent one, falling through to the pair label", () => {
+    expect(visitorLabel({ emojiCreature: "🦉", emojiFood: "🍓", visitorName: "   " }, visitorEmojiNamesEn)).toBe(
+      "Owl · Strawberry ",
+    );
+  });
+
+  it("renders nothing when neither a name nor a pair is known - the pre-25-207 case, unchanged", () => {
+    expect(visitorLabel({}, visitorEmojiNamesEn)).toBe("");
   });
 });
