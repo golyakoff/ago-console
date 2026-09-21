@@ -74,4 +74,40 @@ describe("PhoneInput", () => {
     expect(wrapper.classList.contains("ago-phone-input--invalid")).toBe(false);
     expect(input.hasAttribute("aria-invalid")).toBe(false);
   });
+
+  // `25-209`: the prefix asserts "Russia" - it must stop the moment the value itself contradicts
+  // that, the same "never assert a fact the value contradicts" reasoning `ago-widget`'s own
+  // `isExplicitNonRussianPhoneValue` already applies to its own prefix chip.
+  describe("the 🇷🇺 +7 prefix, inferred from value alone (this file's own doc comment on why)", () => {
+    it("shows with no value at all - the pre-25-209 default", async () => {
+      const { wrapper } = await mount();
+
+      expect(wrapper.textContent).toContain("🇷🇺 +7");
+    });
+
+    it("shows for a plain Russian-shaped value with no leading +", async () => {
+      const { wrapper } = await mount({ value: "(916) 291-11-29" });
+
+      expect(wrapper.textContent).toContain("🇷🇺 +7");
+    });
+
+    it("shows for an explicit +7 value - still Russia", async () => {
+      const { wrapper } = await mount({ value: "+7 (916) 291-11-29" });
+
+      expect(wrapper.textContent).toContain("🇷🇺 +7");
+    });
+
+    it("hides for an explicit non-Russian country code", async () => {
+      const { wrapper } = await mount({ value: "+1 555 019 4567" });
+
+      expect(wrapper.textContent).not.toContain("🇷🇺 +7");
+    });
+
+    it("does not remove the underlying tel input when the prefix hides", async () => {
+      const { wrapper, input } = await mount({ value: "+1 555 019 4567" });
+
+      expect(wrapper.contains(input)).toBe(true);
+      expect(input.value).toBe("+1 555 019 4567");
+    });
+  });
 });
