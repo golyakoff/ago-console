@@ -631,6 +631,20 @@ export interface ConsoleStrings {
   widgetPositionBottomRight: string;
   widgetPositionBottomLeft: string;
   widgetLanguageFieldLabel: string;
+  /** `25-210`: the chat panel's own `<h1>` (also read by `25-211`'s channel-switcher header bar) -
+   * joins the "Launcher" panel's other appearance fields (`widgetColorFieldLabel`/`widgetPositionFieldLabel`)
+   * on the identical "always renders something" terms, not the notice/greeting fields' own "blank
+   * means render nothing" terms. `widgetPanelTitlePlaceholder` is the widget's own real built-in
+   * default greeting (not a made-up example) - the same "an empty field already shows what visitors
+   * will read" precedent `widgetContactCaptureConfirmationPlaceholder` established, restated here for
+   * a field where that is the *only* behaviour on an empty value, never "nothing at all".
+   * `widgetPanelTitleFieldCounter` is the bound character counter next to it, a function of the
+   * current input length so a tenant can see how close they are to the 300-character limit
+   * (`Ago.Chat.Domain.WidgetConfig.MaxPanelTitleLength`) before the server ever rejects it. */
+  widgetPanelTitleFieldLabel: string;
+  widgetPanelTitleFieldDescription: string;
+  widgetPanelTitlePlaceholder: string;
+  widgetPanelTitleFieldCounter: (length: number, max: number) => string;
   /** `16-04`: a second panel on the same screen, same terms every field above already uses - the
    * tenant's own sentence about who processes what a visitor is about to write, and a link to their
    * own policy. Both optional; the widget renders nothing when both are empty (never an AGO-authored

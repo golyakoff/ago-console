@@ -82,6 +82,23 @@ function localeSelect(container: HTMLElement): HTMLSelectElement {
   return select;
 }
 
+/** `25-210`: the panel-title field, found the same `<label>`-`htmlFor` way as `localeSelect` above,
+ * never by class name. */
+function panelTitleField(container: HTMLElement): HTMLInputElement {
+  const label = byText<HTMLLabelElement>(container, ".ago-field__label", "Panel title");
+  if (label === null) {
+    throw new Error("no 'Panel title' field label found");
+  }
+
+  const id = label.getAttribute("for");
+  const field = id ? document.getElementById(id) : null;
+  if (!(field instanceof HTMLInputElement)) {
+    throw new Error("'Panel title' field is not an <input>");
+  }
+
+  return field;
+}
+
 /** `16-04`: the notice text/url fields, found the same `<label>`-`htmlFor` way as `localeSelect`
  * above, never by class name. */
 function noticeTextField(container: HTMLElement): HTMLTextAreaElement {
@@ -156,6 +173,7 @@ beforeEach(() => {
     autoOpenGreetingText: null,
     channelSwitcherPlacement: "AboveComposer",
     channelSwitcherIconSize: "Medium",
+    panelTitle: null,
   });
   widgetConfigApi.updateWidgetConfig.mockImplementation((_token: string, _siteId: string, dto: unknown) =>
     Promise.resolve(dto),
@@ -1292,6 +1310,130 @@ describe("the widget contact-capture confirmation field", () => {
 
     expect(contactCaptureConfirmationField(container).placeholder).toBe(
       "Thanks, {name} - your details have been added.",
+    );
+  });
+});
+
+// `25-210`: the panel-title field - joins `widgetColorFieldLabel`/`widgetPositionFieldLabel`'s own
+// "always renders something" terms, not the notice/greeting fields' "blank means render nothing"
+// terms, so its own tests assert a real default placeholder rather than "renders nothing when unset".
+describe("the panel title field", () => {
+  it("loads the site's current override into the field", async () => {
+    widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "Ru",
+      noticeText: null,
+      noticeUrl: null,
+      panelTitle: "Чем мы могли бы вам помочь сегодня?",
+    });
+
+    const container = await render(page());
+
+    expect(panelTitleField(container).value).toBe("Чем мы могли бы вам помочь сегодня?");
+  });
+
+  it("starts empty when the site has never configured an override", async () => {
+    const container = await render(page());
+
+    expect(panelTitleField(container).value).toBe("");
+  });
+
+  // `25-210`'s own Done-when: an empty field must visibly mean "the default text above", not "unset
+  // and therefore blank" - the placeholder is the widget's own real built-in default greeting, not a
+  // made-up example, the identical "shows the widget's own real default sentence" precedent
+  // `contactCaptureConfirmationField`'s own test above already establishes for its sibling field.
+  it("shows the widget's own real built-in default greeting as the field's placeholder", async () => {
+    const container = await render(page());
+
+    expect(panelTitleField(container).placeholder).toBe("How can we help you?");
+  });
+
+  it("shows a character counter bound to the 300-character server limit", async () => {
+    const container = await render(page());
+
+    expect(container.textContent).toContain("0 / 300");
+
+    const typed = "How can we help?";
+    setTextValue(panelTitleField(container), typed);
+
+    expect(container.textContent).toContain(`${typed.length} / 300`);
+  });
+
+  it("saves the typed override alongside every other field, in one PUT", async () => {
+    const container = await render(page());
+
+    setTextValue(panelTitleField(container), "Чем мы могли бы вам помочь?");
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(widgetConfigApi.updateWidgetConfig).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({ panelTitle: "Чем мы могли бы вам помочь?" }),
+    );
+  });
+
+  it("sends null, not an empty string, when the field is left blank", async () => {
+    const container = await render(page());
+
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(widgetConfigApi.updateWidgetConfig).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({ panelTitle: null }),
+    );
+  });
+
+  // The same "clearing it reverts to the built-in default" round trip `25-210`'s own Done-when names
+  // explicitly - proven here as "the server's null comes back and the field renders empty again",
+  // which is what makes the placeholder (the real default) visible once more.
+  it("reflects the server's saved override back into the field, or clears it back to the placeholder", async () => {
+    const container = await render(page());
+    widgetConfigApi.updateWidgetConfig.mockResolvedValue({
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "En",
+      noticeText: null,
+      noticeUrl: null,
+      panelTitle: null,
+    });
+
+    setTextValue(panelTitleField(container), "Custom greeting");
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(panelTitleField(container).value).toBe("");
+    expect(panelTitleField(container).placeholder).toBe("How can we help you?");
+    expect(container.textContent).toContain("Saved.");
+  });
+
+  // The same "a save that never touched this field must carry it through unchanged" regression shape
+  // `channelSwitcherPlacement`/`requireContactConsent`'s own tests already prove for their own fields -
+  // this page PUTs the whole object, so a field missing from the request would silently clear a
+  // tenant's chosen title on the next unrelated save.
+  it("carries the override through a save that never touched it", async () => {
+    widgetConfigApi.fetchWidgetConfig.mockResolvedValue({
+      primaryColorHex: null,
+      position: "BottomRight",
+      locale: "Ru",
+      noticeText: null,
+      noticeUrl: null,
+      panelTitle: "Чем мы могли бы вам помочь?",
+    });
+
+    const container = await render(page());
+
+    await interact(() => {
+      const select = localeSelect(container);
+      select.value = "En";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await interact(() => one<HTMLButtonElement>(container, "button[type='submit']").click());
+
+    expect(widgetConfigApi.updateWidgetConfig).toHaveBeenCalledWith(
+      "token",
+      SITE_ID,
+      expect.objectContaining({ locale: "En", panelTitle: "Чем мы могли бы вам помочь?" }),
     );
   });
 });

@@ -142,6 +142,17 @@ export interface WidgetConfigDto {
    * own remarks on why this field is never nullable).
    */
   channelSwitcherIconSize: ChannelSwitcherIconSize;
+  /**
+   * `25-210`: the chat panel's own `<h1>` (`.ago-header h1`, `ago-widget`'s `ui/widget.ts`) - also read
+   * by `25-211`'s channel-switcher header bar, so the two surfaces never show different words. Unlike
+   * `noticeText`/`autoOpenGreetingText`/`contactCaptureConfirmationText`, `null` here does **not** mean
+   * "render nothing" - it means "use the widget's own built-in default greeting", the same
+   * "always renders something" terms `primaryColorHex`/`position` already establish on this same
+   * interface (`Ago.Chat.Domain.WidgetConfig.PanelTitle`'s own remarks explain the distinction). A
+   * tenant clearing this field reverts to that default rather than leaving the panel with a blank
+   * title.
+   */
+  panelTitle: string | null;
 }
 
 /**

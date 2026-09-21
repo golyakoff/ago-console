@@ -88,6 +88,11 @@ const CHANNEL_SWITCHER_ICON_SIZE_OPTIONS: readonly ChannelSwitcherIconSize[] = [
 
 const DEFAULT_SWATCH_COLOR = "#2f6fed";
 
+// `25-210`: mirrors `Ago.Chat.Domain.WidgetConfig.MaxPanelTitleLength` - a UX-only bound (the counter
+// below it), the same "server is the real, authoritative gate" posture every other field on this page
+// already takes toward its own server-side length ceiling.
+const PANEL_TITLE_MAX_LENGTH = 300;
+
 // `25-24`: the consent-notice card's own read-only preview - the item's own Scope names this exact
 // number ("truncated to the first 10 lines").
 const NOTICE_TEXT_PREVIEW_LINES = 10;
@@ -125,6 +130,11 @@ export function WidgetConfigPage() {
   const [colorInput, setColorInput] = useState("");
   const [position, setPosition] = useState<WidgetPosition>("BottomRight");
   const [locale, setLocale] = useState<WidgetLocale>("En");
+  // `25-210`: the chat panel's own title - joins `colorInput`/`position` on the identical "always
+  // renders something" terms, not `noticeTextInput`'s own "blank means render nothing" terms. An empty
+  // trimmed value means "no override, use the widget's own built-in default greeting"
+  // (`widgetPanelTitlePlaceholder`, shown as this field's own placeholder).
+  const [panelTitleInput, setPanelTitleInput] = useState("");
   const [noticeTextInput, setNoticeTextInput] = useState("");
   const [noticeUrlInput, setNoticeUrlInput] = useState("");
   const [requireContactConsent, setRequireContactConsent] = useState(false);
@@ -185,6 +195,7 @@ export function WidgetConfigPage() {
         setColorInput(dto.primaryColorHex ?? "");
         setPosition(dto.position);
         setLocale(dto.locale);
+        setPanelTitleInput(dto.panelTitle ?? "");
         setNoticeTextInput(dto.noticeText ?? "");
         setNoticeUrlInput(dto.noticeUrl ?? "");
         setRequireContactConsent(dto.requireContactConsent);
@@ -270,6 +281,12 @@ export function WidgetConfigPage() {
       return;
     }
 
+    // `25-210`: the identical "no client-side format to check beyond what the input itself already
+    // enforces (nothing)" posture `trimmedNoticeText` below already states for itself - a whitespace-
+    // only or over-length value is left to the server's own `WidgetConfig.InvalidPanelTitle`, surfaced
+    // as `submitError` like any other rejection.
+    const trimmedPanelTitle = panelTitleInput.trim();
+
     const trimmedNoticeText = noticeTextInput.trim();
     // `25-129`: the identical "no client-side format to check beyond what the textarea itself already
     // enforces (nothing)" posture `trimmedNoticeText` above already states for itself - a whitespace-
@@ -296,11 +313,13 @@ export function WidgetConfigPage() {
           trimmedContactCaptureConfirmationText.length > 0 ? trimmedContactCaptureConfirmationText : null,
         channelSwitcherPlacement,
         channelSwitcherIconSize,
+        panelTitle: trimmedPanelTitle.length > 0 ? trimmedPanelTitle : null,
       });
       setCurrent(dto);
       setColorInput(dto.primaryColorHex ?? "");
       setPosition(dto.position);
       setLocale(dto.locale);
+      setPanelTitleInput(dto.panelTitle ?? "");
       setNoticeTextInput(dto.noticeText ?? "");
       setNoticeUrlInput(dto.noticeUrl ?? "");
       setRequireContactConsent(dto.requireContactConsent);
@@ -430,6 +449,32 @@ export function WidgetConfigPage() {
                     <option value="En">{LOCALE_LABELS.En}</option>
                     <option value="Ru">{LOCALE_LABELS.Ru}</option>
                   </Select>
+                )}
+              </Field>
+
+              {/* `25-210`: joins `widgetColorFieldLabel`/`widgetPositionFieldLabel` on the identical
+                  "Launcher" panel and the identical domain terms - an always-rendered appearance
+                  choice, not a notice/greeting field that renders nothing when blank. The counter is
+                  appended to the field's own description so a screen reader announces both together
+                  (`Field`'s own `aria-describedby` wiring), the same "description is a `ReactNode`, not
+                  just a string" affordance `Field.tsx` already offers. */}
+              <Field
+                label={strings.widgetPanelTitleFieldLabel}
+                description={
+                  <>
+                    {strings.widgetPanelTitleFieldDescription}{" "}
+                    {strings.widgetPanelTitleFieldCounter(panelTitleInput.trim().length, PANEL_TITLE_MAX_LENGTH)}
+                  </>
+                }
+              >
+                {(controlProps) => (
+                  <Input
+                    {...controlProps}
+                    value={panelTitleInput}
+                    onChange={(e) => setPanelTitleInput(e.target.value)}
+                    placeholder={strings.widgetPanelTitlePlaceholder}
+                    disabled={submitting}
+                  />
                 )}
               </Field>
 
