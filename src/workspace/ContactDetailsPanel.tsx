@@ -266,7 +266,15 @@ export function ContactDetailsPanel({ conversationId, accessToken }: ContactDeta
                         brandbook's Field/Input demo now show, for the identical reason: nothing here
                         told an operator this value is expected to be a Russian number. Email/Name rows
                         are untouched - this is presentational only, `editContactDetail`'s own wire
-                        shape and validation are unchanged either way. */}
+                        shape and validation are unchanged either way.
+
+                        `25-209`: `editDraft` starts as `detail.value` (`handleStartEdit` above) -
+                        exactly whatever the widget's own `phoneFormat.ts` wrote for this row, which can
+                        legitimately be a non-Russian, escape-hatch `+1...` shape (`VisitorContactDetail`
+                        has no format contract, `handleStartEdit`'s own remarks). No prop is passed here
+                        for that: `PhoneInput`'s own `🇷🇺 +7` prefix now infers "not a plain RU number"
+                        from `value`'s own shape (that component's own doc comment says why), so this
+                        already-passed `value` is the only signal it needs - nothing new to wire. */}
                     {detail.kind === "Phone" ? (
                       <PhoneInput
                         value={editDraft}

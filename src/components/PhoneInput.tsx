@@ -27,18 +27,36 @@ export interface PhoneInputProps extends Omit<InputHTMLAttributes<HTMLInputEleme
  * choose from, so a dropdown here would offer a choice that does not exist. Emoji, not an SVG/icon-font
  * flag, for the same bundle-size reason `ago-widget`'s own choice is emoji: zero additional asset,
  * zero additional font, renders with the system emoji font already available everywhere.
+ *
+ * `25-209`: the `🇷🇺 +7` prefix used to sit beside a value that could itself already carry `+7` (a
+ * `ContactDetailsPanel` row's `detail.value` is exactly what the widget's own `phoneFormat.ts` wrote,
+ * unverified free text with no format contract), showing the country code twice. The fix is to hide
+ * this prefix the moment the value is not a plain Russian subscriber number - **inferred from
+ * `value`'s own shape (`+` followed by anything other than `7`), not a separate caller-supplied
+ * boolean prop.** A second prop would need this component's one real caller to independently keep it
+ * in sync with the `value` it is already passing on every render, the two could drift, and the value
+ * itself already carries the one fact that matters - `ago-widget`'s own escape-hatch condition
+ * (`phoneFormat.ts`'s `isExplicitNonRussianPhoneValue`) makes the identical call the identical way,
+ * from the value alone, for the identical reason. `Input`'s own `value` can be non-`string` per
+ * `InputHTMLAttributes` (an uncontrolled `undefined`, or, in principle, `readonly string[]` for a
+ * `<select multiple>` this component never renders) - anything but a plain `string` is treated as "no
+ * signal either way" and the prefix shows, matching this component's pre-25-209 default.
  */
-export function PhoneInput({ invalid, className, ...rest }: PhoneInputProps) {
+export function PhoneInput({ invalid, className, value, ...rest }: PhoneInputProps) {
   const wrapperClasses = ["ago-phone-input", invalid && "ago-phone-input--invalid", className]
     .filter(Boolean)
     .join(" ");
 
+  const isNonRussianValue = typeof value === "string" && value.startsWith("+") && !value.startsWith("+7");
+
   return (
     <div className={wrapperClasses}>
-      <span className="ago-phone-input__prefix" aria-hidden="true">
-        🇷🇺 +7
-      </span>
-      <Input type="tel" invalid={invalid} {...rest} />
+      {!isNonRussianValue && (
+        <span className="ago-phone-input__prefix" aria-hidden="true">
+          🇷🇺 +7
+        </span>
+      )}
+      <Input type="tel" invalid={invalid} value={value} {...rest} />
     </div>
   );
 }
