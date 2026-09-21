@@ -387,6 +387,11 @@ export const en: ConsoleStrings = {
   widgetPositionBottomRight: "Bottom right",
   widgetPositionBottomLeft: "Bottom left",
   widgetLanguageFieldLabel: "Widget language",
+  widgetPanelTitleFieldLabel: "Panel title",
+  widgetPanelTitleFieldDescription:
+    "The greeting shown at the top of the chat panel. Leave blank to use the built-in default shown below.",
+  widgetPanelTitlePlaceholder: "How can we help you?",
+  widgetPanelTitleFieldCounter: (length: number, max: number) => `${length} / ${max}`,
   widgetNoticePanelTitle: "Consent notice",
   widgetNoticeTextFieldLabel: "Notice text (optional)",
   widgetNoticeTextFieldDescription:

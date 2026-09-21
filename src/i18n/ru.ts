@@ -384,6 +384,11 @@ export const ru: ConsoleStrings = {
   widgetPositionBottomRight: "Внизу справа",
   widgetPositionBottomLeft: "Внизу слева",
   widgetLanguageFieldLabel: "Язык виджета",
+  widgetPanelTitleFieldLabel: "Заголовок панели",
+  widgetPanelTitleFieldDescription:
+    "Приветствие в верхней части панели чата. Оставьте пустым, чтобы использовать текст по умолчанию, показанный ниже.",
+  widgetPanelTitlePlaceholder: "Чем мы могли бы вам помочь?",
+  widgetPanelTitleFieldCounter: (length: number, max: number) => `${length} / ${max}`,
   widgetNoticePanelTitle: "Согласие на обработку персональных данных",
   widgetNoticeTextFieldLabel: "Текст уведомления (необязательно)",
   widgetNoticeTextFieldDescription:
