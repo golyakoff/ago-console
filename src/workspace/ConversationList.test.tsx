@@ -57,6 +57,10 @@ afterEach(async () => {
  * test.
  */
 describe("25-56: the visitor emoji pair beside the short code", () => {
+  // `25-207`: the fallback label used to be nothing but the pair and the short code - it now reads as
+  // each emoji's own localized name (`ConsoleStrings.visitorEmojiNames` - `en` here, the default
+  // `useStrings()` falls back to when no provider wraps this component, `StringsContext.tsx`'s own
+  // doc comment), with the short code kept as a faint trailing detail rather than dropped.
   it("prepends the emoji pair to the short code when the visitor has one, in both rows", async () => {
     const container = await mount({
       assignedToMe: [assignedSummary({ emojiCreature: "🐔", emojiFood: "🍊" })],
@@ -64,10 +68,10 @@ describe("25-56: the visitor emoji pair beside the short code", () => {
     });
 
     const assignedBadge = one(container, ".ago-badge--brand");
-    expect(assignedBadge.textContent?.trim()).toBe(`🐔🍊 ${ASSIGNED_VISITOR_ID.slice(0, 8)}`);
+    expect(assignedBadge.textContent?.trim()).toBe(`🐔🍊 Chicken · Orange ${ASSIGNED_VISITOR_ID.slice(0, 8)}`);
 
     const waitingBadge = one(container, ".ago-badge--neutral");
-    expect(waitingBadge.textContent?.trim()).toBe(`🐠🥝 ${WAITING_VISITOR_ID.slice(0, 8)}`);
+    expect(waitingBadge.textContent?.trim()).toBe(`🐠🥝 Fish · Kiwi ${WAITING_VISITOR_ID.slice(0, 8)}`);
   });
 
   it("renders only the short code, no stray text, when the pair is absent", async () => {
@@ -113,16 +117,16 @@ describe("25-56: the visitor's own name beside the short code", () => {
     expect(waitingBadge.textContent?.trim()).toBe(`🐠🥝 Мария ${WAITING_VISITOR_ID.slice(0, 8)}`);
   });
 
-  // The item's own Done-when: "no name yet" must still render exactly as it did before this item -
-  // just the pair and the short code, no stray space, no placeholder.
-  it("renders exactly the pair and the short code, no stray space, when no name is known yet", async () => {
+  // `25-207`'s own Done-when: "no name yet" now reads as the localized fallback label rather than
+  // nothing - `Chicken · Orange`, not a stray double space and not the bare glyphs as text.
+  it("renders the localized fallback label, not a stray space, when no name is known yet", async () => {
     const container = await mount({
       assignedToMe: [assignedSummary({ emojiCreature: "🐔", emojiFood: "🍊", visitorName: null })],
       waiting: [],
     });
 
     const assignedBadge = one(container, ".ago-badge--brand");
-    expect(assignedBadge.textContent?.trim()).toBe(`🐔🍊 ${ASSIGNED_VISITOR_ID.slice(0, 8)}`);
+    expect(assignedBadge.textContent?.trim()).toBe(`🐔🍊 Chicken · Orange ${ASSIGNED_VISITOR_ID.slice(0, 8)}`);
     expect(assignedBadge.textContent).not.toMatch(/ {2}/);
   });
 });
@@ -202,30 +206,39 @@ describe("25-162: the assigned section sorts by most recent activity, not by cre
 });
 
 /**
- * `25-162`'s own Done-when: "the visitor emoji-pair icon is visibly larger on both the card list and
- * the individual conversation page header." `ConversationPage.test.tsx` covers the header; this
- * covers both rows this component renders. Asserts the emoji sits in its own `.ago-visitor-emoji`
- * element (the class the CSS fix actually targets), not merely that the glyphs are present somewhere
- * in the badge - a regression that dropped the wrapping `<span>` but kept the characters would still
- * pass the plain text-content checks above.
+ * `25-162`'s own Done-when ("the visitor emoji-pair icon is visibly larger...") is now met by
+ * `25-207`'s badge composition instead of a single enlarged span - `ConversationPage.test.tsx` covers
+ * the header, this covers both rows this component renders. Asserts the creature and food each sit in
+ * their own element (`.ago-visitor-avatar__creature`/`__food`, the classes the CSS composition
+ * actually targets), not merely that the glyphs are present somewhere in the badge - a regression that
+ * dropped the badge's own DOM structure but kept the characters would still pass the plain
+ * text-content checks in the describe block above.
  */
-describe("25-162: the visitor emoji pair renders in its own, deliberately larger element", () => {
-  it("wraps only the emoji pair in .ago-visitor-emoji, in both the assigned and waiting rows", async () => {
+describe("25-207: the visitor emoji pair renders as the badge composition", () => {
+  it("renders the creature and food each in their own element, in both the assigned and waiting rows", async () => {
     const container = await mount({
       assignedToMe: [assignedSummary({ emojiCreature: "🐔", emojiFood: "🍊" })],
       waiting: [waitingSummary({ emojiCreature: "🐠", emojiFood: "🥝" })],
     });
 
-    const emojiSpans = all(container, ".ago-visitor-emoji") as HTMLElement[];
-    expect(emojiSpans).toHaveLength(2);
-    expect(emojiSpans[0].textContent?.trim()).toBe("🐔🍊");
-    expect(emojiSpans[1].textContent?.trim()).toBe("🐠🥝");
+    const avatars = all(container, ".ago-visitor-avatar") as HTMLElement[];
+    expect(avatars).toHaveLength(2);
+
+    const [assignedCreature, waitingCreature] = all(container, ".ago-visitor-avatar__creature") as HTMLElement[];
+    const [assignedFood, waitingFood] = all(container, ".ago-visitor-avatar__food") as HTMLElement[];
+    expect(assignedCreature.textContent).toBe("🐔");
+    expect(assignedFood.textContent).toBe("🍊");
+    expect(waitingCreature.textContent).toBe("🐠");
+    expect(waitingFood.textContent).toBe("🥝");
+
+    // `25-207`'s own Scope: the avatar carries no accessible name of its own - the text label beside
+    // it (asserted above, in the "25-56" describe block) already says the same thing in words.
+    expect(avatars[0].getAttribute("aria-hidden")).toBe("true");
   });
 
-  it("renders an empty .ago-visitor-emoji, not a missing one, when the visitor has no pair yet", async () => {
+  it("renders no avatar at all, not an empty one, when the visitor has no pair yet", async () => {
     const container = await mount({ assignedToMe: [assignedSummary()], waiting: [] });
 
-    const emojiSpan = one(container, ".ago-visitor-emoji");
-    expect(emojiSpan.textContent?.trim()).toBe("");
+    expect(all(container, ".ago-visitor-avatar")).toHaveLength(0);
   });
 });

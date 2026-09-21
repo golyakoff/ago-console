@@ -1,4 +1,5 @@
 import type { ConsoleStrings } from "./strings.js";
+import { visitorEmojiNamesEn } from "./visitorEmojiNames.js";
 
 /** The console's own built-in language - unchanged text from before this item existed, so a site
  * with no locale set (every existing tenant) renders identically to before `11-11`. */
@@ -319,6 +320,8 @@ export const en: ConsoleStrings = {
     "Reloading rarely helps - if this persists, the browser console carries the reason the " +
     "connection was refused (5-18).",
   connectionBadgeAriaPrefix: "Operator hub:",
+
+  visitorEmojiNames: visitorEmojiNamesEn,
 
   conversationBackLink: "← Conversations",
   conversationWithPrefix: "Conversation with",

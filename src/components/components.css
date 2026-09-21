@@ -679,18 +679,58 @@
   color: var(--ago-ink-soft);
 }
 
-/* `25-162`: the visitor emoji pair (`visitorEmojiPrefix`) rendered "почти не видно" - practically
-   invisible - at both its render sites (`ConversationList.tsx`'s cards, `ConversationPage.tsx`'s own
-   header) because each inherits its surrounding context's tiny text size (`.ago-badge`'s
-   `--ago-text-xs`, `.ago-mono`'s own identical override). `em`-relative, not an absolute size, so it
-   scales the same deliberate amount larger than whatever text size it happens to sit inside rather
-   than fixing one context and leaving the other inconsistent. `line-height: 1` and a small negative
-   `vertical-align` keep the taller glyph from pushing the row's own line height around or floating
-   above the text baseline it sits beside. */
-.ago-visitor-emoji {
-  font-size: 1.75em;
+/* `25-207`: the badge composition that replaces `25-162`'s `.ago-visitor-emoji` (a single span holding
+   both same-size glyphs side by side) at the identical three render sites (`ConversationList.tsx`'s
+   two rows, `ConversationPage.tsx`'s header) - see `VisitorAvatar.tsx`'s own doc comment for why one
+   shared component now owns all three instead of each repeating this markup.
+
+   `.ago-visitor-avatar` itself sets no font-size - it inherits whatever tiny context it sits in
+   (`.ago-badge`'s/`.ago-mono`'s `--ago-text-xs`), the same inheritance `.ago-visitor-emoji` relied on,
+   so `position: relative` is all it adds: an anchor for the food badge's `absolute` position below. */
+.ago-visitor-avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 0.35em; /* room for the food badge's own overhang, so it does not sit under the text that follows */
+}
+
+/* Author's own final, explicit sizes (settled live in the mockup Artifact, after two earlier
+   percentage-based passes were both walked back): 28px creature, 16px food badge. This context's own
+   inherited base is `--ago-text-xs` (12px, `design/tokens.css`), so those become `em` multiples of
+   it: 28 / 12 = 2.3333em, 16 / 12 = 1.3333em - still relative to whatever this component's own
+   surrounding context happens to be, the same inheritance `.ago-visitor-emoji` always relied on.
+   `.ago-visitor-avatar`'s own `display: inline-flex; align-items: center; justify-content: center`
+   does the real centering now (the mockup's own live-verified fix for an emoji glyph's own font
+   metrics reading slightly low in a plain inline box) - no `vertical-align` needed or wanted here,
+   since it has no effect on a flex item and would only mislead a future reader into thinking it does
+   something. */
+.ago-visitor-avatar__creature {
+  font-size: 2.3333em;
   line-height: 1;
-  vertical-align: -0.2em;
+}
+
+/* The badge half of the composition - no background, no border, per this item's own Scope: "no
+   background circle of its own", floating directly over whatever surface sits behind it.
+   `position: absolute` overlapping the bottom-right corner, anchored to `.ago-visitor-avatar`'s own
+   `position: relative` above. Offset grew slightly from the first pass alongside the badge's own
+   size, so it still reads as overlapping the edge rather than sitting fully inside or fully outside
+   the creature's own circle-shaped visual footprint. */
+.ago-visitor-avatar__food {
+  position: absolute;
+  right: -0.35em;
+  bottom: -0.2em;
+  font-size: 1.3333em;
+  line-height: 1;
+}
+
+/* `25-207`: the short code's own faint trailing detail - kept, per this item's own reasoning ("low
+   collision probability, but not zero, and a faint tie-breaker costs nothing"), rather than dropped
+   now that the localized name carries the fallback label's own meaning. `--ago-ink-faint` is this
+   codebase's existing token for exactly this level of de-emphasis (`shell.css`'s muted rail links,
+   `.ago-owner-detail-facts dt`'s labels) - reused here rather than inventing a second "faint" idiom. */
+.ago-visitor-shortcode {
+  color: var(--ago-ink-faint);
 }
 
 /* `18-14`: BookingFlowConversionPage's own two-number stat block - a plain `<dl>`, not a `Table`, the
