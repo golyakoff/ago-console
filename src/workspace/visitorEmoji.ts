@@ -108,3 +108,35 @@ export function visitorLabel(
   const nameSuffix = visitorNameSuffix(visitor);
   return nameSuffix || visitorFallbackLabel(visitor, names);
 }
+
+/**
+ * `26-31`: what a *queue row* puts beside the avatar, now that the row no longer prints the visitor's
+ * short code after it.
+ *
+ * The code used to be unconditional - `{visitorLabel(...)}<span class="ago-visitor-shortcode">
+ * {c.visitorId.slice(0, 8)}</span>` in both of `ConversationList`'s sections. Since `25-207` gave
+ * `visitorLabel` above a real human label in every case a pair exists (the visitor's own name, else
+ * «Сова · Клубника»), that code was a second identity standing beside a perfectly good first one, on
+ * a screen whose whole job is scanning many rows quickly. The author asked for it to go from every
+ * surface that shows it.
+ *
+ * **But not from the one row that has nothing else.** `visitorLabel` returns `""` for a visitor with
+ * neither a name nor an emoji pair - a row predating `25-56`'s backfill, or an in-flight write, which
+ * this file's own top doc comment already insists is a real case rather than an error. Removing the
+ * code unconditionally would leave that row's badge blank, which is strictly worse than hex. So the
+ * code survives exactly there, as a fallback, and the rule lives here rather than as a ternary at two
+ * call sites.
+ *
+ * Trimmed, unlike `visitorLabel`'s own trailing-space contract: that space existed to separate the
+ * label from the code that used to follow it, and nothing follows it any more.
+ *
+ * `ConversationPage.tsx` deliberately keeps its own short code and does not call this. The open
+ * conversation is where an operator quotes an id into a support ticket or a log search, which is the
+ * opposite of this screen's "scan many rows fast" job.
+ */
+export function visitorQueueRowLabel(
+  visitor: { emojiCreature?: string | null; emojiFood?: string | null; visitorName?: string | null; visitorId: string },
+  names: Readonly<Record<string, string>>,
+): string {
+  return visitorLabel(visitor, names).trim() || visitor.visitorId.slice(0, 8);
+}

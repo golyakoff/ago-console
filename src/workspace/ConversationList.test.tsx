@@ -60,18 +60,21 @@ describe("25-56: the visitor emoji pair beside the short code", () => {
   // `25-207`: the fallback label used to be nothing but the pair and the short code - it now reads as
   // each emoji's own localized name (`ConsoleStrings.visitorEmojiNames` - `en` here, the default
   // `useStrings()` falls back to when no provider wraps this component, `StringsContext.tsx`'s own
-  // doc comment), with the short code kept as a faint trailing detail rather than dropped.
-  it("prepends the emoji pair to the short code when the visitor has one, in both rows", async () => {
+  // doc comment). `26-31` then dropped the trailing short code from these rows entirely: with a real
+  // human label always present when a pair is, the code was a second identity beside a perfectly good
+  // first one. The two "no pair at all" cases below are unchanged on purpose - that is exactly where
+  // the code survives, because there is nothing else to show.
+  it("renders the localized pair label, and no short code, when the visitor has a pair", async () => {
     const container = await mount({
       assignedToMe: [assignedSummary({ emojiCreature: "🐔", emojiFood: "🍊" })],
       waiting: [waitingSummary({ emojiCreature: "🐠", emojiFood: "🥝" })],
     });
 
     const assignedBadge = one(container, ".ago-badge--brand");
-    expect(assignedBadge.textContent?.trim()).toBe(`🐔🍊 Chicken · Orange ${ASSIGNED_VISITOR_ID.slice(0, 8)}`);
+    expect(assignedBadge.textContent?.trim()).toBe("🐔🍊 Chicken · Orange");
 
     const waitingBadge = one(container, ".ago-badge--neutral");
-    expect(waitingBadge.textContent?.trim()).toBe(`🐠🥝 Fish · Kiwi ${WAITING_VISITOR_ID.slice(0, 8)}`);
+    expect(waitingBadge.textContent?.trim()).toBe("🐠🥝 Fish · Kiwi");
   });
 
   it("renders only the short code, no stray text, when the pair is absent", async () => {
@@ -104,17 +107,17 @@ describe("25-56: the visitor emoji pair beside the short code", () => {
  * "goes through the real DTO shape" discipline as the emoji-only tests above.
  */
 describe("25-56: the visitor's own name beside the short code", () => {
-  it("renders the pair, the name, and the short code, in that order, in both rows", async () => {
+  it("renders the pair and the name, with no short code after them, in both rows", async () => {
     const container = await mount({
       assignedToMe: [assignedSummary({ emojiCreature: "🐔", emojiFood: "🍊", visitorName: "Иван Иванов" })],
       waiting: [waitingSummary({ emojiCreature: "🐠", emojiFood: "🥝", visitorName: "Мария" })],
     });
 
     const assignedBadge = one(container, ".ago-badge--brand");
-    expect(assignedBadge.textContent?.trim()).toBe(`🐔🍊 Иван Иванов ${ASSIGNED_VISITOR_ID.slice(0, 8)}`);
+    expect(assignedBadge.textContent?.trim()).toBe("🐔🍊 Иван Иванов");
 
     const waitingBadge = one(container, ".ago-badge--neutral");
-    expect(waitingBadge.textContent?.trim()).toBe(`🐠🥝 Мария ${WAITING_VISITOR_ID.slice(0, 8)}`);
+    expect(waitingBadge.textContent?.trim()).toBe("🐠🥝 Мария");
   });
 
   // `25-207`'s own Done-when: "no name yet" now reads as the localized fallback label rather than
@@ -126,7 +129,7 @@ describe("25-56: the visitor's own name beside the short code", () => {
     });
 
     const assignedBadge = one(container, ".ago-badge--brand");
-    expect(assignedBadge.textContent?.trim()).toBe(`🐔🍊 Chicken · Orange ${ASSIGNED_VISITOR_ID.slice(0, 8)}`);
+    expect(assignedBadge.textContent?.trim()).toBe("🐔🍊 Chicken · Orange");
     expect(assignedBadge.textContent).not.toMatch(/ {2}/);
   });
 });

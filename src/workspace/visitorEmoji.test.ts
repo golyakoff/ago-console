@@ -6,6 +6,7 @@ import {
   visitorEmojiPrefix,
   visitorFallbackLabel,
   visitorLabel,
+  visitorQueueRowLabel,
 } from "./visitorEmoji.js";
 
 /** `25-56`: the null-handling this helper exists to centralise, proved once here rather than only
@@ -127,5 +128,37 @@ describe("visitorLabel", () => {
 
   it("renders nothing when neither a name nor a pair is known - the pre-25-207 case, unchanged", () => {
     expect(visitorLabel({}, visitorEmojiNamesEn)).toBe("");
+  });
+});
+
+/**
+ * `26-31`: the queue row's own label, and specifically the one case the short code survives.
+ */
+describe("visitorQueueRowLabel", () => {
+  const id = "0a1b2c3d-4444-4444-4444-444444444444";
+
+  it("is the visitor's own name, with no short code after it", () => {
+    expect(
+      visitorQueueRowLabel(
+        { emojiCreature: "🦉", emojiFood: "🍓", visitorName: "Иван Иванов", visitorId: id },
+        visitorEmojiNamesEn,
+      ),
+    ).toBe("Иван Иванов");
+  });
+
+  it("is the localized pair label, with no short code after it, when no name is known", () => {
+    expect(
+      visitorQueueRowLabel({ emojiCreature: "🦉", emojiFood: "🍓", visitorName: null, visitorId: id }, visitorEmojiNamesEn),
+    ).toBe("Owl · Strawberry");
+  });
+
+  it("falls back to the short code for a visitor with neither a name nor a pair - never a blank badge", () => {
+    expect(visitorQueueRowLabel({ visitorId: id }, visitorEmojiNamesEn)).toBe("0a1b2c3d");
+  });
+
+  it("falls back to the short code when only one half of the pair is present", () => {
+    expect(
+      visitorQueueRowLabel({ emojiCreature: "🦉", emojiFood: null, visitorId: id }, visitorEmojiNamesEn),
+    ).toBe("0a1b2c3d");
   });
 });
