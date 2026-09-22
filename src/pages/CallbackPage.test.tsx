@@ -43,10 +43,16 @@ const userManager = vi.hoisted(() => ({
 }));
 const operatorsApi = vi.hoisted(() => ({ resolveOperatorState: vi.fn(), fetchMyPermissions: vi.fn() }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn(), fetchOwnerSites: vi.fn() }));
+const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
+const activeSiteStorage = vi.hoisted(() => ({ resolveActiveSite: vi.fn(), readStoredActiveSite: vi.fn(), writeStoredActiveSite: vi.fn() }));
+const activeSiteApi = vi.hoisted(() => ({ setActiveSiteId: vi.fn(), getActiveSiteId: vi.fn(), withActiveSiteHeader: vi.fn((h: unknown) => h) }));
 
 vi.mock("../auth/userManager.js", () => userManager);
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
 vi.mock("../api/ownerApi.js", () => ownerApi);
+vi.mock("../api/tenanciesApi.js", () => tenanciesApi);
+vi.mock("../auth/activeSiteStorage.js", () => activeSiteStorage);
+vi.mock("../api/activeSite.js", () => activeSiteApi);
 
 /** A token carrying nothing about operators - which is the honest shape: Keycloak signs identity,
  * and `adr/0022`'s resolve-at-request-time model means `OperatorId`/`SiteId` are never in it. */
@@ -81,6 +87,11 @@ beforeEach(() => {
   // The answer for everybody but one person on the deployment, so it is the default here and the
   // owner case sets its own - which also keeps every pre-`12-04` case above behaving as it did.
   ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
+  // `25-212`: zero tenancies by default - the ordinary case for every test above that predates this
+  // item, none of which is about tenancy count at all. `resolveActiveSite([])` for real would answer
+  // `null` too; mocked here the same way so those tests need no changes to stay green.
+  tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [] });
+  activeSiteStorage.resolveActiveSite.mockReturnValue(null);
 });
 
 afterEach(async () => {
@@ -324,6 +335,106 @@ describe("the message names which of three things actually failed", () => {
     expect(container.textContent).toContain("The user denied consent.");
     expect(container.querySelector("[role='alert']")).not.toBeNull();
     expect(operatorsApi.resolveOperatorState).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * `25-212`. `ResolveOperatorIdentityHandler` (`ago-chat`) refuses to resolve a tenancy for an
+ * identity holding more than one, when no `X-Ago-Active-Site` signal is set - which meant
+ * `resolveOperatorState` answered `"keycloak-identity-only"` for a real, working multi-tenancy
+ * operator's first sign-in, indistinguishable from `12-04`'s own state (b)/(d) and landing on
+ * `/onboarding`. `primeActiveSiteForOperatorProbe`'s own doc comment (`CallbackPage.tsx`) has the
+ * full reasoning for the fix chosen - reusing `resolveActiveSite`'s existing stored-or-first
+ * resolution for this one probe call, rather than a blocking site-picker screen before it, which is
+ * `26-12`'s (`ago-android`) own different answer to the identical question for a different session
+ * model.
+ */
+describe("a multi-tenancy identity's first sign-in - 25-212", () => {
+  it("sets the active site from the sole tenancy before probing, when there is exactly one", async () => {
+    tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies: [{ siteId: "site-a", siteName: "Shop A" }] });
+    activeSiteStorage.resolveActiveSite.mockReturnValue("site-a");
+    operatorsApi.resolveOperatorState.mockResolvedValue("operator");
+
+    const container = await render(app());
+
+    expect(activeSiteStorage.resolveActiveSite).toHaveBeenCalledWith([{ siteId: "site-a", siteName: "Shop A" }]);
+    expect(activeSiteApi.setActiveSiteId).toHaveBeenCalledWith("site-a");
+    expect(container.textContent).toContain("the queue");
+  });
+
+  /** The regression this item exists to fix, reproduced: a fake multi-tenancy identity reaches the
+   * queue, not `/onboarding`, and the mechanism - not merely the outcome - is asserted: the
+   * active-site signal is set strictly *before* `resolveOperatorState` is called, which is the
+   * ordering `25-212` changed. Reverting that reordering (calling `resolveOperatorState` before
+   * `primeActiveSiteForOperatorProbe`) makes the `callOrder` assertion below fail even though
+   * `resolveOperatorState` is mocked to answer `"operator"` regardless of order - proving this test
+   * actually exercises the fix, not just its mocked-away consequence. */
+  it("reaches the operator's queue, not /onboarding, for a real multi-tenancy identity with no active site yet", async () => {
+    const tenancies = [
+      { siteId: "site-a", siteName: "Shop A" },
+      { siteId: "site-b", siteName: "Shop B" },
+    ];
+    const callOrder: string[] = [];
+    tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies });
+    // `resolveActiveSite`'s own stored-or-first-alphabetically resolution is not re-tested here -
+    // that function's own contract is exercised elsewhere in this codebase; what this test proves is
+    // that whatever it resolves to is set before the probe call that depends on it.
+    activeSiteStorage.resolveActiveSite.mockReturnValue("site-a");
+    activeSiteApi.setActiveSiteId.mockImplementation(() => {
+      callOrder.push("setActiveSiteId");
+    });
+    operatorsApi.resolveOperatorState.mockImplementation(() => {
+      callOrder.push("resolveOperatorState");
+      // The real backend's answer once the header carries a real, eligible tenancy - `"operator"`,
+      // not the `403`-driven `"keycloak-identity-only"` this identity drew before this item, with
+      // nothing to tell it apart from a fresh registrant.
+      return Promise.resolve("operator");
+    });
+
+    const container = await render(app());
+
+    expect(container.textContent).toContain("the queue");
+    expect(container.textContent).not.toContain("set up your site");
+    expect(callOrder).toEqual(["setActiveSiteId", "resolveOperatorState"]);
+  });
+
+  it("still lands a platform owner who also holds two or more operator tenancies in their queue", async () => {
+    // The author's own account, per `PermissionsProvider`'s own remarks: "the author's own account
+    // has both" - a platform owner *and* several operator tenancies. Every entry `/me/tenancies`
+    // returns is already a real, sign-in-eligible operator row (`ListMyTenanciesHandler`, `ago-chat`),
+    // so this is the identical case as the plain multi-tenancy test above as far as the probe is
+    // concerned - it is the one this item's own Scope names as the case that must not regress.
+    const tenancies = [
+      { siteId: "owner-site-a", siteName: "Owner's Shop A" },
+      { siteId: "owner-site-b", siteName: "Owner's Shop B" },
+    ];
+    tenanciesApi.fetchMyTenancies.mockResolvedValue({ tenancies });
+    activeSiteStorage.resolveActiveSite.mockReturnValue("owner-site-a");
+    operatorsApi.resolveOperatorState.mockResolvedValue("operator");
+    // Would answer "eligible" if ever asked - this account really is a platform owner - but state
+    // (a) wins outright, exactly as the existing "never asks about the owner for an established
+    // operator" test already establishes for the single-tenancy case.
+    ownerApi.probeOwnerEligibility.mockResolvedValue("eligible");
+
+    const container = await render(app());
+
+    expect(container.textContent).toContain("the queue");
+    expect(container.textContent).not.toContain("platform sites");
+    expect(container.textContent).not.toContain("set up your site");
+    expect(ownerApi.probeOwnerEligibility).not.toHaveBeenCalled();
+  });
+
+  it("proceeds exactly as before - fails soft, not closed - when the tenancies probe itself cannot answer", async () => {
+    tenanciesApi.fetchMyTenancies.mockRejectedValue(new TypeError("Failed to fetch"));
+    operatorsApi.resolveOperatorState.mockResolvedValue("operator");
+
+    const container = await render(app());
+
+    // No active-site signal to set - the outage costs this fix's benefit for this one call, not a
+    // blocked or errored sign-in. `resolveOperatorState` still runs, exactly as it did before this
+    // item, with whatever it decides.
+    expect(activeSiteApi.setActiveSiteId).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("the queue");
   });
 });
 
