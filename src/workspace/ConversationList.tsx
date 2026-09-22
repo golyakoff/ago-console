@@ -7,7 +7,7 @@ import { useStrings } from "../i18n/StringsContext.js";
 import { formatAbsolute, formatElapsed, formatElapsedWords, parseInstant } from "../time/format.js";
 import { isNewlyAssigned, mostRecentlyActiveFirst, oldestFirst, unreadCountFor, type ReadStateMap } from "./attention.js";
 import { VisitorAvatar } from "./VisitorAvatar.js";
-import { visitorLabel } from "./visitorEmoji.js";
+import { visitorQueueRowLabel } from "./visitorEmoji.js";
 
 export interface ConversationListProps {
   /** `null` while the first queue fetch is in flight - "not yet known", never "empty". */
@@ -108,8 +108,7 @@ export function ConversationList({ queue, attention, now, timeZone, waitingRefre
                     <span className="ago-list__row-top">
                       <Badge tone="brand" mono>
                         <VisitorAvatar emojiCreature={c.emojiCreature} emojiFood={c.emojiFood} />
-                        {visitorLabel(c, strings.visitorEmojiNames)}
-                        <span className="ago-visitor-shortcode">{c.visitorId.slice(0, 8)}</span>
+                        {visitorQueueRowLabel(c, strings.visitorEmojiNames)}
                       </Badge>
                       {isNewlyAssigned(c, attention) && <Badge tone="accent">{strings.queueNewBadge}</Badge>}
                       {unread > 0 && (
@@ -179,8 +178,7 @@ export function ConversationList({ queue, attention, now, timeZone, waitingRefre
                     <span className="ago-list__row-top">
                       <Badge tone="neutral" mono>
                         <VisitorAvatar emojiCreature={c.emojiCreature} emojiFood={c.emojiFood} />
-                        {visitorLabel(c, strings.visitorEmojiNames)}
-                        <span className="ago-visitor-shortcode">{c.visitorId.slice(0, 8)}</span>
+                        {visitorQueueRowLabel(c, strings.visitorEmojiNames)}
                       </Badge>
                     </span>
                     <span className="ago-list__row-bottom">
