@@ -18,16 +18,36 @@ import type { ConsoleStrings } from "../i18n/strings.js";
 import { formatAbsolute, formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
 import { ClaimConversationButton } from "./ClaimConversationButton.js";
 
-/** `ConversationSearchResultDto.conversationState`'s three values, given the same tones
- * `AdminConversationsPage`'s `STATE_TONE` already picked for the identical wire values - one mapping,
- * kept local rather than imported, since sharing it across two files for three lines is not worth the
- * coupling (`AdminConversationsPage`'s own object literal is not exported). */
-const STATE_TONE: Record<ConversationSearchResultDto["conversationState"], "brand" | "success" | "neutral"> = {
-  Waiting: "brand",
-  Assigned: "success",
-  Closed: "neutral",
-};
+/** `ConversationSearchResultDto.conversationState`'s values, given the same tones
+ * `AdminConversationsPage`'s `stateTone` already picked for the identical wire values - one function,
+ * kept local rather than imported, since sharing it across two files for four lines is not worth the
+ * coupling (`AdminConversationsPage`'s own function is not exported).
+ *
+ * `25-225`: was a `Record<..., "brand" | "success" | "neutral">` - converted to a switch with a
+ * `default`, the same "a `Record` only protects what the *type* lists, not what the wire can
+ * actually send" fix `AdminConversationsPage`'s own `stateTone` doc comment explains in full;
+ * `ConversationState.Pending` (`25-221`) is exactly the value that slipped through the old shape. */
+function stateTone(state: ConversationSearchResultDto["conversationState"]): "brand" | "success" | "neutral" | "accent" | "danger" {
+  switch (state) {
+    case "Waiting":
+      return "brand";
+    case "Assigned":
+      return "success";
+    case "Closed":
+      return "neutral";
+    case "Pending":
+      return "accent";
+    default:
+      return "danger";
+  }
+}
 
+/** `25-225`: gains a `"Pending"` case and a `default` - see `stateTone`'s own doc comment above.
+ * Unlike `AdminConversationsPage`, a `Pending` hit is structurally unreachable through this page's
+ * own query (`ConversationSearchStore.Sql` joins `messages`, and a `Pending` conversation - `25-221`
+ * - never has one), so this case exists for type completeness and defence-in-depth rather than
+ * because an operator can ever actually see it rendered; `ResultRow`'s own doc comment below has the
+ * corresponding reasoning for why nothing here filters it out. */
 function stateLabel(state: ConversationSearchResultDto["conversationState"], strings: ConsoleStrings): string {
   switch (state) {
     case "Waiting":
@@ -36,6 +56,10 @@ function stateLabel(state: ConversationSearchResultDto["conversationState"], str
       return strings.conversationStateAssigned;
     case "Closed":
       return strings.conversationStateClosed;
+    case "Pending":
+      return strings.conversationStatePending;
+    default:
+      return strings.conversationStateUnknown;
   }
 }
 
@@ -89,13 +113,22 @@ interface ResultRowProps {
  * successful claim turns the row into the `Assigned` branch below on this same render, via
  * `onClaimed` updating the parent's own result list - no second search round trip needed for a fact
  * this page already knows.
+ *
+ * `25-225`: used to end in an if/else that rendered the `ClaimConversationButton` branch for
+ * `"Waiting"` and silently fell back to `searchClosedNote` for *anything else* - meaning a `Pending`
+ * hit (were one ever to reach this component) would have been mislabelled as closed rather than
+ * left honestly unhandled. Rewritten as three explicit branches (`Assigned`/`Waiting`/`Closed`) plus
+ * one final catch-all for `Pending` and any future state, which renders `searchUnknownStateNote`
+ * instead of guessing. This page's own filter-or-show call for `25-225`: no filtering added, because
+ * none is needed - see `stateLabel`'s own doc comment above for why a `Pending` hit cannot occur here
+ * at all under the query this page runs.
  */
 function ResultRow({ result, timeZone, strings, accessToken, onClaimed }: ResultRowProps) {
   const createdAt = parseInstant(result.createdAt);
 
   const meta = (
     <span className="ago-list__row-top">
-      <Badge tone={STATE_TONE[result.conversationState]}>{stateLabel(result.conversationState, strings)}</Badge>
+      <Badge tone={stateTone(result.conversationState)}>{stateLabel(result.conversationState, strings)}</Badge>
       <span className="ago-meta">{authorLabel(result.authorKind, strings)}</span>
       {createdAt && (
         <span className="ago-meta" title={formatAbsolute(createdAt, timeZone, strings)}>
@@ -123,12 +156,12 @@ function ResultRow({ result, timeZone, strings, accessToken, onClaimed }: Result
     );
   }
 
-  return (
-    <li>
-      <div className="ago-list__row ago-list__row--static">
-        {meta}
-        {body}
-        {result.conversationState === "Waiting" ? (
+  if (result.conversationState === "Waiting") {
+    return (
+      <li>
+        <div className="ago-list__row ago-list__row--static">
+          {meta}
+          {body}
           <span className="ago-claim-conversation">
             <span className="ago-search-result__note">{strings.searchWaitingNote}</span>
             {accessToken && (
@@ -138,9 +171,32 @@ function ResultRow({ result, timeZone, strings, accessToken, onClaimed }: Result
               />
             )}
           </span>
-        ) : (
+        </div>
+      </li>
+    );
+  }
+
+  if (result.conversationState === "Closed") {
+    return (
+      <li>
+        <div className="ago-list__row ago-list__row--static">
+          {meta}
+          {body}
           <span className="ago-search-result__note">{strings.searchClosedNote}</span>
-        )}
+        </div>
+      </li>
+    );
+  }
+
+  // `"Pending"`, or any state this switch does not otherwise list - see this component's own doc
+  // comment above for why the former cannot happen through this page's own query today, and
+  // `stateLabel`'s doc comment for the identical reasoning applied to the badge just above.
+  return (
+    <li>
+      <div className="ago-list__row ago-list__row--static">
+        {meta}
+        {body}
+        <span className="ago-search-result__note">{strings.searchUnknownStateNote}</span>
       </div>
     </li>
   );

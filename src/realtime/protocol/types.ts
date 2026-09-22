@@ -117,7 +117,11 @@ export interface ConversationAssignedDto {
 export interface ConversationSummaryDto {
   conversationId: string;
   visitorId: string;
-  state: "Waiting" | "Assigned" | "Closed";
+  // `25-225`: `"Pending"` added for `ConversationState.Pending` (`25-221`) - a conversation the
+  // visitor opened but never wrote a real message in, so it never entered `Waiting`. This is a
+  // *feed* type, not the operator queue's own filtered one: `GetAllConversationsForSiteHandler`
+  // carries no state filter, so `AdminConversationsPage` can genuinely receive one.
+  state: "Waiting" | "Assigned" | "Closed" | "Pending";
   createdAt: string;
   operatorUnreadCount: number;
   operatorId?: string | null;
@@ -182,7 +186,12 @@ export interface ReconnectHint {
  */
 export interface VisitorHistoryConversationDto {
   conversationId: string;
-  state: "Waiting" | "Assigned" | "Closed";
+  // `25-225`: `"Pending"` added the same reason `ConversationSummaryDto.state` gets it -
+  // `GetVisitorHistoryAsync` carries no state filter either, and a `Pending` row (zero messages
+  // ever) for this same visitor, from a tab or session other than the one currently open, can
+  // genuinely surface here. `VisitorHistoryPanel` filters these back out before rendering - see its
+  // own doc comment for why a contentless row is not "history" in this panel's sense.
+  state: "Waiting" | "Assigned" | "Closed" | "Pending";
   startedAt: string;
   closedAt: string | null;
   previewBody: string | null;
@@ -220,7 +229,11 @@ export interface ConversationSearchResultDto {
   matchedBody: string;
   authorKind: "Visitor" | "Operator" | "System";
   createdAt: string;
-  conversationState: "Waiting" | "Assigned" | "Closed";
+  // `25-225`: `"Pending"` added for type completeness with the other two DTOs above - structurally
+  // unreachable through this store in practice (a hit requires a matched message, and a `Pending`
+  // conversation, `25-221`, never has one), but nothing enforces that invariant at this file's own
+  // type level, so `SearchConversationsPage` still handles it rather than assuming it away.
+  conversationState: "Waiting" | "Assigned" | "Closed" | "Pending";
 }
 
 /**

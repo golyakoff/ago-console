@@ -23,20 +23,48 @@ import type { ConsoleStrings } from "../i18n/strings.js";
 import { EraseConversationButton, CONVERSATION_ERASE_PERMISSION } from "./EraseConversationButton.js";
 import { ClaimConversationButton, CONVERSATION_CLAIM_PERMISSION } from "./ClaimConversationButton.js";
 
-/** The conversation lifecycle's three states, given the tones the palette reserves for them.
- * Declared outside the component so the mapping is a constant, not something rebuilt per render -
- * a CSS tone name is not language-bearing text, so it needs no `strings` and stays exactly as it was. */
-const STATE_TONE: Record<ConversationSummaryDto["state"], "brand" | "success" | "neutral"> = {
-  Waiting: "brand",
-  Assigned: "success",
-  Closed: "neutral",
-};
+/** The conversation lifecycle's states, given the tones the palette reserves for them - a function
+ * rather than the `Record` this used to be (`25-225`): a `Record<ConversationSummaryDto["state"],
+ * ...>` only ever protects the keys the *type* lists at compile time, which is exactly what let
+ * `ConversationState.Pending` (`25-221`) through unnoticed - the type still said `"Waiting" |
+ * "Assigned" | "Closed"` months after the wire could send a fourth value. A `default` case is a
+ * runtime check instead: it fires for any string this switch's own cases do not list, regardless of
+ * what the type declares.
+ *
+ * **`accent` for `Pending`.** Distinct from `brand` (`Waiting`, something an operator should act on)
+ * and from `neutral` (`Closed`, done) - a `Pending` row is neither; it is not yet a real conversation
+ * at all. `danger` for the `default` branch is deliberate too: an admin seeing a red "unknown state"
+ * badge is the "fails visibly" this item's own Done-when asks for, not a guess at a tone that might
+ * fit whatever the new state turns out to mean. */
+function stateTone(state: ConversationSummaryDto["state"]): "brand" | "success" | "neutral" | "accent" | "danger" {
+  switch (state) {
+    case "Waiting":
+      return "brand";
+    case "Assigned":
+      return "success";
+    case "Closed":
+      return "neutral";
+    case "Pending":
+      return "accent";
+    default:
+      return "danger";
+  }
+}
 
 /** `11-13`: the visible state word, reusing the three fields the operator workspace already has
  * (`queueWaitingTitle`, `conversationStateAssigned`, `conversationStateClosed`) rather than adding a
  * fourth trio that would only ever say the same three words - found live: this table rendered the raw
  * `ConversationSummaryDto["state"]` wire value (`"Waiting"`/`"Assigned"`/`"Closed"`) unchanged, so a
- * Russian tenant's admin table read three English words even on `ru.ts`. */
+ * Russian tenant's admin table read three English words even on `ru.ts`.
+ *
+ * `25-225`: gains a `"Pending"` case and a `default` - see `stateTone`'s own doc comment just above
+ * for why a `default` matters here even though the switch above it looks exhaustive today. This
+ * screen's own reason to still *show* a `Pending` row rather than filtering it out the way
+ * `GetOperatorQueueHandler` already does: `AdminConversationsPage` is deliberately "every
+ * conversation for the site" (`5-08`, this file's own doc comment above) - the one screen whose whole
+ * purpose is a complete site-wide inventory, not just what an operator needs to act on. A visitor who
+ * opened the widget and never wrote is a real, if inactive, fact about the site, and an admin
+ * auditing it is exactly the reader this row's "Not started" label is for. */
 function stateLabel(state: ConversationSummaryDto["state"], strings: ConsoleStrings): string {
   switch (state) {
     case "Waiting":
@@ -45,6 +73,10 @@ function stateLabel(state: ConversationSummaryDto["state"], strings: ConsoleStri
       return strings.conversationStateAssigned;
     case "Closed":
       return strings.conversationStateClosed;
+    case "Pending":
+      return strings.conversationStatePending;
+    default:
+      return strings.conversationStateUnknown;
   }
 }
 
@@ -82,7 +114,7 @@ function buildColumns(
     {
       key: "state",
       header: strings.adminColumnState,
-      render: (c) => <Badge tone={STATE_TONE[c.state]}>{stateLabel(c.state, strings)}</Badge>,
+      render: (c) => <Badge tone={stateTone(c.state)}>{stateLabel(c.state, strings)}</Badge>,
     },
     {
       key: "operator",

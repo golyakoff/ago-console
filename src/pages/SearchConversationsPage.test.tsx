@@ -70,7 +70,7 @@ function hit(overrides: {
   matchedBody?: string;
   authorKind?: "Visitor" | "Operator" | "System";
   createdAt?: string;
-  conversationState?: "Waiting" | "Assigned" | "Closed";
+  conversationState?: "Waiting" | "Assigned" | "Closed" | "Pending";
 } = {}) {
   return {
     conversationId: CONVERSATION_ID,
@@ -325,5 +325,29 @@ describe("a result row's own openability, by conversation state", () => {
 
     expect(container.querySelector("a.ago-list__row")).toBeNull();
     expect(container.textContent).toContain("Closed — a closed conversation cannot be reopened as a live thread.");
+  });
+
+  /**
+   * `25-225`: structurally unreachable through the real `ConversationSearchStore` query (a hit
+   * requires a matched message, and a `Pending` conversation - `25-221` - never has one) - this page's
+   * own `stateLabel` doc comment has the full reasoning for why no filter was added here. This test
+   * exists anyway, for the same reason the type still lists `"Pending"`: nothing in this file enforces
+   * that invariant at runtime, so the rendering path is proven correct rather than assumed unreachable.
+   */
+  it("renders a Pending hit labelled and non-interactive, with its own note, rather than the Closed copy", async () => {
+    conversationsApi.searchConversations.mockResolvedValue({
+      results: [hit({ conversationState: "Pending" })],
+      nextBeforeMessageId: null,
+      searchedFrom: "2026-05-29T00:00:00+00:00",
+      searchedTo: "2026-08-29T00:00:00+00:00",
+    });
+
+    const container = await render(page());
+    await search(container, "refund");
+
+    expect(container.querySelector("a.ago-list__row")).toBeNull();
+    expect(container.textContent).toContain("Not started");
+    expect(container.textContent).not.toContain("Closed — a closed conversation cannot be reopened as a live thread.");
+    expect(container.textContent).toContain("Unknown state — this hit cannot be opened from here.");
   });
 });
