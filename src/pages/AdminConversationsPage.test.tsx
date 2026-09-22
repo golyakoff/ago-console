@@ -74,7 +74,7 @@ function page(): ReactNode {
   );
 }
 
-function oneConversation(state: "Waiting" | "Assigned" | "Closed" = "Closed") {
+function oneConversation(state: "Waiting" | "Assigned" | "Closed" | "Pending" = "Closed") {
   return {
     conversationId: CONVERSATION_ID,
     visitorId: "vvvvvvvv-vvvv-vvvv-vvvv-vvvvvvvvvvvv",
@@ -164,6 +164,41 @@ describe("the operator column (23-02)", () => {
     const container = await render(page());
 
     expect(container.textContent).toContain("oooooooo");
+  });
+});
+
+/**
+ * `25-225`: this admin/supervisor list is deliberately unfiltered (`5-08`'s "every conversation for
+ * the site"), so it is the one of the three affected screens where a `ConversationState.Pending`
+ * (`25-221`) row is shown rather than hidden - see `AdminConversationsPage.tsx`'s own `stateLabel`
+ * doc comment for the full reasoning. These tests are this file's own proof that showing it renders
+ * something true, not a blank cell, and that a value neither switch case lists still says something
+ * rather than rendering blank again.
+ */
+describe("the state column (25-225)", () => {
+  it("labels a Pending row as not-started, distinct from the other three states", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID });
+    conversationsApi.fetchAllConversationsForSite.mockResolvedValue({ conversations: [oneConversation("Pending")] });
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Not started");
+    expect(container.querySelector(".ago-badge--accent")).not.toBeNull();
+  });
+
+  it("falls back to an unknown-state label for a wire value neither switch case lists", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID });
+    // A future state this code has not been updated for yet - the exact shape of the real defect
+    // (`ConversationState.Pending` reaching a switch typed for three older values) this item exists
+    // to close, forced here since the real enum only has four members today.
+    conversationsApi.fetchAllConversationsForSite.mockResolvedValue({
+      conversations: [{ ...oneConversation(), state: "SomeFutureState" }],
+    });
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Unknown state");
+    expect(container.querySelector(".ago-badge--danger")).not.toBeNull();
   });
 });
 

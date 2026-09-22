@@ -161,6 +161,8 @@ export const en: ConsoleStrings = {
   visitorOffline: "Offline",
   conversationStateAssigned: "Assigned",
   conversationStateClosed: "Closed",
+  conversationStatePending: "Not started",
+  conversationStateUnknown: "Unknown state",
   visitorIdLabel: "Visitor id",
   visitorNotInQueue: "Not in your queue",
   visitorConversationStartedUnknown: "Unknown",
@@ -827,6 +829,7 @@ export const en: ConsoleStrings = {
   searchOpenLabel: "Open →",
   searchWaitingNote: "Waiting — take it to open it.",
   searchClosedNote: "Closed — a closed conversation cannot be reopened as a live thread.",
+  searchUnknownStateNote: "Unknown state — this hit cannot be opened from here.",
   searchLoadMoreButton: "Load more",
   searchLoadingMoreLabel: "Loading more…",
 

@@ -365,6 +365,16 @@ export interface ConsoleStrings {
   /** `ConversationSummaryDto.state`'s other two values - `"Waiting"` reuses `queueWaitingTitle`. */
   conversationStateAssigned: string;
   conversationStateClosed: string;
+  /** `25-225`: `ConversationState.Pending` (`25-221`) - a conversation row exists but the visitor has
+   * never sent a real message, so it is not yet a conversation in any operator-facing sense. Named to
+   * match that fact rather than the wire value: "Pending" alone would read as "waiting on something",
+   * which is `queueWaitingTitle`'s own meaning already. */
+  conversationStatePending: string;
+  /** `25-225`: every one of this file's `state`/`conversationState` switches falls back here for a
+   * wire value none of the literal cases match - a future new state this code has not been updated
+   * for, the exact way `"Pending"` itself silently rendered blank before this item. Deliberately says
+   * "unknown", not blank and not a guess at what the new state might mean. */
+  conversationStateUnknown: string;
   visitorIdLabel: string;
   visitorNotInQueue: string;
   visitorConversationStartedUnknown: string;
@@ -1247,6 +1257,11 @@ export interface ConsoleStrings {
   /** A `Closed` hit's own inline note - nobody can rejoin a closed conversation through the hub, ever
    * (`Conversation.AssignTo`), so this is a structural fact, not a permission gap. */
   searchClosedNote: string;
+  /** `25-225`'s own default branch alongside `searchWaitingNote`/`searchClosedNote` - structurally
+   * unreachable today (`ConversationSearchStore`'s SQL can only ever match a phrase against an
+   * existing message, and a `Pending` conversation, `25-221`, has none yet), kept anyway because that
+   * invariant lives in `ago-chat`'s code, not in this file's type checker. */
+  searchUnknownStateNote: string;
   searchLoadMoreButton: string;
   searchLoadingMoreLabel: string;
 

@@ -186,6 +186,53 @@ describe("a channel-identified visitor", () => {
     expect(all(container, "button.ago-list__row--history")).toHaveLength(1);
   });
 
+  /**
+   * `25-225`: `GetVisitorHistoryAsync` carries no state filter, so a `ConversationState.Pending`
+   * (`25-221`) row - the visitor opened the widget in some other tab or session and never wrote - can
+   * genuinely be one of `history.conversations`. This panel's own doc comment has the full reasoning
+   * for why that gets filtered here rather than labelled: a conversation with no message is not
+   * history worth showing, unlike `AdminConversationsPage`'s own site-wide inventory.
+   */
+  describe("Pending rows (25-225)", () => {
+    it("filters a Pending conversation out of the list rather than rendering it", async () => {
+      const fake = fakeConnection();
+      const container = await render(
+        <Harness
+          connection={fake.connection}
+          history={{
+            hasChannelIdentity: true,
+            conversations: [
+              conversationRow({ conversationId: "pending-id", state: "Pending", previewBody: null, closedAt: null }),
+              conversationRow(),
+            ],
+            nextBeforeId: null,
+          }}
+        />,
+      );
+
+      expect(all(container, "button.ago-list__row--history")).toHaveLength(1);
+      expect(container.textContent).not.toContain("Not started");
+      expect(container.textContent).toContain("thanks for your help");
+    });
+
+    it("falls back to the empty state when every conversation is Pending", async () => {
+      const fake = fakeConnection();
+      const container = await render(
+        <Harness
+          connection={fake.connection}
+          history={{
+            hasChannelIdentity: true,
+            conversations: [conversationRow({ state: "Pending", previewBody: null, closedAt: null })],
+            nextBeforeId: null,
+          }}
+        />,
+      );
+
+      expect(container.textContent).toContain("No prior conversations");
+      expect(all(container, "button.ago-list__row--history")).toHaveLength(0);
+    });
+  });
+
   it("shows a fallback for a conversation with no messages, rather than a blank line", async () => {
     const fake = fakeConnection();
     const container = await render(

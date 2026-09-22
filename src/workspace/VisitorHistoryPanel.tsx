@@ -16,9 +16,16 @@ const HISTORICAL_PAGE_SIZE = 50;
 
 type AttachmentDetail = AttachmentDownloadResponse | "loading" | "error";
 
-/** `ConversationSummaryDto.state`'s three values - `VisitorPanel`'s own `stateLabel` restated here
- * rather than imported, since that function is private to that file and this is the identical,
- * small mapping, not a shared abstraction worth extracting for one more caller. */
+/** `VisitorPanel`'s own `stateLabel` restated here rather than imported, since that function is
+ * private to that file and this is the identical, small mapping, not a shared abstraction worth
+ * extracting for one more caller.
+ *
+ * `25-225`: gains a `"Pending"` case and a `default` - `AdminConversationsPage`'s own `stateLabel`
+ * doc comment has the full "a switch with no default silently rendered blank for
+ * `ConversationState.Pending`, `25-221`" reasoning, restated here for the identical fix. Kept even
+ * though `visibleConversations` below filters `Pending` rows out of what actually renders: this
+ * function is still reachable in principle from `openRow`/the dialog title, and a `default` costs
+ * nothing to leave in for whatever this codebase adds next. */
 function stateLabel(state: VisitorHistoryConversationDto["state"], strings: ConsoleStrings): string {
   switch (state) {
     case "Waiting":
@@ -27,6 +34,29 @@ function stateLabel(state: VisitorHistoryConversationDto["state"], strings: Cons
       return strings.conversationStateAssigned;
     case "Closed":
       return strings.conversationStateClosed;
+    case "Pending":
+      return strings.conversationStatePending;
+    default:
+      return strings.conversationStateUnknown;
+  }
+}
+
+/** `25-225`: the badge tone this file used to compute inline (`c.state === "Closed" ? "neutral" :
+ * "brand"`) - already wrong the moment `ConversationState.Pending` (`25-221`) could appear, since
+ * "anything that isn't Closed" included it and painted it the same `brand` tone as a real `Waiting`
+ * row. A real switch with a `default`, matching `stateLabel`'s own fix just above. */
+function stateTone(state: VisitorHistoryConversationDto["state"]): "brand" | "success" | "neutral" | "accent" | "danger" {
+  switch (state) {
+    case "Waiting":
+      return "brand";
+    case "Assigned":
+      return "success";
+    case "Closed":
+      return "neutral";
+    case "Pending":
+      return "accent";
+    default:
+      return "danger";
   }
 }
 
@@ -65,6 +95,20 @@ export interface VisitorHistoryPanelProps {
  * thumbnail or a download link, fetched the same way `ConversationPage` fetches them) - never a
  * delete action, matching this item's own Out-of-scope ("editing, annotating, or acting on a past
  * conversation from this panel").
+ *
+ * **`25-225`: `Pending` rows are filtered out of `visibleConversations`, not just given a label.**
+ * `GetVisitorHistoryAsync` carries no state filter (unlike `GetOperatorQueueHandler`), so a
+ * `ConversationState.Pending` row (`25-221` - the visitor opened the widget, in some other tab or
+ * session, and never wrote) can genuinely be one of `history.conversations`. This panel's own purpose
+ * is real prior context about a returning visitor - `previewBody` for a `Pending` row is always
+ * `null` (the lateral join finds no message), so it would render as a history entry with no start
+ * time worth noting and no preview, i.e. noise, not context. That is a different judgement from
+ * `AdminConversationsPage`'s ("show it, it is a true fact an admin might want"): a site-wide
+ * inventory and one visitor's own conversation history are different questions, and this one comes
+ * out the other way. The filter lives here in the console rather than in `GetVisitorHistoryAsync`
+ * itself (`ago-chat`) because this item's own worktree only reaches this repository - a query-level
+ * filter, the way `GetOperatorQueueHandler` already does it for its own case, would be the more
+ * complete fix and is a natural follow-up.
  */
 export function VisitorHistoryPanel({ conversationId, history, historyError, now, timeZone, accessToken }: VisitorHistoryPanelProps) {
   const strings = useStrings();
@@ -188,6 +232,14 @@ export function VisitorHistoryPanel({ conversationId, history, historyError, now
 
   const openRow = history?.conversations.find((c) => c.conversationId === openConversationId) ?? null;
 
+  // `25-225`: see this component's own doc comment above for why `Pending` rows are excluded here
+  // rather than labelled - a conversation with no real message is not history worth showing. Computed
+  // from `history?.conversations` directly rather than memoised: this list is one page
+  // (`HISTORICAL_PAGE_SIZE`-bounded fetches aside, `GetVisitorHistoryAsync`'s own page size) of a
+  // single visitor's own conversations, the same size class `openRow`'s plain `.find` above already
+  // treats as cheap enough to redo per render.
+  const visibleConversations = history?.conversations.filter((c) => c.state !== "Pending") ?? [];
+
   return (
     <section className="ago-aside__section" aria-labelledby="ago-visitor-history-title">
       <h3 className="ago-aside__subtitle" id="ago-visitor-history-title">
@@ -198,11 +250,11 @@ export function VisitorHistoryPanel({ conversationId, history, historyError, now
         <Skeleton lines={2} label={strings.visitorHistoryLoadingLabel} />
       ) : historyError ? (
         <Alert tone="danger">{historyError}</Alert>
-      ) : history.conversations.length === 0 ? (
+      ) : visibleConversations.length === 0 ? (
         <p className="ago-empty">{strings.visitorHistoryEmpty}</p>
       ) : (
         <ul className="ago-list ago-list--history">
-          {history.conversations.map((c) => {
+          {visibleConversations.map((c) => {
             const started = parseInstant(c.startedAt);
             const closed = parseInstant(c.closedAt);
 
@@ -214,7 +266,7 @@ export function VisitorHistoryPanel({ conversationId, history, historyError, now
                   onClick={() => openHistorical(c.conversationId)}
                 >
                   <span className="ago-list__row-top">
-                    <Badge tone={c.state === "Closed" ? "neutral" : "brand"}>{stateLabel(c.state, strings)}</Badge>
+                    <Badge tone={stateTone(c.state)}>{stateLabel(c.state, strings)}</Badge>
                     <span className="ago-meta">
                       {started ? (
                         <span title={formatAbsolute(started, timeZone, strings)}>

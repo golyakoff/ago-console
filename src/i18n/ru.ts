@@ -160,6 +160,8 @@ export const ru: ConsoleStrings = {
   visitorOffline: "Не в сети",
   conversationStateAssigned: "Назначен",
   conversationStateClosed: "Закрыт",
+  conversationStatePending: "Не начат",
+  conversationStateUnknown: "Неизвестное состояние",
   visitorIdLabel: "ID посетителя",
   visitorNotInQueue: "Не в вашей очереди",
   visitorConversationStartedUnknown: "Неизвестно",
@@ -827,6 +829,7 @@ export const ru: ConsoleStrings = {
   searchOpenLabel: "Открыть →",
   searchWaitingNote: "В ожидании — заберите, чтобы открыть.",
   searchClosedNote: "Закрыт — закрытый диалог нельзя снова открыть как активную переписку.",
+  searchUnknownStateNote: "Неизвестное состояние — этот результат нельзя открыть отсюда.",
   searchLoadMoreButton: "Загрузить ещё",
   searchLoadingMoreLabel: "Загрузка…",
 
