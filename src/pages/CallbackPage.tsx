@@ -4,6 +4,9 @@ import { userManager } from "../auth/userManager.js";
 import { isReplayedCallback } from "../auth/replayedCallback.js";
 import { resolveOperatorState } from "../api/operatorsApi.js";
 import { probeOwnerEligibility } from "../api/ownerApi.js";
+import { fetchMyTenancies } from "../api/tenanciesApi.js";
+import { resolveActiveSite } from "../auth/activeSiteStorage.js";
+import { setActiveSiteId } from "../api/activeSite.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { CenteredShell } from "../shell/AppShell.js";
 import { Alert } from "../components/Alert.js";
@@ -75,6 +78,12 @@ import { Spinner } from "../components/Spinner.js";
  * *also* an operator still lands in their queue, with "Platform sites" one click away - which is now
  * a state a person can actually reach by registering a site, rather than only by the realm being
  * hand-edited.
+ *
+ * `25-212`: **a step now runs before any of the above** - `primeActiveSiteForOperatorProbe`'s own
+ * doc comment has the full reasoning, but in short: `resolveOperatorState` below cannot tell states
+ * (a) and (b)/(d) apart for a multi-tenancy identity unless the active-site signal is already set,
+ * because the server itself refuses to guess which tenancy such an identity means. This is that
+ * missing signal, supplied first.
  */
 /**
  * `12-04`: the second question, asked only once `GET /api/v1/operators/me` has already answered "no
@@ -93,6 +102,61 @@ async function destinationWithoutAnOperatorRow(accessToken: string): Promise<str
     return (await probeOwnerEligibility(accessToken)) === "eligible" ? "/owner" : "/onboarding";
   } catch {
     return "/onboarding";
+  }
+}
+
+/**
+ * `25-212`: the fix for a defect `26-12` (`ago-android`) found in its own equivalent router, which
+ * reading `ago-console`'s own files to confirm the fix generalised found still live here.
+ * `ResolveOperatorIdentityHandler` (`ago-chat`, `13-07`/`adr/0068`) resolves an identity with **more
+ * than one eligible tenancy and no `X-Ago-Active-Site` header to nothing** - deliberately, since
+ * guessing which tenancy to use would be exactly the cross-tenant misdirection that ADR forbids. No
+ * resolution means no `operator_id` claim, which means `RequireOperatorIdentity` refuses, which means
+ * `resolveOperatorState` below answers `"keycloak-identity-only"` for a real, working,
+ * *multi-tenancy* operator on a fresh session - landing them on state (b)/(d)'s own `/onboarding`
+ * fork below with nothing telling it this is actually state (a) in disguise. `PermissionsProvider`
+ * already sequences `GET /api/v1/me/tenancies` before `operators/me` for the identical reason (its
+ * own doc comment: "set before the next fetch is built") - it is just mounted one layout level up,
+ * reached only *after* this page has already routed, so it protects nothing on this path.
+ *
+ * The fix is that same sequencing, run one step earlier - reusing `activeSiteStorage.resolveActiveSite`
+ * rather than a second resolution algorithm:
+ * - **Zero tenancies**: `resolveActiveSite` returns `null`, `setActiveSiteId(null)` is a no-op against
+ *   the module singleton's own default - the (b)/(d) routing below is untouched.
+ * - **Exactly one**: the sole tenancy's id, the identical value `PermissionsProvider` resolves to
+ *   moments later, just available in time for this call too.
+ * - **More than one**: the design decision this item names explicitly rather than assumes. `26-12`'s
+ *   own Android router shows a site-picker screen before ever probing `operators/me`, because a
+ *   mobile app's session starts fresh on every launch and has nowhere of its own to remember or
+ *   switch a choice from between launches. This console already answers the identical "which
+ *   tenancy" question a different way, for the identical multi-tenancy user, one layout level up:
+ *   `resolveActiveSite`'s own stored-or-first-alphabetically resolution is what `PermissionsProvider`
+ *   already uses to decide silently, and this codebase deleted its own dedicated `TenancySwitcher`
+ *   *screen* in favour of a switcher folded into the signed-in shell's own menu (`AppShell.tsx`) - a
+ *   choice made silently, then changed later from inside the session, never gated up front on a
+ *   picker screen. Blocking sign-in on a new full-screen picker here, before this identity has even
+ *   reached the shell that already has one, would be a second, inconsistent answer to a question this
+ *   app has already answered once. So: `resolveActiveSite`'s existing choice is reused for this one
+ *   probe call, exactly as `PermissionsProvider` reuses it moments later for real - not a second
+ *   algorithm, the same one, run earlier. The probe only ever needs to learn "does *some* operator row
+ *   exist for this identity", not "which one is active" (this item's own Scope), and every entry
+ *   `/me/tenancies` returns is already a real, sign-in-eligible operator row (`ListMyTenanciesHandler`,
+ *   `ago-chat`) - so probing any one of them answers that question correctly, including for a platform
+ *   owner who also holds two or more operator tenancies (the author's own account, per
+ *   `PermissionsProvider`'s own remarks): the probe still lands on `"operator"`, which still wins
+ *   outright over the owner question below, exactly as it always has for a single-tenancy
+ *   owner-operator.
+ *
+ * Fails soft: an unreachable `/me/tenancies` leaves the active-site signal exactly where it was
+ * before this item existed (unset), so `resolveOperatorState` below runs exactly as it did before
+ * `25-212` - no new failure mode, just none of this fix's benefit for that one outage.
+ */
+async function primeActiveSiteForOperatorProbe(accessToken: string): Promise<void> {
+  try {
+    const { tenancies } = await fetchMyTenancies(accessToken);
+    setActiveSiteId(resolveActiveSite(tenancies));
+  } catch {
+    // Deliberate fail-soft - see this function's own doc comment.
   }
 }
 
@@ -125,6 +189,11 @@ export function CallbackPage() {
     userManager
       .signinRedirectCallback()
       .then(async (user) => {
+        // `25-212`: the tenancy count has to be known, and the active-site signal set from it, before
+        // `resolveOperatorState` is ever called - see `primeActiveSiteForOperatorProbe`'s own doc
+        // comment for why this is not a merely-cosmetic reordering.
+        await primeActiveSiteForOperatorProbe(user.access_token);
+
         // `11-17`: this call's own failure is deliberately caught here, not by the outer `.catch`
         // below - by the time it runs, `signinRedirectCallback()` has already succeeded, so whatever
         // goes wrong here (unreachable API, a CORS refusal, an unexpected non-403 status) is a
