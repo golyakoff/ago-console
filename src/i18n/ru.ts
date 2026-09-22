@@ -387,7 +387,7 @@ export const ru: ConsoleStrings = {
   widgetPanelTitleFieldLabel: "Заголовок панели",
   widgetPanelTitleFieldDescription:
     "Приветствие в верхней части панели чата. Оставьте пустым, чтобы использовать текст по умолчанию, показанный ниже.",
-  widgetPanelTitlePlaceholder: "Чем мы могли бы вам помочь?",
+  widgetPanelTitlePlaceholder: "Напишите нам...",
   widgetPanelTitleFieldCounter: (length: number, max: number) => `${length} / ${max}`,
   widgetNoticePanelTitle: "Согласие на обработку персональных данных",
   widgetNoticeTextFieldLabel: "Текст уведомления (необязательно)",
