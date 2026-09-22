@@ -7,6 +7,17 @@
     <meta name="theme-color" content="#13121c" media="(prefers-color-scheme: dark)" />
     <title>AGO Chat operator console</title>
     <!--
+      25-168: the console had no favicon at all. Reuses the same gradient "A" mark as
+      `ago-landing`'s own `.brand .g` (`linear-gradient(140deg,#4C8DFF,#9D6BFF)`), a deliberate
+      choice to keep "the favicon" and "the landing header mark" the same gradient identity even
+      though the console's own in-app header glyph (`.ago-shell__glyph`, `25-167`) stays flat-colored
+      for now - the author's own request ("градиент... как в логотипе") was for the gradient, and
+      that request is answered here without also changing the in-app glyph, which nobody asked for.
+      SVG is the primary icon; the ICO is the fallback for browsers that do not resolve an SVG favicon.
+    -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate icon" href="/favicon.ico" />
+    <!--
       Applies a stored manual theme override (`src/design/theme.ts`'s own storage key) to `<html>`
       before the stylesheet or React run, so a reader whose OS is light but who chose dark last
       session does not see a flash of the wrong theme. Deliberately a plain, blocking inline script,
