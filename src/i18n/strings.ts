@@ -2379,6 +2379,15 @@ export interface ConsoleStrings {
   calendarQueueEmpty: string;
   calendarQueueColumnWhen: string;
   calendarQueueColumnCalendar: string;
+  /** `26-50`: never gated - a worker's own name is the shop's own roster, not personal data about a
+   * customer, the identical reasoning `calendarBookingsColumnService`'s own sibling column already
+   * carries for this screen's `.ago-mono`-free counterpart. */
+  calendarQueueColumnWorker: string;
+  calendarQueueColumnService: string;
+  /** `26-50`: gated exactly the way `calendarQueueColumnPhone` already is - see
+   * `CalendarQueuePage.tsx`'s own rendering for the `.ago-mono` short-id fallback this column falls
+   * back to only when the name is genuinely absent, never as the default. */
+  calendarQueueColumnCustomer: string;
   calendarQueueColumnPhone: string;
   calendarQueueColumnDeadline: string;
   calendarQueueColumnActions: string;

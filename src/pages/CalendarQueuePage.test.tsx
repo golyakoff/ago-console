@@ -92,13 +92,18 @@ function booking(
   confirmationDeadline: string,
   isOverdue: boolean,
   phone: string | null = null,
+  customerDisplayName: string | null = null,
+  customerId = "c1",
 ): PendingBooking {
   return {
     bookingId,
     calendarId,
     workerId: "w1",
+    workerDisplayName: "Alex Doe",
     serviceId: "s1",
-    customerId: "c1",
+    serviceName: "Haircut",
+    customerId,
+    customerDisplayName,
     startsAt,
     endsAt: startsAt,
     localDate: "2026-05-05",
@@ -232,6 +237,53 @@ describe("the pending-bookings queue", () => {
     expect(container.textContent).not.toContain("The other shop");
   });
 
+  it("shows the worker and service names, ungated, on every row (26-50)", async () => {
+    calendarApi.getPendingBookings.mockResolvedValue([
+      booking("b7", "cal-1aaa", "2026-05-05T09:00:00+00:00", "2026-05-05T08:15:00+00:00", false),
+    ]);
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Alex Doe");
+    expect(container.textContent).toContain("Haircut");
+  });
+
+  it("shows the customer's name when the server includes it (26-50)", async () => {
+    calendarApi.getPendingBookings.mockResolvedValue([
+      booking("b8", "cal-1aaa", "2026-05-05T09:00:00+00:00", "2026-05-05T08:15:00+00:00", false, "+79990000002", "Nina Petrova"),
+    ]);
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Nina Petrova");
+  });
+
+  it("falls back to the short id only when the name is genuinely absent, never as the default (26-50)", async () => {
+    // `customer:read` granted (phone present) but this customer has never had a name recorded.
+    calendarApi.getPendingBookings.mockResolvedValue([
+      booking(
+        "b9", "cal-1aaa", "2026-05-05T09:00:00+00:00", "2026-05-05T08:15:00+00:00", false,
+        "+79990000003", null, "cccccccc-cccc-cccc-cccc-cccccccccccc",
+      ),
+    ]);
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("cccccccc-cccc-cccc-cccc-cccccccccccc".slice(0, 8));
+  });
+
+  it("shows the customer as hidden, not the short id, when the operator lacks customer:read (26-50)", async () => {
+    // No `customer:read` (phone is null too) - the short id must not appear as a stand-in for a
+    // name this operator was never shown.
+    calendarApi.getPendingBookings.mockResolvedValue([
+      booking("b10", "cal-1aaa", "2026-05-05T09:00:00+00:00", "2026-05-05T08:15:00+00:00", false, null, null),
+    ]);
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("hidden");
+  });
+
   it("shows the empty state when there is nothing to confirm", async () => {
     calendarApi.getPendingBookings.mockResolvedValue([]);
 
@@ -250,8 +302,11 @@ describe("revealing a masked phone (23-30)", () => {
     bookingId: "b6",
     calendarId: "cal-1aaa",
     workerId: "w1",
+    workerDisplayName: "Alex Doe",
     serviceId: "s1",
+    serviceName: "Haircut",
     customerId: "c1",
+    customerDisplayName: null,
     startsAt: "2026-05-05T09:00:00+00:00",
     endsAt: "2026-05-05T09:00:00+00:00",
     localDate: "2026-05-05",

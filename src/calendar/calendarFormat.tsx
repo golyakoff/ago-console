@@ -75,6 +75,39 @@ export function renderCustomer(
 }
 
 /**
+ * `26-50`: the pending queue's own customer-name column - gated exactly the way `renderPhone` above
+ * already is, and distinguished from `renderCustomer` above by a third possible reason for a null
+ * name: `PendingBookingRow.CustomerDisplayName` (unlike `WorkerSlotRow`'s) can be null because the
+ * customer this booking really has simply never had a name recorded, not only because the row is
+ * hidden or absent. A pending booking always has a real customer (`PendingBookingRow.CustomerId` is
+ * never null the way `WorkerSlotRow.CustomerId` can be for a free slot), so this never renders the
+ * "no customer at all" dash `renderCustomer` does - only the two-vs-three-state distinction: `phone`
+ * is null exactly when this operator lacks `customer:read` (the query never joined to `customers` at
+ * all, so there is nothing to know), which is the one state this renders as hidden; whenever `phone`
+ * is non-null the join happened and a null `customerDisplayName` can only mean this customer's name
+ * itself was never recorded, so the `.ago-mono` short id is the fallback - never the default,
+ * because the two branches above already cover every row with an actual name or a genuine gate.
+ */
+export function renderQueueCustomerName(
+  row: { customerId: string; customerDisplayName: string | null; phone: string | null },
+  strings: ConsoleStrings,
+) {
+  if (row.customerDisplayName !== null) {
+    return row.customerDisplayName;
+  }
+
+  if (row.phone === null) {
+    return (
+      <span className="ago-meta" title={strings.calendarHiddenContactTooltip}>
+        {strings.calendarHiddenContactLabel}
+      </span>
+    );
+  }
+
+  return <span className="ago-mono">{row.customerId.slice(0, 8)}</span>;
+}
+
+/**
  * `23-30`: which row's own Reveal is currently in flight (`ContactDetailsPanel`'s `revealingId`, the
  * identical shape) and the callback a click fires - built once per page, keyed on `customerId` rather
  * than a row id, because a reveal is per customer (`revealCustomerPhone`'s own parameter), not per
