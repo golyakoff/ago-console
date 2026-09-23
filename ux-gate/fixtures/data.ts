@@ -542,14 +542,23 @@ export const CALENDAR_BOOKING_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 // bookings screen below, kept apart from `CALENDAR_BOOKING_ID`'s own still-pending row.
 export const CALENDAR_CONFIRMED_BOOKING_ID = "cccccccc-dddd-4ccc-8ccc-cccccccccccc";
 
+/**
+ * `26-50`: `workerDisplayName`/`serviceName`/`customerDisplayName` match the same seeded worker
+ * ("Иванова А. П."), service ("Стрижка") and contact ("Дана") `seededCalendarConfirmedBookings`
+ * already uses below - one shop, one roster, rendered honestly on both screens now rather than only
+ * the settled one.
+ */
 export function seededCalendarPendingBookings() {
   return [
     {
       bookingId: CALENDAR_BOOKING_ID,
       calendarId: CALENDAR_CALENDAR_ID,
       workerId: CALENDAR_WORKER_ID,
+      workerDisplayName: "Иванова А. П.",
       serviceId: "dddddddd-cccc-4ccc-8ccc-cccccccccccc",
+      serviceName: "Стрижка",
       customerId: "eeeeeeee-cccc-4ccc-8ccc-cccccccccccc",
+      customerDisplayName: "Дана",
       startsAt: minutesAgo(-30),
       endsAt: minutesAgo(-15),
       localDate: "2026-09-01",

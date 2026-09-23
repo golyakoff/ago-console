@@ -176,8 +176,22 @@ export interface PendingBooking {
   bookingId: string;
   calendarId: string;
   workerId: string;
+  /** `26-50`: never gated - a worker's own name is the shop's own roster, not personal data about a
+   * customer, the identical reasoning `ConfirmedBooking.workerDisplayName` already carries. Always a
+   * name; the `.ago-mono` short id is never its fallback. */
+  workerDisplayName: string;
   serviceId: string;
+  /** `26-50`: never gated, the same reasoning `ConfirmedBooking.serviceName` already carries. */
+  serviceName: string | null;
   customerId: string;
+  /**
+   * `26-50`: gated exactly the way `phone` below already is - `null` means either of the same two
+   * things `phone`'s own remarks describe: this operator does not hold `customer:read` (the server
+   * never joined to `customers` at all), or the customer has simply never had a name recorded. Unlike
+   * `phone`, the second reason is reachable here, so `CalendarQueuePage` falls back to the `.ago-mono`
+   * short id only for a row whose name is genuinely absent - never as the default rendering.
+   */
+  customerDisplayName: string | null;
   startsAt: string;
   endsAt: string;
   localDate: string;

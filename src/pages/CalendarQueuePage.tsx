@@ -13,7 +13,7 @@ import {
 } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
-import { renderPhone, type RevealControl } from "../calendar/calendarFormat.js";
+import { renderPhone, renderQueueCustomerName, type RevealControl } from "../calendar/calendarFormat.js";
 import { hasAnyBookingActionPermission } from "../calendar/calendarPermissions.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
@@ -230,7 +230,29 @@ export function CalendarQueuePage() {
       // `.ago-mono`, not a bare `<code>` - `AdminConversationsPage.tsx`'s own convention for a
       // truncated id, and also what `ux-gate/lib/i18nCompleteness.ts`'s own "no untranslated
       // interface text" assertion treats as "literally an identifier" rather than a translation gap.
+      // `26-50`'s own out-of-scope note: the calendar keeps its short id deliberately - naming it is a
+      // separate judgement nobody has asked for.
       render: (row) => <span className="ago-mono">{row.calendarId.slice(0, 8)}</span>,
+    },
+    {
+      key: "worker",
+      header: strings.calendarQueueColumnWorker,
+      // `26-50`: never gated - a worker's own name is the shop's own roster, not personal data about
+      // a customer (`Ago.Calendar.Contracts.PendingBookingResponse.WorkerDisplayName`'s own remarks).
+      // Always present, so no fallback the way `service`/`customer` below need one.
+      render: (row) => row.workerDisplayName,
+    },
+    {
+      key: "service",
+      header: strings.calendarQueueColumnService,
+      // `26-50`: never gated either, the identical reasoning `CalendarBookingsPage`'s own `service`
+      // column already carries. Nullable only because the server's own join is defensive.
+      render: (row) => row.serviceName ?? <span className="ago-meta">—</span>,
+    },
+    {
+      key: "customer",
+      header: strings.calendarQueueColumnCustomer,
+      render: (row) => renderQueueCustomerName(row, strings),
     },
     {
       key: "phone",
