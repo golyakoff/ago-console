@@ -1501,6 +1501,18 @@ export const ru: ConsoleStrings = {
   calendarSetupNoWorkersNote: "Сначала добавьте мастера - рабочие часы принадлежат мастеру на календаре.",
   calendarSetupAddWorkingHoursButton: "Добавить рабочие часы",
   calendarSetupWorkerNotOnCalendarNote: "Этот мастер ещё не на календаре, поэтому часов для него нет.",
+  calendarWorkingHoursEmpty: "Рабочих часов пока нет.",
+  calendarNewWorkingHoursTitle: "Новые рабочие часы",
+  calendarEditWorkingHoursTitle: "Изменить рабочие часы",
+  calendarWorkingHoursDeleteConfirmPrefix: "Удалить ",
+  calendarWorkingHoursDeleteConfirmSuffix:
+    "? Дни, уже нарезанные по этим часам, сохранят свои слоты - вместе со всеми записями на них. " +
+    "Изменятся только дни, которые будут нарезаны дальше.",
+  calendarWorkingHoursRecutNoticeIntro:
+    "Сохранено. Дни, уже нарезанные по старым часам, сохраняют прежнюю сетку: ",
+  calendarWorkingHoursRecutNoticeBookingsPrefix: " Записей на этих днях: ",
+  calendarWorkingHoursRecutNoticeBookingsNone: " Записей на этих днях нет.",
+  calendarWorkingHoursRecutNoticeActionPrefix: " Чтобы изменение применилось и к ним, пересчитайте расписание с ",
 
   calendarReadinessTitle: "Может ли клиент записаться прямо сейчас?",
   calendarReadinessNoCalendarLabel: "Календаря пока нет",

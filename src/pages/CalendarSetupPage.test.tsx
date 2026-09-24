@@ -33,6 +33,8 @@ const calendarApi = vi.hoisted(() => ({
   createCalendar: vi.fn(),
   updateCalendar: vi.fn(),
   addWorkingHoursRule: vi.fn(),
+  updateWorkingHoursRule: vi.fn(),
+  deleteWorkingHoursRule: vi.fn(),
 }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
@@ -121,7 +123,29 @@ beforeEach(() => {
   calendarApi.createCalendar.mockResolvedValue({ calendarId: "cal-2" });
   calendarApi.updateCalendar.mockResolvedValue(undefined);
   calendarApi.addWorkingHoursRule.mockResolvedValue({ ruleId: "r1" });
+  calendarApi.updateWorkingHoursRule.mockResolvedValue({
+    rule: { ruleId: "r1", workerId: "w1", dayOfWeek: 3, startsAt: "10:00", endsAt: "19:00" },
+    reconciliation: { recutFrom: null, alreadyCutDays: [], liveBookingCount: 0 },
+  });
+  calendarApi.deleteWorkingHoursRule.mockResolvedValue({
+    rule: null,
+    reconciliation: { recutFrom: null, alreadyCutDays: [], liveBookingCount: 0 },
+  });
 });
+
+/** `26-97`: the same tenant, with one working-hours rule to correct. Kept separate from
+ * `configuration` above so every test written before this item still renders a screen with no rules
+ * at all - notably the one asserting this screen has no Delete button, which is a claim about the
+ * calendars table and stays true while there is nothing else on screen to delete. */
+const configurationWithHours: TenantConfiguration = {
+  ...configuration,
+  calendars: [
+    {
+      ...configuration.calendars[0],
+      workingHours: [{ ruleId: "r1", workerId: "w1", dayOfWeek: 1, startsAt: "09:00", endsAt: "09:30" }],
+    },
+  ],
+};
 
 afterEach(async () => {
   await unmount();
@@ -267,6 +291,91 @@ describe("the tenant setup screen", () => {
 
     const link = byText<HTMLAnchorElement>(container, "a", "View slots");
     expect(link?.getAttribute("href")).toBe("/calendar/masters");
+  });
+
+  // `26-97`: the list of working-hours rules was read-only until this item - `ago-calendar` had one
+  // working-hours verb, `POST`, so a mistyped 09:00-for-19:00 was permanent and deleting the whole
+  // worker was the only remedy anywhere in the product.
+  it("corrects an existing working-hours rule in place, sending only the three fields a human types", async () => {
+    calendarApi.getConfiguration.mockResolvedValue(configurationWithHours);
+    const container = await render(page());
+
+    // The rule's own row, not the calendar's: its Edit is the second on the screen.
+    const editButtons = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).filter(
+      (button) => button.textContent?.trim() === "Edit",
+    );
+    expect(editButtons).toHaveLength(2);
+
+    await interact(() => editButtons[1].click());
+    expect(Array.from(container.querySelectorAll("h2")).map((h) => h.textContent)).toContain("Edit working hours");
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Save")?.click());
+
+    // No calendarId and no workerId: a rule is corrected where it is, never moved.
+    expect(calendarApi.updateWorkingHoursRule).toHaveBeenCalledWith("token", "r1", {
+      dayOfWeek: 1,
+      startsAt: "09:00",
+      endsAt: "09:30",
+    });
+  });
+
+  it("removes a working-hours rule only after the operator confirms what it will and will not change", async () => {
+    calendarApi.getConfiguration.mockResolvedValue(configurationWithHours);
+    const container = await render(page());
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Delete")?.click());
+    expect(container.textContent).toContain("Days already generated from these hours keep the slots they were cut with");
+    expect(calendarApi.deleteWorkingHoursRule).not.toHaveBeenCalled();
+
+    const confirm = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).filter(
+      (button) => button.textContent?.trim() === "Delete",
+    );
+    await interact(() => confirm[confirm.length - 1].click());
+
+    expect(calendarApi.deleteWorkingHoursRule).toHaveBeenCalledWith("token", "r1");
+  });
+
+  /**
+   * `26-97`'s own hard constraint: the correction is always allowed - it cannot damage a booking,
+   * because the materialiser only ever inserts into days with no rows at all - but it must never be
+   * silent about the days it did not reach. This is the assertion that the screen states them rather
+   * than dropping the server's answer on the floor.
+   */
+  it("names the already-cut days, the live bookings on them, and where to re-cut from", async () => {
+    calendarApi.getConfiguration.mockResolvedValue(configurationWithHours);
+    calendarApi.updateWorkingHoursRule.mockResolvedValue({
+      rule: { ruleId: "r1", workerId: "w1", dayOfWeek: 1, startsAt: "09:00", endsAt: "19:00" },
+      reconciliation: { recutFrom: "2026-09-28", alreadyCutDays: ["2026-09-28", "2026-10-05"], liveBookingCount: 2 },
+    });
+
+    const container = await render(page());
+    const editButtons = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).filter(
+      (button) => button.textContent?.trim() === "Edit",
+    );
+    await interact(() => editButtons[1].click());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Save")?.click());
+
+    expect(container.textContent).toContain("2026-09-28, 2026-10-05");
+    expect(container.textContent).toContain("Bookings on those days:");
+    expect(container.textContent).toContain("re-cut the schedule from");
+
+    const recut = byText<HTMLAnchorElement>(container, "a", "Re-cut");
+    expect(recut?.getAttribute("href")).toBe("/calendar/masters/w1/recut");
+  });
+
+  it("says nothing about re-cutting when the change reached everything already generated", async () => {
+    // The common, happy case - the cursor has nothing behind it. A notice that appeared anyway would
+    // be trained-away noise, which is how a real warning stops being read.
+    calendarApi.getConfiguration.mockResolvedValue(configurationWithHours);
+    const container = await render(page());
+
+    const editButtons = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).filter(
+      (button) => button.textContent?.trim() === "Edit",
+    );
+    await interact(() => editButtons[1].click());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Save")?.click());
+
+    expect(container.textContent).not.toContain("re-cut the schedule from");
   });
 
   it("shows a bookable calendar as bookable, with nothing to fix", async () => {

@@ -1,18 +1,23 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
 import {
   addWorkingHoursRule,
   createCalendar,
+  deleteWorkingHoursRule,
   getBookingReadiness,
   getConfiguration,
   setAllowedOrigins,
   updateCalendar,
+  updateWorkingHoursRule,
   type CalendarReadiness,
   type ConfiguredCalendar,
   type ConfiguredWorker,
   type TenantConfiguration,
+  type WorkingHoursReconciliation,
+  type WorkingHoursRule,
 } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { timeZoneOptions, weekdayNames } from "../calendar/calendarFormat.js";
@@ -56,6 +61,17 @@ import type { ConsoleStrings } from "../i18n/strings.js";
  * `deleteCalendar` - a real gap named here rather than built around. The origins form below is left
  * alone: it replaces one whole-list string field in a single `PUT`, not individual objects with their
  * own id, so it is not an instance of this item's pattern.
+ *
+ * <b>`26-97`: the working-hours list is now a table with an actions column, not a read-only `<ul>`
+ * inside the calendars table.</b> Until that item `ago-calendar` had exactly one working-hours verb
+ * (`POST /working-hours`), so a mistyped 09:00-for-19:00 was permanent and deleting the whole worker
+ * was the only remedy anywhere in the product. `PUT`/`DELETE /working-hours/{ruleId}` now exist, and
+ * this screen is where they are reached. Both answer with a `reconciliation` block this page renders
+ * as a persistent notice: a correction never touches days the schedule has already cut (the
+ * materialiser is forward-only and non-destructive), so the days still carrying the old hours, the
+ * live bookings on them, and the date to re-cut from are stated rather than left for the operator to
+ * discover three weeks later. Re-cutting itself stays where it already is - `20-16`'s own screen at
+ * `/calendar/masters/:workerId/recut`.
  */
 export function CalendarSetupPage() {
   const { user } = useAuth();
@@ -66,6 +82,13 @@ export function CalendarSetupPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editingCalendar, setEditingCalendar] = useState<ConfiguredCalendar | null>(null);
+  // `26-97`: the rule being corrected, the rule whose removal is being confirmed, and the answer the
+  // last correction came back with. The notice is held in its own state rather than derived from
+  // `configuration`, because it describes what the *write* could not reach - a fact the next `GET`
+  // does not carry and never will.
+  const [editingRule, setEditingRule] = useState<WorkingHoursRuleRow | null>(null);
+  const [confirmingRuleDelete, setConfirmingRuleDelete] = useState<WorkingHoursRuleRow | null>(null);
+  const [reconciliation, setReconciliation] = useState<WorkingHoursNotice | null>(null);
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
@@ -148,11 +171,33 @@ export function CalendarSetupPage() {
       await action();
       await reload();
       setEditingCalendar(null);
+      setEditingRule(null);
+      setConfirmingRuleDelete(null);
     } catch (reason) {
       setError(calendarErrorMessage(reason, strings));
     } finally {
       setBusy(false);
     }
+  };
+
+  /**
+   * `26-97`: `run`, plus the one thing a working-hours write has that no other write on this screen
+   * does - an answer worth keeping. The server says which already-cut days the correction did not
+   * reach; dropping that on the floor is exactly the silence this item exists to remove, and there is
+   * nothing in the next `GET` that would let the page reconstruct it.
+   */
+  const runWorkingHoursChange = async (
+    worker: ConfiguredWorker | undefined,
+    action: () => Promise<{ reconciliation: WorkingHoursReconciliation }>,
+  ) => {
+    setReconciliation(null);
+    await run(async () => {
+      const change = await action();
+      if (change.reconciliation.recutFrom !== null) {
+        setReconciliation({ ...change.reconciliation, workerId: worker?.workerId ?? null });
+      }
+      return change;
+    });
   };
 
   if (configuration === null) {
@@ -187,8 +232,6 @@ export function CalendarSetupPage() {
       <Panel title={strings.calendarSetupCalendarsTitle}>
         <CalendarsTable
           calendars={configuration.calendars}
-          workers={configuration.workers}
-          days={days}
           strings={strings}
           onEdit={(calendar) => setEditingCalendar(calendar)}
           editDisabled={busy}
@@ -216,7 +259,73 @@ export function CalendarSetupPage() {
         <CalendarForm disabled={busy} strings={strings} onSubmit={(body) => void run(() => createCalendar(accessToken, body))} />
       </Panel>
 
-      <Panel title={strings.calendarSetupWorkingHoursTitle} description={strings.calendarSetupWorkingHoursDescription}>
+      <Panel title={strings.calendarSetupWorkingHoursTitle}>
+        {reconciliation !== null && <RecutNotice notice={reconciliation} strings={strings} />}
+        <WorkingHoursTable
+          rows={workingHoursRows(configuration)}
+          days={days}
+          strings={strings}
+          actionsDisabled={busy}
+          onEdit={setEditingRule}
+          onDelete={setConfirmingRuleDelete}
+        />
+      </Panel>
+
+      {editingRule !== null && (
+        <Panel title={strings.calendarEditWorkingHoursTitle}>
+          <p className="ago-meta">
+            {editingRule.workerName} · {editingRule.calendarName}
+          </p>
+          <WorkingHoursFieldsForm
+            disabled={busy}
+            strings={strings}
+            days={days}
+            initial={editingRule.rule}
+            submitLabel={strings.siteConfigSaveButton}
+            onSubmit={(body) =>
+              void runWorkingHoursChange(editingRule.worker, () =>
+                updateWorkingHoursRule(accessToken, editingRule.rule.ruleId, body),
+              )
+            }
+          />
+          <div className="ago-row">
+            <Button disabled={busy} onClick={() => setEditingRule(null)}>
+              {strings.cancelButton}
+            </Button>
+          </div>
+        </Panel>
+      )}
+
+      {confirmingRuleDelete !== null && (
+        <Panel>
+          <p>
+            {strings.calendarWorkingHoursDeleteConfirmPrefix}
+            <strong>
+              {confirmingRuleDelete.workerName} · {days[confirmingRuleDelete.rule.dayOfWeek]}{" "}
+              {confirmingRuleDelete.rule.startsAt}–{confirmingRuleDelete.rule.endsAt}
+            </strong>
+            {strings.calendarWorkingHoursDeleteConfirmSuffix}
+          </p>
+          <div className="ago-row">
+            <Button
+              variant="danger"
+              disabled={busy}
+              onClick={() =>
+                void runWorkingHoursChange(confirmingRuleDelete.worker, () =>
+                  deleteWorkingHoursRule(accessToken, confirmingRuleDelete.rule.ruleId),
+                )
+              }
+            >
+              {strings.calendarDeleteButton}
+            </Button>
+            <Button disabled={busy} onClick={() => setConfirmingRuleDelete(null)}>
+              {strings.cancelButton}
+            </Button>
+          </div>
+        </Panel>
+      )}
+
+      <Panel title={strings.calendarNewWorkingHoursTitle} description={strings.calendarSetupWorkingHoursDescription}>
         <WorkingHoursForm
           configuration={configuration}
           disabled={busy}
@@ -225,6 +334,36 @@ export function CalendarSetupPage() {
         />
       </Panel>
     </>
+  );
+}
+
+/** `26-97`: one row of the working-hours table - the rule itself plus the two names only the whole
+ * configuration can resolve, flattened once here rather than looked up per cell. */
+interface WorkingHoursRuleRow {
+  rule: WorkingHoursRule;
+  calendarName: string;
+  workerName: string;
+  /** `undefined` when the rule names a worker the configuration no longer lists - a real state, and
+   * the one case where the re-cut notice has no worker to link to. */
+  worker: ConfiguredWorker | undefined;
+}
+
+/** `26-97`: a returned reconciliation, plus whose schedule it belongs to - the re-cut screen is
+ * per-worker (`/calendar/masters/:workerId/recut`), and the server's own answer carries the days
+ * without the worker, because the request already named the rule. */
+type WorkingHoursNotice = WorkingHoursReconciliation & { workerId: string | null };
+
+function workingHoursRows(configuration: TenantConfiguration): WorkingHoursRuleRow[] {
+  return configuration.calendars.flatMap((calendar) =>
+    calendar.workingHours.map((rule) => {
+      const worker = configuration.workers.find((candidate) => candidate.workerId === rule.workerId);
+      return {
+        rule,
+        calendarName: calendar.name,
+        workerName: worker?.displayName ?? rule.workerId,
+        worker,
+      };
+    }),
   );
 }
 
@@ -299,15 +438,11 @@ function OriginsForm({
  * for. */
 function CalendarsTable({
   calendars,
-  workers,
-  days,
   strings,
   onEdit,
   editDisabled,
 }: {
   calendars: ConfiguredCalendar[];
-  workers: ConfiguredWorker[];
-  days: string[];
   strings: ConsoleStrings;
   onEdit: (calendar: ConfiguredCalendar) => void;
   editDisabled: boolean;
@@ -323,23 +458,6 @@ function CalendarsTable({
       key: "status",
       header: strings.calendarSetupCalendarPublishedLabel,
       render: (calendar) => (calendar.isPublished ? strings.calendarPublishedLabel : strings.calendarNotPublishedLabel),
-    },
-    {
-      key: "hours",
-      header: strings.calendarCalendarsColumnHours,
-      render: (calendar) =>
-        calendar.workingHours.length === 0 ? (
-          "—"
-        ) : (
-          <ul>
-            {calendar.workingHours.map((rule) => (
-              <li key={rule.ruleId}>
-                {days[rule.dayOfWeek]} {rule.startsAt}–{rule.endsAt} ·{" "}
-                {workers.find((worker) => worker.workerId === rule.workerId)?.displayName ?? rule.workerId}
-              </li>
-            ))}
-          </ul>
-        ),
     },
     {
       key: "actions",
@@ -478,9 +596,58 @@ function WorkingHoursForm({
         )}
       </Field>
 
+      <HoursFields
+        disabled={disabled}
+        strings={strings}
+        days={days}
+        dayOfWeek={dayOfWeek}
+        startsAt={startsAt}
+        endsAt={endsAt}
+        onDayOfWeek={setDayOfWeek}
+        onStartsAt={setStartsAt}
+        onEndsAt={setEndsAt}
+      />
+
+      <div className="ago-row">
+        <Button type="submit" variant="primary" disabled={disabled || calendar === undefined}>
+          {strings.calendarSetupAddWorkingHoursButton}
+        </Button>
+      </div>
+      {calendar === undefined && <p className="ago-meta">{strings.calendarSetupWorkerNotOnCalendarNote}</p>}
+    </form>
+  );
+}
+
+/** `26-97`: the weekday and the two wall-clock times - the three fields a human types and can
+ * mistype, shared by the add form above and the edit form below. Extracted rather than duplicated
+ * precisely because this item exists to fix a typo in them: two copies is two places for the next
+ * change to reach only one of. */
+function HoursFields({
+  disabled,
+  strings,
+  days,
+  dayOfWeek,
+  startsAt,
+  endsAt,
+  onDayOfWeek,
+  onStartsAt,
+  onEndsAt,
+}: {
+  disabled: boolean;
+  strings: ConsoleStrings;
+  days: string[];
+  dayOfWeek: number;
+  startsAt: string;
+  endsAt: string;
+  onDayOfWeek: (value: number) => void;
+  onStartsAt: (value: string) => void;
+  onEndsAt: (value: string) => void;
+}) {
+  return (
+    <>
       <Field label={strings.calendarDayFieldLabel}>
         {(controlProps) => (
-          <Select {...controlProps} value={dayOfWeek} onChange={(e) => setDayOfWeek(Number(e.target.value))} disabled={disabled}>
+          <Select {...controlProps} value={dayOfWeek} onChange={(e) => onDayOfWeek(Number(e.target.value))} disabled={disabled}>
             {days.map((day, index) => (
               <option key={day} value={index}>
                 {day}
@@ -491,19 +658,158 @@ function WorkingHoursForm({
       </Field>
 
       <Field label={strings.calendarOpensFieldLabel}>
-        {(controlProps) => <Input {...controlProps} type="time" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} disabled={disabled} />}
+        {(controlProps) => <Input {...controlProps} type="time" value={startsAt} onChange={(e) => onStartsAt(e.target.value)} disabled={disabled} />}
       </Field>
 
       <Field label={strings.calendarClosesFieldLabel}>
-        {(controlProps) => <Input {...controlProps} type="time" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} disabled={disabled} />}
+        {(controlProps) => <Input {...controlProps} type="time" value={endsAt} onChange={(e) => onEndsAt(e.target.value)} disabled={disabled} />}
       </Field>
+    </>
+  );
+}
 
+/**
+ * `26-97`: the current working-hours rules, with the actions column this list did not have until the
+ * server grew the two verbs behind it. Flat across calendars rather than nested inside the calendars
+ * table, for the reason `25-53` gives for the calendars list itself: a row with its own id and its
+ * own write belongs in a table with its own actions, not in a cell of somebody else's.
+ */
+function WorkingHoursTable({
+  rows,
+  days,
+  strings,
+  actionsDisabled,
+  onEdit,
+  onDelete,
+}: {
+  rows: WorkingHoursRuleRow[];
+  days: string[];
+  strings: ConsoleStrings;
+  actionsDisabled: boolean;
+  onEdit: (row: WorkingHoursRuleRow) => void;
+  onDelete: (row: WorkingHoursRuleRow) => void;
+}) {
+  if (rows.length === 0) {
+    return <p className="ago-meta">{strings.calendarWorkingHoursEmpty}</p>;
+  }
+
+  const columns: TableColumn<WorkingHoursRuleRow>[] = [
+    { key: "worker", header: strings.calendarWorkerFieldLabel, render: (row) => row.workerName },
+    { key: "calendar", header: strings.calendarSetupCalendarNameLabel, render: (row) => row.calendarName },
+    { key: "day", header: strings.calendarDayFieldLabel, render: (row) => days[row.rule.dayOfWeek] },
+    {
+      key: "hours",
+      header: strings.calendarCalendarsColumnHours,
+      render: (row) => `${row.rule.startsAt}–${row.rule.endsAt}`,
+    },
+    {
+      key: "actions",
+      header: strings.calendarCalendarsColumnActions,
+      render: (row) => (
+        <div className="ago-row">
+          <Button size="sm" disabled={actionsDisabled} onClick={() => onEdit(row)}>
+            {strings.calendarEditButton}
+          </Button>
+          <Button size="sm" variant="danger" disabled={actionsDisabled} onClick={() => onDelete(row)}>
+            {strings.calendarDeleteButton}
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <Table
+      caption={strings.calendarSetupWorkingHoursTitle}
+      columns={columns}
+      rows={rows}
+      rowKey={(row) => row.rule.ruleId}
+    />
+  );
+}
+
+/** `26-97`: the edit form - the same three fields as the add form, and deliberately no worker or
+ * calendar select. A rule is corrected where it is; the server refuses to move one
+ * (`WorkingHoursRule.ChangeTo`), so offering the choice here would be offering something that cannot
+ * happen. */
+function WorkingHoursFieldsForm({
+  disabled,
+  strings,
+  days,
+  initial,
+  submitLabel,
+  onSubmit,
+}: {
+  disabled: boolean;
+  strings: ConsoleStrings;
+  days: string[];
+  initial: WorkingHoursRule;
+  submitLabel: string;
+  onSubmit: (body: { dayOfWeek: number; startsAt: string; endsAt: string }) => void;
+}) {
+  const [dayOfWeek, setDayOfWeek] = useState(initial.dayOfWeek);
+  const [startsAt, setStartsAt] = useState(initial.startsAt);
+  const [endsAt, setEndsAt] = useState(initial.endsAt);
+
+  return (
+    <form
+      className="ago-stack"
+      onSubmit={(event: FormEvent) => {
+        event.preventDefault();
+        onSubmit({ dayOfWeek, startsAt, endsAt });
+      }}
+    >
+      <HoursFields
+        disabled={disabled}
+        strings={strings}
+        days={days}
+        dayOfWeek={dayOfWeek}
+        startsAt={startsAt}
+        endsAt={endsAt}
+        onDayOfWeek={setDayOfWeek}
+        onStartsAt={setStartsAt}
+        onEndsAt={setEndsAt}
+      />
       <div className="ago-row">
-        <Button type="submit" variant="primary" disabled={disabled || calendar === undefined}>
-          {strings.calendarSetupAddWorkingHoursButton}
+        <Button type="submit" variant="primary" disabled={disabled}>
+          {submitLabel}
         </Button>
       </div>
-      {calendar === undefined && <p className="ago-meta">{strings.calendarSetupWorkerNotOnCalendarNote}</p>}
     </form>
+  );
+}
+
+/**
+ * `26-97`: the one thing this item must not do is leave an already-booked slot silently
+ * unreconciled. The correction itself is always allowed - it cannot damage a booking, because the
+ * materialiser only ever inserts into days that have no rows at all - so what is owed to the operator
+ * is not a refusal but this: which days still carry the old hours, how many live bookings are on
+ * them, and where to go to re-cut. Rendered until the next working-hours write replaces it, never
+ * auto-dismissed.
+ */
+function RecutNotice({ notice, strings }: { notice: WorkingHoursNotice; strings: ConsoleStrings }) {
+  return (
+    <Alert tone="info">
+      {strings.calendarWorkingHoursRecutNoticeIntro}
+      <strong>{notice.alreadyCutDays.join(", ")}</strong>.
+      {notice.liveBookingCount > 0 ? (
+        <>
+          {strings.calendarWorkingHoursRecutNoticeBookingsPrefix}
+          <strong>{notice.liveBookingCount}</strong>.
+        </>
+      ) : (
+        strings.calendarWorkingHoursRecutNoticeBookingsNone
+      )}
+      {strings.calendarWorkingHoursRecutNoticeActionPrefix}
+      <strong>{notice.recutFrom}</strong>
+      {notice.workerId !== null && (
+        <>
+          {" · "}
+          <Link to={`/calendar/masters/${encodeURIComponent(notice.workerId)}/recut`}>
+            {strings.calendarRecutLinkLabel}
+          </Link>
+        </>
+      )}
+    </Alert>
   );
 }

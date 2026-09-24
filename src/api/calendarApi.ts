@@ -40,6 +40,29 @@ export interface WorkingHoursRule {
   endsAt: string;
 }
 
+/**
+ * `26-97`: what a working-hours correction did **not** reach - the days this worker's schedule had
+ * already materialised from the old hours, which no edit to a rule retroactively re-cuts.
+ *
+ * Sent on every successful edit and delete, including the empty ones, so a console can tell "nothing
+ * to do" from "this build does not send that field".
+ */
+export interface WorkingHoursReconciliation {
+  /** `YYYY-MM-DD`, business-local. Feed it to the re-cut screen. `null` exactly when
+   * `alreadyCutDays` is empty. */
+  recutFrom: string | null;
+  alreadyCutDays: string[];
+  /** Pending, confirmed and no-show bookings sitting on those days. Zero means a re-cut would
+   * cancel nothing. */
+  liveBookingCount: number;
+}
+
+/** `26-97`. `rule` is the corrected rule, or `null` when the call deleted it. */
+export interface WorkingHoursRuleChange {
+  rule: WorkingHoursRule | null;
+  reconciliation: WorkingHoursReconciliation;
+}
+
 export interface ConfiguredCalendar {
   calendarId: string;
   name: string;
@@ -687,6 +710,30 @@ export function addWorkingHoursRule(
   body: { calendarId: string; workerId: string; dayOfWeek: number; startsAt: string; endsAt: string },
 ): Promise<{ ruleId: string }> {
   return request<{ ruleId: string }>(token, "POST", "/working-hours", body);
+}
+
+/**
+ * `26-97`: correcting a rule that was typed wrong. No `calendarId`/`workerId` in the body, unlike
+ * `addWorkingHoursRule` - a rule is corrected where it is, never moved, and sending them would offer
+ * a choice the server refuses (`WorkingHoursRule.ChangeTo`).
+ *
+ * The answer carries `reconciliation`: the already-materialised days this correction could not reach
+ * and the date to re-cut from. Always allowed - never refused because a booking exists - see the
+ * server's own `WorkingHoursReconciler` for the decision and why refusing would have reproduced the
+ * defect this item fixes.
+ */
+export function updateWorkingHoursRule(
+  token: string,
+  ruleId: string,
+  body: { dayOfWeek: number; startsAt: string; endsAt: string },
+): Promise<WorkingHoursRuleChange> {
+  return request<WorkingHoursRuleChange>(token, "PUT", `/working-hours/${encodeURIComponent(ruleId)}`, body);
+}
+
+/** `26-97`. Answers 200 with a body rather than 204 - the body is the point: it carries the days the
+ * deletion did not reach. See `updateWorkingHoursRule`. */
+export function deleteWorkingHoursRule(token: string, ruleId: string): Promise<WorkingHoursRuleChange> {
+  return request<WorkingHoursRuleChange>(token, "DELETE", `/working-hours/${encodeURIComponent(ruleId)}`);
 }
 
 export function getPendingBookings(token: string, signal?: AbortSignal): Promise<PendingBooking[]> {

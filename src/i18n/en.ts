@@ -1497,6 +1497,18 @@ export const en: ConsoleStrings = {
   calendarSetupNoWorkersNote: "Add a worker first - working hours belong to a worker on a calendar.",
   calendarSetupAddWorkingHoursButton: "Add working hours",
   calendarSetupWorkerNotOnCalendarNote: "That worker is not on a calendar yet, so there are no hours to give them.",
+  calendarWorkingHoursEmpty: "No working hours yet.",
+  calendarNewWorkingHoursTitle: "New working hours",
+  calendarEditWorkingHoursTitle: "Edit working hours",
+  calendarWorkingHoursDeleteConfirmPrefix: "Remove ",
+  calendarWorkingHoursDeleteConfirmSuffix:
+    "? Days already generated from these hours keep the slots they were cut with - including any " +
+    "bookings on them. Only days generated from now on change.",
+  calendarWorkingHoursRecutNoticeIntro:
+    "Saved. Days already generated from the old hours keep the grid they were cut with: ",
+  calendarWorkingHoursRecutNoticeBookingsPrefix: " Bookings on those days: ",
+  calendarWorkingHoursRecutNoticeBookingsNone: " No bookings on those days.",
+  calendarWorkingHoursRecutNoticeActionPrefix: " To apply the change to them, re-cut the schedule from ",
 
   calendarReadinessTitle: "Can a visitor book right now?",
   calendarReadinessNoCalendarLabel: "No calendar yet",
