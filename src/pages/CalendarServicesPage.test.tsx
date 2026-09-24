@@ -31,6 +31,7 @@ const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
 const calendarApi = vi.hoisted(() => ({
   getConfiguration: vi.fn(),
   createService: vi.fn(),
+  updateService: vi.fn(),
 }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
@@ -117,6 +118,7 @@ const configuration: TenantConfiguration = {
       priceCurrencyCode: null,
       priceIsFrom: false,
       description: null,
+      isActive: true,
     },
   ],
 };
@@ -128,6 +130,7 @@ beforeEach(() => {
   ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
   calendarApi.getConfiguration.mockResolvedValue(configuration);
   calendarApi.createService.mockResolvedValue({ serviceId: "s2" });
+  calendarApi.updateService.mockResolvedValue(undefined);
 });
 
 afterEach(async () => {
@@ -143,17 +146,19 @@ describe("the services dictionary screen", () => {
   });
 
   // `25-53`: two blocks (a current-services table, a separate add-service card), split from the
-  // one blended card this screen used to be - the item's own named example. No edit/delete button
-  // anywhere on the table: `calendarApi.ts` exports no `updateService`/`deleteService` yet, and this
-  // item's own scope forbids inventing backend capability to fill the gap.
-  it("splits into a current-services table and a separate add-service card, with no edit or delete action", async () => {
+  // one blended card this screen used to be - the item's own named example. `26-96` gave the table
+  // the actions column `25-53` had to leave out, and the assertion that used to say "no Edit button"
+  // now says the opposite - while still asserting no "Delete", which this product deliberately does
+  // not offer for a service (`Ago.Calendar.Domain.Service.IsActive`).
+  it("splits into a current-services table and a separate add-service card, with edit but never delete", async () => {
     const container = await render(page());
 
     const headings = Array.from(container.querySelectorAll("h2")).map((h) => h.textContent);
     expect(headings).toContain("Services");
     expect(headings).toContain("New service");
     expect(container.querySelector("table")).not.toBeNull();
-    expect(byText<HTMLButtonElement>(container, "button", "Edit")).toBeNull();
+    expect(byText<HTMLButtonElement>(container, "button", "Edit")).not.toBeNull();
+    expect(byText<HTMLButtonElement>(container, "button", "Withdraw")).not.toBeNull();
     expect(byText<HTMLButtonElement>(container, "button", "Delete")).toBeNull();
   });
 
@@ -227,6 +232,7 @@ describe("the services dictionary screen", () => {
           priceCurrencyCode: "RUB",
           priceIsFrom: true,
           description: "Full colour and toner.",
+          isActive: true,
         },
       ],
     });
@@ -236,6 +242,100 @@ describe("the services dictionary screen", () => {
     // "от" ("from") - the floor reading, because this service's own real cost varies.
     expect(container.textContent).toContain("от 3500 ₽");
     expect(container.textContent).toContain("Full colour and toner.");
+  });
+
+  // `26-96`: the edit and the withdrawal this screen had no API for until now.
+
+  it("opens the edit card prefilled and sends every field back", async () => {
+    const container = await render(page());
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Edit")?.click());
+
+    // Prefilled from the row, not blank: the whole point is correcting what is already there.
+    expect(fieldByLabel<HTMLInputElement>(container, "Service name").value).toBe("Haircut");
+    expect(fieldByLabel<HTMLInputElement>(container, "Duration (minutes)").value).toBe("45");
+    // The create card is gone while the edit card is open - never two forms on screen at once.
+    expect(byText<HTMLButtonElement>(container, "button", "Add service")).toBeNull();
+
+    await interact(() => setTextValue(fieldByLabel(container, "Duration (minutes)"), "60"));
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Save service")?.click());
+
+    expect(calendarApi.updateService).toHaveBeenCalledWith("token", "s1", {
+      name: "Haircut",
+      durationMinutes: 60,
+      priceMinorUnits: null,
+      priceIsFrom: false,
+      description: null,
+      isActive: true,
+    });
+    // The authoritative answer is always the next GET - no optimistic update on this screen.
+    expect(calendarApi.getConfiguration).toHaveBeenCalledTimes(2);
+  });
+
+  it("prefills a stated price back into rubles rather than kopecks", async () => {
+    calendarApi.getConfiguration.mockResolvedValue({
+      ...configuration,
+      services: [
+        {
+          serviceId: "s1",
+          name: "Colour",
+          durationMinutes: 90,
+          priceMinorUnits: 350000,
+          priceCurrencyCode: "RUB",
+          priceIsFrom: true,
+          description: "Full colour and toner.",
+          isActive: true,
+        },
+      ],
+    });
+    const container = await render(page());
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Edit")?.click());
+
+    // The exact inverse of the kopeck conversion the create form does - 350000 back to "3500",
+    // never "350000" and never "3500.00".
+    expect(fieldByLabel<HTMLInputElement>(container, "Price (RUB)").value).toBe("3500");
+  });
+
+  it("withdraws a service from the row, sending its own current fields beside the flipped flag", async () => {
+    const container = await render(page());
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Withdraw")?.click());
+
+    // Replace semantics: the endpoint takes the whole record, so a row toggle has to send the five
+    // fields it already holds rather than only the flag.
+    expect(calendarApi.updateService).toHaveBeenCalledWith("token", "s1", {
+      name: "Haircut",
+      durationMinutes: 45,
+      priceMinorUnits: null,
+      priceIsFrom: false,
+      description: null,
+      isActive: false,
+    });
+  });
+
+  it("keeps a withdrawn service on the list, marked, and offers to put it back", async () => {
+    // The visible half of option (a): a withdrawn service does not vanish from the console, because
+    // `GET /configuration` deliberately keeps returning it - a worker card and a past booking both
+    // resolve their service name through the same record.
+    calendarApi.getConfiguration.mockResolvedValue({
+      ...configuration,
+      services: [{ ...configuration.services[0], isActive: false }],
+    });
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Haircut");
+    expect(container.textContent).toContain("Withdrawn");
+    expect(byText<HTMLButtonElement>(container, "button", "Withdraw")).toBeNull();
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Put back on offer")?.click());
+
+    expect(calendarApi.updateService).toHaveBeenCalledWith(
+      "token",
+      "s1",
+      expect.objectContaining({ isActive: true }),
+    );
   });
 
   it("refuses an operator who lacks calendar:configure", async () => {

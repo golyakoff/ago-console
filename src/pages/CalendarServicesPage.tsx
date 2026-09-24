@@ -1,8 +1,14 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
-import { createService, getConfiguration, type ConfiguredService, type TenantConfiguration } from "../api/calendarApi.js";
+import {
+  createService,
+  getConfiguration,
+  updateService,
+  type ConfiguredService,
+  type TenantConfiguration,
+} from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
 import { PageHead } from "../shell/AppShell.js";
@@ -12,6 +18,7 @@ import { Input } from "../components/Input.js";
 import { Textarea } from "../components/Textarea.js";
 import { Button } from "../components/Button.js";
 import { Alert } from "../components/Alert.js";
+import { Badge } from "../components/Badge.js";
 import { Table, type TableColumn } from "../components/Table.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
@@ -52,13 +59,28 @@ import type { ConsoleStrings } from "../i18n/strings.js";
  *
  * **`25-53`: two blocks, not one blended card.** This screen was the item's own named example of the
  * one-card antipattern - a title, the existing services as a plain `<ul>`, then the create form,
- * all in one `<Panel>`. Split into a "current services" card (a real `Table`, no per-row actions) and
- * a separate "add service" card below, unchanged in substance. **No actions column, and that is a
- * real gap, not an oversight**: `calendarApi.ts` still exports only `createService` for this object
- * type - no `updateService`/`deleteService` exist yet, so there is nothing this table could wire an
- * edit or delete button to without inventing backend capability `25-53`'s own scope forbids. Also no
- * "hide inactive" filter: `ConfiguredService` carries no active/inactive concept at all (unlike
- * `ConfiguredWorker.isActive`), so there is nothing here to hide.
+ * all in one `<Panel>`. Split into a "current services" card (a real `Table`) and a separate
+ * "add service" card below, unchanged in substance.
+ *
+ * **`26-96`: the actions column `23-31` and `25-53` both had to leave out.** Both items named the
+ * same gap in the same words - `calendarApi.ts` exported `createService` and nothing else, so a typo
+ * in a duration or a visitor-facing price was permanent, and `ConfiguredService` carried no
+ * active/inactive concept at all. `PUT /services/{id}` closed it, and this screen is where it
+ * surfaces:
+ *
+ * - **Изменить** opens the identical `ServiceForm` the "add service" card uses, prefilled - one form
+ *   rather than two that can drift, the same both-modes-one-card shape `CalendarWorkersPage`'s own
+ *   `WorkerCard` already has.
+ * - **«Снять с продажи»** is a row-level toggle, not a delete, and its label says so. The server has
+ *   no `DELETE /services/{id}` and is not getting one: four of its read models resolve a *past
+ *   booking's* service name through the same row, so deleting a service would retroactively blank it
+ *   on every booking that ever used it (`Ago.Calendar.Domain.Service.IsActive`). The toggle sends the
+ *   row's own five current fields back beside the flipped flag, because the endpoint has replace
+ *   semantics - exactly what `CalendarWorkersPage` does when it flips a worker's `isActive`.
+ * - The **Статус** column renders the flag, so a withdrawn service is visibly present rather than
+ *   silently missing. Withdrawn services are deliberately still listed here: `GET /configuration`
+ *   keeps returning them (it is what a worker card and a booking row resolve a name through), and it
+ *   is the public booking surface that stops offering them.
  */
 export function CalendarServicesPage() {
   const { user } = useAuth();
@@ -67,6 +89,10 @@ export function CalendarServicesPage() {
   const [configuration, setConfiguration] = useState<TenantConfiguration | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** `26-96`. The service whose edit card is open, or `null` for none - the same single-slot editing
+   * state `CalendarWorkersPage` holds, and for the same reason: two cards open at once would let an
+   * operator submit the one they stopped looking at. */
+  const [editing, setEditing] = useState<ConfiguredService | null>(null);
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
@@ -168,24 +194,110 @@ export function CalendarServicesPage() {
       {error !== null && <Alert tone="danger">{error}</Alert>}
 
       <Panel title={strings.calendarSetupServicesTitle}>
-        <ServicesTable services={configuration.services} strings={strings} />
-      </Panel>
-
-      <Panel title={strings.calendarNewServiceTitle}>
-        <ServiceForm
-          disabled={busy}
+        <ServicesTable
+          services={configuration.services}
           strings={strings}
-          onSubmit={(body) => void run(() => createService(accessToken, body))}
+          renderRowActions={(service) => (
+            <div className="ago-row">
+              <Button size="sm" disabled={busy} onClick={() => setEditing(service)}>
+                {strings.calendarEditButton}
+              </Button>
+              {/* `26-96`. Never `variant="danger"`: nothing is destroyed here and a red button would
+                  promise that it is. Replace semantics mean the row's own five current fields travel
+                  back beside the flipped flag - see this file's own doc comment. */}
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() =>
+                  void run(() =>
+                    updateService(accessToken, service.serviceId, {
+                      name: service.name,
+                      durationMinutes: service.durationMinutes,
+                      priceMinorUnits: service.priceMinorUnits,
+                      priceIsFrom: service.priceIsFrom,
+                      description: service.description,
+                      isActive: !service.isActive,
+                    }),
+                  )
+                }
+              >
+                {service.isActive ? strings.calendarServicesArchiveButton : strings.calendarServicesRestoreButton}
+              </Button>
+            </div>
+          )}
         />
       </Panel>
+
+      {/* `26-96`. One card, two modes - the edit card replaces the create card rather than sitting
+          beside it, so there is never a second form on screen an operator could submit by mistake
+          (`CalendarWorkersPage`'s own `editing === null` guard, same shape). `key` on the edit form
+          is what makes React rebuild its internal field state when the operator switches straight
+          from one row's Edit to another's: without it the second row would open showing the first
+          row's typed values. */}
+      {editing === null ? (
+        <Panel title={strings.calendarNewServiceTitle}>
+          <ServiceForm
+            disabled={busy}
+            strings={strings}
+            submitLabel={strings.calendarSetupAddServiceButton}
+            // The five fields listed out rather than spread: `isActive` is not one of them, because
+            // a service is always created on offer and `CreateServiceRequest` carries no such
+            // field - forwarding one the server ignores would suggest a caller could create an
+            // already-withdrawn service.
+            onSubmit={(body) =>
+              void run(() =>
+                createService(accessToken, {
+                  name: body.name,
+                  durationMinutes: body.durationMinutes,
+                  priceMinorUnits: body.priceMinorUnits,
+                  priceIsFrom: body.priceIsFrom,
+                  description: body.description,
+                }),
+              )
+            }
+          />
+        </Panel>
+      ) : (
+        <Panel title={strings.calendarEditServiceTitle}>
+          <ServiceForm
+            key={editing.serviceId}
+            disabled={busy}
+            strings={strings}
+            service={editing}
+            submitLabel={strings.calendarSaveServiceButton}
+            onCancel={() => setEditing(null)}
+            onSubmit={(body) =>
+              void run(async () => {
+                await updateService(accessToken, editing.serviceId, {
+                  name: body.name,
+                  durationMinutes: body.durationMinutes,
+                  priceMinorUnits: body.priceMinorUnits,
+                  priceIsFrom: body.priceIsFrom,
+                  description: body.description,
+                  isActive: body.isActive,
+                });
+                setEditing(null);
+              })
+            }
+          />
+        </Panel>
+      )}
     </>
   );
 }
 
-/** `25-53`: the current-services card's own table - no `renderRowActions` slot the way
- * `calendar/WorkersTable.tsx` takes one, because there is no row action this object type's API
- * supports yet (see this file's own doc comment). */
-function ServicesTable({ services, strings }: { services: ConfiguredService[]; strings: ConsoleStrings }) {
+/** `25-53`/`26-96`: the current-services card's own table. It now takes the `renderRowActions` slot
+ * `calendar/WorkersTable.tsx` has always had - `25-53` left it out because this object type had no
+ * write beyond `createService`; `26-96` gave it one. */
+function ServicesTable({
+  services,
+  strings,
+  renderRowActions,
+}: {
+  services: ConfiguredService[];
+  strings: ConsoleStrings;
+  renderRowActions: (service: ConfiguredService) => ReactNode;
+}) {
   if (services.length === 0) {
     return <p className="ago-meta">{strings.calendarServicesEmpty}</p>;
   }
@@ -207,6 +319,22 @@ function ServicesTable({ services, strings }: { services: ConfiguredService[]; s
       key: "description",
       header: strings.calendarServicesColumnDescription,
       render: (service) => service.description ?? "—",
+    },
+    {
+      // `26-96`. A `Badge` with the word in it, matching `WorkersTable`'s own active column exactly -
+      // tone alone never carries the meaning (`Badge`'s own `dot` remarks make the same point).
+      key: "status",
+      header: strings.calendarServicesColumnStatus,
+      render: (service) => (
+        <Badge tone={service.isActive ? "success" : "neutral"}>
+          {service.isActive ? strings.calendarServicesActiveLabel : strings.calendarServicesArchivedLabel}
+        </Badge>
+      ),
+    },
+    {
+      key: "actions",
+      header: strings.calendarServicesColumnActions,
+      render: renderRowActions,
     },
   ];
 
@@ -240,26 +368,49 @@ function toPriceMinorUnits(priceRubles: string): number | null {
   return Number.isFinite(rubles) ? Math.round(rubles * 100) : null;
 }
 
+/**
+ * `23-35`, extended by `26-96` to serve both modes. `service` undefined is the create card; a
+ * `ConfiguredService` prefills every field and adds the «В продаже» checkbox, because that flag only
+ * exists on a record that already exists - a service is always created on offer
+ * (`Ago.Calendar.Domain.Service.Create`).
+ *
+ * One component for both rather than a second edit-only form: the five fields, the kopeck conversion
+ * and the "от"-without-a-price normalisation are the parts most worth not having two copies of, and a
+ * create form that validates differently from the edit form is exactly the drift `Service` itself
+ * refuses server-side by routing both through the same validators.
+ */
 function ServiceForm({
   disabled,
   strings,
+  service,
+  submitLabel,
+  onCancel,
   onSubmit,
 }: {
   disabled: boolean;
   strings: ConsoleStrings;
+  service?: ConfiguredService;
+  submitLabel: string;
+  onCancel?: () => void;
   onSubmit: (body: {
     name: string;
     durationMinutes: number;
-    priceMinorUnits?: number | null;
-    priceIsFrom?: boolean;
-    description?: string | null;
+    priceMinorUnits: number | null;
+    priceIsFrom: boolean;
+    description: string | null;
+    isActive: boolean;
   }) => void;
 }) {
-  const [name, setName] = useState("");
-  const [durationMinutes, setDurationMinutes] = useState(45);
-  const [priceRubles, setPriceRubles] = useState("");
-  const [priceIsFrom, setPriceIsFrom] = useState(false);
-  const [description, setDescription] = useState("");
+  const [name, setName] = useState(service?.name ?? "");
+  const [durationMinutes, setDurationMinutes] = useState(service?.durationMinutes ?? 45);
+  // Kopecks back into a ruble string for the input, the exact inverse of `toPriceMinorUnits` - a
+  // service with no stated price prefills blank rather than "0", which would be a stated price.
+  const [priceRubles, setPriceRubles] = useState(
+    service?.priceMinorUnits != null ? String(service.priceMinorUnits / 100) : "",
+  );
+  const [priceIsFrom, setPriceIsFrom] = useState(service?.priceIsFrom ?? false);
+  const [description, setDescription] = useState(service?.description ?? "");
+  const [isActive, setIsActive] = useState(service?.isActive ?? true);
 
   return (
     <form
@@ -275,11 +426,18 @@ function ServiceForm({
           // never see "от" true beside no price - Service.Create's own normalisation, mirrored.
           priceIsFrom: priceMinorUnits === null ? false : priceIsFrom,
           description: description.trim() === "" ? null : description,
+          isActive,
         });
-        setName("");
-        setPriceRubles("");
-        setPriceIsFrom(false);
-        setDescription("");
+
+        // `26-96`: only the create card clears itself. An edit card is unmounted by the page the
+        // moment its write lands, and blanking its fields first would flash an empty form over the
+        // service the operator just corrected.
+        if (service === undefined) {
+          setName("");
+          setPriceRubles("");
+          setPriceIsFrom(false);
+          setDescription("");
+        }
       }}
     >
       <Field label={strings.calendarSetupServiceNameLabel}>
@@ -323,10 +481,34 @@ function ServiceForm({
         )}
       </Field>
 
+      {/* `26-96`. Edit mode only - a service is always created on offer, so the checkbox would have
+          exactly one legal value on the create card and a control with one legal value is noise. The
+          note below it is rendered whenever the box is cleared, before the save, because that is the
+          moment the operator can still change their mind. */}
+      {service !== undefined && (
+        <>
+          <label className="ago-row">
+            <input
+              type="checkbox"
+              checked={isActive}
+              onChange={(e) => setIsActive(e.target.checked)}
+              disabled={disabled}
+            />
+            <span>{strings.calendarServiceActiveFieldLabel}</span>
+          </label>
+          {!isActive && <Alert tone="info">{strings.calendarServiceArchivedNote}</Alert>}
+        </>
+      )}
+
       <div className="ago-row">
         <Button type="submit" variant="primary" disabled={disabled}>
-          {strings.calendarSetupAddServiceButton}
+          {submitLabel}
         </Button>
+        {onCancel !== undefined && (
+          <Button type="button" disabled={disabled} onClick={onCancel}>
+            {strings.cancelButton}
+          </Button>
+        )}
       </div>
     </form>
   );

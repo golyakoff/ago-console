@@ -612,6 +612,7 @@ export function seededCalendarConfiguration() {
         priceCurrencyCode: "RUB",
         priceIsFrom: true,
         description: "Классическая мужская стрижка машинкой и ножницами.",
+        isActive: true,
       },
     ],
   };

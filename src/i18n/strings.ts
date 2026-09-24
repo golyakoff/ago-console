@@ -2450,15 +2450,31 @@ export interface ConsoleStrings {
   calendarSetupServicePriceFromLabel: string;
   calendarSetupServiceDescriptionLabel: string;
   /** `25-53`: the services list card's own table, split from the single blended card the item's own
-   * example (Записи › Услуги) named - see `CalendarServicesPage.tsx`'s own doc comment. `createService`
-   * is still the only write this object type has (`calendarApi.ts`'s own remarks); there is no edit or
-   * delete endpoint yet, so this table carries no actions column - a real gap, not an omission. */
+   * example (Записи › Услуги) named - see `CalendarServicesPage.tsx`'s own doc comment. `26-96` closed
+   * the gap the previous version of this comment named: `updateService` exists now, so this table has
+   * an actions column and an active/archived state to render. */
   calendarServicesColumnName: string;
   calendarServicesColumnDuration: string;
   calendarServicesColumnPrice: string;
   calendarServicesColumnDescription: string;
   calendarServicesEmpty: string;
   calendarNewServiceTitle: string;
+  /** `26-96`. The column that says whether a service is still on offer, and the two row actions
+   * behind it. «Снять с продажи»/«Вернуть в продажу», deliberately not «Удалить»: the row is never
+   * deleted, and a label promising deletion would misdescribe what the button does. */
+  calendarServicesColumnStatus: string;
+  calendarServicesColumnActions: string;
+  calendarServicesActiveLabel: string;
+  calendarServicesArchivedLabel: string;
+  calendarServicesArchiveButton: string;
+  calendarServicesRestoreButton: string;
+  calendarEditServiceTitle: string;
+  calendarSaveServiceButton: string;
+  /** `26-96`. Shown on the edit form, where an operator is one checkbox away from taking a service
+   * off the booking widget - it says what actually happens, including the part that does *not*
+   * (nothing already booked changes). */
+  calendarServiceActiveFieldLabel: string;
+  calendarServiceArchivedNote: string;
   calendarSetupWorkingHoursTitle: string;
   calendarSetupWorkingHoursDescription: string;
   calendarSetupNoWorkersNote: string;
