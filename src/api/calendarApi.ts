@@ -130,6 +130,17 @@ export interface ConfiguredService {
   priceIsFrom: boolean;
   /** Freeform marketing copy the tenant maintains, or `null` for none. */
   description: string | null;
+  /**
+   * `26-96`. `false` means the tenant has taken this service out of rotation: the booking widget no
+   * longer offers it and a claim naming it is refused, while every worker who performs it and every
+   * booking that used it still resolve its name through this same record.
+   *
+   * Archived services are **still returned by `getConfiguration`**, deliberately - see
+   * `Ago.Calendar.Domain.Service.IsActive`'s own remarks for why this product archives instead of
+   * deleting, and why filtering them out of *this* read is the thing that would actually break
+   * something.
+   */
+  isActive: boolean;
 }
 
 export interface TenantConfiguration {
@@ -566,6 +577,34 @@ export function createService(
   },
 ): Promise<{ serviceId: string }> {
   return request<{ serviceId: string }>(token, "POST", "/services", body);
+}
+
+/**
+ * `26-96`: the edit `createService` had no counterpart for - a typo in a service's duration or its
+ * visitor-facing price was permanent in this product until this item.
+ *
+ * Every field is required, unlike `createService`'s optional three: replace semantics, and an edit
+ * form always holds the whole record, so an omitted field would silently clear a price rather than
+ * leave it alone (`Ago.Calendar.Contracts.UpdateServiceRequest`'s own remarks).
+ *
+ * `isActive: false` withdraws the service. There is deliberately **no `deleteService`** beside this
+ * one and there will not be: four server-side read models resolve a past booking's service *name*
+ * through the `services` row, so deleting one would retroactively blank the service on every booking
+ * that ever used it (`Ago.Calendar.Domain.Service.IsActive`).
+ */
+export function updateService(
+  token: string,
+  serviceId: string,
+  body: {
+    name: string;
+    durationMinutes: number;
+    priceMinorUnits: number | null;
+    priceIsFrom: boolean;
+    description: string | null;
+    isActive: boolean;
+  },
+): Promise<void> {
+  return requestVoid(token, "PUT", `/services/${encodeURIComponent(serviceId)}`, body);
 }
 
 /** `20-13`. `middleName`/`displayName` are `null` when the console never touched that field - see

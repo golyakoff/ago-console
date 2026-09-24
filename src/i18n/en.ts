@@ -1478,6 +1478,18 @@ export const en: ConsoleStrings = {
   calendarServicesColumnDescription: "Description",
   calendarServicesEmpty: "No services yet.",
   calendarNewServiceTitle: "New service",
+  calendarServicesColumnStatus: "Status",
+  calendarServicesColumnActions: "Actions",
+  calendarServicesActiveLabel: "On offer",
+  calendarServicesArchivedLabel: "Withdrawn",
+  calendarServicesArchiveButton: "Withdraw",
+  calendarServicesRestoreButton: "Put back on offer",
+  calendarEditServiceTitle: "Edit service",
+  calendarSaveServiceButton: "Save service",
+  calendarServiceActiveFieldLabel: "On offer",
+  calendarServiceArchivedNote:
+    "A withdrawn service can no longer be chosen in the booking widget. Bookings already taken and " +
+    "worker cards keep it - the service is not deleted, and it can be put back on offer.",
   calendarSetupWorkingHoursTitle: "Working hours",
   calendarSetupWorkingHoursDescription: 
     "Wall clock in the calendar’s own time zone - “we open at nine”, not an instant. A shift " +

@@ -105,6 +105,7 @@ const configuration: TenantConfiguration = {
       priceCurrencyCode: null,
       priceIsFrom: false,
       description: null,
+      isActive: true,
     },
   ],
 };

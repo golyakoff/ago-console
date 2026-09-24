@@ -128,6 +128,7 @@ const configuration: TenantConfiguration = {
       priceCurrencyCode: null,
       priceIsFrom: false,
       description: null,
+      isActive: true,
     },
     // `25-74`: a second service, for the edit-mode "add a service to an already-created worker" test
     // below - the whole point of this item is that this list is no longer frozen at creation.
@@ -139,6 +140,7 @@ const configuration: TenantConfiguration = {
       priceCurrencyCode: null,
       priceIsFrom: false,
       description: null,
+      isActive: true,
     },
   ],
 };

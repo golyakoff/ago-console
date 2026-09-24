@@ -1482,6 +1482,18 @@ export const ru: ConsoleStrings = {
   calendarServicesColumnDescription: "Описание",
   calendarServicesEmpty: "Услуг пока нет.",
   calendarNewServiceTitle: "Новая услуга",
+  calendarServicesColumnStatus: "Статус",
+  calendarServicesColumnActions: "Действия",
+  calendarServicesActiveLabel: "В продаже",
+  calendarServicesArchivedLabel: "Снята с продажи",
+  calendarServicesArchiveButton: "Снять с продажи",
+  calendarServicesRestoreButton: "Вернуть в продажу",
+  calendarEditServiceTitle: "Изменить услугу",
+  calendarSaveServiceButton: "Сохранить услугу",
+  calendarServiceActiveFieldLabel: "В продаже",
+  calendarServiceArchivedNote:
+    "Снятую с продажи услугу больше нельзя выбрать в виджете записи. Уже записанные визиты и " +
+    "карточки мастеров её сохраняют - услуга не удаляется, её можно вернуть в продажу.",
   calendarSetupWorkingHoursTitle: "Рабочие часы",
   calendarSetupWorkingHoursDescription: 
     "Настенные часы в собственном часовом поясе календаря - «мы открываемся в девять», а не момент " +
