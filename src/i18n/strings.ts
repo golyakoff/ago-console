@@ -2480,6 +2480,25 @@ export interface ConsoleStrings {
   calendarSetupNoWorkersNote: string;
   calendarSetupAddWorkingHoursButton: string;
   calendarSetupWorkerNotOnCalendarNote: string;
+  /** `26-97`: the working-hours list stopped being a read-only `<ul>` inside the calendars table and
+   * became its own table with an actions column - the same split `25-53` made for calendars, now
+   * that `updateWorkingHoursRule`/`deleteWorkingHoursRule` exist for it to act on. Before this item a
+   * mistyped rule was permanent and deleting the worker was the only remedy in the product. */
+  calendarWorkingHoursEmpty: string;
+  calendarNewWorkingHoursTitle: string;
+  calendarEditWorkingHoursTitle: string;
+  calendarWorkingHoursDeleteConfirmPrefix: string;
+  calendarWorkingHoursDeleteConfirmSuffix: string;
+  /** `26-97`: the reconciliation notice. A correction is always allowed and never silent - days the
+   * schedule already cut from the old hours keep the grid they were cut with, and re-cutting them is
+   * a separate, destructive, human-confirmed step (`20-16`). Written as four pieces around the day
+   * list, the booking count and the date, the same prefix/suffix shape
+   * `calendarWorkersDeleteConfirm*` already uses rather than a format-string helper this console does
+   * not have. */
+  calendarWorkingHoursRecutNoticeIntro: string;
+  calendarWorkingHoursRecutNoticeBookingsPrefix: string;
+  calendarWorkingHoursRecutNoticeBookingsNone: string;
+  calendarWorkingHoursRecutNoticeActionPrefix: string;
 
   // --- BookingReadiness (`23-23`, rendered on both /calendar/setup and /calendar/workers) ---
   calendarReadinessTitle: string;
