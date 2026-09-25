@@ -60,9 +60,11 @@
  *   is handled the same way, structurally rather than by literal string - see `isUrlText` below. Not
  *   currently exercised by any `<a>` on this gate's five screens (`ConversationPage`'s and
  *   `VisitorHistoryPanel`'s attachment links both render a translated label plus a MIME type, and
- *   `VisitorHistoryPanel` itself never opens because `seededVisitorHistory()` sets
- *   `hasChannelIdentity: false`) - kept anyway because a future screen could legitimately add one, and
- *   a silent false failure there would be the wrong way to find out.
+ *   `VisitorHistoryPanel`'s own historical-conversation dialog never opens because
+ *   `seededVisitorHistory()` returns an empty conversation list - so there is no row to open and no
+ *   attachment link to render, `26-114`/`26-124` having widened the panel to render for every visitor
+ *   but with no seeded prior conversations) - kept anyway because a future screen could legitimately
+ *   add one, and a silent false failure there would be the wrong way to find out.
  * - **Technical identifiers already marked as such by this codebase's own convention** - `Badge.tsx`'s
  *   own doc comment: rendering in JetBrains Mono (`.ago-badge--mono`, or the bare `.ago-mono` span
  *   used for the same values without the pill) marks a value as "literally an identifier (a truncated

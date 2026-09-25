@@ -182,7 +182,7 @@ beforeEach(() => {
   connectionMock = fakeConnection();
   conversationsApi.fetchOperatorQueue.mockResolvedValue(queue());
   conversationsApi.markConversationRead.mockResolvedValue({ operatorUnreadCount: 0, operatorLastReadSequence: 0 });
-  conversationsApi.fetchVisitorHistory.mockResolvedValue({ hasChannelIdentity: false, conversations: [], nextBeforeId: null });
+  conversationsApi.fetchVisitorHistory.mockResolvedValue({ conversations: [], nextBeforeId: null });
   cannedResponsesApi.fetchCannedResponses.mockResolvedValue([]);
   ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
 });

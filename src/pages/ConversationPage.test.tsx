@@ -64,10 +64,10 @@ vi.mock("../api/attachmentsApi.js", async () => {
 //
 // `18-07`: `fetchVisitorHistory` joined it - every render now fetches the visitor-history panel's
 // own data, so this file's tests need a default answer or that fetch rejects with "is not a
-// function" on every single one of them. Defaulted to `hasChannelIdentity: false` in `beforeEach`
-// below (this file's tests are about sending/closing/attachments, not the history panel - its own
-// behaviour is `VisitorHistoryPanel.test.tsx`'s job), which also happens to prove in passing that a
-// widget-shaped answer renders nothing extra here.
+// function" on every single one of them. Defaulted to an empty history in `beforeEach` below (this
+// file's tests are about sending/closing/attachments, not the history panel - its own behaviour is
+// `VisitorHistoryPanel.test.tsx`'s job). `26-114`/`26-124`: the panel now renders for every visitor,
+// so an empty history renders the empty-state panel rather than nothing.
 const conversationsApi = vi.hoisted(() => ({
   closeConversation: vi.fn(),
   fetchVisitorHistory: vi.fn(),
@@ -333,7 +333,7 @@ beforeEach(() => {
     expiresAt: "2026-08-25T10:00:00+00:00",
   });
   attachmentsApi.deleteAttachment.mockResolvedValue(undefined);
-  conversationsApi.fetchVisitorHistory.mockResolvedValue({ hasChannelIdentity: false, conversations: [], nextBeforeId: null });
+  conversationsApi.fetchVisitorHistory.mockResolvedValue({ conversations: [], nextBeforeId: null });
   conversationsApi.fetchConversationOutcome.mockResolvedValue({ outcome: "Unset" });
   conversationsApi.setConversationOutcome.mockResolvedValue(undefined);
   contactDetailsApi.fetchContactDetails.mockResolvedValue([]);
@@ -656,24 +656,26 @@ describe("closing the conversation", () => {
 
 /**
  * `18-07`: the visitor-history panel's own wiring through this page - `VisitorHistoryPanel.test.tsx`
- * covers the component's behaviour in full (gating, opening one, pagination); this is the proof that
- * `ConversationPage` actually fetches `fetchVisitorHistory` and threads the answer through
+ * covers the component's behaviour in full (empty state, opening one, pagination); this is the proof
+ * that `ConversationPage` actually fetches `fetchVisitorHistory` and threads the answer through
  * `VisitorPanel` rather than the panel simply never being reached.
  */
 describe("the returning-visitor-history panel", () => {
-  it("renders nothing for a widget visitor - no channel identity", async () => {
+  it("renders the empty-state panel for a visitor with no prior conversations (26-124)", async () => {
+    // `26-114`/`26-124`: visitor history is per-visitor-on-site now, so an empty history renders the
+    // empty-state panel rather than nothing - it is always reached and always rendered once loaded.
     const fake = fakeConnection();
-    conversationsApi.fetchVisitorHistory.mockResolvedValue({ hasChannelIdentity: false, conversations: [], nextBeforeId: null });
+    conversationsApi.fetchVisitorHistory.mockResolvedValue({ conversations: [], nextBeforeId: null });
 
     const container = await render(<Harness connection={fake.connection} />);
 
-    expect(container.textContent).not.toContain("Previous conversations");
+    expect(container.textContent).toContain("Previous conversations");
+    expect(container.textContent).toContain("No prior conversations");
   });
 
-  it("renders the panel for a channel-identified visitor with a prior conversation", async () => {
+  it("renders the panel for a visitor with a prior conversation", async () => {
     const fake = fakeConnection();
     conversationsApi.fetchVisitorHistory.mockResolvedValue({
-      hasChannelIdentity: true,
       conversations: [
         {
           conversationId: "ffffffff-ffff-ffff-ffff-ffffffffffff",

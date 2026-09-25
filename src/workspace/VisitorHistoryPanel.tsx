@@ -74,18 +74,16 @@ export interface VisitorHistoryPanelProps {
 }
 
 /**
- * `18-07`: the returning-visitor-history panel - a channel-identified visitor's prior conversations,
- * read-only, opened from `VisitorPanel`.
+ * `18-07`: the returning-visitor-history panel - a visitor's prior conversations, read-only, opened
+ * from `VisitorPanel`.
  *
- * **The hard gate.** `history === null` while loading renders a skeleton, same as every other
- * loading list in this workspace. Once loaded, `history.hasChannelIdentity === false` renders
- * **nothing at all** - not this component's section heading, not an empty-state sentence. That is
- * the backlog item's own hard requirement: a widget visitor structurally cannot have returning
- * history (`14-01`'s model - no `ChannelIdentity` row exists for one, ever), and a panel that shows
- * an empty state for that case would visually imply the opposite. `history.conversations.length ===
- * 0` **with** `hasChannelIdentity === true` is a different, real case (a channel-identified visitor
- * on their first-ever conversation) and does get an empty-state sentence, because that state can
- * genuinely occur and change later.
+ * **Renders for every visitor.** `26-114` widened visitor history to per-visitor-on-site (reachable
+ * for every visitor, an ordinary widget-only visitor included) and dropped the former
+ * `hasChannelIdentity` wire field; `26-124` removed this panel's gate on it. `history === null` while
+ * loading renders a skeleton, same as every other loading list in this workspace. Once loaded, the
+ * panel always renders its section - `history.conversations.length === 0` gets an empty-state
+ * sentence (a visitor with no prior conversations on this site yet), a non-empty list gets the rows.
+ * There is no longer a case where the panel renders nothing at all after loading.
  *
  * **Opening one reuses `Thread`**, the same component `ConversationPage` renders the live
  * conversation with - the backlog item's own "reusing 11-06's existing history-rendering rather than
@@ -225,11 +223,6 @@ export function VisitorHistoryPanel({ conversationId, history, historyError, now
     );
   };
 
-  if (history !== null && !history.hasChannelIdentity) {
-    // The hard gate - see this component's own doc comment. Nothing renders, not even a heading.
-    return null;
-  }
-
   const openRow = history?.conversations.find((c) => c.conversationId === openConversationId) ?? null;
 
   // `25-225`: see this component's own doc comment above for why `Pending` rows are excluded here
@@ -305,7 +298,14 @@ export function VisitorHistoryPanel({ conversationId, history, historyError, now
           </Button>
         }
       >
-        {loading ? (
+        {/* `26-124`: only mount the historical `Thread` while the dialog is actually open. A native
+            `<dialog>` keeps its children in the DOM when closed (merely `display:none`), so an
+            always-rendered `Thread` here contributes a hidden, un-hoverable delivery-scope tooltip
+            trigger to every screen this panel appears on. That was invisible while the panel was
+            gated off for widget visitors; now that the panel renders for every visitor (`26-114`),
+            the closed dialog's empty `Thread` would otherwise put a second, dead tooltip trigger on
+            the page - which the UX gate's tooltip-positioning check rightly flags. */}
+        {openConversationId === null ? null : loading ? (
           <Skeleton lines={4} label={strings.visitorHistoryDialogLoadingLabel} />
         ) : error ? (
           <Alert tone="danger">{error}</Alert>

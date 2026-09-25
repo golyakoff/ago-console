@@ -9,9 +9,11 @@ import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
 /**
  * `18-07`: the returning-visitor-history panel's own component tests.
  *
- * The backlog item's own Done-when, worded exactly: "A widget-only visitor's conversation shows no
- * such panel - proven with a test, not left implicit." `attachmentsApi` is left real rather than
- * mocked at the module level here - none of these tests render a message with an attachment, so
+ * `26-124`: the panel now renders for every visitor - `26-114` widened visitor history to
+ * per-visitor-on-site and dropped the former `hasChannelIdentity` gate, so the old "a widget-only
+ * visitor shows no panel" Done-when is gone; the replacement is "an empty history renders the
+ * empty-state panel, never nothing". `attachmentsApi` is left real rather than mocked at the module
+ * level here - none of these tests render a message with an attachment, so
  * `attachmentsApi.getAttachmentDownload` never runs.
  */
 vi.mock("../api/attachmentsApi.js", () => ({ getAttachmentDownload: vi.fn() }));
@@ -108,55 +110,29 @@ afterEach(async () => {
   await unmount();
 });
 
-describe("the hard gate: a widget visitor has no channel identity", () => {
-  it("renders nothing whatsoever once the answer is known - not a heading, not an empty state", async () => {
+describe("renders for every visitor (26-124)", () => {
+  it("renders the empty-state panel - heading and sentence - for a visitor with no prior conversations", async () => {
+    // `26-114`/`26-124`: visitor history is per-visitor-on-site now, reachable for every visitor
+    // (widget-only included). An empty history is a real, ordinary case (a visitor on this site for
+    // the first time) and gets the empty-state panel, never the old "render nothing whatsoever".
     const fake = fakeConnection();
     const container = await render(
-      <Harness connection={fake.connection} history={{ hasChannelIdentity: false, conversations: [], nextBeforeId: null }} />,
+      <Harness connection={fake.connection} history={{ conversations: [], nextBeforeId: null }} />,
     );
 
-    expect(container.textContent).toBe("");
-    expect(all(container, "section")).toHaveLength(0);
-    // Never even asks to open one, and never mentions a panel that could not possibly apply here.
-    expect(container.textContent).not.toContain("Previous conversations");
-  });
-
-  it("does not render the gated empty state either, even though 'no conversations' is technically true", async () => {
-    // The trap this test guards against: a widget visitor's answer also has an empty conversations
-    // array, so a gate implemented as `conversations.length === 0 ? null : ...` would pass every
-    // other test here and still render nothing whatsoever - correctly, by accident, for the wrong
-    // reason. Checked explicitly with `hasChannelIdentity: false` alongside a non-empty list (a
-    // value the real handler never actually sends together, but the point is this component's own
-    // gate reads `hasChannelIdentity`, not list length) to prove which field the condition inspects.
-    const fake = fakeConnection();
-    const container = await render(
-      <Harness
-        connection={fake.connection}
-        history={{ hasChannelIdentity: false, conversations: [conversationRow()], nextBeforeId: null }}
-      />,
-    );
-
-    expect(container.textContent).toBe("");
+    expect(all(container, "section")).toHaveLength(1);
+    expect(container.textContent).toContain("Previous conversations");
+    expect(container.textContent).toContain("No prior conversations");
   });
 });
 
-describe("a channel-identified visitor", () => {
+describe("a visitor with prior conversations", () => {
   it("shows a loading state while the fetch is in flight", async () => {
     const fake = fakeConnection();
     const container = await render(<Harness connection={fake.connection} history={null} />);
 
     expect(container.textContent).toContain("Previous conversations");
     expect(container.textContent).toContain("Loading previous conversations");
-  });
-
-  it("shows an empty-state sentence for a first-ever conversation on this channel - a real, reachable case", async () => {
-    const fake = fakeConnection();
-    const container = await render(
-      <Harness connection={fake.connection} history={{ hasChannelIdentity: true, conversations: [], nextBeforeId: null }} />,
-    );
-
-    expect(container.textContent).toContain("Previous conversations");
-    expect(container.textContent).toContain("No prior conversations");
   });
 
   it("shows the fetch error rather than a false empty state", async () => {
@@ -174,7 +150,6 @@ describe("a channel-identified visitor", () => {
       <Harness
         connection={fake.connection}
         history={{
-          hasChannelIdentity: true,
           conversations: [conversationRow({ previewBody: "thanks for your help" })],
           nextBeforeId: null,
         }}
@@ -200,7 +175,6 @@ describe("a channel-identified visitor", () => {
         <Harness
           connection={fake.connection}
           history={{
-            hasChannelIdentity: true,
             conversations: [
               conversationRow({ conversationId: "pending-id", state: "Pending", previewBody: null, closedAt: null }),
               conversationRow(),
@@ -221,7 +195,6 @@ describe("a channel-identified visitor", () => {
         <Harness
           connection={fake.connection}
           history={{
-            hasChannelIdentity: true,
             conversations: [conversationRow({ state: "Pending", previewBody: null, closedAt: null })],
             nextBeforeId: null,
           }}
@@ -239,7 +212,6 @@ describe("a channel-identified visitor", () => {
       <Harness
         connection={fake.connection}
         history={{
-          hasChannelIdentity: true,
           conversations: [conversationRow({ previewBody: null, previewAuthorKind: null, previewCreatedAt: null })],
           nextBeforeId: null,
         }}
@@ -257,7 +229,7 @@ describe("opening one", () => {
     const container = await render(
       <Harness
         connection={fake.connection}
-        history={{ hasChannelIdentity: true, conversations: [conversationRow()], nextBeforeId: null }}
+        history={{ conversations: [conversationRow()], nextBeforeId: null }}
       />,
     );
 
@@ -280,7 +252,7 @@ describe("opening one", () => {
     const container = await render(
       <Harness
         connection={fake.connection}
-        history={{ hasChannelIdentity: true, conversations: [conversationRow()], nextBeforeId: null }}
+        history={{ conversations: [conversationRow()], nextBeforeId: null }}
       />,
     );
     await openFirstRow(container);
@@ -305,7 +277,7 @@ describe("opening one", () => {
     const container = await render(
       <Harness
         connection={fake.connection}
-        history={{ hasChannelIdentity: true, conversations: [conversationRow()], nextBeforeId: null }}
+        history={{ conversations: [conversationRow()], nextBeforeId: null }}
       />,
     );
 
@@ -322,7 +294,7 @@ describe("opening one", () => {
     const container = await render(
       <Harness
         connection={fake.connection}
-        history={{ hasChannelIdentity: true, conversations: [conversationRow()], nextBeforeId: null }}
+        history={{ conversations: [conversationRow()], nextBeforeId: null }}
       />,
     );
     await openFirstRow(container);

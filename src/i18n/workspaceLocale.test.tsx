@@ -154,7 +154,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   conversationsApi.fetchOperatorQueue.mockResolvedValue(queue());
   conversationsApi.markConversationRead.mockResolvedValue({ operatorUnreadCount: 0, operatorLastReadSequence: 0 });
-  conversationsApi.fetchVisitorHistory.mockResolvedValue({ hasChannelIdentity: false, conversations: [], nextBeforeId: null });
+  conversationsApi.fetchVisitorHistory.mockResolvedValue({ conversations: [], nextBeforeId: null });
   ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
 });
 
