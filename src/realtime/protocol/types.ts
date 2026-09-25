@@ -201,13 +201,14 @@ export interface VisitorHistoryConversationDto {
 
 /**
  * `18-07`: `Ago.Chat.Contracts.VisitorHistoryResponse` -
- * `GET /api/v1/conversations/{id}/visitor-history`'s body. `hasChannelIdentity` is the gate: `false`
- * means this visitor has no channel identity at all (an ordinary widget visitor, `14-01`'s model) and
- * the console must render no panel whatsoever - not an empty-state one, which would imply a returning
- * widget visitor is a case that can occur. See `VisitorHistoryPanel`'s own doc comment.
+ * `GET /api/v1/conversations/{id}/visitor-history`'s body.
+ *
+ * `26-114`: the backend widened visitor history to per-visitor-on-site - reachable for **every**
+ * visitor, an ordinary widget-only visitor included - and dropped the former `hasChannelIdentity`
+ * wire field. `26-124`: this console followed, removing the field and the panel's gate on it. See
+ * `VisitorHistoryPanel`'s own doc comment for the render behaviour that replaced the gate.
  */
 export interface VisitorHistoryResponse {
-  hasChannelIdentity: boolean;
   conversations: VisitorHistoryConversationDto[];
   nextBeforeId: string | null;
 }

@@ -526,7 +526,7 @@ export function seededOwnAnalytics() {
 }
 
 export function seededVisitorHistory() {
-  return { hasChannelIdentity: false, conversations: [], nextBeforeId: null };
+  return { conversations: [], nextBeforeId: null };
 }
 
 // --- `22-06`/`adr/0093`: AGO Calendar's own fixtures, for the four calendar screens this gate opens

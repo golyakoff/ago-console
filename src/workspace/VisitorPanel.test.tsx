@@ -85,7 +85,7 @@ function panel(props: Partial<VisitorPanelProps> = {}) {
     siteId: SITE_ID,
     now: new Date("2026-09-10T09:05:00Z"),
     timeZone: "UTC",
-    visitorHistory: { hasChannelIdentity: false, conversations: [], nextBeforeId: null },
+    visitorHistory: { conversations: [], nextBeforeId: null },
     visitorHistoryError: null,
     accessToken: "token",
     siteTags: [],

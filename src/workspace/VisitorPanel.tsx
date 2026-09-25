@@ -36,8 +36,9 @@ export interface VisitorPanelProps {
   siteId: string | null;
   now: Date;
   timeZone: string | null;
-  /** `18-07`: this visitor's prior conversations - `null` while the fetch is in flight. See
-   * `VisitorHistoryPanel`'s own doc comment for the hard gate on `hasChannelIdentity`. */
+  /** `18-07`: this visitor's prior conversations - `null` while the fetch is in flight. `26-124`:
+   * reachable for every visitor now (`26-114` widened it), so the panel always renders once loaded -
+   * see `VisitorHistoryPanel`'s own doc comment. */
   visitorHistory: VisitorHistoryResponse | null;
   visitorHistoryError: string | null;
   accessToken: string | null;
