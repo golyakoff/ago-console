@@ -715,7 +715,11 @@ export function seededCalendarConfirmedBookings() {
       weekday: 2,
       phone: "+79990000010",
       masked: false,
-      originConversationId: null,
+      // `26-165`/`adr/0184` (C1w): this one row is chat-origin, so the gate's own screenshot and
+      // contrast/overflow checks exercise the new "Перейти к диалогу" link column for real, rather
+      // than only ever rendering its empty (`null`) state - `OPEN_CONVERSATION_ID` reuses this file's
+      // own conversation fixture, not a value invented just for this row.
+      originConversationId: OPEN_CONVERSATION_ID,
     },
   ];
 }

@@ -100,6 +100,8 @@ const bookings: ConfirmedBooking[] = [
     weekday: 2,
     phone: "+79990000001",
     masked: false,
+    // `26-165`: this booking came in through a conversation - the row must carry a dialog link.
+    originConversationId: "conv-1",
   },
   {
     bookingId: "b2",
@@ -115,6 +117,8 @@ const bookings: ConfirmedBooking[] = [
     weekday: 2,
     phone: "+7 999 000-00-** 02",
     masked: true,
+    // `26-165`: an operator-entered or widget booking has no chat origin - no link, not a disabled one.
+    originConversationId: null,
   },
   {
     bookingId: "b3",
@@ -130,6 +134,7 @@ const bookings: ConfirmedBooking[] = [
     weekday: 3,
     phone: "+79990000003",
     masked: false,
+    originConversationId: null,
   },
 ];
 
@@ -213,6 +218,22 @@ describe("confirmed bookings", () => {
     expect(container.textContent).toContain("+7 999 000-00-** 02");
   });
 
+  /** `26-165`/`adr/0184` (C1w): the one promise this item makes - a chat-origin confirmed booking
+   * links to the conversation it was created in, and a booking with no origin conversation shows no
+   * affordance at all (Q-E parity: absent, never disabled). `b1` above carries `originConversationId:
+   * "conv-1"`; `b2`/`b3` carry `null`. */
+  it("links a chat-origin booking to its conversation, and shows no link for a booking with none", async () => {
+    const container = await render(page());
+
+    const link = container.querySelector('a[href="/conversations/conv-1"]');
+    expect(link).not.toBeNull();
+    expect(link?.textContent).toContain("Go to dialog");
+
+    // b2 and b3 have no origin conversation - the table must carry exactly one dialog link, not one
+    // per row with the rest disabled.
+    expect(container.querySelectorAll('a[href^="/conversations/"]').length).toBe(1);
+  });
+
   it("explains a permission failure in words an operator can act on", async () => {
     const { CalendarApiError } = await import("../api/calendarApi.js");
     calendarApi.getConfirmedBookings.mockRejectedValue(
@@ -278,6 +299,7 @@ describe("revealing a masked phone (23-91)", () => {
     weekday: 2,
     phone: "+7999•••0009",
     masked: true,
+    originConversationId: null,
   };
 
   it("shows the masked value and a Reveal button, never the real number, before reveal", async () => {

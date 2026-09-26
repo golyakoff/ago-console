@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
@@ -262,6 +263,20 @@ export function CalendarBookingsPage() {
       render: (row) => renderPersonName(row.personId, personNames, strings),
     },
     { key: "phone", header: strings.calendarBookingsColumnPhone, render: (row) => renderPhone(row, strings, reveal) },
+    {
+      key: "dialog",
+      header: strings.calendarBookingsColumnDialog,
+      // `26-165`/`adr/0184` (C1w): a chat-origin booking links to the conversation it was created in -
+      // the console's own existing `/conversations/:conversationId` route (`StoragePage`'s identical
+      // `<Link to={`/conversations/${id}`}>` already establishes this as the console's one way to open
+      // a conversation by id). A booking with no origin conversation (operator-entered or widget) shows
+      // no affordance at all - `null`, not a disabled control - the Q-E parity this item's own scope
+      // names: "absent" is honest, a greyed-out link would imply a dialog that never existed.
+      render: (row) =>
+        row.originConversationId === null ? null : (
+          <Link to={`/conversations/${row.originConversationId}`}>{strings.calendarBookingsGoToDialogLink}</Link>
+        ),
+    },
   ];
 
   return (

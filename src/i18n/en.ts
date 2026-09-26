@@ -1676,6 +1676,8 @@ export const en: ConsoleStrings = {
   calendarBookingsColumnService: "Service",
   calendarBookingsColumnCustomer: "Customer",
   calendarBookingsColumnPhone: "Phone",
+  calendarBookingsColumnDialog: "Dialog",
+  calendarBookingsGoToDialogLink: "Go to dialog",
   calendarBookingsCountLabel: "Bookings",
   calendarBookingsForbidden: "You do not have permission to view confirmed bookings.",
 

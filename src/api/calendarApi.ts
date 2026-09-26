@@ -277,6 +277,13 @@ export interface ConfirmedBooking {
   weekday: number;
   phone: string;
   masked: boolean;
+  /** `26-121`/`26-136`/`adr/0184`: the chat conversation this booking came in through, or `null` for a
+   * booking with no chat origin (the public/operator path). Opaque - matches
+   * `Ago.Calendar.Contracts.ConfirmedBookingResponse.OriginConversationId`'s own remarks verbatim: the
+   * calendar stamps and echoes it but interprets nothing chat sends, so this is only ever "did a
+   * conversation create this booking", never which channel. `26-165`: `CalendarBookingsPage` renders
+   * its «Перейти к диалогу» link from this id's presence, never from a separate flag. */
+  originConversationId: string | null;
 }
 
 /**
@@ -304,6 +311,7 @@ const confirmedBookingRequiredKeys = requiredKeysOf<ConfirmedBooking>({
   weekday: true,
   phone: true,
   masked: true,
+  originConversationId: true,
 });
 
 // `22-06`: `Role`/`OperatorInfo` and the six `getRoles`/`createRole`/`getOperators`/
