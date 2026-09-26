@@ -6,6 +6,13 @@ import { problemDetailsFrom } from "./problemDetails.js";
  * `23-69`/`23-77`: `ago-chat`'s `VisitorRestrictionsEndpoints.VisitorRestrictionListItemDto` - one
  * `visitor_restrictions` row, exactly as the tenant's own report needs it (who, when, until when or
  * indefinitely, from which conversation, and whether/when it was lifted).
+ *
+ * `emojiCreature`/`emojiFood` (`26-202`, `ago-chat` PR #372): the same nullable emoji-pair fields
+ * `ConversationSummaryDto` already carries, added here so `26-204` can replace the bare short id this
+ * screen used to show with `visitorLabelWithShortId`'s own label - no `visitorName` field exists on
+ * this DTO (the restriction is keyed by visitor id, not by the visitor's own contact detail), so the
+ * label falls through to the localized pair, or the bare short id when even that is absent, exactly as
+ * `visitorLabel`'s own "both halves or neither" contract already handles.
  */
 export interface VisitorRestrictionListItem {
   id: string;
@@ -17,6 +24,8 @@ export interface VisitorRestrictionListItem {
   sourceConversationId: string;
   liftedAt: string | null;
   liftedBy: string | null;
+  emojiCreature?: string | null;
+  emojiFood?: string | null;
 }
 
 export interface VisitorRestrictionListResult {

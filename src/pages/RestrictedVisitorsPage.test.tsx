@@ -116,6 +116,38 @@ describe("who is offered the screen", () => {
   });
 });
 
+/**
+ * `26-204`: the visitor column used to render the bare `visitorId.slice(0, 8)` unconditionally - the
+ * same defect `26-201` already fixed for `AdminConversationsPage`'s own visitor column. It now renders
+ * through `visitorLabelWithShortId` (`workspace/visitorEmoji.ts`): the visitor's own name when this
+ * DTO carries one (it never does - no `visitorName` field exists on `VisitorRestrictionListItem`), or
+ * their localized `{creature} · {food}` pair when the emoji fields are present, with the short id kept
+ * alongside in parens rather than dropped. Mirrors `AdminConversationsPage.test.tsx`'s own `26-201`
+ * coverage exactly, its closest sibling.
+ */
+describe("the visitor column (26-204)", () => {
+  it("renders the localized emoji-pair label with the short id in parens when the emoji fields are present", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID });
+    visitorRestrictionsApi.fetchVisitorRestrictions.mockResolvedValue({
+      items: [oneRestriction({ emojiCreature: "🦉", emojiFood: "🍓" })],
+      nextBeforeId: null,
+    });
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain(`Owl · Strawberry (${VISITOR_ID.slice(0, 8)})`);
+  });
+
+  it("falls back to the bare short id when neither the emoji pair nor a name is known", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID });
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain(VISITOR_ID.slice(0, 8));
+    expect(container.textContent).not.toContain("·");
+  });
+});
+
 describe("lifting a restriction", () => {
   it("offers Lift for an active row to an operator holding conversation:mark_spam", async () => {
     operatorsApi.fetchMyPermissions.mockResolvedValue({

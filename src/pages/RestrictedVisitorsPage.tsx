@@ -12,6 +12,7 @@ import { Table, type TableColumn } from "../components/Table.js";
 import { Skeleton } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
+import { visitorLabelWithShortId } from "../workspace/visitorEmoji.js";
 
 /** `23-69`'s own kind, alongside `23-77`'s - each drawn with its own tone, the same
  * `AdminConversationsPage`-style constant-outside-the-component-plus-a-lookup-function shape (a tone
@@ -127,9 +128,14 @@ export function RestrictedVisitorsPage() {
       {
         key: "visitor",
         header: strings.restrictedVisitorsColumnVisitor,
+        // `26-204`: was the bare `row.visitorId.slice(0, 8)` - the same defect `26-201` already fixed
+        // for `AdminConversationsPage`'s own visitor column. `visitorLabelWithShortId` renders the
+        // visitor's own name, or (absent one, since this DTO carries no `visitorName`) their localized
+        // `{creature} · {food}` pair, with the short id kept alongside in parens - an admin reviewing a
+        // restriction still needs the id to search a log or quote a support ticket.
         render: (row) => (
           <Badge tone="neutral" mono>
-            {row.visitorId.slice(0, 8)}
+            {visitorLabelWithShortId(row, strings.visitorEmojiNames)}
           </Badge>
         ),
       },
