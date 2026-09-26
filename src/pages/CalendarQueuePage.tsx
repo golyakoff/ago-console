@@ -6,7 +6,6 @@ import { config } from "../config.js";
 import {
   cancelBooking,
   getPendingBookings,
-  markNoShow,
   rejectBooking,
   revealCustomerPhone,
   type PendingBooking,
@@ -47,6 +46,11 @@ import { formatAbsolute, formatClockTime, parseInstant, resolveTimeZone } from "
  * deliberately no filter by calendar and no notion of "mine".
  *
  * <b>Reject, not approve.</b> Everything auto-confirms unless somebody vetoes it before the deadline.
+ *
+ * `26-164`: the actions column offers only reject and cancel - never no-show. `ago-calendar`'s own
+ * `Event.MarkNoShow` requires the `Booked` state (`Event.cs`), so it is never a legal action on a row
+ * in this queue, which by definition holds only bookings still in `PendingConfirmation`. `26-163` made
+ * the identical fix on the Android console's equivalent queue.
  *
  * <b>Overdue rows are shown, loudly, rather than hidden.</b> Unchanged from the source - a broken
  * confirmation sweep must stay visible to the one person who can notice it.
@@ -288,9 +292,6 @@ export function CalendarQueuePage() {
           </Button>
           <Button size="sm" disabled={busyId === row.bookingId} onClick={() => void act(row.bookingId, cancelBooking)}>
             {strings.cancelButton}
-          </Button>
-          <Button size="sm" disabled={busyId === row.bookingId} onClick={() => void act(row.bookingId, markNoShow)}>
-            {strings.calendarNoShowButton}
           </Button>
         </div>
       ),
