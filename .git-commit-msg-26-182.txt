@@ -1,0 +1,7 @@
+fix(26-182): shorten the go-to-dialog action label
+
+Rename the shipped 26-165 calendarBookingsGoToDialogLink label:
+«Перейти к диалогу» -> «Открыть диалог» (ru), "Go to dialog" ->
+"Open dialog" (en), per author review (ago-root#1693). Updates the
+matching test assertion, ux-gate fixture comment and doc comment.
+No reschedule label exists on the console yet, so none is added here.
