@@ -7,6 +7,7 @@ import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { CalendarPhoneRevealsPage } from "./CalendarPhoneRevealsPage.js";
 import { all, byText, interact, render, unmount } from "../testing/dom.js";
 import type { PhoneReveal } from "../api/calendarApi.js";
+import type { PersonProfile } from "../api/personsApi.js";
 
 /**
  * `23-30`/`23-12`: `/calendar/phone-reveals` - the reveal audit trail. Adapted from
@@ -28,6 +29,7 @@ const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
 const calendarApi = vi.hoisted(() => ({ getPhoneReveals: vi.fn() }));
+const personsApi = vi.hoisted(() => ({ getPersons: vi.fn() }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
 vi.mock("../api/ownerApi.js", () => ownerApi);
@@ -36,6 +38,14 @@ vi.mock("../api/calendarApi.js", async () => {
   const actual = await vi.importActual<typeof import("../api/calendarApi.js")>("../api/calendarApi.js");
   return { ...actual, ...calendarApi };
 });
+vi.mock("../api/personsApi.js", () => personsApi);
+
+const PERSON_ID = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+
+/** `26-161`: a Person-registry profile the display-merge reads a name through, keyed on `personId`. */
+function person(personId: string, displayName: string | null): PersonProfile {
+  return { personId, displayName, channels: [], firstSeenAt: "2026-05-01T09:00:00+00:00", lastSeenAt: "2026-05-05T09:00:00+00:00" };
+}
 
 const SITE_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 
@@ -69,7 +79,7 @@ function reveal(overrides: Partial<PhoneReveal> = {}): PhoneReveal {
   return {
     id: "r1",
     occurredAt: "2026-05-05T09:00:00+00:00",
-    customerId: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+    personId: PERSON_ID,
     operatorId: "oooooooo-oooo-oooo-oooo-oooooooooooo",
     surface: "ConsoleContacts",
     ...overrides,
@@ -82,6 +92,8 @@ beforeEach(() => {
   operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure"], siteId: SITE_ID });
   ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
   calendarApi.getPhoneReveals.mockResolvedValue({ items: [], nextBefore: null });
+  // `26-161`: the audit view's customer column shows the person's real name, read from chat by id.
+  personsApi.getPersons.mockResolvedValue([person(PERSON_ID, "Nina Petrova")]);
 });
 
 afterEach(async () => {
@@ -116,7 +128,7 @@ describe("who is offered the audit view (23-30)", () => {
 });
 
 describe("the reveal list", () => {
-  it("shows each reveal's customer, operator and surface", async () => {
+  it("shows each reveal's person (by name, from chat), operator and surface", async () => {
     calendarApi.getPhoneReveals.mockResolvedValue({
       items: [reveal({ id: "r1", surface: "ConsoleQueue" })],
       nextBefore: null,
@@ -125,7 +137,10 @@ describe("the reveal list", () => {
     const container = await render(page());
 
     expect(container.textContent).toContain("ConsoleQueue");
-    expect(container.textContent).toContain("cccccccc".slice(0, 8));
+    // `26-161`: the customer column display-merges the person's real name from chat, not the short id.
+    expect(personsApi.getPersons).toHaveBeenCalledWith("token", [PERSON_ID], expect.anything());
+    expect(container.textContent).toContain("Nina Petrova");
+    // The operator column is still an opaque short id (an operator is not a Person here).
     expect(container.textContent).toContain("oooooooo".slice(0, 8));
   });
 

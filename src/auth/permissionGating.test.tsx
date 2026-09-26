@@ -325,7 +325,7 @@ describe("the operator navigation", () => {
 
     expect(sectionLabels(container)).toEqual(["Conversations", "Bookings", "Analytics", "Team"]);
     await openSection(container, "Bookings");
-    expect(itemLabels(container)).toEqual(["Waiting", "Confirmed", "Contacts", "Masters", "Services", "Schedule", "Setup", "Merges"]);
+    expect(itemLabels(container)).toEqual(["Waiting", "Confirmed", "Contacts", "Masters", "Services", "Schedule", "Setup"]);
     // `23-34`: this confirmed-bookings entry is a real link now (`/calendar/bookings`,
     // `CalendarBookingsPage`) - it was `reserved` only until that item gave it an actual route.
     // `25-50`: relabelled "Confirmed" (was "Bookings"), freed by the section label above taking
@@ -495,7 +495,7 @@ describe("the operator navigation", () => {
     expect(mutedItemLabels(container)).toEqual([]);
 
     await openSection(container, "Bookings");
-    expect(itemLabels(container)).toEqual(["Waiting", "Confirmed", "Contacts", "Masters", "Services", "Schedule", "Setup", "Merges"]);
+    expect(itemLabels(container)).toEqual(["Waiting", "Confirmed", "Contacts", "Masters", "Services", "Schedule", "Setup"]);
     expect(mutedItemLabels(container)).toEqual([]);
 
     // `25-17`: "Phone reveals" lives under Analytics now, alongside the other four tenant-only

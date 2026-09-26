@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
-import { getContacts, revealCustomerPhone, type Contact, type CustomerMergeOutcome } from "../api/calendarApi.js";
+import { getContacts, revealCustomerPhone, type Contact } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
-import { renderPhone, type RevealControl } from "../calendar/calendarFormat.js";
-import { CustomerMergeDialog } from "./CustomerMergeDialog.js";
+import { renderPersonName, renderPhone, type RevealControl } from "../calendar/calendarFormat.js";
+import { usePersonNames } from "../calendar/usePersonNames.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Badge } from "../components/Badge.js";
@@ -42,19 +42,14 @@ export function CalendarContactsPage() {
   const timeZone = useMemo(() => resolveTimeZone(), []);
   const [contacts, setContacts] = useState<Contact[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // `23-30`: which customer's own Reveal is in flight, if any - `CalendarWorkerSlotsPage`'s own
+  // `23-30`: which person's own Reveal is in flight, if any - `CalendarWorkerSlotsPage`'s own
   // identical state.
-  const [revealingCustomerId, setRevealingCustomerId] = useState<string | null>(null);
+  const [revealingPersonId, setRevealingPersonId] = useState<string | null>(null);
   const canViewContacts = hasPermission("calendar:configure") || hasPermission("customer:read");
-  // `23-60`/`adr/0161`: gated client-side on `customer:edit`, the same permission
-  // `MergeCustomersHandler` checks server-side - an operator who cannot merge never sees a Merge
-  // button that would only fail, the identical "the client-side gate matches exactly what the write
-  // requires" discipline `GetCustomerMergePreviewHandler`'s own doc comment states server-side.
-  const canMergeCustomers = hasPermission("customer:edit");
-  // `23-60`: the two candidate ids the dialog is open for, or `null` when it is closed - a plain
-  // pair rather than a boolean plus separate id fields, since the dialog always needs both at once.
-  const [mergeCandidateIds, setMergeCandidateIds] = useState<{ First: string; Second: string } | null>(null);
-  const [lastMergeOutcome, setLastMergeOutcome] = useState<CustomerMergeOutcome | null>(null);
+  // `26-161`/`adr/0184`: the display-merge - the person's name comes from chat's Person registry now,
+  // not from this calendar response (the calendar dropped its person copy). One batch read over every
+  // contact's person id, degrading to "name not shown yet" if chat is unreachable (`usePersonNames.ts`).
+  const personNames = usePersonNames(user?.access_token, (contacts ?? []).map((contact) => contact.personId));
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
@@ -122,48 +117,39 @@ export function CalendarContactsPage() {
     );
   }
 
-  // `23-30`: replaces every row for this customer with the server's own unmasked phone - `Contact`
-  // rows are keyed one-per-customer already (`getContacts`' own shape), so this is a plain match on
-  // `customerId`, the identical replacement `CalendarWorkerSlotsPage.handleReveal` uses.
-  const handleReveal = async (customerId: string) => {
+  // `23-30`: replaces every row for this person with the server's own unmasked phone - `Contact`
+  // rows are keyed one-per-person already (`getContacts`' own shape), so this is a plain match on
+  // `personId`, the identical replacement `CalendarWorkerSlotsPage.handleReveal` uses.
+  const handleReveal = async (personId: string) => {
     const accessToken = user?.access_token;
     if (!accessToken) {
       return;
     }
 
-    setRevealingCustomerId(customerId);
+    setRevealingPersonId(personId);
     setError(null);
     try {
-      const { phone } = await revealCustomerPhone(accessToken, customerId, "ConsoleContacts");
-      setContacts((prev) => prev?.map((row) => (row.customerId === customerId ? { ...row, phone, masked: false } : row)) ?? prev);
+      const { phone } = await revealCustomerPhone(accessToken, personId, "ConsoleContacts");
+      setContacts((prev) => prev?.map((row) => (row.personId === personId ? { ...row, phone, masked: false } : row)) ?? prev);
     } catch (reason) {
       setError(calendarErrorMessage(reason, strings));
     } finally {
-      setRevealingCustomerId(null);
+      setRevealingPersonId(null);
     }
   };
 
-  const reveal: RevealControl = { revealingCustomerId, onReveal: (id) => void handleReveal(id) };
-
-  // `23-60`/`adr/0161`: the dialog reports what actually happened, not what the operator asked for -
-  // `outcome.survivorCustomerId`/`absorbedCustomerId` are the server's own decision
-  // (`MergeCustomersHandler`'s own doc comment). This closes the dialog, shows the bookings-moved
-  // count, and reloads the list - the merged-away row disappears from it because
-  // `IContactsReadStore` excludes a tombstoned row, not because this handler removes it locally.
-  const handleMerged = (outcome: CustomerMergeOutcome) => {
-    setMergeCandidateIds(null);
-    setLastMergeOutcome(outcome);
-    void reload();
-  };
+  const reveal: RevealControl = { revealingPersonId, onReveal: (id) => void handleReveal(id) };
 
   const columns: TableColumn<Contact>[] = [
     { key: "phone", header: strings.calendarContactsColumnPhone, render: (contact) => renderPhone(contact, strings, reveal) },
     {
+      // `26-161`/`adr/0184`: the name is chat's now - read by person id from chat's Person registry
+      // and display-merged here, not taken from a `displayName` field the calendar no longer serves.
+      // The `23-60` Notes and Duplicate/Merge columns are gone with the calendar-side merge (O2).
       key: "name",
       header: strings.calendarContactsColumnName,
-      render: (contact) => contact.displayName ?? <span className="ago-meta">{strings.calendarNotRecordedLabel}</span>,
+      render: (contact) => renderPersonName(contact.personId, personNames, strings),
     },
-    { key: "notes", header: strings.calendarContactsColumnNotes, render: (contact) => contact.notes ?? <span className="ago-meta">—</span> },
     { key: "noShows", header: strings.calendarContactsColumnNoShows, render: (contact) => contact.noShowCount, align: "end" },
     {
       // `23-30`/`decisions.md` §5: the SMS-code fact - `tone="success"`, the same tone
@@ -215,30 +201,6 @@ export function CalendarContactsPage() {
         return instant === null ? null : <span title={formatAbsolute(instant, timeZone, strings)}>{formatDateStamp(instant, timeZone, strings)}</span>;
       },
     },
-    // `23-60`/`adr/0161`: `ContactRow.duplicatePhoneCustomerIds`'s own console surface - a badge
-    // naming the situation, and a Merge button that opens the confirmation dialog against the first
-    // other customer sharing this row's own phone. Rendered only when `canMergeCustomers` - never a
-    // disabled button an operator without `customer:edit` could see and wonder about.
-    {
-      key: "duplicate",
-      header: strings.calendarContactsColumnDuplicate,
-      render: (contact) =>
-        contact.duplicatePhoneCustomerIds.length === 0 ? null : (
-          <>
-            <Badge tone="accent">{strings.calendarContactsDuplicateHint}</Badge>
-            {canMergeCustomers && (
-              <Button
-                variant="secondary"
-                onClick={() =>
-                  setMergeCandidateIds({ First: contact.customerId, Second: contact.duplicatePhoneCustomerIds[0] })
-                }
-              >
-                {strings.calendarContactsMergeButton}
-              </Button>
-            )}
-          </>
-        ),
-    },
   ];
 
   return (
@@ -251,23 +213,6 @@ export function CalendarContactsPage() {
 
       {error !== null && <Alert tone="danger">{error}</Alert>}
 
-      {lastMergeOutcome !== null && (
-        <Alert tone="success">
-          {strings.calendarMergeDoneBookingsMovedLabel}: {lastMergeOutcome.bookingsMoved}
-        </Alert>
-      )}
-
-      {mergeCandidateIds !== null && (
-        <CustomerMergeDialog
-          open
-          accessToken={user?.access_token}
-          firstCustomerId={mergeCandidateIds.First}
-          secondCustomerId={mergeCandidateIds.Second}
-          onClose={() => setMergeCandidateIds(null)}
-          onMerged={handleMerged}
-        />
-      )}
-
       {contacts === null && error === null ? (
         <Panel>
           <Skeleton lines={4} label={strings.calendarLoading} />
@@ -277,7 +222,7 @@ export function CalendarContactsPage() {
           <p className="ago-meta">{strings.calendarContactsEmpty}</p>
         </Panel>
       ) : contacts !== null && contacts.length > 0 ? (
-        <Table caption={strings.calendarContactsDescription} columns={columns} rows={contacts} rowKey={(contact) => contact.customerId} />
+        <Table caption={strings.calendarContactsDescription} columns={columns} rows={contacts} rowKey={(contact) => contact.personId} />
       ) : null}
     </>
   );

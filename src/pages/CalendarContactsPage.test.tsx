@@ -6,11 +6,14 @@ import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { CalendarContactsPage } from "./CalendarContactsPage.js";
 import { byText, interact, render, unmount } from "../testing/dom.js";
-import type { Contact, CustomerMergePreview } from "../api/calendarApi.js";
+import type { Contact } from "../api/calendarApi.js";
+import type { PersonProfile } from "../api/personsApi.js";
 
 /**
  * `22-06`: `/calendar/contacts` - moved from `ago-calendar-console`'s own `ContactsPage.test.tsx`,
- * adapted to this console's own harness.
+ * adapted to this console's own harness. `26-161`/`adr/0184`: the customer name and notes no longer
+ * live on the calendar row - the name is display-merged from chat's Person registry (`personsApi.js`,
+ * mocked here), and the `23-60` merge UI is gone entirely.
  */
 vi.mock("../config.js", () => ({
   config: {
@@ -29,9 +32,8 @@ const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
 const calendarApi = vi.hoisted(() => ({
   getContacts: vi.fn(),
   revealCustomerPhone: vi.fn(),
-  getCustomerMergePreview: vi.fn(),
-  mergeCustomers: vi.fn(),
 }));
+const personsApi = vi.hoisted(() => ({ getPersons: vi.fn() }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
 vi.mock("../api/ownerApi.js", () => ownerApi);
@@ -40,6 +42,7 @@ vi.mock("../api/calendarApi.js", async () => {
   const actual = await vi.importActual<typeof import("../api/calendarApi.js")>("../api/calendarApi.js");
   return { ...actual, ...calendarApi };
 });
+vi.mock("../api/personsApi.js", () => personsApi);
 
 const SITE_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 
@@ -69,18 +72,21 @@ function page(): ReactNode {
   );
 }
 
+/** `26-161`: a Person-registry profile the display-merge reads a name through, keyed on `personId`. */
+function person(personId: string, displayName: string | null): PersonProfile {
+  return { personId, displayName, channels: [], firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00" };
+}
+
 const contacts: Contact[] = [
   {
-    customerId: "c1", phone: "+79990000001", masked: false, displayName: "Anna", notes: "Prefers afternoons",
+    personId: "c1", phone: "+79990000001", masked: false,
     noShowCount: 0, phoneVerifiedAt: null, phoneConfirmedByOperatorAt: null,
     firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00",
-    duplicatePhoneCustomerIds: [],
   },
   {
-    customerId: "c2", phone: "+79990000002", masked: false, displayName: null, notes: null,
+    personId: "c2", phone: "+79990000002", masked: false,
     noShowCount: 2, phoneVerifiedAt: null, phoneConfirmedByOperatorAt: null,
     firstSeenAt: "2026-04-01T09:00:00+00:00", lastSeenAt: "2026-04-01T09:00:00+00:00",
-    duplicatePhoneCustomerIds: [],
   },
 ];
 
@@ -90,6 +96,8 @@ beforeEach(() => {
   operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure"], siteId: SITE_ID });
   ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
   calendarApi.getContacts.mockResolvedValue(contacts);
+  // `26-161`: chat holds "Anna" for c1; c2 has no recorded name. The page reads both by id.
+  personsApi.getPersons.mockResolvedValue([person("c1", "Anna"), person("c2", null)]);
 });
 
 afterEach(async () => {
@@ -97,19 +105,30 @@ afterEach(async () => {
 });
 
 describe("the contacts report", () => {
-  it("lists every contact's phone, name and notes", async () => {
+  it("lists every contact's phone and the name read from chat's Person registry", async () => {
     const container = await render(page());
 
     expect(container.textContent).toContain("+79990000001");
     expect(container.textContent).toContain("Anna");
-    expect(container.textContent).toContain("Prefers afternoons");
+    // `26-161`: the name is fetched by the contact's person id, not taken off the calendar row.
+    expect(personsApi.getPersons).toHaveBeenCalledWith("token", ["c1", "c2"], expect.anything());
   });
 
-  it("shows an honest placeholder for a customer with no name recorded, not a blank cell", async () => {
+  it("shows an honest placeholder for a person with no name recorded in chat, not a blank cell", async () => {
     const container = await render(page());
 
     expect(container.textContent).toContain("+79990000002");
     expect(container.textContent).toContain("not recorded");
+  });
+
+  it("degrades to 'name not shown yet' when chat's Person API is unreachable, without failing the screen", async () => {
+    personsApi.getPersons.mockRejectedValue(new Error("chat down"));
+
+    const container = await render(page());
+
+    // The booking data still renders - the phone is here - and the name column degrades rather than blanks.
+    expect(container.textContent).toContain("+79990000001");
+    expect(container.textContent).toContain("name not shown yet");
   });
 
   it("shows the real no-show count, including zero", async () => {
@@ -138,17 +157,17 @@ describe("the contacts report", () => {
 });
 
 /** `23-30`/`23-12`: a masked phone gets a Reveal button, never the real number, until the server's
- * own reveal response arrives. */
+ * own reveal response arrives. `26-161`: keyed on the person id now. */
 describe("revealing a masked phone (23-30)", () => {
   const maskedContact: Contact = {
-    customerId: "c3", phone: "+7999•••0003", masked: true, displayName: "Petra", notes: null,
+    personId: "c3", phone: "+7999•••0003", masked: true,
     noShowCount: 0, phoneVerifiedAt: null, phoneConfirmedByOperatorAt: null,
     firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00",
-    duplicatePhoneCustomerIds: [],
   };
 
   it("shows the masked value and a Reveal button, never the real number, before reveal", async () => {
     calendarApi.getContacts.mockResolvedValue([maskedContact]);
+    personsApi.getPersons.mockResolvedValue([person("c3", "Petra")]);
 
     const container = await render(page());
 
@@ -159,6 +178,7 @@ describe("revealing a masked phone (23-30)", () => {
 
   it("replaces the masked row with the server's own unmasked response on Reveal", async () => {
     calendarApi.getContacts.mockResolvedValue([maskedContact]);
+    personsApi.getPersons.mockResolvedValue([person("c3", "Petra")]);
     calendarApi.revealCustomerPhone.mockResolvedValue({ phone: "+79990000003" });
 
     const container = await render(page());
@@ -195,147 +215,41 @@ describe("the two verification facts (23-30)", () => {
   it("distinguishes an SMS-verified number from an operator-confirmed one, on the same row and on different rows", async () => {
     calendarApi.getContacts.mockResolvedValue([
       {
-        customerId: "c4", phone: "+79990000004", masked: false, displayName: "Verified only", notes: null,
+        personId: "c4", phone: "+79990000004", masked: false,
         noShowCount: 0, phoneVerifiedAt: "2026-05-01T09:00:00+00:00", phoneConfirmedByOperatorAt: null,
         firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00",
-    duplicatePhoneCustomerIds: [],
       },
       {
-        customerId: "c5", phone: "+79990000005", masked: false, displayName: "Confirmed only", notes: null,
+        personId: "c5", phone: "+79990000005", masked: false,
         noShowCount: 0, phoneVerifiedAt: null, phoneConfirmedByOperatorAt: "2026-05-02T09:00:00+00:00",
         firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00",
-    duplicatePhoneCustomerIds: [],
       },
       {
-        customerId: "c6", phone: "+79990000006", masked: false, displayName: "Both", notes: null,
+        personId: "c6", phone: "+79990000006", masked: false,
         noShowCount: 0, phoneVerifiedAt: "2026-05-01T09:00:00+00:00", phoneConfirmedByOperatorAt: "2026-05-02T09:00:00+00:00",
         firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00",
-    duplicatePhoneCustomerIds: [],
       },
     ]);
+    // Person names are deliberately neutral here so they cannot collide with the badge words the
+    // assertions look for - the rows are found by their unique phone instead.
+    personsApi.getPersons.mockResolvedValue([person("c4", "Дана"), person("c5", "Дана"), person("c6", "Дана")]);
 
     const container = await render(page());
 
     // The two facts are rendered with different words, never one merged "verified" badge - the
     // row that has only the operator's own confirmation must never read as SMS-verified, and vice
     // versa.
-    const verifiedOnlyRow = Array.from(container.querySelectorAll("tr")).find((tr) => tr.textContent?.includes("Verified only"));
+    const verifiedOnlyRow = Array.from(container.querySelectorAll("tr")).find((tr) => tr.textContent?.includes("+79990000004"));
     expect(verifiedOnlyRow?.textContent).toContain("Verified");
     expect(verifiedOnlyRow?.textContent).not.toContain("Confirmed");
 
-    const confirmedOnlyRow = Array.from(container.querySelectorAll("tr")).find((tr) => tr.textContent?.includes("Confirmed only"));
+    const confirmedOnlyRow = Array.from(container.querySelectorAll("tr")).find((tr) => tr.textContent?.includes("+79990000005"));
     expect(confirmedOnlyRow?.textContent).toContain("Confirmed");
     expect(confirmedOnlyRow?.textContent).not.toContain("Not confirmed");
     expect(confirmedOnlyRow?.textContent).not.toContain("Verified");
 
-    const bothRow = Array.from(container.querySelectorAll("tr")).find((tr) => tr.textContent?.includes("Both"));
+    const bothRow = Array.from(container.querySelectorAll("tr")).find((tr) => tr.textContent?.includes("+79990000006"));
     expect(bothRow?.textContent).toContain("Verified");
     expect(bothRow?.textContent).toContain("Confirmed");
-  });
-});
-
-/** `23-60`/`adr/0161`: the "shares a phone" hint, the Merge button it opens, and the confirmation
- * dialog's own irreversibility copy - not `MergeCustomersDialog`'s own detailed behaviour (covered
- * where the dialog is defined), only that this page wires it correctly: gated on `customer:edit`,
- * opened with the right two ids, and that a successful merge reloads the list and reports how many
- * bookings moved. */
-describe("merging duplicate customers (23-60)", () => {
-  const duplicatePair: Contact[] = [
-    {
-      customerId: "c7", phone: "+79990000007", masked: false, displayName: "Booking Anna", notes: null,
-      noShowCount: 0, phoneVerifiedAt: null, phoneConfirmedByOperatorAt: null,
-      firstSeenAt: "2026-01-01T09:00:00+00:00", lastSeenAt: "2026-01-01T09:00:00+00:00",
-      duplicatePhoneCustomerIds: ["c8"],
-    },
-    {
-      customerId: "c8", phone: "+79990000007", masked: false, displayName: "Chat Anna", notes: null,
-      noShowCount: 0, phoneVerifiedAt: null, phoneConfirmedByOperatorAt: null,
-      firstSeenAt: "2026-02-01T09:00:00+00:00", lastSeenAt: "2026-02-01T09:00:00+00:00",
-      duplicatePhoneCustomerIds: ["c7"],
-    },
-  ];
-
-  const preview: CustomerMergePreview = {
-    first: {
-      customerId: "c7", source: "Booking", willSurvive: true, phone: "+79990000007", masked: false,
-      displayName: "Booking Anna", noShowCount: 0,
-      bookings: [
-        {
-          bookingId: "b1", status: "Booked", serviceName: "Haircut", workerDisplayName: "Kim",
-          startsAt: "2026-03-01T09:00:00+00:00", endsAt: "2026-03-01T09:45:00+00:00", localDate: "2026-03-01",
-        },
-      ],
-    },
-    second: {
-      customerId: "c8", source: "Chat", willSurvive: false, phone: "+79990000007", masked: false,
-      displayName: "Chat Anna", noShowCount: 0, bookings: [],
-    },
-  };
-
-  it("shows a duplicate hint on a row that shares a phone with another customer, and none otherwise", async () => {
-    calendarApi.getContacts.mockResolvedValue(duplicatePair);
-    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure", "customer:edit"], siteId: SITE_ID });
-
-    const container = await render(page());
-
-    expect(container.textContent).toContain("Shares a phone with another customer");
-  });
-
-  it("offers no Merge button for an operator without customer:edit, even on a duplicate row", async () => {
-    calendarApi.getContacts.mockResolvedValue(duplicatePair);
-    // The default beforeEach grants only calendar:configure.
-
-    const container = await render(page());
-
-    expect(byText(container, "button", "Merge")).toBeNull();
-  });
-
-  it("opens the confirmation dialog naming both customers, and states the merge cannot be undone", async () => {
-    calendarApi.getContacts.mockResolvedValue(duplicatePair);
-    calendarApi.getCustomerMergePreview.mockResolvedValue(preview);
-    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure", "customer:edit"], siteId: SITE_ID });
-
-    const container = await render(page());
-    await interact(() => byText<HTMLButtonElement>(container, "button", "Merge")?.click());
-
-    expect(calendarApi.getCustomerMergePreview).toHaveBeenCalledWith("token", "c7", "c8", expect.anything());
-    expect(container.textContent).toContain("cannot be undone");
-    expect(container.textContent).toContain("Kim");
-    expect(container.textContent).toContain("Haircut");
-  });
-
-  it("on confirm, merges, closes the dialog, reloads the contacts list and reports bookings moved", async () => {
-    calendarApi.getContacts.mockResolvedValue(duplicatePair);
-    calendarApi.getCustomerMergePreview.mockResolvedValue(preview);
-    calendarApi.mergeCustomers.mockResolvedValue({ survivorCustomerId: "c7", absorbedCustomerId: "c8", bookingsMoved: 3 });
-    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure", "customer:edit"], siteId: SITE_ID });
-
-    const container = await render(page());
-    await interact(() => byText<HTMLButtonElement>(container, "button", "Merge")?.click());
-    calendarApi.getContacts.mockResolvedValue([duplicatePair[0]]);
-    await interact(() => byText<HTMLButtonElement>(container, "button", "Merge, permanently")?.click());
-
-    expect(calendarApi.mergeCustomers).toHaveBeenCalledWith("token", "c7", "c8");
-    expect(byText(container, "h2", "Merge two customer records")).toBeNull();
-    expect(container.textContent).toContain("Bookings moved");
-    expect(container.textContent).toContain("3");
-    expect(calendarApi.getContacts).toHaveBeenCalledTimes(2);
-  });
-
-  it("surfaces a failed merge as an error, without closing the dialog", async () => {
-    const { CalendarApiError } = await import("../api/calendarApi.js");
-    calendarApi.getContacts.mockResolvedValue(duplicatePair);
-    calendarApi.getCustomerMergePreview.mockResolvedValue(preview);
-    calendarApi.mergeCustomers.mockRejectedValue(
-      new CalendarApiError("contacts.customer_already_merged", "Customer c8 was already merged into c7.", 409),
-    );
-    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure", "customer:edit"], siteId: SITE_ID });
-
-    const container = await render(page());
-    await interact(() => byText<HTMLButtonElement>(container, "button", "Merge")?.click());
-    await interact(() => byText<HTMLButtonElement>(container, "button", "Merge, permanently")?.click());
-
-    expect(container.textContent).toContain("already merged");
-    expect(byText(container, "h2", "Merge two customer records")).not.toBeNull();
   });
 });

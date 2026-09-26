@@ -538,15 +538,19 @@ export function seededVisitorHistory() {
 export const CALENDAR_CALENDAR_ID = "aaaaaaaa-cccc-4ccc-8ccc-cccccccccccc";
 export const CALENDAR_WORKER_ID = "bbbbbbbb-cccc-4ccc-8ccc-cccccccccccc";
 export const CALENDAR_BOOKING_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+// `26-161`/`adr/0184`: the one seeded person every calendar screen references by id. The name is
+// chat's now (`seededPersons` below serves it from the `/api/v1/persons` stub), not carried on any
+// calendar row - so this id is what the display-merge resolves "Дана" through on every screen.
+export const CALENDAR_PERSON_ID = "eeeeeeee-cccc-4ccc-8ccc-cccccccccccc";
 // `23-34`: a second, distinct booking - a customer can hold more than one - for the confirmed-
 // bookings screen below, kept apart from `CALENDAR_BOOKING_ID`'s own still-pending row.
 export const CALENDAR_CONFIRMED_BOOKING_ID = "cccccccc-dddd-4ccc-8ccc-cccccccccccc";
 
 /**
- * `26-50`: `workerDisplayName`/`serviceName`/`customerDisplayName` match the same seeded worker
- * ("Иванова А. П."), service ("Стрижка") and contact ("Дана") `seededCalendarConfirmedBookings`
- * already uses below - one shop, one roster, rendered honestly on both screens now rather than only
- * the settled one.
+ * `26-50`/`26-161`: `workerDisplayName`/`serviceName` match the same seeded worker ("Иванова А. П.")
+ * and service ("Стрижка") `seededCalendarConfirmedBookings` uses below. The customer name is no longer
+ * on this row (`adr/0184`): `personId` references `seededPersons`' "Дана", which the console
+ * display-merges in from the `/api/v1/persons` stub.
  */
 export function seededCalendarPendingBookings() {
   return [
@@ -557,14 +561,14 @@ export function seededCalendarPendingBookings() {
       workerDisplayName: "Иванова А. П.",
       serviceId: "dddddddd-cccc-4ccc-8ccc-cccccccccccc",
       serviceName: "Стрижка",
-      customerId: "eeeeeeee-cccc-4ccc-8ccc-cccccccccccc",
-      customerDisplayName: "Дана",
+      personId: CALENDAR_PERSON_ID,
       startsAt: minutesAgo(-30),
       endsAt: minutesAgo(-15),
       localDate: "2026-09-01",
       confirmationDeadline: minutesAgo(-5),
       isOverdue: false,
       phone: "+79990000010",
+      masked: false,
     },
   ];
 }
@@ -621,19 +625,49 @@ export function seededCalendarConfiguration() {
 export function seededCalendarContacts() {
   return [
     {
-      customerId: "eeeeeeee-cccc-4ccc-8ccc-cccccccccccc",
+      personId: CALENDAR_PERSON_ID,
       phone: "+79990000010",
       masked: false,
-      displayName: "Дана",
-      notes: "Предпочитает вечер",
       noShowCount: 0,
       phoneVerifiedAt: null,
       phoneConfirmedByOperatorAt: null,
       firstSeenAt: "2026-06-01T09:00:00.000Z",
       lastSeenAt: "2026-08-01T09:00:00.000Z",
-      duplicatePhoneCustomerIds: [],
     },
   ];
+}
+
+/**
+ * `26-161`/`adr/0184`: chat's Person registry read (`GET /api/v1/persons?ids=`) - the display-merge
+ * source the calendar screens read a person's name through, now that the calendar holds no name of its
+ * own. Keyed on `CALENDAR_PERSON_ID` ("Дана"), the one person every seeded calendar row references, so
+ * every calendar screen shows the same real, Cyrillic name the i18n-completeness assertion expects (a
+ * Latin name here would be seeded *data*, not an untranslated interface string - see
+ * `ux-gate/lib/i18nCompleteness.ts`). Wrapped in `{ persons: [...] }`, the shape
+ * `personsApi.ts#getPersons` reads.
+ */
+export function seededPersons() {
+  return {
+    persons: [
+      {
+        personId: CALENDAR_PERSON_ID,
+        displayName: "Дана",
+        channels: [
+          {
+            id: "aaaaaaaa-eeee-4ccc-8ccc-cccccccccccc",
+            kind: "Phone",
+            value: "+79990000010",
+            masked: false,
+            verified: false,
+            assessment: "Unknown",
+            recordedAt: "2026-06-01T09:00:00.000Z",
+          },
+        ],
+        firstSeenAt: "2026-06-01T09:00:00.000Z",
+        lastSeenAt: "2026-08-01T09:00:00.000Z",
+      },
+    ],
+  };
 }
 
 /**
@@ -650,8 +684,6 @@ export function seededCalendarContacts() {
  * real-clock-relative week, which a fixture keyed on that query could never predict.
  */
 export function seededCalendarConfirmedBookings() {
-  const customerId = "eeeeeeee-cccc-4ccc-8ccc-cccccccccccc";
-
   return [
     {
       bookingId: CALENDAR_CONFIRMED_BOOKING_ID,
@@ -660,14 +692,14 @@ export function seededCalendarConfirmedBookings() {
       workerDisplayName: "Иванова А. П.",
       serviceId: "dddddddd-cccc-4ccc-8ccc-cccccccccccc",
       serviceName: "Стрижка",
-      customerId,
-      customerDisplayName: "Дана",
+      personId: CALENDAR_PERSON_ID,
       startsAt: "2026-09-07T09:00:00.000Z",
       endsAt: "2026-09-07T09:45:00.000Z",
       localDate: "2026-09-07",
       weekday: 1,
       phone: "+79990000010",
       masked: false,
+      originConversationId: null,
     },
     {
       bookingId: "cccccccc-eeee-4ccc-8ccc-cccccccccccc",
@@ -676,14 +708,14 @@ export function seededCalendarConfirmedBookings() {
       workerDisplayName: "Иванова А. П.",
       serviceId: "dddddddd-cccc-4ccc-8ccc-cccccccccccc",
       serviceName: "Стрижка",
-      customerId,
-      customerDisplayName: "Дана",
+      personId: CALENDAR_PERSON_ID,
       startsAt: "2026-09-08T10:00:00.000Z",
       endsAt: "2026-09-08T10:45:00.000Z",
       localDate: "2026-09-08",
       weekday: 2,
       phone: "+79990000010",
       masked: false,
+      originConversationId: null,
     },
   ];
 }
@@ -704,7 +736,6 @@ export function seededCalendarConfirmedBookings() {
 export function seededCalendarWorkerSlots() {
   const localDate = "2026-09-07";
   const serviceId = "dddddddd-cccc-4ccc-8ccc-cccccccccccc";
-  const customerId = "eeeeeeee-cccc-4ccc-8ccc-cccccccccccc";
 
   return [0, 1, 2, 3, 4, 5].map((i) => {
     const hour = String(9 + i).padStart(2, "0");
@@ -719,9 +750,9 @@ export function seededCalendarWorkerSlots() {
       status: booked ? "Booked" : "Available",
       serviceId: booked ? serviceId : null,
       serviceName: booked ? "Стрижка" : null,
-      customerId: booked ? customerId : null,
-      customerDisplayName: booked ? "Дана" : null,
+      personId: booked ? CALENDAR_PERSON_ID : null,
       phone: booked ? "+79990000010" : null,
+      masked: false,
       bookingId: booked ? CALENDAR_BOOKING_ID : null,
     };
   });

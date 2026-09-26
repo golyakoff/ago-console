@@ -8,6 +8,7 @@ import { CalendarConnectionContext } from "../realtime/CalendarConnectionContext
 import { CalendarQueuePage } from "./CalendarQueuePage.js";
 import { all, byText, interact, render, unmount } from "../testing/dom.js";
 import type { PendingBooking } from "../api/calendarApi.js";
+import type { PersonProfile } from "../api/personsApi.js";
 
 /**
  * `22-06`: `/calendar` - moved from `ago-calendar-console`'s own `QueuePage.test.tsx`, adapted to
@@ -39,6 +40,7 @@ const calendarApi = vi.hoisted(() => ({
   markNoShow: vi.fn(),
   revealCustomerPhone: vi.fn(),
 }));
+const personsApi = vi.hoisted(() => ({ getPersons: vi.fn() }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
 vi.mock("../api/ownerApi.js", () => ownerApi);
@@ -48,6 +50,12 @@ vi.mock("../api/calendarApi.js", async () => {
   const actual = await vi.importActual<typeof import("../api/calendarApi.js")>("../api/calendarApi.js");
   return { ...actual, ...calendarApi };
 });
+vi.mock("../api/personsApi.js", () => personsApi);
+
+/** `26-161`: a Person-registry profile the display-merge reads a name through, keyed on `personId`. */
+function person(personId: string, displayName: string | null): PersonProfile {
+  return { personId, displayName, channels: [], firstSeenAt: "2026-05-01T09:00:00+00:00", lastSeenAt: "2026-05-05T09:00:00+00:00" };
+}
 
 const SITE_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 
@@ -92,8 +100,7 @@ function booking(
   confirmationDeadline: string,
   isOverdue: boolean,
   phone: string | null = null,
-  customerDisplayName: string | null = null,
-  customerId = "c1",
+  personId = "c1",
 ): PendingBooking {
   return {
     bookingId,
@@ -102,8 +109,7 @@ function booking(
     workerDisplayName: "Alex Doe",
     serviceId: "s1",
     serviceName: "Haircut",
-    customerId,
-    customerDisplayName,
+    personId,
     startsAt,
     endsAt: startsAt,
     localDate: "2026-05-05",
@@ -123,6 +129,9 @@ beforeEach(() => {
   calendarApi.rejectBooking.mockResolvedValue(undefined);
   calendarApi.cancelBooking.mockResolvedValue(undefined);
   calendarApi.markNoShow.mockResolvedValue(undefined);
+  // `26-161`: the display-merge reads names from chat's registry. `[]` by default (rows show "not
+  // recorded"); tests about the name itself override it.
+  personsApi.getPersons.mockResolvedValue([]);
   // `22-14`: the forbidden branch asks the calendar backend where this person's calendars are.
   // Empty by default, so every test that is about the queue itself renders exactly what it did before.
   calendarTenanciesApi.fetchMyCalendarTenancies.mockResolvedValue([]);
@@ -248,40 +257,43 @@ describe("the pending-bookings queue", () => {
     expect(container.textContent).toContain("Haircut");
   });
 
-  it("shows the customer's name when the server includes it (26-50)", async () => {
+  it("shows the person's name read from chat's Person registry (26-161)", async () => {
     calendarApi.getPendingBookings.mockResolvedValue([
-      booking("b8", "cal-1aaa", "2026-05-05T09:00:00+00:00", "2026-05-05T08:15:00+00:00", false, "+79990000002", "Nina Petrova"),
+      booking("b8", "cal-1aaa", "2026-05-05T09:00:00+00:00", "2026-05-05T08:15:00+00:00", false, "+79990000002", "p8"),
     ]);
+    personsApi.getPersons.mockResolvedValue([person("p8", "Nina Petrova")]);
 
     const container = await render(page());
 
+    // The name is fetched from chat by the booking's person id, not taken off the calendar row.
+    expect(personsApi.getPersons).toHaveBeenCalledWith("token", ["p8"], expect.anything());
     expect(container.textContent).toContain("Nina Petrova");
   });
 
-  it("falls back to the short id only when the name is genuinely absent, never as the default (26-50)", async () => {
-    // `customer:read` granted (phone present) but this customer has never had a name recorded.
+  it("degrades to 'name not shown yet' when chat's Person API is unreachable, never failing the queue (26-161)", async () => {
     calendarApi.getPendingBookings.mockResolvedValue([
-      booking(
-        "b9", "cal-1aaa", "2026-05-05T09:00:00+00:00", "2026-05-05T08:15:00+00:00", false,
-        "+79990000003", null, "cccccccc-cccc-cccc-cccc-cccccccccccc",
-      ),
+      booking("b9", "cal-1aaa", "2026-05-05T09:00:00+00:00", "2026-05-05T08:15:00+00:00", false, "+79990000003", "p9"),
     ]);
+    personsApi.getPersons.mockRejectedValue(new Error("chat down"));
 
     const container = await render(page());
 
-    expect(container.textContent).toContain("cccccccc-cccc-cccc-cccc-cccccccccccc".slice(0, 8));
+    // The booking still renders (its phone is here); only the name column degrades.
+    expect(container.textContent).toContain("+79990000003");
+    expect(container.textContent).toContain("name not shown yet");
   });
 
-  it("shows the customer as hidden, not the short id, when the operator lacks customer:read (26-50)", async () => {
-    // No `customer:read` (phone is null too) - the short id must not appear as a stand-in for a
-    // name this operator was never shown.
+  it("shows the phone as hidden when the operator lacks customer:read, independent of the name (26-161)", async () => {
+    // No `customer:read` (phone is null) still hides the *phone*; the name comes from chat regardless.
     calendarApi.getPendingBookings.mockResolvedValue([
-      booking("b10", "cal-1aaa", "2026-05-05T09:00:00+00:00", "2026-05-05T08:15:00+00:00", false, null, null),
+      booking("b10", "cal-1aaa", "2026-05-05T09:00:00+00:00", "2026-05-05T08:15:00+00:00", false, null, "p10"),
     ]);
+    personsApi.getPersons.mockResolvedValue([person("p10", "Nina Petrova")]);
 
     const container = await render(page());
 
     expect(container.textContent).toContain("hidden");
+    expect(container.textContent).toContain("Nina Petrova");
   });
 
   it("shows the empty state when there is nothing to confirm", async () => {
@@ -305,8 +317,7 @@ describe("revealing a masked phone (23-30)", () => {
     workerDisplayName: "Alex Doe",
     serviceId: "s1",
     serviceName: "Haircut",
-    customerId: "c1",
-    customerDisplayName: null,
+    personId: "c1",
     startsAt: "2026-05-05T09:00:00+00:00",
     endsAt: "2026-05-05T09:00:00+00:00",
     localDate: "2026-05-05",

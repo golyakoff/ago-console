@@ -7,6 +7,7 @@ import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { CalendarWorkerRecutPage } from "./CalendarWorkerRecutPage.js";
 import { all, byText, interact, render, unmount } from "../testing/dom.js";
 import type { RecutBookingPreview, RecutDayPreview } from "../api/calendarApi.js";
+import type { PersonProfile } from "../api/personsApi.js";
 
 /**
  * `22-06`: `/calendar/workers/:workerId/recut` - moved from `ago-calendar-console`'s own
@@ -27,6 +28,7 @@ const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
 const calendarApi = vi.hoisted(() => ({ previewRecutSchedule: vi.fn(), recutSchedule: vi.fn(), revealCustomerPhone: vi.fn() }));
+const personsApi = vi.hoisted(() => ({ getPersons: vi.fn() }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
 vi.mock("../api/ownerApi.js", () => ownerApi);
@@ -35,6 +37,12 @@ vi.mock("../api/calendarApi.js", async () => {
   const actual = await vi.importActual<typeof import("../api/calendarApi.js")>("../api/calendarApi.js");
   return { ...actual, ...calendarApi };
 });
+vi.mock("../api/personsApi.js", () => personsApi);
+
+/** `26-161`: a Person-registry profile the display-merge reads a name through, keyed on `personId`. */
+function person(personId: string, displayName: string | null): PersonProfile {
+  return { personId, displayName, channels: [], firstSeenAt: "2026-05-01T09:00:00Z", lastSeenAt: "2026-05-05T09:00:00Z" };
+}
 
 const SITE_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 
@@ -87,8 +95,7 @@ function booking(overrides: Partial<RecutBookingPreview> = {}): RecutBookingPrev
     status: "PendingConfirmation",
     serviceId: "s1",
     serviceName: "Haircut",
-    customerId: "c1",
-    customerDisplayName: null,
+    personId: "c1",
     phone: null,
     masked: false,
     canDecide: true,
@@ -102,6 +109,8 @@ beforeEach(() => {
   operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure"], siteId: SITE_ID });
   ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
   calendarApi.recutSchedule.mockResolvedValue({ recutDays: ["2026-05-05"], skippedDays: [], slotsDeleted: 9, slotsInserted: 18, bookingsCancelled: 0 });
+  // `26-161`: the person name is chat's now - "Dana" for the one seeded person the booking fixtures hold.
+  personsApi.getPersons.mockResolvedValue([person("c1", "Dana")]);
 });
 
 afterEach(async () => {
@@ -119,32 +128,37 @@ describe("the re-cut schedule screen", () => {
     expect(container.textContent).toMatch(/9 free slot/);
   });
 
-  it("offers a cancel/keep control for a decidable booking, and shows name and phone when permitted", async () => {
+  it("offers a cancel/keep control for a decidable booking, and shows the person's name (from chat) and phone when permitted", async () => {
     calendarApi.previewRecutSchedule.mockResolvedValue({
-      days: [day({ bookings: [booking({ customerDisplayName: "Dana", phone: "+79990000001" })] })],
+      days: [day({ bookings: [booking({ phone: "+79990000001" })] })],
       fingerprint: "fp-1",
     });
 
     const container = await render(page());
     await interact(() => byText<HTMLButtonElement>(container, "button", "Preview")?.click());
 
+    // The name is read from chat by person id; the phone is the calendar's own.
+    expect(personsApi.getPersons).toHaveBeenCalledWith("token", ["c1"], expect.anything());
     expect(container.textContent).toContain("Dana");
     expect(container.textContent).toContain("+79990000001");
     expect(() => radioByLabel(container, "Cancel")).not.toThrow();
     expect(() => radioByLabel(container, "Keep")).not.toThrow();
   });
 
-  it("shows 'hidden', not the name, when the server withheld contact data", async () => {
+  it("hides only the phone (not the name), when the server withheld the phone (26-161)", async () => {
     calendarApi.previewRecutSchedule.mockResolvedValue({
-      days: [day({ bookings: [booking({ customerId: "c1", customerDisplayName: null, phone: null })] })],
+      days: [day({ bookings: [booking({ personId: "c1", phone: null })] })],
       fingerprint: "fp-1",
     });
 
     const container = await render(page());
     await interact(() => byText<HTMLButtonElement>(container, "button", "Preview")?.click());
 
+    // The name column is no longer gated by calendar `customer:read` - it comes from chat - so only the
+    // phone reads "hidden" now (once), and the name still shows.
     const hiddenCount = (container.textContent?.match(/hidden/g) ?? []).length;
-    expect(hiddenCount).toBe(2);
+    expect(hiddenCount).toBe(1);
+    expect(container.textContent).toContain("Dana");
   });
 
   it("offers no control at all for a no-show, and says why", async () => {
@@ -240,7 +254,7 @@ describe("the re-cut schedule screen", () => {
 describe("revealing a masked phone (23-30)", () => {
   it("shows the masked value and a Reveal button, never the real number, before reveal", async () => {
     calendarApi.previewRecutSchedule.mockResolvedValue({
-      days: [day({ bookings: [booking({ customerDisplayName: "Dana", phone: "+7999•••0001", masked: true })] })],
+      days: [day({ bookings: [booking({ phone: "+7999•••0001", masked: true })] })],
       fingerprint: "fp-1",
     });
 
@@ -254,7 +268,7 @@ describe("revealing a masked phone (23-30)", () => {
 
   it("replaces the masked booking with the server's own unmasked response on Reveal", async () => {
     calendarApi.previewRecutSchedule.mockResolvedValue({
-      days: [day({ bookings: [booking({ customerDisplayName: "Dana", phone: "+7999•••0001", masked: true })] })],
+      days: [day({ bookings: [booking({ phone: "+7999•••0001", masked: true })] })],
       fingerprint: "fp-1",
     });
     calendarApi.revealCustomerPhone.mockResolvedValue({ phone: "+79990000001" });

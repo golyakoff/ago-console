@@ -14,7 +14,8 @@ import {
   type RecutResult,
 } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
-import { renderCustomer, renderPhone, slotStatusLabel, type RevealControl } from "../calendar/calendarFormat.js";
+import { renderPhone, renderSlotPersonName, slotStatusLabel, type RevealControl } from "../calendar/calendarFormat.js";
+import { usePersonNames, type PersonNames } from "../calendar/usePersonNames.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
@@ -65,9 +66,16 @@ export function CalendarWorkerRecutPage() {
   const [result, setResult] = useState<RecutResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // `23-30`: which customer's own Reveal is in flight, if any - `CalendarWorkerSlotsPage`'s own
+  // `23-30`: which person's own Reveal is in flight, if any - `CalendarWorkerSlotsPage`'s own
   // identical state, kept per-page rather than shared because each page owns its own list to update.
-  const [revealingCustomerId, setRevealingCustomerId] = useState<string | null>(null);
+  const [revealingPersonId, setRevealingPersonId] = useState<string | null>(null);
+  // `26-161`/`adr/0184`: the display-merge - person names for every previewed booking, in one batch
+  // from chat's Person registry, degrading to "name not shown yet" if unreachable (`usePersonNames.ts`).
+  // Flattened across the re-cut's own nested day/booking shape.
+  const personNames = usePersonNames(
+    user?.access_token,
+    (preview?.days ?? []).flatMap((day) => day.bookings.flatMap((b) => (b.personId === null ? [] : [b.personId]))),
+  );
 
   const loadPreview = useCallback(
     async (event?: { preventDefault(): void }) => {
@@ -164,16 +172,16 @@ export function CalendarWorkerRecutPage() {
   // server's own unmasked phone - `preview` is the one piece of state a booking's phone lives in, so
   // this is the whole "replace the row" the item asks for, applied at the nested shape this screen
   // actually has (`RecutDayPreview.bookings`, not a flat list).
-  const handleReveal = async (customerId: string) => {
+  const handleReveal = async (personId: string) => {
     const accessToken = user?.access_token;
     if (!accessToken) {
       return;
     }
 
-    setRevealingCustomerId(customerId);
+    setRevealingPersonId(personId);
     setError(null);
     try {
-      const { phone } = await revealCustomerPhone(accessToken, customerId, "ConsoleRecut");
+      const { phone } = await revealCustomerPhone(accessToken, personId, "ConsoleRecut");
       setPreview((prev) =>
         prev === null
           ? prev
@@ -181,18 +189,18 @@ export function CalendarWorkerRecutPage() {
               ...prev,
               days: prev.days.map((day) => ({
                 ...day,
-                bookings: day.bookings.map((b) => (b.customerId === customerId ? { ...b, phone, masked: false } : b)),
+                bookings: day.bookings.map((b) => (b.personId === personId ? { ...b, phone, masked: false } : b)),
               })),
             },
       );
     } catch (reason) {
       setError(calendarErrorMessage(reason, strings));
     } finally {
-      setRevealingCustomerId(null);
+      setRevealingPersonId(null);
     }
   };
 
-  const reveal: RevealControl = { revealingCustomerId, onReveal: (id) => void handleReveal(id) };
+  const reveal: RevealControl = { revealingPersonId, onReveal: (id) => void handleReveal(id) };
 
   return (
     <>
@@ -253,6 +261,7 @@ export function CalendarWorkerRecutPage() {
               strings={strings}
               timeZone={timeZone}
               reveal={reveal}
+              personNames={personNames}
               onDecide={(bookingId, decision) => setDecisions((current) => ({ ...current, [bookingId]: decision }))}
             />
           ))}
@@ -304,6 +313,7 @@ function RecutDayRow({
   strings,
   timeZone,
   reveal,
+  personNames,
   onDecide,
 }: {
   day: RecutDayPreview;
@@ -311,6 +321,7 @@ function RecutDayRow({
   strings: ConsoleStrings;
   timeZone: string | null;
   reveal: RevealControl;
+  personNames: PersonNames;
   onDecide: (bookingId: string, decision: Decision) => void;
 }) {
   const kept = dayIsKept(day, decisions);
@@ -333,6 +344,7 @@ function RecutDayRow({
             strings={strings}
             timeZone={timeZone}
             reveal={reveal}
+            personNames={personNames}
             onDecide={(decision) => onDecide(booking.bookingId, decision)}
           />
         ))}
@@ -347,6 +359,7 @@ function RecutBookingRow({
   strings,
   timeZone,
   reveal,
+  personNames,
   onDecide,
 }: {
   booking: RecutBookingPreview;
@@ -354,6 +367,7 @@ function RecutBookingRow({
   strings: ConsoleStrings;
   timeZone: string | null;
   reveal: RevealControl;
+  personNames: PersonNames;
   onDecide: (decision: Decision) => void;
 }) {
   const groupName = `recut-decision-${booking.bookingId}`;
@@ -368,7 +382,7 @@ function RecutBookingRow({
         {startsAt ? formatClockTime(startsAt, timeZone, strings) : "—"} – {endsAt ? formatClockTime(endsAt, timeZone, strings) : "—"}
       </span>
       <span>{booking.serviceName ?? <span className="ago-meta">—</span>}</span>
-      <span>{renderCustomer(booking, strings)}</span>
+      <span>{renderSlotPersonName(booking.personId, personNames, strings)}</span>
       <span>{renderPhone(booking, strings, reveal)}</span>
       <span className="ago-meta">({slotStatusLabel(booking.status, strings)})</span>
       {booking.canDecide ? (

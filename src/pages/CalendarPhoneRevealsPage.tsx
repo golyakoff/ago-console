@@ -4,6 +4,8 @@ import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
 import { getPhoneReveals, type PhoneReveal } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
+import { renderPersonName } from "../calendar/calendarFormat.js";
+import { usePersonNames } from "../calendar/usePersonNames.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
@@ -52,6 +54,10 @@ export function CalendarPhoneRevealsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canView = hasPermission("calendar:configure");
+  // `26-161`/`adr/0184`: the display-merge - the audit trail's own person column shows the person's
+  // real name (read by id from chat's Person registry), not an opaque short id, degrading to "name not
+  // shown yet" if chat is unreachable (`usePersonNames.ts`). Batched over the loaded page's person ids.
+  const personNames = usePersonNames(user?.access_token, reveals.map((reveal) => reveal.personId));
 
   const load = useCallback(
     async (before?: string, signal?: AbortSignal) => {
@@ -136,7 +142,7 @@ export function CalendarPhoneRevealsPage() {
     {
       key: "customer",
       header: strings.calendarPhoneRevealsColumnCustomer,
-      render: (row) => <span className="ago-mono">{row.customerId.slice(0, 8)}</span>,
+      render: (row) => renderPersonName(row.personId, personNames, strings),
     },
     {
       key: "operator",
