@@ -227,7 +227,7 @@ describe("confirmed bookings", () => {
 
     const link = container.querySelector('a[href="/conversations/conv-1"]');
     expect(link).not.toBeNull();
-    expect(link?.textContent).toContain("Go to dialog");
+    expect(link?.textContent).toContain("Open dialog");
 
     // b2 and b3 have no origin conversation - the table must carry exactly one dialog link, not one
     // per row with the rest disabled.

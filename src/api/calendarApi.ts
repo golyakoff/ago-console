@@ -282,7 +282,7 @@ export interface ConfirmedBooking {
    * `Ago.Calendar.Contracts.ConfirmedBookingResponse.OriginConversationId`'s own remarks verbatim: the
    * calendar stamps and echoes it but interprets nothing chat sends, so this is only ever "did a
    * conversation create this booking", never which channel. `26-165`: `CalendarBookingsPage` renders
-   * its «Перейти к диалогу» link from this id's presence, never from a separate flag. */
+   * its «Открыть диалог» link from this id's presence, never from a separate flag. */
   originConversationId: string | null;
 }
 
