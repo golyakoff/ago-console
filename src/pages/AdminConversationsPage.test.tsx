@@ -175,6 +175,47 @@ describe("the operator column (23-02)", () => {
  * something true, not a blank cell, and that a value neither switch case lists still says something
  * rather than rendering blank again.
  */
+/**
+ * `26-201`: the visitor column used to render the bare `visitorId.slice(0, 8)` unconditionally - the
+ * same defect `23-02` already fixed for the operator column above, applied to the other identity this
+ * table shows. It now renders through `visitorLabelWithShortId` (`workspace/visitorEmoji.ts`): the
+ * visitor's own name, or their localized `{creature} · {food}` pair when no name is known, with the
+ * short id kept alongside in parens rather than dropped.
+ */
+describe("the visitor column (26-201)", () => {
+  it("renders the localized emoji-pair label with the short id in parens when no visitor name is known", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID });
+    conversationsApi.fetchAllConversationsForSite.mockResolvedValue({
+      conversations: [{ ...oneConversation(), emojiCreature: "🦉", emojiFood: "🍓", visitorName: null }],
+    });
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Owl · Strawberry (vvvvvvvv)");
+  });
+
+  it("renders the visitor's own real name, with the short id still kept alongside in parens", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID });
+    conversationsApi.fetchAllConversationsForSite.mockResolvedValue({
+      conversations: [
+        { ...oneConversation(), emojiCreature: "🦉", emojiFood: "🍓", visitorName: "Иван Иванов" },
+      ],
+    });
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("Иван Иванов (vvvvvvvv)");
+  });
+
+  it("falls back to the bare short id for a visitor with neither a name nor an emoji pair", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID });
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("vvvvvvvv");
+  });
+});
+
 describe("the state column (25-225)", () => {
   it("labels a Pending row as not-started, distinct from the other three states", async () => {
     operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID });

@@ -474,8 +474,9 @@ export interface ConsoleStrings {
   alertAssignedBody: string;
   alertMessageTitle: string;
   alertMessageBody: string;
-  /** The notification body's subject when no visitor id is known yet - `ConversationAssignedDto`
-   * carries none. `${alertVisitorPrefix} ${id.slice(0, 8)}` when one is known. */
+  /** The notification body's subject when no visitor is known yet - `ConversationAssignedDto` carries
+   * none. `${alertVisitorPrefix} ${visitorLabelWithShortId(...)}` (`26-201`) when one is known - the
+   * visitor's own name, or their emoji-pair label, with the short id kept alongside in parens. */
   alertWhoUnknown: string;
   alertVisitorPrefix: string;
 

@@ -22,6 +22,7 @@ import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
 import { EraseConversationButton, CONVERSATION_ERASE_PERMISSION } from "./EraseConversationButton.js";
 import { ClaimConversationButton, CONVERSATION_CLAIM_PERMISSION } from "./ClaimConversationButton.js";
+import { visitorLabelWithShortId } from "../workspace/visitorEmoji.js";
 
 /** The conversation lifecycle's states, given the tones the palette reserves for them - a function
  * rather than the `Record` this used to be (`25-225`): a `Record<ConversationSummaryDto["state"],
@@ -105,9 +106,14 @@ function buildColumns(
     {
       key: "visitor",
       header: strings.adminColumnVisitor,
+      // `26-201`: was the bare `{c.visitorId.slice(0, 8)}` - eight hex characters, nobody's name, the
+      // same defect `23-02` already fixed for the operator column just below. `visitorLabelWithShortId`
+      // renders the visitor's own name (or, absent one, their `{creature} · {food}` pair) with the
+      // short id kept alongside in parens, never dropped - an admin auditing this site-wide list still
+      // needs the id to search a log or quote a support ticket.
       render: (c) => (
         <Badge tone="neutral" mono>
-          {c.visitorId.slice(0, 8)}
+          {visitorLabelWithShortId(c, strings.visitorEmojiNames)}
         </Badge>
       ),
     },

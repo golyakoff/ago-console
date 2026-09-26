@@ -367,9 +367,14 @@ export function WorkspaceLayout() {
       //
       // Note the early return above: a message for the conversation on screen never reaches here at
       // all. `decideAlert` would refuse it anyway, and the redundancy is `11-06`'s, not new.
-      const visitorId =
-        queueRef.current?.assignedToMe.find((c) => c.conversationId === conversationId)?.visitorId ?? null;
-      fire("message", conversationId, visitorId);
+      //
+      // `26-201`: the whole queue row, not just its `visitorId` - `alertTextFor` renders the visitor's
+      // emoji-pair name (or their real name, when known) alongside the short id, and this row is
+      // already the full `ConversationSummaryDto` those fields live on. `null` when the row itself is
+      // not found (the queue has not caught up with this push yet), the same "unknown" case `fire`
+      // already renders for the `"assigned"` reason above.
+      const visitor = queueRef.current?.assignedToMe.find((c) => c.conversationId === conversationId) ?? null;
+      fire("message", conversationId, visitor);
     });
   }, [connection, fire, reportAttentionEvent]);
 
