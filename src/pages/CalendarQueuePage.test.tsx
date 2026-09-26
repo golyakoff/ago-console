@@ -296,6 +296,21 @@ describe("the pending-bookings queue", () => {
     expect(container.textContent).toContain("Nina Petrova");
   });
 
+  it("offers only reject and cancel on a pending row, never no-show (26-164)", async () => {
+    // `ago-calendar`'s own `Event.MarkNoShow` requires the `Booked` state (`Event.cs`) - it is never
+    // a legal action on a row this queue shows, since every row here is still `PendingConfirmation`.
+    // `26-163` proved the identical assertion on the Android console's own equivalent queue.
+    calendarApi.getPendingBookings.mockResolvedValue([
+      booking("b11", "cal-1aaa", "2026-05-05T09:00:00+00:00", "2026-05-05T08:15:00+00:00", false),
+    ]);
+
+    const container = await render(page());
+
+    expect(byText(container, "button", "Reject")).not.toBeNull();
+    expect(byText(container, "button", "Cancel")).not.toBeNull();
+    expect(byText(container, "button", "No-show")).toBeNull();
+  });
+
   it("shows the empty state when there is nothing to confirm", async () => {
     calendarApi.getPendingBookings.mockResolvedValue([]);
 
