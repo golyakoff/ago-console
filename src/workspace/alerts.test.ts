@@ -91,7 +91,7 @@ describe("what a notification says", () => {
     // A privacy decision, not a design one: a notification is drawn over whatever is on screen, in a
     // room that may have customers in it, and on some platforms it survives in a notification centre
     // nothing in this system can erase.
-    const message = alertTextFor("message", "8f14e45f-ea1c-4c3a-9b2d-000000000000");
+    const message = alertTextFor("message", { visitorId: "8f14e45f-ea1c-4c3a-9b2d-000000000000" });
 
     expect(message.title).toBe("New message");
     expect(message.body).toBe("Visitor 8f14e45f sent a message.");
@@ -105,6 +105,33 @@ describe("what a notification says", () => {
       title: "New conversation assigned",
       body: "A visitor is waiting for you.",
     });
+  });
+
+  /**
+   * `26-201`: the "who" now goes through `visitorLabelWithShortId` instead of the bare short id - a
+   * real name wins, the localized emoji pair is the fallback, and the short id survives in parens
+   * either way (never dropped, since it is still what a reader quotes into a log search).
+   */
+  it("names the visitor's own emoji pair, with the short id kept alongside in parens, when no name is known", () => {
+    const message = alertTextFor("message", {
+      visitorId: "8f14e45f-ea1c-4c3a-9b2d-000000000000",
+      emojiCreature: "🦉",
+      emojiFood: "🍓",
+      visitorName: null,
+    });
+
+    expect(message.body).toBe("Visitor Owl · Strawberry (8f14e45f) sent a message.");
+  });
+
+  it("prefers the visitor's own real name over the emoji pair, the short id still kept alongside", () => {
+    const message = alertTextFor("assigned", {
+      visitorId: "8f14e45f-ea1c-4c3a-9b2d-000000000000",
+      emojiCreature: "🦉",
+      emojiFood: "🍓",
+      visitorName: "Иван Иванов",
+    });
+
+    expect(message.body).toBe("Visitor Иван Иванов (8f14e45f) is waiting for you.");
   });
 });
 

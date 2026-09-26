@@ -6,6 +6,7 @@ import {
   visitorEmojiPrefix,
   visitorFallbackLabel,
   visitorLabel,
+  visitorLabelWithShortId,
   visitorQueueRowLabel,
 } from "./visitorEmoji.js";
 
@@ -159,6 +160,42 @@ describe("visitorQueueRowLabel", () => {
   it("falls back to the short code when only one half of the pair is present", () => {
     expect(
       visitorQueueRowLabel({ emojiCreature: "🦉", emojiFood: null, visitorId: id }, visitorEmojiNamesEn),
+    ).toBe("0a1b2c3d");
+  });
+});
+
+/**
+ * `26-201`: the "Name (id)" variant `AdminConversationsPage`'s visitor column and a message alert's
+ * body both share - unlike `visitorQueueRowLabel`, the short id is never dropped: it survives
+ * parenthesised after whatever label `visitorLabel` produced, since both those call sites keep an
+ * existing reader's ability to quote the short id verbatim even once a human-readable label sits
+ * beside it.
+ */
+describe("visitorLabelWithShortId", () => {
+  const id = "0a1b2c3d-4444-4444-4444-444444444444";
+
+  it("is the visitor's own name, with the short id kept alongside in parens", () => {
+    expect(
+      visitorLabelWithShortId(
+        { emojiCreature: "🦉", emojiFood: "🍓", visitorName: "Иван Иванов", visitorId: id },
+        visitorEmojiNamesEn,
+      ),
+    ).toBe("Иван Иванов (0a1b2c3d)");
+  });
+
+  it("is the localized pair label, with the short id kept alongside in parens, when no name is known", () => {
+    expect(
+      visitorLabelWithShortId({ emojiCreature: "🦉", emojiFood: "🍓", visitorName: null, visitorId: id }, visitorEmojiNamesEn),
+    ).toBe("Owl · Strawberry (0a1b2c3d)");
+  });
+
+  it("falls back to the bare short id, with no parens, for a visitor with neither a name nor a pair", () => {
+    expect(visitorLabelWithShortId({ visitorId: id }, visitorEmojiNamesEn)).toBe("0a1b2c3d");
+  });
+
+  it("falls back to the bare short id when only one half of the pair is present", () => {
+    expect(
+      visitorLabelWithShortId({ emojiCreature: "🦉", emojiFood: null, visitorId: id }, visitorEmojiNamesEn),
     ).toBe("0a1b2c3d");
   });
 });

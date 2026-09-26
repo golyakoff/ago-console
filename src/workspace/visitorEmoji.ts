@@ -140,3 +140,26 @@ export function visitorQueueRowLabel(
 ): string {
   return visitorLabel(visitor, names).trim() || visitor.visitorId.slice(0, 8);
 }
+
+/**
+ * `26-201`: the "the id is the only identity a reader gets" shape - `AdminConversationsPage`'s visitor
+ * column and a message alert's body - fixed to the format this item's own backlog entry names:
+ * `{creature} · {food} (shortid)`, e.g. `Сова · Клубника (a0f3c952)`. Reuses `visitorLabel` rather than
+ * reimplementing the name-vs-pair-vs-neither decision a third time, so a real `visitorName` still wins
+ * over the pair exactly as it already does at the two existing call sites above.
+ *
+ * Unlike `visitorQueueRowLabel`, the short id is never the *whole* label on its own line - it is
+ * parenthesised after whatever `visitorLabel` produced, because both call sites here keep a reader's
+ * existing ability to quote the short id verbatim (a support ticket, a log search) while also giving
+ * them something a person actually reads. Only when `visitorLabel` itself has nothing (the visitor has
+ * neither a name nor a pair - a row from before `25-56`'s backfill) does this fall back to the bare
+ * short id, unparenthesised, matching every other bare-id fallback in this file.
+ */
+export function visitorLabelWithShortId(
+  visitor: { emojiCreature?: string | null; emojiFood?: string | null; visitorName?: string | null; visitorId: string },
+  names: Readonly<Record<string, string>>,
+): string {
+  const label = visitorLabel(visitor, names).trim();
+  const shortId = visitor.visitorId.slice(0, 8);
+  return label ? `${label} (${shortId})` : shortId;
+}

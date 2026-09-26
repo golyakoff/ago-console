@@ -8,6 +8,7 @@ import {
   writeAlertSettings,
   type AlertReason,
   type AlertSettings,
+  type AlertVisitor,
   type NotificationPermissionState,
 } from "./alerts.js";
 
@@ -77,8 +78,10 @@ export interface AlertsApi {
    */
   enableNotifications: (on: boolean) => void;
   /** Fires whatever the decision allows, for one event. Safe to call for every push - it is the
-   * decision that filters, not the caller. */
-  fire: (reason: AlertReason, conversationId: string, visitorId: string | null) => void;
+   * decision that filters, not the caller. `visitor` is `null` exactly when the caller has none yet
+   * (`ConversationAssignedDto` carries no visitor) - `alertTextFor` renders `alertWhoUnknown` for that
+   * case rather than delaying the notification until after a round trip. */
+  fire: (reason: AlertReason, conversationId: string, visitor: AlertVisitor | null) => void;
 }
 
 export interface UseAlertsOptions {
@@ -185,7 +188,7 @@ export function useAlerts({ openConversationId, onOpenConversation }: UseAlertsO
   }, []);
 
   const fire = useCallback(
-    (reason: AlertReason, conversationId: string, visitorId: string | null) => {
+    (reason: AlertReason, conversationId: string, visitor: AlertVisitor | null) => {
       const state = latest.current;
       const decision = decideAlert({
         conversationId,
@@ -207,7 +210,7 @@ export function useAlerts({ openConversationId, onOpenConversation }: UseAlertsO
       }
 
       try {
-        const { title, body } = alertTextFor(reason, visitorId, state.strings);
+        const { title, body } = alertTextFor(reason, visitor, state.strings);
         const notification = new Notification(title, {
           body,
           // One notification per conversation: a visitor sending four messages replaces its own card

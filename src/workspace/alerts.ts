@@ -14,6 +14,7 @@
 
 import { en } from "../i18n/en.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
+import { visitorLabelWithShortId } from "./visitorEmoji.js";
 
 /**
  * The browser's own answer, plus the state the `Notification` API does not have a value for.
@@ -158,6 +159,16 @@ export function decideAlert(context: AlertContext): AlertDecision {
 
 export type AlertReason = "assigned" | "message";
 
+/** The subset of visitor identity a notification needs - exactly `visitorLabelWithShortId`'s own
+ * parameter shape (`visitorEmoji.ts`), so a caller holding a full `ConversationSummaryDto` passes it
+ * through unchanged rather than building an adapter object. */
+export interface AlertVisitor {
+  readonly visitorId: string;
+  readonly emojiCreature?: string | null;
+  readonly emojiFood?: string | null;
+  readonly visitorName?: string | null;
+}
+
 /**
  * What the notification says.
  *
@@ -166,8 +177,15 @@ export type AlertReason = "assigned" | "message";
  * with customers in the room, and it survives on some platforms in a notification centre the
  * operator does not clear. `personal-data.md` treats a message body as the free-text field most
  * likely to hold something about a person; putting it there would move it somewhere nothing in this
- * system can erase it from. The visitor's short identifier is enough to know which conversation
- * needs answering, which is all a notification has to achieve - the words are one click away.
+ * system can erase it from. Which conversation needs answering is all a notification has to achieve -
+ * the words are one click away.
+ *
+ * `26-201`: the "who" used to be only the bare short id (`Visitor a0f3c952`); it is now
+ * `visitorLabelWithShortId` - the visitor's own name, or their `{creature} · {food}` pair when no name
+ * is known, with the short id kept alongside in parens rather than dropped. Neither is any more
+ * sensitive than the id it replaces: the emoji pair and its localized name are a memory aid assigned
+ * once per visitor (`visitorEmoji.ts`'s own doc comment), not personal data, and a real `visitorName`
+ * already reaches this console over the wire on every other screen this item's sibling touches.
  *
  * `11-12`: the title and body moved into `ConsoleStrings`, `strings` defaulted to `en` for the same
  * reason `closeOutcome.ts`'s `closeOutcomeFor` is - this runs from `useAlerts.ts`'s `fire()`, a hub
@@ -177,10 +195,13 @@ export type AlertReason = "assigned" | "message";
  */
 export function alertTextFor(
   reason: AlertReason,
-  visitorId: string | null,
+  visitor: AlertVisitor | null,
   strings: ConsoleStrings = en,
 ): { title: string; body: string } {
-  const who = visitorId === null ? strings.alertWhoUnknown : `${strings.alertVisitorPrefix} ${visitorId.slice(0, 8)}`;
+  const who =
+    visitor === null
+      ? strings.alertWhoUnknown
+      : `${strings.alertVisitorPrefix} ${visitorLabelWithShortId(visitor, strings.visitorEmojiNames)}`;
 
   return reason === "assigned"
     ? { title: strings.alertAssignedTitle, body: `${who} ${strings.alertAssignedBody}` }
