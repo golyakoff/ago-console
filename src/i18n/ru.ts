@@ -1680,6 +1680,8 @@ export const ru: ConsoleStrings = {
   calendarBookingsColumnService: "Услуга",
   calendarBookingsColumnCustomer: "Клиент",
   calendarBookingsColumnPhone: "Телефон",
+  calendarBookingsColumnDialog: "Диалог",
+  calendarBookingsGoToDialogLink: "Перейти к диалогу",
   calendarBookingsCountLabel: "Записей",
   calendarBookingsForbidden: "У вас нет прав на просмотр подтверждённых записей.",
 

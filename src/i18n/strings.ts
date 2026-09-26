@@ -2691,6 +2691,11 @@ export interface ConsoleStrings {
   calendarBookingsColumnService: string;
   calendarBookingsColumnCustomer: string;
   calendarBookingsColumnPhone: string;
+  calendarBookingsColumnDialog: string;
+  /** `26-165`/`adr/0184` (C1w): the link text itself, shown only on a row whose
+   * `originConversationId` is non-null - see `CalendarBookingsPage`'s own column definition for why
+   * absence renders nothing rather than a disabled control. */
+  calendarBookingsGoToDialogLink: string;
   /** Prefixes the raw count on both the day-level and the master-level `Badge` - one shared word
    * rather than a pluralised sentence, deliberately: `calendarSlotWordOne`/`Few`/`Many` three doors up
    * this file already carry the Russian noun-declension cost for the one screen that actually needs a

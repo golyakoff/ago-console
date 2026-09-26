@@ -233,6 +233,7 @@ describe("the calendar API client", () => {
               weekday: 2,
               phone: "+79990000001",
               masked: false,
+              originConversationId: null,
             },
           ]),
           { status: 200, headers: { "Content-Type": "application/json" } },
@@ -246,6 +247,74 @@ describe("the calendar API client", () => {
       expect(failure).toBeInstanceOf(CalendarApiError);
       expect(failure.code).toBe("shape.mismatch");
       expect(failure.message).toContain("workerDisplayName");
+    });
+
+    /** `26-165`/`adr/0184` (C1w): `originConversationId` joined this file's required-key list the
+     * same way `masked` and every other always-sent, sometimes-null field already has - it is present
+     * on every row (nullable, never optional), so a row that drops it entirely is exactly as much a
+     * shape mismatch as one dropping `workerDisplayName` above. */
+    it("throws CalendarApiError('shape.mismatch') when a row drops originConversationId entirely", async () => {
+      fetchMock.mockResolvedValue(
+        new Response(
+          JSON.stringify([
+            {
+              bookingId: "b1",
+              calendarId: "cal1",
+              workerId: "w1",
+              workerDisplayName: "Anna",
+              serviceId: "s1",
+              serviceName: "Haircut",
+              personId: "c1",
+              startsAt: "2026-09-08T09:00:00+00:00",
+              endsAt: "2026-09-08T09:45:00+00:00",
+              localDate: "2026-09-08",
+              weekday: 2,
+              phone: "+79990000001",
+              masked: false,
+              // `originConversationId` dropped.
+            },
+          ]),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
+      const failure = (await getConfirmedBookings("operator-token", "2026-09-08", "2026-09-14").catch(
+        (reason: unknown) => reason,
+      )) as CalendarApiError;
+
+      expect(failure).toBeInstanceOf(CalendarApiError);
+      expect(failure.code).toBe("shape.mismatch");
+      expect(failure.message).toContain("originConversationId");
+    });
+
+    it("resolves normally when a row's originConversationId is a real id, not just null (a chat-origin booking)", async () => {
+      fetchMock.mockResolvedValue(
+        new Response(
+          JSON.stringify([
+            {
+              bookingId: "b1",
+              calendarId: "cal1",
+              workerId: "w1",
+              workerDisplayName: "Anna",
+              serviceId: "s1",
+              serviceName: "Haircut",
+              personId: "c1",
+              startsAt: "2026-09-08T09:00:00+00:00",
+              endsAt: "2026-09-08T09:45:00+00:00",
+              localDate: "2026-09-08",
+              weekday: 2,
+              phone: "+79990000001",
+              masked: false,
+              originConversationId: "11111111-1111-1111-1111-111111111111",
+            },
+          ]),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
+      await expect(getConfirmedBookings("operator-token", "2026-09-08", "2026-09-14")).resolves.toEqual([
+        expect.objectContaining({ originConversationId: "11111111-1111-1111-1111-111111111111" }),
+      ]);
     });
   });
 });
