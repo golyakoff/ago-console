@@ -7,6 +7,7 @@ import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { CalendarBookingsPage } from "./CalendarBookingsPage.js";
 import { byText, interact, render, unmount } from "../testing/dom.js";
 import type { ConfirmedBooking } from "../api/calendarApi.js";
+import type { PersonProfile } from "../api/personsApi.js";
 
 /**
  * `23-34`: `/calendar/bookings` - confirmed bookings, grouped by day and by master. Permission
@@ -34,6 +35,7 @@ const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
 const calendarApi = vi.hoisted(() => ({ getConfirmedBookings: vi.fn(), revealCustomerPhone: vi.fn() }));
+const personsApi = vi.hoisted(() => ({ getPersons: vi.fn() }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
 vi.mock("../api/ownerApi.js", () => ownerApi);
@@ -42,6 +44,12 @@ vi.mock("../api/calendarApi.js", async () => {
   const actual = await vi.importActual<typeof import("../api/calendarApi.js")>("../api/calendarApi.js");
   return { ...actual, ...calendarApi };
 });
+vi.mock("../api/personsApi.js", () => personsApi);
+
+/** `26-161`: a Person-registry profile the display-merge reads a name through, keyed on `personId`. */
+function person(personId: string, displayName: string | null): PersonProfile {
+  return { personId, displayName, channels: [], firstSeenAt: "2026-09-01T09:00:00+00:00", lastSeenAt: "2026-09-08T09:00:00+00:00" };
+}
 
 const SITE_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 
@@ -85,8 +93,7 @@ const bookings: ConfirmedBooking[] = [
     workerDisplayName: "Anna Petrova",
     serviceId: "s1",
     serviceName: "Haircut",
-    customerId: "c1",
-    customerDisplayName: "Ivan",
+    personId: "c1",
     startsAt: "2026-09-08T09:00:00+00:00",
     endsAt: "2026-09-08T09:45:00+00:00",
     localDate: "2026-09-08",
@@ -101,8 +108,7 @@ const bookings: ConfirmedBooking[] = [
     workerDisplayName: "Boris Orlov",
     serviceId: "s2",
     serviceName: "Manicure",
-    customerId: "c2",
-    customerDisplayName: null,
+    personId: "c2",
     startsAt: "2026-09-08T10:00:00+00:00",
     endsAt: "2026-09-08T10:30:00+00:00",
     localDate: "2026-09-08",
@@ -117,8 +123,7 @@ const bookings: ConfirmedBooking[] = [
     workerDisplayName: "Anna Petrova",
     serviceId: "s1",
     serviceName: "Haircut",
-    customerId: "c3",
-    customerDisplayName: "Olga",
+    personId: "c3",
     startsAt: "2026-09-09T09:00:00+00:00",
     endsAt: "2026-09-09T09:45:00+00:00",
     localDate: "2026-09-09",
@@ -134,6 +139,8 @@ beforeEach(() => {
   operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: OPERATOR_PERMISSIONS, siteId: SITE_ID });
   ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
   calendarApi.getConfirmedBookings.mockResolvedValue(bookings);
+  // `26-161`: the names are chat's now - c1 is "Ivan", c3 is "Olga", c2 has no recorded name.
+  personsApi.getPersons.mockResolvedValue([person("c1", "Ivan"), person("c2", null), person("c3", "Olga")]);
 });
 
 afterEach(async () => {
@@ -170,18 +177,30 @@ describe("confirmed bookings", () => {
     expect(tables.length).toBe(3);
   });
 
-  it("renders the customer name and the service for each row", async () => {
+  it("renders the person name (from chat's registry) and the service for each row", async () => {
     const container = await render(page());
 
+    // The names are read from chat by person id and display-merged onto the rows.
+    expect(personsApi.getPersons).toHaveBeenCalledWith("token", ["c1", "c2", "c3"], expect.anything());
     expect(container.textContent).toContain("Ivan");
     expect(container.textContent).toContain("Haircut");
     expect(container.textContent).toContain("Manicure");
   });
 
-  it("shows an honest placeholder for a customer with no name recorded, not a blank cell", async () => {
+  it("shows an honest placeholder for a person with no name recorded in chat, not a blank cell", async () => {
     const container = await render(page());
 
     expect(container.textContent).toContain("not recorded");
+  });
+
+  it("degrades to 'name not shown yet' when chat's Person API is unreachable, without failing the screen (26-161)", async () => {
+    personsApi.getPersons.mockRejectedValue(new Error("chat down"));
+
+    const container = await render(page());
+
+    // The bookings still render (a service is shown); only the name column degrades.
+    expect(container.textContent).toContain("Haircut");
+    expect(container.textContent).toContain("name not shown yet");
   });
 
   it("renders the phone exactly as the server sent it - masked or real, with no client-side masking logic", async () => {
@@ -252,8 +271,7 @@ describe("revealing a masked phone (23-91)", () => {
     workerDisplayName: "Anna Petrova",
     serviceId: "s1",
     serviceName: "Haircut",
-    customerId: "c9",
-    customerDisplayName: "Vera",
+    personId: "c9",
     startsAt: "2026-09-08T09:00:00+00:00",
     endsAt: "2026-09-08T09:45:00+00:00",
     localDate: "2026-09-08",

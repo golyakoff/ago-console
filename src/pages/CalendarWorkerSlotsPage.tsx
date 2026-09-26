@@ -11,7 +11,8 @@ import {
   type WorkerSlot,
 } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
-import { renderCustomer, renderPhone, slotStatusLabel, weekdayNames } from "../calendar/calendarFormat.js";
+import { renderPhone, renderSlotPersonName, slotStatusLabel, weekdayNames } from "../calendar/calendarFormat.js";
+import { usePersonNames } from "../calendar/usePersonNames.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
@@ -78,9 +79,16 @@ export function CalendarWorkerSlotsPage() {
   const [slots, setSlots] = useState<WorkerSlot[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState(defaultRange);
-  // `23-30`: which customer's own Reveal is in flight, if any - `ContactDetailsPanel`'s
-  // `revealingId`, keyed on `customerId` rather than a row id (`RevealControl`'s own doc comment).
-  const [revealingCustomerId, setRevealingCustomerId] = useState<string | null>(null);
+  // `23-30`: which person's own Reveal is in flight, if any - `ContactDetailsPanel`'s
+  // `revealingId`, keyed on `personId` rather than a row id (`RevealControl`'s own doc comment).
+  const [revealingPersonId, setRevealingPersonId] = useState<string | null>(null);
+  // `26-161`/`adr/0184`: the display-merge - person names for every held slot, in one batch from
+  // chat's Person registry, degrading to "name not shown yet" if unreachable (`usePersonNames.ts`). A
+  // free/blocked slot carries no person id and contributes none (`renderSlotPersonName` renders a dash).
+  const personNames = usePersonNames(
+    user?.access_token,
+    (slots ?? []).flatMap((slot) => (slot.personId === null ? [] : [slot.personId])),
+  );
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
@@ -164,21 +172,21 @@ export function CalendarWorkerSlotsPage() {
   // `23-30`: replaces every row for this customer with the server's own unmasked phone - never the
   // string this component already holds. `WorkerSlot`'s own `masked`/`phone` are what render checks,
   // so once these are updated the Reveal button simply stops being drawn (`renderPhone`'s own logic).
-  const handleReveal = async (customerId: string) => {
+  const handleReveal = async (personId: string) => {
     const accessToken = user?.access_token;
     if (!accessToken) {
       return;
     }
 
-    setRevealingCustomerId(customerId);
+    setRevealingPersonId(personId);
     setError(null);
     try {
-      const { phone } = await revealCustomerPhone(accessToken, customerId, "ConsoleWorkerSlots");
-      setSlots((prev) => prev?.map((row) => (row.customerId === customerId ? { ...row, phone, masked: false } : row)) ?? prev);
+      const { phone } = await revealCustomerPhone(accessToken, personId, "ConsoleWorkerSlots");
+      setSlots((prev) => prev?.map((row) => (row.personId === personId ? { ...row, phone, masked: false } : row)) ?? prev);
     } catch (reason) {
       setError(calendarErrorMessage(reason, strings));
     } finally {
-      setRevealingCustomerId(null);
+      setRevealingPersonId(null);
     }
   };
 
@@ -196,11 +204,11 @@ export function CalendarWorkerSlotsPage() {
       header: strings.calendarSlotsColumnService,
       render: (slot) => slot.serviceName ?? <span className="ago-meta">—</span>,
     },
-    { key: "customer", header: strings.calendarSlotsColumnCustomer, render: (slot) => renderCustomer(slot, strings) },
+    { key: "customer", header: strings.calendarSlotsColumnCustomer, render: (slot) => renderSlotPersonName(slot.personId, personNames, strings) },
     {
       key: "phone",
       header: strings.calendarSlotsColumnPhone,
-      render: (slot) => renderPhone(slot, strings, { revealingCustomerId, onReveal: (id) => void handleReveal(id) }),
+      render: (slot) => renderPhone(slot, strings, { revealingPersonId, onReveal: (id) => void handleReveal(id) }),
     },
   ];
 

@@ -217,15 +217,13 @@ export interface PendingBooking {
   serviceId: string;
   /** `26-50`: never gated, the same reasoning `ConfirmedBooking.serviceName` already carries. */
   serviceName: string | null;
-  customerId: string;
   /**
-   * `26-50`: gated exactly the way `phone` below already is - `null` means either of the same two
-   * things `phone`'s own remarks describe: this operator does not hold `customer:read` (the server
-   * never joined to `customers` at all), or the customer has simply never had a name recorded. Unlike
-   * `phone`, the second reason is reachable here, so `CalendarQueuePage` falls back to the `.ago-mono`
-   * short id only for a row whose name is genuinely absent - never as the default rendering.
+   * `26-161`/`adr/0184`: the opaque person id - never gated (an id, not personal data), and the key
+   * the console reads the person's name through, from chat's own Person API (`personsApi.ts`), then
+   * display-merges onto this row (`usePersonNames.ts`). The `customerDisplayName` `26-50` added is
+   * gone: the calendar no longer holds a person copy to serve a name from (`adr/0184` decision 3).
    */
-  customerDisplayName: string | null;
+  personId: string;
   startsAt: string;
   endsAt: string;
   localDate: string;
@@ -253,13 +251,13 @@ export interface PendingBooking {
  * `23-34`: one confirmed booking - an appointment, not a slot. Field names match
  * `Ago.Calendar.Contracts.ConfirmedBookingResponse` verbatim.
  *
- * Unlike `PendingBooking.phone` above and `WorkerSlot.phone`/`customerDisplayName` below, neither
- * `phone` nor `customerDisplayName` here carries a "this operator lacks the permission" null state -
+ * Unlike `PendingBooking.phone` above and `WorkerSlot.phone` below, `phone` here carries no "this
+ * operator lacks the permission" null state -
  * `Ago.Calendar.Application.UseCases.ConfirmedBookings.GetConfirmedBookingsForTenantHandler` gates the
  * whole list on `customer:read` rather than joining conditionally, because the item's own scope names
  * the customer as a required column of this screen, not an optional bonus one (see that handler's own
- * doc comment). `phone` is therefore always a string - masked or real - and `customerDisplayName` is
- * `null` only when the customer has never had a name recorded, unrelated to any permission.
+ * doc comment). `phone` is therefore always a string - masked or real. The person's *name* is chat's
+ * now (`adr/0184`), read by `personId` and display-merged onto the row.
  */
 export interface ConfirmedBooking {
   bookingId: string;
@@ -268,8 +266,9 @@ export interface ConfirmedBooking {
   workerDisplayName: string;
   serviceId: string;
   serviceName: string | null;
-  customerId: string;
-  customerDisplayName: string | null;
+  /** `26-161`/`adr/0184`: the opaque person id the console reads the name through - see
+   * `PendingBooking.personId`. `customerDisplayName` is gone with the calendar's person copy. */
+  personId: string;
   startsAt: string;
   endsAt: string;
   localDate: string;
@@ -298,8 +297,7 @@ const confirmedBookingRequiredKeys = requiredKeysOf<ConfirmedBooking>({
   workerDisplayName: true,
   serviceId: true,
   serviceName: true,
-  customerId: true,
-  customerDisplayName: true,
+  personId: true,
   startsAt: true,
   endsAt: true,
   localDate: true,
@@ -333,13 +331,12 @@ export interface WorkerSlot {
   /** Null on a `Blocked` row - a closure is not a service. */
   serviceName: string | null;
   /**
-   * `20-15`. Not personal data - a foreign key - so never gated, unlike `customerDisplayName`/
-   * `phone` below. What tells their two null-reasons apart: null here means nobody holds the slot;
-   * non-null with those two null means somebody does and this operator may not see who.
+   * `20-15`/`26-161`/`adr/0184`. Not personal data - an opaque person reference - so never gated,
+   * unlike `phone` below. Null exactly when nobody holds the slot (a free or blocked row); non-null
+   * with `phone` null means somebody does and this operator may not see the phone. The person's name
+   * is chat's - the console reads it through this id and display-merges it (`usePersonNames.ts`).
    */
-  customerId: string | null;
-  /** `20-12`'s own gate, reused. See `customerId` for how its own two null-reasons are told apart. */
-  customerDisplayName: string | null;
+  personId: string | null;
   phone: string | null;
   /** `23-30`/`23-12`: whether `phone` is the tenant's own rung-masked display form - meaningful
    * only when `phone` is non-null, the identical convention `PendingBooking.masked` and
@@ -367,10 +364,10 @@ export interface RecutBookingPreview {
   status: "PendingConfirmation" | "Booked" | "NoShow";
   serviceId: string | null;
   serviceName: string | null;
-  /** `20-12`'s own gate, reused a third time (`WorkerSlot.customerId` and `PendingBooking`'s own
-   * field are the other two) - never gated, a foreign key rather than personal data. */
-  customerId: string | null;
-  customerDisplayName: string | null;
+  /** `26-161`/`adr/0184`: the opaque person id - never gated (an id, not personal data). Null on a
+   * `NoShow`-less row only in principle; a preview row always carries a person. The name is chat's,
+   * read through this id and display-merged (`usePersonNames.ts`). */
+  personId: string | null;
   phone: string | null;
   /** `23-30`/`23-12`: whether `phone` is the tenant's own rung-masked display form - the identical
    * convention every other calendar response row carrying a phone now uses. */
@@ -413,11 +410,13 @@ export interface RecutResult {
  * describe. `masked` tells the two apart; the console must not infer it from the string's own shape.
  */
 export interface Contact {
-  customerId: string;
+  /** `26-161`/`adr/0184`: the opaque person id - the key the console reads the person's name through,
+   * from chat's own Person API, and display-merges onto this row. `displayName`/`notes` moved to chat
+   * (the calendar holds no person copy), and the `23-60` `duplicatePhoneCustomerIds` hint is gone with
+   * the calendar-side merge (author decision O2). */
+  personId: string;
   phone: string;
   masked: boolean;
-  displayName: string | null;
-  notes: string | null;
   /** Always zero today - nothing in this product writes it yet (`20-04`'s own retro note). Shown
    * honestly rather than hidden, so the report does not imply a feature that does not exist. */
   noShowCount: number;
@@ -431,10 +430,6 @@ export interface Contact {
   phoneConfirmedByOperatorAt: string | null;
   firstSeenAt: string;
   lastSeenAt: string;
-  /** `23-60`/`adr/0161`: every other live customer in this tenant sharing this row's own phone -
-   * what the contacts page's "shares a phone" hint and its Merge action are built from. Empty for
-   * the ordinary case. */
-  duplicatePhoneCustomerIds: string[];
 }
 
 /** `23-30`/`23-12`'s own audit view - one reveal, individually, never an aggregated count
@@ -445,7 +440,10 @@ export interface Contact {
 export interface PhoneReveal {
   id: string;
   occurredAt: string;
-  customerId: string;
+  /** `26-161`/`adr/0184`: the opaque person id whose phone was revealed - `customerId` renamed with
+   * the calendar's move to referencing chat's Person. The console display-merges the person's name
+   * onto this audit row through it. */
+  personId: string;
   operatorId: string;
   surface: string;
 }
@@ -457,68 +455,12 @@ export interface PhoneRevealPage {
   nextBefore: string | null;
 }
 
-/** `23-60`/`adr/0161`: one booking on one of the two merge candidates - every status, not only
- * confirmed, oldest first. Field names match `Ago.Calendar.Contracts.CustomerMergePreviewBookingResponse`
- * verbatim. `status` is the server's own closed vocabulary
- * (`Available`/`PendingConfirmation`/`Booked`/`Cancelled`/`NoShow`/`Blocked`), rendered by
- * `mergeBookingStatusLabel` rather than shown verbatim. */
-export interface CustomerMergePreviewBooking {
-  bookingId: string;
-  status: string;
-  serviceName: string | null;
-  workerDisplayName: string;
-  startsAt: string;
-  endsAt: string;
-  localDate: string;
-}
-
-/** `23-60`/`adr/0161`: one of the two merge candidates - the lead card's own summary plus its full
- * booking history, which is what the confirmation dialog shows before an operator commits. */
-export interface CustomerMergeCandidate {
-  customerId: string;
-  /** The server's own `CustomerSource` member name (`Booking`/`Chat`) - shown so an operator can
-   * see, without having to infer it, that the console (not the operator) decided which side would
-   * survive when the two sources differ (`MergeCustomersHandler`'s own doc comment). */
-  source: string;
-  /** `adr/0161`: whether the server would keep this candidate if the operator goes on to confirm -
-   * display-only. The real merge re-decides this itself rather than trusting the preview, so a
-   * stale dialog left open across a concurrent change can never act on a wrong prediction. */
-  willSurvive: boolean;
-  phone: string;
-  masked: boolean;
-  displayName: string | null;
-  noShowCount: number;
-  bookings: CustomerMergePreviewBooking[];
-}
-
-export interface CustomerMergePreview {
-  first: CustomerMergeCandidate;
-  second: CustomerMergeCandidate;
-}
-
-/** `23-60`/`adr/0161`: which of the two candidate ids the merge actually kept - decided by the
- * server, never by the request (`mergeCustomers`'s own doc comment). */
-export interface CustomerMergeOutcome {
-  survivorCustomerId: string;
-  absorbedCustomerId: string;
-  bookingsMoved: number;
-}
-
-/** `23-60`/`adr/0161`'s own audit trail - one merge, individually, the same shape `PhoneReveal`
- * already establishes for a different audit trail. */
-export interface CustomerMergeRecord {
-  id: string;
-  mergedAt: string;
-  survivorCustomerId: string;
-  absorbedCustomerId: string;
-  operatorId: string;
-  bookingsMoved: number;
-}
-
-export interface CustomerMergePage {
-  items: CustomerMergeRecord[];
-  nextBefore: string | null;
-}
+// `26-161`/`adr/0184` (author decision O2): the `23-60` customer-merge types
+// (`CustomerMergePreviewBooking`/`CustomerMergeCandidate`/`CustomerMergePreview`/
+// `CustomerMergeOutcome`/`CustomerMergeRecord`/`CustomerMergePage`) and the three functions that
+// returned them are gone with the calendar-side merge. One person id per person makes duplicates rare;
+// a merge, if ever wanted again, is a chat-side act on the person registry, never a calendar one - so
+// the calendar API no longer exposes `/contacts/merge-preview`, `/contacts/merge` or `/contacts/merges`.
 
 /**
  * Carries the server's stable problem-details `type` alongside its human-readable `detail` -
@@ -787,20 +729,24 @@ export function getContacts(token: string, signal?: AbortSignal): Promise<Contac
 }
 
 /**
- * `23-30`/`23-12`: `POST /contacts/{id}/reveal-phone` - one customer, one reveal, gated server-side
- * on `customer:read` (the same permission the list reads already need). Returns the real number and
- * nothing else (`Ago.Calendar.Contracts.CustomerPhoneRevealResponse`); the four calendar screens
+ * `23-30`/`23-12`: `POST /contacts/{personId}/reveal-phone` - one person, one reveal, gated
+ * server-side on `customer:read` (the same permission the list reads already need). Returns the real
+ * number and nothing else (`Ago.Calendar.Contracts.CustomerPhoneRevealResponse`); the calendar screens
  * replace the masked row with this response rather than computing anything client-side, the identical
  * shape `ago-chat`'s own `revealContactDetail` already established (`ContactDetailsPanel`'s own doc
  * comment).
+ *
+ * `26-161`/`adr/0184`: the path id is the opaque **person id** now - the calendar keyed its phone
+ * facts by person id when it dropped the customer copy (`ContactResponse.personId`). The reveal is of
+ * the calendar's own operational phone record, not chat's - only the *name* moved to chat.
  *
  * `surface` names which screen asked, for the reveal record's own "which surface" field - a plain
  * string, not a closed union: `RevealCustomerPhoneRequest.Surface` is stored and read back verbatim
  * by `getPhoneReveals` below, with no server-side vocabulary to stay in step with.
  */
-export function revealCustomerPhone(token: string, customerId: string, surface: string): Promise<{ phone: string }> {
+export function revealCustomerPhone(token: string, personId: string, surface: string): Promise<{ phone: string }> {
   return request<{ phone: string }>(
-    token, "POST", `/contacts/${encodeURIComponent(customerId)}/reveal-phone`, { surface },
+    token, "POST", `/contacts/${encodeURIComponent(personId)}/reveal-phone`, { surface },
   );
 }
 
@@ -829,48 +775,11 @@ export function getPhoneReveals(
   return request<PhoneRevealPage>(token, "GET", `/contacts/phone-reveals${suffix ? `?${suffix}` : ""}`, undefined, signal);
 }
 
-/** `23-60`/`adr/0161`: "seeing both sets of bookings before deciding" - the read behind the
- * confirmation dialog, before `mergeCustomers` below is ever called. `firstCustomerId`/`secondCustomerId`
- * are unordered, the identical shape the merge request itself takes - `MergeCustomersHandler`'s own
- * doc comment explains why neither request lets the caller name a "survivor". */
-export function getCustomerMergePreview(
-  token: string,
-  firstCustomerId: string,
-  secondCustomerId: string,
-  signal?: AbortSignal,
-): Promise<CustomerMergePreview> {
-  return request<CustomerMergePreview>(
-    token, "POST", "/contacts/merge-preview", { firstCustomerId, secondCustomerId }, signal,
-  );
-}
-
-/** `23-60`/`adr/0161`: the merge itself - irreversible server-side (that ADR's own decision), so the
- * console's own confirmation dialog is what carries the weight of saying so before this is ever
- * called. */
-export function mergeCustomers(
-  token: string, firstCustomerId: string, secondCustomerId: string,
-): Promise<CustomerMergeOutcome> {
-  return request<CustomerMergeOutcome>(token, "POST", "/contacts/merge", { firstCustomerId, secondCustomerId });
-}
-
-/** `23-60`/`adr/0161`'s own audit trail - gated server-side on `calendar:configure`, deliberately
- * wider than the merge action itself, the identical `getPhoneReveals` shape above. */
-export function getCustomerMerges(
-  token: string,
-  before?: string,
-  limit?: number,
-  signal?: AbortSignal,
-): Promise<CustomerMergePage> {
-  const query = new URLSearchParams();
-  if (before !== undefined) {
-    query.set("before", before);
-  }
-  if (limit !== undefined) {
-    query.set("limit", String(limit));
-  }
-  const suffix = query.toString();
-  return request<CustomerMergePage>(token, "GET", `/contacts/merges${suffix ? `?${suffix}` : ""}`, undefined, signal);
-}
+// `26-161`/`adr/0184` (author decision O2): `getCustomerMergePreview`/`mergeCustomers`/
+// `getCustomerMerges` were removed with the `23-60` calendar-side merge - the routes they called
+// (`/contacts/merge-preview`, `/contacts/merge`, `/contacts/merges`) no longer exist on the calendar
+// API, so a client for them would be dead code with a compiling signature (the same reasoning the
+// `22-06` note above gives for the removed `roles`/`operators` calls).
 
 /** `20-15`. `from`/`to` are `YYYY-MM-DD`, business-local, both inclusive. */
 export function getWorkerSlots(

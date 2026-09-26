@@ -17,6 +17,7 @@ import {
   seededOperatorTeam,
   seededOwnerSitesPage,
   seededPermissions,
+  seededPersons,
   seededQueue,
   seededSeatAssignmentSummary,
   seededSiteConsentAcceptances,
@@ -183,6 +184,15 @@ export async function installApiStubs(
     // and shared by both APIs. See `seededTenancies`' own doc comment - a collision on one origin
     // matched by pathname alone, which took the whole app blank the first time a gate screen opened
     // the screen that reads it.
+    // `26-161`/`adr/0184`: chat's Person registry read - the display-merge source every calendar
+    // screen above now reads a person's name through (`personsApi.ts#getPersons`). On `apiBaseUrl`
+    // (`Ago.Chat.Api`), same-origin here like the rest, and matched by pathname only, ignoring the
+    // `?ids=` query the way the calendar handlers ignore their own `from`/`to` - the seeded person set
+    // is the same one every calendar row references, so a query-keyed handler would add nothing.
+    if (path === "/api/v1/persons" && method === "GET") {
+      return json(seededPersons());
+    }
+
     if (path === "/api/v1/console/pending-bookings" && method === "GET") {
       return json(seededCalendarPendingBookings());
     }

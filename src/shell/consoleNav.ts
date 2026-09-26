@@ -180,9 +180,9 @@ function buildTalkItems(isAdmin: boolean, strings: ConsoleStrings, unreadCount: 
  * branches) - which is why this takes `hasPermission` directly rather than folding into the
  * `isAdmin`-gated block above. The route itself stays `/calendar/phone-reveals`; moving the nav entry
  * without moving the URL was a deliberate, considered call (`25-17`'s own report), not an oversight -
- * every other Calendar-owned audit trail (`/calendar/customer-merges`) keeps its own `/calendar/`
- * path regardless of which rail section links to it, and a URL rename here would have been a second,
- * unrelated change riding along with a nav-placement fix.
+ * a Calendar-owned audit trail keeps its own `/calendar/` path regardless of which rail section links
+ * to it, and a URL rename here would have been a second, unrelated change riding along with a
+ * nav-placement fix. (`26-161`/`adr/0184` retired the sibling merge audit trail this once cited.)
  */
 function buildAnalyticsItems(hasPermission: (permission: string) => boolean, isAdmin: boolean, strings: ConsoleStrings): AppShellNavItem[] {
   const items: AppShellNavItem[] = [{ to: "/analytics/me", label: strings.navMyNumbers }];
@@ -295,10 +295,8 @@ function buildCalendarItems(
       // chosen middle ground, not a settled answer - see `25-12`'s own backlog item and the worker's
       // report for why, and move it in one line if a different resting place is wanted instead.
       { to: "/calendar/setup", label: strings.navCalendarSetup },
-      // `23-60`/`adr/0161`: the merge audit trail - gated server-side on `calendar:configure` itself
-      // (wider than `customer:read`, matching `CalendarPhoneRevealsPage`'s own reasoning for the same
-      // gate on the reveal audit trail, which `25-17` moved to `buildAnalyticsItems` below).
-      { to: "/calendar/customer-merges", label: strings.navCalendarCustomerMerges },
+      // `26-161`/`adr/0184` (author decision O2): the merge audit-trail nav entry is gone with the
+      // retired calendar-side merge - see `calendarApi.ts`/`CalendarContactsPage`.
     ];
   }
   if (isAdmin) {

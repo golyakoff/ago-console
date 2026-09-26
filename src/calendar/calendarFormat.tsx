@@ -1,5 +1,6 @@
 import type { ConsoleStrings } from "../i18n/strings.js";
 import type { WorkerSlot } from "../api/calendarApi.js";
+import type { PersonNames } from "./usePersonNames.js";
 import { Button } from "../components/Button.js";
 
 /**
@@ -52,59 +53,50 @@ export function slotStatusLabel(status: WorkerSlot["status"], strings: ConsoleSt
   }
 }
 
-/** No customer at all (a free or blocked slot) reads as a plain dash - never confusable with
- * "hidden", which only ever means "somebody holds this and I may not see who" (`renderPhone`'s own
- * remarks give the full two-state story). */
-export function renderCustomer(
-  slot: { customerId: string | null; customerDisplayName: string | null },
-  strings: ConsoleStrings,
-) {
-  if (slot.customerId === null) {
-    return <span className="ago-meta">—</span>;
+/**
+ * `26-161`/`adr/0184`: a person's name, **display-merged** from chat's Person registry onto a calendar
+ * row that carries only an opaque `personId`. The name is chat's now, not the calendar's
+ * (`adr/0184` decision 3), so this reads it from the batch `usePersonNames` already fetched rather than
+ * from any field on the row.
+ *
+ * Four states, in the order they are decided:
+ * - <b>loading</b> - the batch this id belongs to is still in flight; a quiet ellipsis, not a blank
+ *   cell, so a reader sees the name is coming rather than absent.
+ * - <b>unavailable</b> - chat's Person API could not be reached. `adr/0184`'s named degradation:
+ *   "name not shown yet", never a blank row and never a failed screen.
+ * - <b>a recorded name</b> - shown as-is.
+ * - <b>no name recorded</b> - chat holds the person but nobody has recorded a name (`displayName`
+ *   null) - the honest "not recorded" placeholder, visibly different from "not shown yet".
+ */
+export function renderPersonName(personId: string, names: PersonNames, strings: ConsoleStrings) {
+  const state = names.lookup(personId);
+
+  if (state.status === "loading") {
+    return <span className="ago-meta">…</span>;
   }
 
-  if (slot.customerDisplayName === null) {
+  if (state.status === "unavailable") {
     return (
-      <span className="ago-meta" title={strings.calendarHiddenContactTooltip}>
-        {strings.calendarHiddenContactLabel}
+      <span className="ago-meta" title={strings.calendarPersonNameUnavailableTooltip}>
+        {strings.calendarPersonNameUnavailable}
       </span>
     );
   }
 
-  return slot.customerDisplayName;
+  return state.displayName ?? <span className="ago-meta">{strings.calendarNotRecordedLabel}</span>;
 }
 
 /**
- * `26-50`: the pending queue's own customer-name column - gated exactly the way `renderPhone` above
- * already is, and distinguished from `renderCustomer` above by a third possible reason for a null
- * name: `PendingBookingRow.CustomerDisplayName` (unlike `WorkerSlotRow`'s) can be null because the
- * customer this booking really has simply never had a name recorded, not only because the row is
- * hidden or absent. A pending booking always has a real customer (`PendingBookingRow.CustomerId` is
- * never null the way `WorkerSlotRow.CustomerId` can be for a free slot), so this never renders the
- * "no customer at all" dash `renderCustomer` does - only the two-vs-three-state distinction: `phone`
- * is null exactly when this operator lacks `customer:read` (the query never joined to `customers` at
- * all, so there is nothing to know), which is the one state this renders as hidden; whenever `phone`
- * is non-null the join happened and a null `customerDisplayName` can only mean this customer's name
- * itself was never recorded, so the `.ago-mono` short id is the fallback - never the default,
- * because the two branches above already cover every row with an actual name or a genuine gate.
+ * `26-161`: the worker-slots / re-cut variant, where a row can have no person at all (a free or
+ * blocked slot). No person reads as a plain dash - never confusable with any of `renderPersonName`'s
+ * own four states; a held slot defers to it.
  */
-export function renderQueueCustomerName(
-  row: { customerId: string; customerDisplayName: string | null; phone: string | null },
-  strings: ConsoleStrings,
-) {
-  if (row.customerDisplayName !== null) {
-    return row.customerDisplayName;
+export function renderSlotPersonName(personId: string | null, names: PersonNames, strings: ConsoleStrings) {
+  if (personId === null) {
+    return <span className="ago-meta">—</span>;
   }
 
-  if (row.phone === null) {
-    return (
-      <span className="ago-meta" title={strings.calendarHiddenContactTooltip}>
-        {strings.calendarHiddenContactLabel}
-      </span>
-    );
-  }
-
-  return <span className="ago-mono">{row.customerId.slice(0, 8)}</span>;
+  return renderPersonName(personId, names, strings);
 }
 
 /**
@@ -114,16 +106,17 @@ export function renderQueueCustomerName(
  * booking or slot: two rows for the same customer reveal, and stay revealed, together.
  */
 export interface RevealControl {
-  revealingCustomerId: string | null;
-  onReveal: (customerId: string) => void;
+  revealingPersonId: string | null;
+  onReveal: (personId: string) => void;
 }
 
 /**
  * `20-12`'s own rule, restated for a screen that - unlike the pending queue - has rows with no
- * customer at all: `phone === null` is ambiguous by itself (no customer, or a customer this operator
- * may not see), and `customerId` is what tells the two apart. Rendering "hidden" for a genuinely free
- * slot would be a lie; rendering a blank dash for a withheld one would be indistinguishable from "no
- * phone recorded", which cannot happen (`Ago.Calendar.Domain.Customer.Phone` is never nullable).
+ * person at all: `phone === null` is ambiguous by itself (no person holds the slot, or one does and
+ * this operator may not see the phone), and `personId` is what tells the two apart. Rendering "hidden"
+ * for a genuinely free slot would be a lie; rendering a blank dash for a withheld one would be
+ * indistinguishable from "no phone recorded", which cannot happen (the calendar's operational phone
+ * record is never nullable).
  *
  * `23-30`/`23-12`: a third, orthogonal state layered on top of those two - `masked`, never inferred
  * from the string's own shape. A row with a non-null, masked phone gets a Reveal button beside the
@@ -132,11 +125,11 @@ export interface RevealControl {
  * discipline `ContactDetailsPanel.handleReveal` already established for chat's own contact details.
  */
 export function renderPhone(
-  slot: { customerId: string | null; phone: string | null; masked: boolean },
+  slot: { personId: string | null; phone: string | null; masked: boolean },
   strings: ConsoleStrings,
   reveal: RevealControl,
 ) {
-  if (slot.customerId === null) {
+  if (slot.personId === null) {
     return <span className="ago-meta">—</span>;
   }
 
@@ -152,13 +145,13 @@ export function renderPhone(
     return slot.phone;
   }
 
-  const customerId = slot.customerId;
-  const revealing = reveal.revealingCustomerId === customerId;
+  const personId = slot.personId;
+  const revealing = reveal.revealingPersonId === personId;
 
   return (
     <span className="ago-row">
       <span>{slot.phone}</span>
-      <Button size="sm" variant="secondary" disabled={revealing} onClick={() => reveal.onReveal(customerId)}>
+      <Button size="sm" variant="secondary" disabled={revealing} onClick={() => reveal.onReveal(personId)}>
         {revealing ? strings.calendarRevealingPhoneButton : strings.calendarRevealPhoneButton}
       </Button>
     </span>

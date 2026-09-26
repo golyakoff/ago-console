@@ -4,7 +4,8 @@ import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
 import { getConfirmedBookings, revealCustomerPhone, type ConfirmedBooking } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
-import { renderPhone, weekdayNames, type RevealControl } from "../calendar/calendarFormat.js";
+import { renderPersonName, renderPhone, weekdayNames, type RevealControl } from "../calendar/calendarFormat.js";
+import { usePersonNames } from "../calendar/usePersonNames.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
@@ -129,9 +130,14 @@ export function CalendarBookingsPage() {
   const [rows, setRows] = useState<ConfirmedBooking[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState(defaultRange);
-  // `23-91`: which customer's own Reveal is in flight, if any - the identical state
+  // `23-91`: which person's own Reveal is in flight, if any - the identical state
   // `CalendarContactsPage`/`CalendarQueuePage`/`CalendarWorkerSlotsPage` already keep.
-  const [revealingCustomerId, setRevealingCustomerId] = useState<string | null>(null);
+  const [revealingPersonId, setRevealingPersonId] = useState<string | null>(null);
+  // `26-161`/`adr/0184`: the display-merge - person names for every booking on the loaded set, read
+  // in one batch from chat's Person registry and degrading to "name not shown yet" if unreachable
+  // (`usePersonNames.ts`). Derived from the flat `rows`, so a customer appearing under two day/worker
+  // groups (two bookings) resolves from the one batch.
+  const personNames = usePersonNames(user?.access_token, (rows ?? []).map((row) => row.personId));
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
@@ -209,25 +215,25 @@ export function CalendarBookingsPage() {
   // `CalendarWorkerSlotsPage.handleReveal`/`CalendarContactsPage.handleReveal` already use. The real
   // number is never computed here: `renderPhone` only draws a Reveal button, and this function only
   // runs once the operator clicks it and the server has answered.
-  const handleReveal = async (customerId: string) => {
+  const handleReveal = async (personId: string) => {
     const accessToken = user?.access_token;
     if (!accessToken) {
       return;
     }
 
-    setRevealingCustomerId(customerId);
+    setRevealingPersonId(personId);
     setError(null);
     try {
-      const { phone } = await revealCustomerPhone(accessToken, customerId, "ConsoleBookings");
-      setRows((prev) => prev?.map((row) => (row.customerId === customerId ? { ...row, phone, masked: false } : row)) ?? prev);
+      const { phone } = await revealCustomerPhone(accessToken, personId, "ConsoleBookings");
+      setRows((prev) => prev?.map((row) => (row.personId === personId ? { ...row, phone, masked: false } : row)) ?? prev);
     } catch (reason) {
       setError(calendarErrorMessage(reason, strings));
     } finally {
-      setRevealingCustomerId(null);
+      setRevealingPersonId(null);
     }
   };
 
-  const reveal: RevealControl = { revealingCustomerId, onReveal: (id) => void handleReveal(id) };
+  const reveal: RevealControl = { revealingPersonId, onReveal: (id) => void handleReveal(id) };
 
   const columns: TableColumn<ConfirmedBooking>[] = [
     {
@@ -253,7 +259,7 @@ export function CalendarBookingsPage() {
     {
       key: "customer",
       header: strings.calendarBookingsColumnCustomer,
-      render: (row) => row.customerDisplayName ?? <span className="ago-meta">{strings.calendarNotRecordedLabel}</span>,
+      render: (row) => renderPersonName(row.personId, personNames, strings),
     },
     { key: "phone", header: strings.calendarBookingsColumnPhone, render: (row) => renderPhone(row, strings, reveal) },
   ];

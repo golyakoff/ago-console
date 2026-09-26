@@ -20,7 +20,7 @@ describe("buildTenantNavSections - calendar section order", () => {
   }
 
   it("full-access (calendar:configure): leads with the operational screens, then the setup " +
-    "dictionaries in fill order, Настройка after them, the merge audit trail last", () => {
+    "dictionaries in fill order, Настройка last (the merge audit trail is retired - 26-161/adr-0184)", () => {
     const routes = calendarRoutes((permission) => permission === "calendar:configure" || permission === "site:configure");
 
     expect(routes).toEqual([
@@ -31,7 +31,6 @@ describe("buildTenantNavSections - calendar section order", () => {
       "/calendar/services",
       "/calendar/schedule",
       "/calendar/setup",
-      "/calendar/customer-merges",
     ]);
   });
 

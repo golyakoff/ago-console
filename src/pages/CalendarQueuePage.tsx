@@ -13,7 +13,8 @@ import {
 } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
-import { renderPhone, renderQueueCustomerName, type RevealControl } from "../calendar/calendarFormat.js";
+import { renderPersonName, renderPhone, type RevealControl } from "../calendar/calendarFormat.js";
+import { usePersonNames } from "../calendar/usePersonNames.js";
 import { hasAnyBookingActionPermission } from "../calendar/calendarPermissions.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
@@ -64,10 +65,15 @@ export function CalendarQueuePage() {
   const [rows, setRows] = useState<PendingBooking[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  // `23-30`: which customer's own Reveal is in flight, if any - `CalendarWorkerSlotsPage`'s own
+  // `23-30`: which person's own Reveal is in flight, if any - `CalendarWorkerSlotsPage`'s own
   // identical state.
-  const [revealingCustomerId, setRevealingCustomerId] = useState<string | null>(null);
+  const [revealingPersonId, setRevealingPersonId] = useState<string | null>(null);
   const canViewQueue = hasPermission("calendar:configure") || hasAnyBookingActionPermission(hasPermission);
+  // `26-161`/`adr/0184`: the display-merge - one batch read of chat's Person registry for every person
+  // id on the loaded queue, degrading to "name not shown yet" if chat is unreachable
+  // (`usePersonNames.ts`'s own doc comment). Empty until `rows` arrives, so no call goes out before the
+  // queue does.
+  const personNames = usePersonNames(user?.access_token, (rows ?? []).map((row) => row.personId));
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
@@ -185,28 +191,28 @@ export function CalendarQueuePage() {
     }
   };
 
-  // `23-30`: replaces every row for this customer with the server's own unmasked phone - `PendingBooking`
-  // rows are always keyed by a real, non-null `customerId` (a booking always has a customer), so this
-  // is the same "match by customerId" replacement `CalendarWorkerSlotsPage.handleReveal` uses.
-  const handleReveal = async (customerId: string) => {
+  // `23-30`: replaces every row for this person with the server's own unmasked phone - `PendingBooking`
+  // rows are always keyed by a real, non-null `personId` (a booking always references a person), so this
+  // is the same "match by personId" replacement `CalendarWorkerSlotsPage.handleReveal` uses.
+  const handleReveal = async (personId: string) => {
     const accessToken = user?.access_token;
     if (!accessToken) {
       return;
     }
 
-    setRevealingCustomerId(customerId);
+    setRevealingPersonId(personId);
     setError(null);
     try {
-      const { phone } = await revealCustomerPhone(accessToken, customerId, "ConsoleQueue");
-      setRows((prev) => prev?.map((row) => (row.customerId === customerId ? { ...row, phone, masked: false } : row)) ?? prev);
+      const { phone } = await revealCustomerPhone(accessToken, personId, "ConsoleQueue");
+      setRows((prev) => prev?.map((row) => (row.personId === personId ? { ...row, phone, masked: false } : row)) ?? prev);
     } catch (reason) {
       setError(calendarErrorMessage(reason, strings));
     } finally {
-      setRevealingCustomerId(null);
+      setRevealingPersonId(null);
     }
   };
 
-  const reveal: RevealControl = { revealingCustomerId, onReveal: (id) => void handleReveal(id) };
+  const reveal: RevealControl = { revealingPersonId, onReveal: (id) => void handleReveal(id) };
 
   const columns: TableColumn<PendingBooking>[] = [
     {
@@ -252,7 +258,7 @@ export function CalendarQueuePage() {
     {
       key: "customer",
       header: strings.calendarQueueColumnCustomer,
-      render: (row) => renderQueueCustomerName(row, strings),
+      render: (row) => renderPersonName(row.personId, personNames, strings),
     },
     {
       key: "phone",

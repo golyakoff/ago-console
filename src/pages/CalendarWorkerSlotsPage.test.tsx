@@ -7,6 +7,7 @@ import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { CalendarWorkerSlotsPage } from "./CalendarWorkerSlotsPage.js";
 import { all, byText, interact, render, unmount } from "../testing/dom.js";
 import type { TenantConfiguration, WorkerSlot } from "../api/calendarApi.js";
+import type { PersonProfile } from "../api/personsApi.js";
 
 /**
  * `22-06`: `/calendar/workers/:workerId/slots` - moved from `ago-calendar-console`'s own
@@ -30,6 +31,7 @@ const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
 const calendarApi = vi.hoisted(() => ({ getConfiguration: vi.fn(), getWorkerSlots: vi.fn(), revealCustomerPhone: vi.fn() }));
+const personsApi = vi.hoisted(() => ({ getPersons: vi.fn() }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
 vi.mock("../api/ownerApi.js", () => ownerApi);
@@ -38,6 +40,12 @@ vi.mock("../api/calendarApi.js", async () => {
   const actual = await vi.importActual<typeof import("../api/calendarApi.js")>("../api/calendarApi.js");
   return { ...actual, ...calendarApi };
 });
+vi.mock("../api/personsApi.js", () => personsApi);
+
+/** `26-161`: a Person-registry profile the display-merge reads a name through, keyed on `personId`. */
+function person(personId: string, displayName: string | null): PersonProfile {
+  return { personId, displayName, channels: [], firstSeenAt: "2026-05-01T09:00:00Z", lastSeenAt: "2026-05-12T09:00:00Z" };
+}
 
 const SITE_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 
@@ -102,8 +110,7 @@ function slot(overrides: Partial<WorkerSlot> = {}): WorkerSlot {
     status: "Available",
     serviceId: null,
     serviceName: null,
-    customerId: null,
-    customerDisplayName: null,
+    personId: null,
     phone: null,
     masked: false,
     bookingId: null,
@@ -118,6 +125,8 @@ beforeEach(() => {
   ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
   calendarApi.getConfiguration.mockResolvedValue(configuration);
   calendarApi.getWorkerSlots.mockResolvedValue([]);
+  // `26-161`: the person name is chat's now - "Dana" for the one seeded person the slot fixtures hold.
+  personsApi.getPersons.mockResolvedValue([person("c1", "Dana")]);
 });
 
 afterEach(async () => {
@@ -143,7 +152,7 @@ describe("the materialised slot view", () => {
   });
 
   it("shows a plain dash, never 'hidden', for a slot nobody holds", async () => {
-    calendarApi.getWorkerSlots.mockResolvedValue([slot({ status: "Available", customerId: null, customerDisplayName: null, phone: null })]);
+    calendarApi.getWorkerSlots.mockResolvedValue([slot({ status: "Available", personId: null, phone: null })]);
 
     const container = await render(page());
 
@@ -152,28 +161,33 @@ describe("the materialised slot view", () => {
     expect(container.textContent).toContain("—");
   });
 
-  it("shows the customer's name and phone when the server includes them", async () => {
-    calendarApi.getWorkerSlots.mockResolvedValue([slot({ status: "Booked", customerId: "c1", customerDisplayName: "Dana", phone: "+79990000001" })]);
+  it("shows the person's name (from chat's registry) and phone when the server includes them", async () => {
+    calendarApi.getWorkerSlots.mockResolvedValue([slot({ status: "Booked", personId: "c1", phone: "+79990000001" })]);
 
     const container = await render(page());
 
+    // The name is read from chat by person id, not carried on the slot; the phone is the calendar's own.
+    expect(personsApi.getPersons).toHaveBeenCalledWith("token", ["c1"], expect.anything());
     expect(container.textContent).toContain("Dana");
     expect(container.textContent).toContain("+79990000001");
   });
 
-  it("shows 'hidden', not a blank cell, for an occupied slot the operator may not see the contact of", async () => {
-    calendarApi.getWorkerSlots.mockResolvedValue([slot({ status: "Booked", customerId: "c1", customerDisplayName: null, phone: null })]);
+  it("hides only the phone (not the name) for an occupied slot the operator may not see the contact of (26-161)", async () => {
+    calendarApi.getWorkerSlots.mockResolvedValue([slot({ status: "Booked", personId: "c1", phone: null })]);
 
     const container = await render(page());
 
+    // The name column is no longer gated by calendar `customer:read` - it comes from chat, so only the
+    // phone reads "hidden" now (once), and the name still shows.
     const hiddenCount = (container.textContent?.match(/hidden/g) ?? []).length;
-    expect(hiddenCount).toBe(2);
+    expect(hiddenCount).toBe(1);
+    expect(container.textContent).toContain("Dana");
   });
 
   it("shows service name where one was chosen, and a dash on a blocked row", async () => {
     calendarApi.getWorkerSlots.mockResolvedValue([
-      slot({ status: "Booked", serviceId: "s1", serviceName: "Haircut" }),
-      slot({ eventId: "e2", status: "Blocked", serviceId: null, serviceName: null, customerId: null, customerDisplayName: null, phone: null }),
+      slot({ status: "Booked", serviceId: "s1", serviceName: "Haircut", personId: "c1" }),
+      slot({ eventId: "e2", status: "Blocked", serviceId: null, serviceName: null, personId: null, phone: null }),
     ]);
 
     const container = await render(page());
@@ -199,7 +213,7 @@ describe("the materialised slot view", () => {
 describe("revealing a masked phone (23-30)", () => {
   it("shows the masked value and a Reveal button, never the real number, before reveal", async () => {
     calendarApi.getWorkerSlots.mockResolvedValue([
-      slot({ status: "Booked", customerId: "c1", customerDisplayName: "Dana", phone: "+7999•••0001", masked: true }),
+      slot({ status: "Booked", personId: "c1", phone: "+7999•••0001", masked: true }),
     ]);
 
     const container = await render(page());
@@ -209,10 +223,10 @@ describe("revealing a masked phone (23-30)", () => {
     expect(byText(container, "button", "Reveal")).not.toBeNull();
   });
 
-  it("replaces every row for that customer with the server's own unmasked response on Reveal", async () => {
+  it("replaces every row for that person with the server's own unmasked response on Reveal", async () => {
     calendarApi.getWorkerSlots.mockResolvedValue([
-      slot({ eventId: "e1", status: "Booked", customerId: "c1", customerDisplayName: "Dana", phone: "+7999•••0001", masked: true }),
-      slot({ eventId: "e2", localDate: "2026-05-13", status: "Booked", customerId: "c1", customerDisplayName: "Dana", phone: "+7999•••0001", masked: true }),
+      slot({ eventId: "e1", status: "Booked", personId: "c1", phone: "+7999•••0001", masked: true }),
+      slot({ eventId: "e2", localDate: "2026-05-13", status: "Booked", personId: "c1", phone: "+7999•••0001", masked: true }),
     ]);
     calendarApi.revealCustomerPhone.mockResolvedValue({ phone: "+79990000001" });
 
