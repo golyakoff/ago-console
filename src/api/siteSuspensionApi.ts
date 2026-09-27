@@ -1,5 +1,6 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
+import { assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `25-70`: the tenant's own read of its own account's suspension state -
@@ -24,6 +25,22 @@ function url(siteId: string): string {
 }
 
 /**
+ * `23-118`/`23-99`: the runtime shape the suspension read promises. All three fields are
+ * present-but-nullable (none is `?`), so all three are required keys. `isSuspended` is the
+ * load-bearing one: dropped, it reads as `false` and the shell banner treats a suspended account as
+ * not-suspended - the false-negative the `23-99` bound names for a status object whose absent boolean
+ * silently reads as "not-X". Thrown as a plain `ShapeMismatchError` for the same reason
+ * `downloadUsageApi.ts` gives: `useSiteSuspensionStatus` swallows every rejection into a `console.warn`
+ * and never renders `err.message`, so there is no localized-surfacing path a `shape.mismatch` code
+ * would feed.
+ */
+const siteSuspensionRequiredKeys = requiredKeysOf<SiteSuspensionStatusDto>({
+  isSuspended: true,
+  since: true,
+  until: true,
+});
+
+/**
  * `null` on any failure (a non-2xx response, or a network error) - deliberately, not a thrown error.
  * This banner is a courtesy notice, not a gate (the read-only scope `docs/backlog/25-70-*.md` states):
  * an operator who cannot reach this endpoint for any reason should see the console they already see
@@ -41,5 +58,7 @@ export async function fetchSiteSuspensionStatus(accessToken: string, siteId: str
     throw new Error(`Failed to load this site's suspension state: ${response.status}`);
   }
 
-  return (await response.json()) as SiteSuspensionStatusDto;
+  const body: unknown = await response.json();
+  assertHasKeys<SiteSuspensionStatusDto>(body, siteSuspensionRequiredKeys, "GET /api/v1/sites/{siteId}/suspension");
+  return body;
 }

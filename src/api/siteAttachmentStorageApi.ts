@@ -1,5 +1,6 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
+import { ShapeMismatchError, assertArrayHasKeys, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `23-80`/`23-82`: the console's own read/write surface for `SiteAttachmentStorageEndpoints`
@@ -95,6 +96,65 @@ async function buildError(response: Response, fallbackDetail: string): Promise<S
   return new SiteAttachmentStorageError(code, detail);
 }
 
+/**
+ * `23-118`/`23-99`: the runtime shapes the four reads on this screen promise. All are in scope under
+ * the bound - three list/page readers plus two small stat objects whose absent field renders as a
+ * blank byte figure rather than a thrown error:
+ * - `attachmentListItemRequiredKeys`: one row of the attachments table, every element checked.
+ * - `attachmentListPageRequiredKeys`: the page envelope (`items`/`nextCursor`) - a dropped `items`
+ *   reads as an empty table for a tenant that actually holds attachments.
+ * - `largestConversationRequiredKeys`: one row of the largest-conversations list.
+ * - `storageSummaryRequiredKeys`/`attachmentEgressRequiredKeys`: the quota bar and the month's egress
+ *   figures - a dropped `usedBytes`/`totalBytes`/`bytesOut` renders as a blank or `NaN` figure.
+ */
+const attachmentListItemRequiredKeys = requiredKeysOf<AttachmentListItemDto>({
+  id: true,
+  conversationId: true,
+  contentType: true,
+  sizeBytes: true,
+  createdAt: true,
+  downloadCount: true,
+  lastDownloadedAt: true,
+  senderKind: true,
+  senderId: true,
+  isDuplicate: true,
+});
+
+const attachmentListPageRequiredKeys = requiredKeysOf<AttachmentListPageDto>({
+  items: true,
+  nextCursor: true,
+});
+
+const largestConversationRequiredKeys = requiredKeysOf<LargestConversationDto>({
+  conversationId: true,
+  totalBytes: true,
+  attachmentCount: true,
+});
+
+const storageSummaryRequiredKeys = requiredKeysOf<AttachmentStorageSummaryDto>({
+  usedBytes: true,
+  totalBytes: true,
+});
+
+const attachmentEgressRequiredKeys = requiredKeysOf<AttachmentEgressDto>({
+  periodMonth: true,
+  downloadCount: true,
+  bytesOut: true,
+});
+
+/**
+ * `23-118`: rethrows a `shape.mismatch` as `SiteAttachmentStorageError` - the same type this file's
+ * own reads already throw and `StoragePage`'s `catch` already renders, so no second error vocabulary
+ * is needed (mirrors `maxChannelApi.ts#rethrowAsApiProblem`). The `shape.mismatch` code is what
+ * `apiErrorMessage.ts#shapeMismatchMessage` duck-types on to localize the surfacing.
+ */
+function rethrowAsStorageError(reason: unknown): never {
+  if (reason instanceof ShapeMismatchError) {
+    throw new SiteAttachmentStorageError("shape.mismatch", reason.diagnostic);
+  }
+  throw reason;
+}
+
 export async function fetchSiteAttachments(
   accessToken: string,
   siteId: string,
@@ -114,7 +174,18 @@ export async function fetchSiteAttachments(
     throw await buildError(response, "Failed to load this site's attachments");
   }
 
-  return (await response.json()) as AttachmentListPageDto;
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<AttachmentListPageDto>(body, attachmentListPageRequiredKeys, "GET /api/v1/sites/{siteId}/attachments");
+    assertArrayHasKeys<AttachmentListItemDto>(
+      body.items,
+      attachmentListItemRequiredKeys,
+      "GET /api/v1/sites/{siteId}/attachments (items)",
+    );
+  } catch (reason) {
+    rethrowAsStorageError(reason);
+  }
+  return body;
 }
 
 export async function fetchLargestConversations(accessToken: string, siteId: string): Promise<LargestConversationDto[]> {
@@ -126,7 +197,17 @@ export async function fetchLargestConversations(accessToken: string, siteId: str
     throw await buildError(response, "Failed to load the largest conversations");
   }
 
-  return (await response.json()) as LargestConversationDto[];
+  const body: unknown = await response.json();
+  try {
+    assertArrayHasKeys<LargestConversationDto>(
+      body,
+      largestConversationRequiredKeys,
+      "GET /api/v1/sites/{siteId}/attachments/largest-conversations",
+    );
+  } catch (reason) {
+    rethrowAsStorageError(reason);
+  }
+  return body;
 }
 
 export async function fetchStorageSummary(accessToken: string, siteId: string): Promise<AttachmentStorageSummaryDto> {
@@ -138,7 +219,17 @@ export async function fetchStorageSummary(accessToken: string, siteId: string): 
     throw await buildError(response, "Failed to load the storage summary");
   }
 
-  return (await response.json()) as AttachmentStorageSummaryDto;
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<AttachmentStorageSummaryDto>(
+      body,
+      storageSummaryRequiredKeys,
+      "GET /api/v1/sites/{siteId}/attachments/storage-summary",
+    );
+  } catch (reason) {
+    rethrowAsStorageError(reason);
+  }
+  return body;
 }
 
 export async function fetchAttachmentEgress(accessToken: string, siteId: string): Promise<AttachmentEgressDto> {
@@ -150,7 +241,13 @@ export async function fetchAttachmentEgress(accessToken: string, siteId: string)
     throw await buildError(response, "Failed to load this month's download figures");
   }
 
-  return (await response.json()) as AttachmentEgressDto;
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<AttachmentEgressDto>(body, attachmentEgressRequiredKeys, "GET /api/v1/sites/{siteId}/attachments/egress");
+  } catch (reason) {
+    rethrowAsStorageError(reason);
+  }
+  return body;
 }
 
 export async function bulkDeleteAttachments(

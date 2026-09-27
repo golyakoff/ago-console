@@ -1,5 +1,6 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
+import { assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `25-83`: the tenant's own read of its own account's download usage -
@@ -47,6 +48,31 @@ function url(siteId: string): string {
 }
 
 /**
+ * `23-118`/`23-99`: the runtime shape the usage read promises. Every field is present-but-nullable
+ * (none is `?`), so all twelve are required keys. `isSoftCrossed`/`isHardCrossed`/`isAtAutoBillCap`/
+ * `isExempt` are the load-bearing ones: dropped, they read as `false` and the shell banner shows
+ * "under the threshold" for an account that is actually blocked - the false-negative the `23-99` bound
+ * names for a status object whose absent boolean silently reads as "not-X". A rejected shape becomes a
+ * thrown `ShapeMismatchError`; the shell hook (`useDownloadUsageStatus`) already degrades any thrown
+ * error to an absent banner and `console.warn`s it, so this guard turns a mis-shaped body from a wrong
+ * banner into no banner plus a logged contract breach, rather than a rendered false state.
+ */
+const downloadUsageRequiredKeys = requiredKeysOf<DownloadUsageStatusDto>({
+  bytesOut: true,
+  softThresholdBytes: true,
+  hardThresholdBytes: true,
+  isSoftCrossed: true,
+  isHardCrossed: true,
+  isExempt: true,
+  billingMode: true,
+  outstandingOverageBytes: true,
+  outstandingOverageRub: true,
+  overageSettledRub: true,
+  autoBillCapRub: true,
+  isAtAutoBillCap: true,
+});
+
+/**
  * `null` on any failure (a non-2xx response, or a network error) - deliberately, not a thrown error,
  * the identical "a courtesy notice, not a gate" posture `fetchSiteSuspensionStatus`'s own remarks
  * take for the identical situation: an operator who cannot reach this endpoint for any reason should
@@ -61,7 +87,13 @@ export async function fetchDownloadUsageStatus(accessToken: string, siteId: stri
     throw new Error(`Failed to load this site's download usage: ${response.status}`);
   }
 
-  return (await response.json()) as DownloadUsageStatusDto;
+  const body: unknown = await response.json();
+  // `ShapeMismatchError` is thrown as-is, not remapped to a `shape.mismatch`-coded error: this is a
+  // courtesy read whose caller (`useDownloadUsageStatus`) swallows every rejection into a
+  // `console.warn` and never renders `err.message`, so there is no localized-surfacing path to feed a
+  // code to - the shared error's endpoint+field diagnostic is what lands in the warning.
+  assertHasKeys<DownloadUsageStatusDto>(body, downloadUsageRequiredKeys, "GET /api/v1/sites/{siteId}/download-usage");
+  return body;
 }
 
 /**

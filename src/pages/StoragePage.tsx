@@ -28,6 +28,7 @@ import { Dialog } from "../components/Dialog.js";
 import { Table, type TableColumn } from "../components/Table.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
+import { shapeMismatchMessage } from "./apiErrorMessage.js";
 import { formatAbsolute, resolveTimeZone } from "../time/format.js";
 import { Link } from "react-router-dom";
 
@@ -99,7 +100,9 @@ export function StoragePage() {
           setStatus("ready");
         })
         .catch((err: unknown) => {
-          setErrorMessage(err instanceof SiteAttachmentStorageError ? err.message : strings.storagePageLoadError);
+          setErrorMessage(
+            shapeMismatchMessage(err, strings) ?? (err instanceof SiteAttachmentStorageError ? err.message : strings.storagePageLoadError),
+          );
           setStatus("error");
         });
     },
@@ -130,7 +133,9 @@ export function StoragePage() {
         setItems((prev) => [...prev, ...page.items]);
         setNextCursor(page.nextCursor);
       })
-      .catch((err: unknown) => setErrorMessage(err instanceof SiteAttachmentStorageError ? err.message : strings.storagePageLoadError))
+      .catch((err: unknown) =>
+        setErrorMessage(shapeMismatchMessage(err, strings) ?? (err instanceof SiteAttachmentStorageError ? err.message : strings.storagePageLoadError)),
+      )
       .finally(() => setLoadingMore(false));
   }, [user?.access_token, siteId, sort, filter, nextCursor, strings]);
 
@@ -165,7 +170,9 @@ export function StoragePage() {
         );
         return fetchStorageSummary(accessToken, siteId).then(setSummary);
       })
-      .catch((err: unknown) => setErrorMessage(err instanceof SiteAttachmentStorageError ? err.message : strings.storagePageLoadError))
+      .catch((err: unknown) =>
+        setErrorMessage(shapeMismatchMessage(err, strings) ?? (err instanceof SiteAttachmentStorageError ? err.message : strings.storagePageLoadError)),
+      )
       .finally(() => setDeleting(false));
   };
 

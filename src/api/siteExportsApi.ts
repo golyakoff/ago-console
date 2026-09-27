@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
-import { problemDetailsFrom } from "./problemDetails.js";
+import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
+import { ShapeMismatchError, assertArrayHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `16-03`'s own console screen: the two calls behind "Скачать данные" -
@@ -48,6 +49,35 @@ export interface SiteExportHistoryItemDto {
 /** `GET /api/v1/sites/{siteId}/exports` - every export request this site has ever made, newest first.
  * A bare array (`GetSiteExportHistoryHandler`'s own "small and bounded, no pagination" reasoning),
  * the same shape `getPhoneReveals`' sibling calls return a page of, only without a cursor here. */
+/**
+ * `23-118`/`23-99`: the runtime shape each history row promises. Every field is present-but-nullable
+ * (none is `?`), so all seven are required keys. This is a list reader the `23-99` bound names in scope
+ * directly: a dropped element field (a missing `status`, say) makes a real past export render as a
+ * blank/half-drawn row, indistinguishable from a genuinely empty history - checked on every element,
+ * not just the first, so one truncated row mid-page does not read as "the rest loaded fine".
+ */
+const siteExportHistoryItemRequiredKeys = requiredKeysOf<SiteExportHistoryItemDto>({
+  exportId: true,
+  status: true,
+  requestedAt: true,
+  completedAt: true,
+  downloadUrl: true,
+  expiresAt: true,
+  failureReason: true,
+});
+
+/**
+ * `23-118`: rethrows a `shape.mismatch` as `ApiProblemError` - the same type `getSiteExportHistory`
+ * already produces (`problemDetailsFrom`), so `SiteExportPage`'s existing `catch` needs no second
+ * error vocabulary (mirrors `maxChannelApi.ts#rethrowAsApiProblem`).
+ */
+function rethrowAsApiProblem(reason: unknown, status: number): never {
+  if (reason instanceof ShapeMismatchError) {
+    throw new ApiProblemError("shape.mismatch", reason.diagnostic, status);
+  }
+  throw reason;
+}
+
 export async function getSiteExportHistory(accessToken: string, siteId: string): Promise<SiteExportHistoryItemDto[]> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/sites/${siteId}/exports`, {
     headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
@@ -57,7 +87,13 @@ export async function getSiteExportHistory(accessToken: string, siteId: string):
     throw await problemDetailsFrom(response);
   }
 
-  return (await response.json()) as SiteExportHistoryItemDto[];
+  const body: unknown = await response.json();
+  try {
+    assertArrayHasKeys<SiteExportHistoryItemDto>(body, siteExportHistoryItemRequiredKeys, "GET /api/v1/sites/{siteId}/exports");
+  } catch (reason) {
+    rethrowAsApiProblem(reason, response.status);
+  }
+  return body;
 }
 
 export interface RequestSiteExportResponseDto {

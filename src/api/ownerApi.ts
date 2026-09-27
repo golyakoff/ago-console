@@ -1,5 +1,100 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
+import { ApiProblemError } from "./problemDetails.js";
+import { ShapeMismatchError, assertArrayHasKeys, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
+
+/**
+ * `23-118`/`23-99`: rethrows a `shape.mismatch` on an owner read's `"ok"` body as `ApiProblemError`.
+ * The owner readers otherwise return outcome unions and throw a plain `Error` only on an unexpected
+ * non-`ok` status; a mis-shaped success body is that same "the server answered, but not with what was
+ * promised" case, so it throws too, caught by each owner page's existing load `catch`. `ApiProblemError`
+ * (rather than a bespoke owner error type) carries the `shape.mismatch` code
+ * `apiErrorMessage.ts#shapeMismatchMessage` duck-types on to localize the surfacing - the same
+ * vocabulary `billingApi.ts`/`maxChannelApi.ts` already rethrow into.
+ */
+function rethrowOwnerShapeMismatch(reason: unknown, status: number): never {
+  if (reason instanceof ShapeMismatchError) {
+    throw new ApiProblemError("shape.mismatch", reason.diagnostic, status);
+  }
+  throw reason;
+}
+
+// `23-118`: the runtime shapes the owner reads promise. Every field on each DTO below is
+// present-but-nullable (none is `?`), so `requiredKeysOf` demands them all. List readers additionally
+// check each element (`assertArrayHasKeys`), the `23-99` bound's own rule for a page of rows.
+const ownerSiteSummaryRequiredKeys = requiredKeysOf<OwnerSiteSummary>({
+  siteId: true,
+  name: true,
+  tier: true,
+  createdAt: true,
+  seatCount: true,
+  conversationCount: true,
+  recentMessageCount: true,
+  lastMessageAt: true,
+  attachmentBytes: true,
+});
+
+const ownerSitesPageRequiredKeys = requiredKeysOf<OwnerSitesPage>({
+  sites: true,
+  nextBefore: true,
+  recentWindowDays: true,
+  matchingSites: true,
+  totalSites: true,
+});
+
+const ownerSiteDetailRequiredKeys = requiredKeysOf<OwnerSiteDetail>({
+  siteId: true,
+  name: true,
+  tier: true,
+  createdAt: true,
+  seatCount: true,
+  conversationCount: true,
+  recentMessageCount: true,
+  lastMessageAt: true,
+  attachmentBytes: true,
+  recentWindowDays: true,
+  modules: true,
+  allowedOrigins: true,
+  operators: true,
+  suspendedUntil: true,
+  roles: true,
+  allKnownPermissions: true,
+  channelEntitlements: true,
+});
+
+const ownerPricingRequiredKeys = requiredKeysOf<OwnerPricing>({
+  seatPricing: true,
+  billingOptions: true,
+  pricedResources: true,
+});
+
+const ownerSuspensionRequiredKeys = requiredKeysOf<OwnerSuspension>({
+  siteId: true,
+  siteName: true,
+  suspendedUntil: true,
+  lastActionBy: true,
+  lastActionReason: true,
+  lastActionAt: true,
+});
+
+const ownerTenantIsolationSummaryRequiredKeys = requiredKeysOf<OwnerTenantIsolationSummary>({
+  entryPoints: true,
+  handlerClasses: true,
+  rbacGated: true,
+  exemptListed: true,
+  unaccountedKeys: true,
+  exemptButAlsoLooksGated: true,
+  routesAndHubMethods: true,
+  clientSuppliedSiteIdRoutes: true,
+  generatedAtUtc: true,
+});
+
+const ownerSeatSummaryRequiredKeys = requiredKeysOf<OwnerSeatSummary>({
+  operatorsHeld: true,
+  operatorsLimit: true,
+  administratorsHeld: true,
+  administratorsLimit: true,
+});
 
 /**
  * `12-02`'s wire shape, mirrored field for field from `Ago.Chat.Contracts.OwnerSiteSummaryDto`.
@@ -105,7 +200,14 @@ export async function fetchOwnerSites(
     throw new Error(`Failed to load platform sites: ${response.status}`);
   }
 
-  return { status: "ok", page: (await response.json()) as OwnerSitesPage };
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<OwnerSitesPage>(body, ownerSitesPageRequiredKeys, "GET /api/v1/owner/sites");
+    assertArrayHasKeys<OwnerSiteSummary>(body.sites, ownerSiteSummaryRequiredKeys, "GET /api/v1/owner/sites (sites)");
+  } catch (reason) {
+    rethrowOwnerShapeMismatch(reason, response.status);
+  }
+  return { status: "ok", page: body };
 }
 
 /**
@@ -316,7 +418,17 @@ export async function fetchOwnerSiteDetail(accessToken: string, siteId: string):
     throw new Error(`Failed to load site detail: ${response.status}`);
   }
 
-  return { status: "ok", site: (await response.json()) as OwnerSiteDetail };
+  const body: unknown = await response.json();
+  try {
+    // Top-level presence only: a dropped `modules`/`operators`/`roles`/`channelEntitlements`/
+    // `allowedOrigins`/`allKnownPermissions` list is the false-empty case the bound names (the row
+    // reads as "this tenant has none"). Element-level checks on each of the six nested arrays are
+    // deliberately not added here - presence of the array itself is what the guard is for.
+    assertHasKeys<OwnerSiteDetail>(body, ownerSiteDetailRequiredKeys, "GET /api/v1/owner/sites/{siteId}");
+  } catch (reason) {
+    rethrowOwnerShapeMismatch(reason, response.status);
+  }
+  return { status: "ok", site: body };
 }
 
 /**
@@ -892,7 +1004,15 @@ export async function fetchOwnerPricing(accessToken: string): Promise<OwnerPrici
     throw new Error(`Failed to load the platform price list: ${response.status}`);
   }
 
-  return { status: "ok", pricing: (await response.json()) as OwnerPricing };
+  const body: unknown = await response.json();
+  try {
+    // Top-level presence: a dropped `billingOptions`/`pricedResources` reads as an empty priced list
+    // and a dropped `seatPricing` blanks the whole grid.
+    assertHasKeys<OwnerPricing>(body, ownerPricingRequiredKeys, "GET /api/v1/owner/pricing");
+  } catch (reason) {
+    rethrowOwnerShapeMismatch(reason, response.status);
+  }
+  return { status: "ok", pricing: body };
 }
 
 /**
@@ -1172,8 +1292,17 @@ export async function fetchOwnerSuspensions(accessToken: string): Promise<OwnerS
     throw new Error(`Failed to load suspended accounts: ${response.status}`);
   }
 
-  const body = (await response.json()) as { suspensions: OwnerSuspension[] };
-  return { status: "ok", suspensions: body.suspensions };
+  const body: unknown = await response.json();
+  try {
+    assertArrayHasKeys<OwnerSuspension>(
+      (body as { suspensions?: unknown }).suspensions,
+      ownerSuspensionRequiredKeys,
+      "GET /api/v1/owner/suspensions (suspensions)",
+    );
+  } catch (reason) {
+    rethrowOwnerShapeMismatch(reason, response.status);
+  }
+  return { status: "ok", suspensions: (body as { suspensions: OwnerSuspension[] }).suspensions };
 }
 
 /**
@@ -1362,7 +1491,19 @@ export async function fetchOwnerTenantIsolationSummary(
     throw new Error(`Failed to load the tenant-isolation summary: ${response.status}`);
   }
 
-  return { status: "ok", summary: (await response.json()) as OwnerTenantIsolationSummary };
+  const body: unknown = await response.json();
+  try {
+    // `unaccountedKeys` is the load-bearing field: dropped, it reads as "no unaccounted entry points"
+    // and hides a real finding (this DTO's own remarks name it), the false-negative the bound targets.
+    assertHasKeys<OwnerTenantIsolationSummary>(
+      body,
+      ownerTenantIsolationSummaryRequiredKeys,
+      "GET /api/v1/owner/tenant-isolation",
+    );
+  } catch (reason) {
+    rethrowOwnerShapeMismatch(reason, response.status);
+  }
+  return { status: "ok", summary: body };
 }
 
 /**
@@ -1408,7 +1549,15 @@ export async function fetchOwnerSeatSummary(accessToken: string, siteId: string)
     throw new Error(`Failed to load the seat summary: ${response.status}`);
   }
 
-  return { status: "ok", summary: (await response.json()) as OwnerSeatSummary };
+  const body: unknown = await response.json();
+  try {
+    // Four counts, each rendered directly in a "held / limit" line - a dropped one reads as a blank
+    // or `NaN` figure, the "absent renders blank" case the bound names.
+    assertHasKeys<OwnerSeatSummary>(body, ownerSeatSummaryRequiredKeys, "GET /api/v1/owner/sites/{siteId}/seat-summary");
+  } catch (reason) {
+    rethrowOwnerShapeMismatch(reason, response.status);
+  }
+  return { status: "ok", summary: body };
 }
 
 /** `25-181`: which capacity a grant counts toward - mirrors `Ago.Chat.Domain.OwnerSeatGrantRole`'s own

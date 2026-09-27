@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
 import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
+import { ShapeMismatchError, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `13-04`: the console billing screen's own wire contract - `Ago.Chat.Api.Billing.BillingEndpoints`
@@ -140,8 +141,54 @@ async function billingFetch<T>(accessToken: string, path: string, init?: Request
   return (await response.json()) as T;
 }
 
-export function fetchBillingStatus(accessToken: string, siteId: string): Promise<BillingStatusDto> {
-  return billingFetch<BillingStatusDto>(accessToken, `/api/v1/sites/${siteId}/billing/status`);
+/**
+ * `23-118`/`23-99`: the runtime shape the billing-status read promises. Every field is
+ * present-but-nullable (none is `?`), so all ten are required keys. Dropped, `seatsUsed`/`seatLimit`/
+ * `adminsUsed`/`adminLimit` render as a blank or `NaN` seat count and `tier`/`tierDisplayName` as a
+ * blank tier - the false/blank state the `23-99` bound names for a status object whose absent field
+ * silently renders empty, never a thrown error the screen could tell apart from a real value.
+ */
+const billingStatusRequiredKeys = requiredKeysOf<BillingStatusDto>({
+  tier: true,
+  seatLimit: true,
+  seatsUsed: true,
+  latestSubscription: true,
+  tierDisplayName: true,
+  adminLimit: true,
+  adminsUsed: true,
+  extraAdministratorsPurchased: true,
+  seatPricing: true,
+  adminExtraPriceRub: true,
+});
+
+/**
+ * `23-118`: rethrows a `shape.mismatch` as `ApiProblemError` - the same type `billingFetch` already
+ * produces (`problemDetailsFrom`), so `BillingPage`'s existing `catch` needs no second error
+ * vocabulary (mirrors `maxChannelApi.ts#rethrowAsApiProblem`).
+ */
+function rethrowAsApiProblem(reason: unknown, status: number): never {
+  if (reason instanceof ShapeMismatchError) {
+    throw new ApiProblemError("shape.mismatch", reason.diagnostic, status);
+  }
+  throw reason;
+}
+
+export async function fetchBillingStatus(accessToken: string, siteId: string): Promise<BillingStatusDto> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/sites/${siteId}/billing/status`, {
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (!response.ok) {
+    throw await problemDetailsFrom(response);
+  }
+
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<BillingStatusDto>(body, billingStatusRequiredKeys, "GET /api/v1/sites/{siteId}/billing/status");
+  } catch (reason) {
+    rethrowAsApiProblem(reason, response.status);
+  }
+  return body;
 }
 
 export function createCheckoutSession(
