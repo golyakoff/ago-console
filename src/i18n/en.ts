@@ -1042,6 +1042,9 @@ export const en: ConsoleStrings = {
   operatorsTeamInviteRoleLabel: "Role",
   operatorsTeamInviteRoleOperatorOption: "Operator - answers conversations",
   operatorsTeamInviteRoleAdminOption: "Administrator - manages the team, no conversations",
+  operatorsTeamInviteRolesLabel: "Roles",
+  operatorsTeamInviteNoRoleSelected: "Select at least one role for this invite.",
+  operatorsTeamInviteRoleSeatFull: "seat is full - free a seat or raise the limit before inviting.",
 
   operatorsTeamChangeRoleToAdminButton: "Make administrator",
   operatorsTeamChangeRoleToOperatorButton: "Make operator",

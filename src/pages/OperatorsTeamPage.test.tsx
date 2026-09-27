@@ -5,6 +5,9 @@ import type { User } from "oidc-client-ts";
 import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { OperatorsTeamPage, OPERATORS_TEAM_PERMISSION } from "./OperatorsTeamPage.js";
+// `26-241`: the real `ApiProblemError` (re-exported by the mocked module below via `...actual`) - used
+// to drive the server's own `402` per-role refusal through the dialog's `catch`.
+import { ApiProblemError } from "../api/operatorTeamApi.js";
 import { all, byText, interact, render, unmount } from "../testing/dom.js";
 
 /**
@@ -97,6 +100,26 @@ function fillInviteEmail(container: HTMLElement, email: string): void {
   }
   INPUT_VALUE_DESCRIPTOR?.set?.call(input, email);
   input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+/** `26-241`: the invite dialog's role picker is a multi-select now - one checkbox per seeded role,
+ * labelled with the same option text the single-choice `Select` used before this item. Located by that
+ * label text (`answers conversations` = Operator, `manages the team` = Administrator) rather than by
+ * DOM order, so the test does not silently follow a reordering of the two boxes. */
+function inviteRoleCheckbox(container: HTMLElement, labelFragment: string): HTMLInputElement {
+  const label = all(container, "label").find((l) => (l.textContent ?? "").includes(labelFragment));
+  const checkbox = label?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+  if (!checkbox) {
+    throw new Error(`no role checkbox found for label containing "${labelFragment}"`);
+  }
+  return checkbox;
+}
+
+/** `element.click()` rather than a hand-built event: jsdom's own click both toggles `.checked` and
+ * fires the native `click` React's checkbox `onChange` actually listens for - the same reason
+ * `CalendarServicesPage.test.tsx`'s own `clickCheckbox` uses it. */
+function clickCheckbox(checkbox: HTMLInputElement): void {
+  checkbox.click();
 }
 
 /** `25-170`: `adminLimit` defaults to 5 - high enough that no test in this file which cares only about
@@ -310,8 +333,9 @@ describe("the pre-invite seat check", () => {
 
     // `23-72`: the invite dialog defaults to Operator, so an ordinary invite (no role picked)
     // still asks the server for that role explicitly - there is no "no role" state on the wire.
-    // `25-73`: and now also the email this invite is addressed to.
-    expect(operatorTeamApi.createOperatorInvite).toHaveBeenCalledWith("token", SITE_ID, "Operator", "colleague@example.com");
+    // `25-73`: and now also the email this invite is addressed to. `26-241`: the wire shape is a *set*
+    // now - a one-role invite is a one-element `roleNames`.
+    expect(operatorTeamApi.createOperatorInvite).toHaveBeenCalledWith("token", SITE_ID, ["Operator"], "colleague@example.com");
     // `23-70`: a URL the colleague can be sent, not a bare token - "the invitation is a URL... that
     // can be pasted into whatever the tenant already uses" (this item's own backlog text).
     expect(container.textContent).toContain("/invite/abc123");
@@ -346,29 +370,42 @@ describe("the pre-invite seat check", () => {
   });
 });
 
-describe("the invite dialog's role picker", () => {
-  // `23-72`: the API already took `roleName` at invite creation (`13-01`); this item adds the choice
-  // to the dialog. `25-170`: the dialog opens on the Operator default - when that role's own held-
-  // seat count already meets its own limit, no picker is offered at all, the same "Close only" branch
-  // this page renders regardless of which role happens to be selected. The two roles are genuinely
-  // independent pools now (`Site.AdminLimit` is real, `25-170`'s own design) - this test proves the
-  // *default* role's own refusal is honest, not that every role would refuse (a picked-then-switched
-  // Admin role with room of its own is exactly what `OperatorRoleSeatReconciler`'s own per-role
-  // capacity is for; that path is `sends an Admin-role invite when there is room` below, on a
-  // fixture with actual Operator-role room to open the picker in the first place).
-  it("offers no role picker while the default (Operator) role is already at its own limit", async () => {
-    twoOperatorsAndASummary(1);
+describe("the invite dialog's role multi-select", () => {
+  // `26-241`: the picker is a *set* of roles now (`ago-chat#383` took the invite to `roleNames`) - a
+  // checkbox per seeded role, at least one required. `23-72`'s single-choice `Select` is gone, so there
+  // is no `<select>` in the dialog at all.
+  it("offers a checkbox per seeded role, none as a <select>, defaulting to Operator only", async () => {
+    twoOperatorsAndASummary(5);
 
     const container = await render(page());
     await interact(() => byText<HTMLButtonElement>(container, "button", "Invite a colleague").click());
-    expect(container.textContent).toContain("You are at your seat limit");
 
-    const roleSelect = container.querySelector("select");
-    expect(roleSelect).toBeNull();
-    expect(operatorTeamApi.createOperatorInvite).not.toHaveBeenCalled();
+    expect(container.querySelector("select")).toBeNull();
+    expect(inviteRoleCheckbox(container, "answers conversations").checked).toBe(true);
+    expect(inviteRoleCheckbox(container, "manages the team").checked).toBe(false);
   });
 
-  it("sends an Admin-role invite when there is room", async () => {
+  it("sends both roles as a set when both are ticked", async () => {
+    twoOperatorsAndASummary(5);
+    operatorTeamApi.createOperatorInvite.mockResolvedValue({
+      operatorInviteId: "invite-both",
+      code: "both12",
+      expiresAt: "2026-09-10T00:00:00Z",
+      sendFailed: false,
+    });
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Invite a colleague").click());
+    await interact(() => fillInviteEmail(container, "both@example.com"));
+    // Tick Admin as well as the default Operator.
+    await interact(() => clickCheckbox(inviteRoleCheckbox(container, "manages the team")));
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Send invite").click());
+
+    // Seeded order on the wire (Operator, then Admin), regardless of tick order.
+    expect(operatorTeamApi.createOperatorInvite).toHaveBeenCalledWith("token", SITE_ID, ["Operator", "Admin"], "both@example.com");
+  });
+
+  it("sends an Admin-only invite when Operator is unticked and Admin ticked", async () => {
     twoOperatorsAndASummary(5);
     operatorTeamApi.createOperatorInvite.mockResolvedValue({
       operatorInviteId: "invite-2",
@@ -380,54 +417,111 @@ describe("the invite dialog's role picker", () => {
     const container = await render(page());
     await interact(() => byText<HTMLButtonElement>(container, "button", "Invite a colleague").click());
     await interact(() => fillInviteEmail(container, "admin-invite@example.com"));
-
-    const roleSelect = container.querySelector("select");
-    await interact(() => {
-      if (roleSelect) {
-        roleSelect.value = "Admin";
-        roleSelect.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-    });
+    await interact(() => clickCheckbox(inviteRoleCheckbox(container, "manages the team")));
+    await interact(() => clickCheckbox(inviteRoleCheckbox(container, "answers conversations")));
 
     await interact(() => byText<HTMLButtonElement>(container, "button", "Send invite").click());
-    expect(operatorTeamApi.createOperatorInvite).toHaveBeenCalledWith("token", SITE_ID, "Admin", "admin-invite@example.com");
+    expect(operatorTeamApi.createOperatorInvite).toHaveBeenCalledWith("token", SITE_ID, ["Admin"], "admin-invite@example.com");
+  });
+
+  /** `26-241`: the pre-flight now checks *every* ticked role - submit is disabled while any selected
+   * role's own pool is full, with the form (and its checkboxes) still visible so the tenant can untick
+   * the full role and invite the rest. Fails-before: dropping `anySelectedRoleFull` from
+   * `inviteSubmitBlocked` re-enables the button and lets a full-seat invite reach the server. */
+  it("disables submit and names the full role when a ticked role's seat is full, then re-enables it once unticked", async () => {
+    // Operator has room (limit 5, 1 held); Admin is full (limit 1, 1 held).
+    operatorTeamApi.fetchOperatorTeam.mockResolvedValue({
+      operators: [
+        {
+          operatorId: NAMED_ID, displayName: "Ada Lovelace", email: "ada@example.invalid",
+          roles: [{ roleName: "Operator", holdsSeat: true }, { roleName: "Admin", holdsSeat: true }],
+        },
+      ],
+    });
+    operatorTeamApi.fetchSeatAssignmentSummary.mockResolvedValue({
+      roles: [
+        { roleName: "Operator", heldSeats: 1, limit: 5, overLimit: false },
+        { roleName: "Admin", heldSeats: 1, limit: 1, overLimit: false },
+      ],
+    });
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Invite a colleague").click());
+    await interact(() => fillInviteEmail(container, "colleague@example.com"));
+
+    // Operator only (default) - room, so submit is enabled.
+    const sendButton = () => byText<HTMLButtonElement>(container, "button", "Send invite");
+    expect(sendButton()?.disabled).toBe(false);
+
+    // Tick the full Admin role - submit blocks and the role is named.
+    await interact(() => clickCheckbox(inviteRoleCheckbox(container, "manages the team")));
+    expect(container.textContent).toContain("You are at your seat limit");
+    expect(container.textContent).toContain("Administrator seat is full");
+    expect(sendButton()?.disabled).toBe(true);
+
+    // Untick it again - back to Operator only, submit re-enabled.
+    await interact(() => clickCheckbox(inviteRoleCheckbox(container, "manages the team")));
+    expect(sendButton()?.disabled).toBe(false);
+  });
+
+  it("disables submit and says so when no role is ticked", async () => {
+    twoOperatorsAndASummary(5);
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Invite a colleague").click());
+    // Untick the default Operator - nothing selected now.
+    await interact(() => clickCheckbox(inviteRoleCheckbox(container, "answers conversations")));
+
+    expect(container.textContent).toContain("Select at least one role");
+    expect(byText<HTMLButtonElement>(container, "button", "Send invite")?.disabled).toBe(true);
   });
 
   /**
-   * `25-18`: the seat-cost line names which role it is spending, and reacts live to the picker -
-   * not fixed at the values the dialog opened with. Exercises both roles in one test, on the same
-   * open dialog, so a message that only differed because the dialog was re-opened could not pass by
-   * accident.
+   * `25-18`/`26-241`: the seat-cost line names which role it is spending, one line per selected role,
+   * and reacts live to the checkboxes - not fixed at the values the dialog opened with.
    */
-  it("names the role being invited in the cost line, and updates it live as the picker changes", async () => {
+  it("shows a cost line per selected role, updating live as roles are ticked", async () => {
     twoOperatorsAndASummary(5);
 
     const container = await render(page());
     await interact(() => byText<HTMLButtonElement>(container, "button", "Invite a colleague").click());
 
-    // Opens on the Operator default (`23-72`'s own `inviteRoleName` initial state).
+    // Opens on the Operator default only.
     expect(container.textContent).toContain("This will use one more Operator seat");
     expect(container.textContent).not.toContain("This will use one more Administrator seat");
 
-    const roleSelect = container.querySelector("select");
-    await interact(() => {
-      if (roleSelect) {
-        roleSelect.value = "Admin";
-        roleSelect.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-    });
-
-    expect(container.textContent).toContain("This will use one more Administrator seat");
-    expect(container.textContent).not.toContain("This will use one more Operator seat");
-
-    await interact(() => {
-      if (roleSelect) {
-        roleSelect.value = "Operator";
-        roleSelect.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-    });
-
+    // Ticking Admin adds its own cost line alongside the Operator one.
+    await interact(() => clickCheckbox(inviteRoleCheckbox(container, "manages the team")));
     expect(container.textContent).toContain("This will use one more Operator seat");
+    expect(container.textContent).toContain("This will use one more Administrator seat");
+
+    // Unticking Operator leaves only the Admin cost line.
+    await interact(() => clickCheckbox(inviteRoleCheckbox(container, "answers conversations")));
+    expect(container.textContent).not.toContain("This will use one more Operator seat");
+    expect(container.textContent).toContain("This will use one more Administrator seat");
+  });
+
+  /** `26-241`: defense in depth - the server gates each role at send time and refuses a full one with a
+   * `402` (`OperatorInvite.AdminLimitReached`). Even when the client-side pre-flight saw room (the seat
+   * summary was stale), the dialog surfaces *which* role's seat is full rather than the server's generic
+   * detail. Fails-before: without the `inviteLimitRoleForCode` mapping the message would be the bare
+   * `ApiProblemError.message`, not the role-named one this asserts. */
+  it("surfaces which role's seat is full on a 402 from the server", async () => {
+    twoOperatorsAndASummary(5);
+    operatorTeamApi.createOperatorInvite.mockRejectedValue(
+      new ApiProblemError("OperatorInvite.AdminLimitReached", "Admin seat limit reached.", 402),
+    );
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Invite a colleague").click());
+    await interact(() => fillInviteEmail(container, "admin-invite@example.com"));
+    await interact(() => clickCheckbox(inviteRoleCheckbox(container, "manages the team")));
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Send invite").click());
+
+    expect(operatorTeamApi.createOperatorInvite).toHaveBeenCalledWith(
+      "token", SITE_ID, ["Operator", "Admin"], "admin-invite@example.com",
+    );
+    expect(container.textContent).toContain("Administrator seat is full");
   });
 });
 

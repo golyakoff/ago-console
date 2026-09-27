@@ -136,18 +136,52 @@ export function fetchSeatAssignmentSummary(accessToken: string, siteId: string):
 export const ROLE_OPERATOR = "Operator";
 export const ROLE_ADMIN = "Admin";
 
+/** `26-241`: the two `type` values `CreateOperatorInviteHandler` refuses a *per-role* seat-full invite
+ * with - a `402` each (`OperatorInvite.SeatLimitReached` = the Operator role's own pool is full,
+ * `OperatorInvite.AdminLimitReached` = the Admin role's own), and `OperatorInvite.InvalidRole` = a
+ * `400` for a role name that is not one of the two seeded literals. Named here, not as string literals
+ * in the page's own `catch`, the same `api-design.md` rule (`11-09`'s own `problemDetails.ts`: "clients
+ * branch on `type`, never on the message") every other typed-error branch in this console already
+ * follows. The page maps the two seat-full codes back to which role to name via `inviteLimitRoleForCode`
+ * below - defense-in-depth behind the client-side pre-flight, since the server gates each role in the
+ * set at send time. */
+export const INVITE_OPERATOR_SEAT_FULL_CODE = "OperatorInvite.SeatLimitReached";
+export const INVITE_ADMIN_SEAT_FULL_CODE = "OperatorInvite.AdminLimitReached";
+export const INVITE_INVALID_ROLE_CODE = "OperatorInvite.InvalidRole";
+
+/** `26-241`: which role a seat-full `402` (`ApiProblemError.code`) is about - `Operator`/`Admin`, or
+ * `null` for any other code. The one place the two `402` `type`s are turned back into a role name the
+ * dialog can display, so the page's own `catch` never repeats the `code === ... ? ROLE_... : ...`
+ * mapping inline. */
+export function inviteLimitRoleForCode(code: string): string | null {
+  if (code === INVITE_OPERATOR_SEAT_FULL_CODE) {
+    return ROLE_OPERATOR;
+  }
+  if (code === INVITE_ADMIN_SEAT_FULL_CODE) {
+    return ROLE_ADMIN;
+  }
+  return null;
+}
+
 /** `25-73`: `email` is now required by the server itself - a missing/malformed value comes back as
  * `OperatorInvite.InvalidEmail` (`400`), thrown as an `ApiProblemError` the same way every other
- * validation failure in this file already is. */
+ * validation failure in this file already is.
+ *
+ * `26-241`: the body now carries a *set* of role names (`roleNames`), not a single `roleName` - one
+ * invite can grant both seeded roles at once, each gated against its own pool at send time
+ * (`CreateOperatorInviteHandler`, `ago-chat#383`). The legacy single-`roleName` body still works
+ * server-side, but the console always sends the plural form now; a one-role invite is simply a
+ * one-element `roleNames`. Typed `readonly string[]` (a set of role names, deduped by the caller) - the
+ * page hands over exactly the roles its checkboxes selected, in the seeded order. */
 export function createOperatorInvite(
   accessToken: string,
   siteId: string,
-  roleName: string,
+  roleNames: readonly string[],
   email: string,
 ): Promise<CreateOperatorInviteResponseDto> {
   return operatorTeamFetch<CreateOperatorInviteResponseDto>(accessToken, `/api/v1/sites/${siteId}/operator-invites`, {
     method: "POST",
-    body: JSON.stringify({ roleName, email }),
+    body: JSON.stringify({ roleNames, email }),
   });
 }
 
