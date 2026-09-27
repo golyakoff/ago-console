@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchCannedResponses, updateCannedResponses, CannedResponsesError } from "../api/cannedResponsesApi.js";
+import { shapeMismatchMessage } from "./apiErrorMessage.js";
 import {
   MAX_RESPONSES,
   toRequestResponses,
@@ -62,7 +63,10 @@ export function CannedResponsesPage() {
         setLoadError(null);
       })
       .catch((err: unknown) =>
-        setLoadError(err instanceof CannedResponsesError ? err.message : strings.cannedResponsesLoadError),
+        setLoadError(
+          shapeMismatchMessage(err, strings) ??
+            (err instanceof CannedResponsesError ? err.message : strings.cannedResponsesLoadError),
+        ),
       );
   }, [user?.access_token, siteId, strings]);
 

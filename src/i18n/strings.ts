@@ -39,6 +39,16 @@ export interface ConsoleStrings {
    * doc comment for why the wording deliberately claims nothing about scope. */
   renderErrorMessage: string;
   renderErrorRetryButton: string;
+  /** `23-118`: the chat-side twin of `calendarShapeMismatchError`, shown when a `Ago.Chat.Api` reader
+   * rejected a response that was not the shape it promised (`ApiProblemError('shape.mismatch')`, or the
+   * `CannedResponsesError`/`ReplyDraftError` equivalent) - a contract two independently-versioned
+   * products (`adr/0012`) drifted on, caught at the API boundary rather than left to render as a false
+   * empty state. A localized frame only; the caller (`shapeMismatchMessage`) appends the endpoint+field
+   * diagnostic in parens, so this string names neither endpoint nor field and stays true for any reader
+   * that trips it. Deliberately the same "did not arrive in the expected shape" register as
+   * `renderErrorMessage`, never the empty-state vocabulary - a broken screen must never read as an
+   * empty account. */
+  shapeMismatchError: string;
   /** `23-31`: the "Диалоги" section's own header text - also reused, unchanged, as this section's
    * accordion label in `consoleNav.ts`. */
   navConversations: string;

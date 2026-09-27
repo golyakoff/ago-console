@@ -1,19 +1,151 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
-import { problemDetailsFrom } from "./problemDetails.js";
+import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
+import { ShapeMismatchError, assertArrayHasKeys, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 import type {
   AllConversationsForSiteResponse,
   BookingFlowReportResponse,
   ConversationOutcomeResponse,
+  ConversationSearchResultDto,
+  ConversationSummaryDto,
   ConversionReportResponse,
   OperatorAnalyticsResponse,
   OperatorQueueResponse,
   OwnOperatorAnalyticsResponse,
   SearchConversationsResponse,
   TagBreakdownReportResponse,
+  VisitorHistoryConversationDto,
   VisitorHistoryResponse,
 } from "../realtime/protocol/types.js";
 import type { ErasureCheckOutcome } from "../erasure/erasureCheck.js";
+
+/**
+ * `23-118`/`23-99`: the shape every reader below promises, as the runtime list `assertHasKeys`/
+ * `assertArrayHasKeys` check before returning. `23-41` chose validation at every API boundary as the
+ * standard, and these are the conversations readers where a dropped field renders as a false empty
+ * state (an empty queue, a "no more pages" that is really a missing cursor, a zeroed report) rather
+ * than as an obvious error - the exact `23-99` bound. Each list is validated per element, not only for
+ * its presence, so one truncated row in the middle of a page does not read as "the rest loaded fine".
+ * The write endpoints (`markConversationRead`, the grant/block/spam actions) and the status-only
+ * `checkConversationErasure` are deliberately not here - see their own doc comments.
+ */
+const conversationSummaryRequiredKeys = requiredKeysOf<ConversationSummaryDto>({
+  conversationId: true,
+  visitorId: true,
+  state: true,
+  createdAt: true,
+  operatorUnreadCount: true,
+});
+
+const allConversationsResponseRequiredKeys = requiredKeysOf<AllConversationsForSiteResponse>({
+  conversations: true,
+  nextBeforeId: true,
+});
+
+const visitorHistoryConversationRequiredKeys = requiredKeysOf<VisitorHistoryConversationDto>({
+  conversationId: true,
+  state: true,
+  startedAt: true,
+  closedAt: true,
+  previewBody: true,
+  previewAuthorKind: true,
+  previewCreatedAt: true,
+});
+
+const visitorHistoryResponseRequiredKeys = requiredKeysOf<VisitorHistoryResponse>({
+  conversations: true,
+  nextBeforeId: true,
+});
+
+const searchResultRequiredKeys = requiredKeysOf<ConversationSearchResultDto>({
+  conversationId: true,
+  messageId: true,
+  sequence: true,
+  matchedBody: true,
+  authorKind: true,
+  createdAt: true,
+  conversationState: true,
+});
+
+const searchResponseRequiredKeys = requiredKeysOf<SearchConversationsResponse>({
+  results: true,
+  nextBeforeMessageId: true,
+  searchedFrom: true,
+  searchedTo: true,
+});
+
+const conversationOutcomeRequiredKeys = requiredKeysOf<ConversationOutcomeResponse>({ outcome: true });
+
+const operatorAnalyticsResponseRequiredKeys = requiredKeysOf<OperatorAnalyticsResponse>({
+  from: true,
+  to: true,
+  overall: true,
+  previousFrom: true,
+  previousTo: true,
+  previousOverall: true,
+  byChannel: true,
+  byOperator: true,
+  byReferrer: true,
+  byCampaign: true,
+});
+
+const ownAnalyticsResponseRequiredKeys = requiredKeysOf<OwnOperatorAnalyticsResponse>({
+  from: true,
+  to: true,
+  bucket: true,
+  load: true,
+  conversion: true,
+});
+
+const conversionReportResponseRequiredKeys = requiredKeysOf<ConversionReportResponse>({
+  from: true,
+  to: true,
+  overall: true,
+  previousFrom: true,
+  previousTo: true,
+  previousOverall: true,
+  byOperator: true,
+});
+
+const tagBreakdownResponseRequiredKeys = requiredKeysOf<TagBreakdownReportResponse>({
+  from: true,
+  to: true,
+  totalConversationCount: true,
+  taggedConversationCount: true,
+  percentageTagged: true,
+  previousFrom: true,
+  previousTo: true,
+  previousTotalConversationCount: true,
+  previousTaggedConversationCount: true,
+  previousPercentageTagged: true,
+  byTag: true,
+});
+
+const bookingFlowResponseRequiredKeys = requiredKeysOf<BookingFlowReportResponse>({
+  from: true,
+  to: true,
+  flowsStarted: true,
+  flowsClosed: true,
+  previousFrom: true,
+  previousTo: true,
+  previousFlowsStarted: true,
+  previousFlowsClosed: true,
+});
+
+/**
+ * `23-118`: rethrows a `shape.mismatch` as `ApiProblemError` - the same type, and the same `catch`,
+ * every other rejection in this file already produces (`problemDetailsFrom`), so a caller needs no
+ * second error vocabulary. `reason.diagnostic` (the endpoint and the wire field names, language-
+ * neutral) rather than `ShapeMismatchError.message` (its English sentence, kept for logs) is what
+ * `shapeMismatchMessage` wraps in a localized frame. Anything that is not a shape mismatch is rethrown
+ * untouched.
+ */
+function rethrowAsApiProblem(reason: unknown, status: number): never {
+  if (reason instanceof ShapeMismatchError) {
+    throw new ApiProblemError("shape.mismatch", reason.diagnostic, status);
+  }
+  throw reason;
+}
 
 /** What `POST /api/v1/conversations/{id}/read` answers with: the conversation's unread state after
  * the write, so the console never has to guess that it became zero. */
@@ -60,7 +192,14 @@ export async function fetchOperatorQueue(
     throw await problemDetailsFrom(response);
   }
 
-  return (await response.json()) as OperatorQueueResponse;
+  const body = (await response.json()) as { waiting?: unknown; assignedToMe?: unknown };
+  try {
+    assertArrayHasKeys<ConversationSummaryDto>(body.waiting, conversationSummaryRequiredKeys, "GET /api/v1/conversations/queue (waiting)");
+    assertArrayHasKeys<ConversationSummaryDto>(body.assignedToMe, conversationSummaryRequiredKeys, "GET /api/v1/conversations/queue (assignedToMe)");
+  } catch (reason) {
+    rethrowAsApiProblem(reason, response.status);
+  }
+  return { waiting: body.waiting, assignedToMe: body.assignedToMe };
 }
 
 /**
@@ -94,7 +233,14 @@ export async function fetchAllConversationsForSite(
     throw await problemDetailsFrom(response);
   }
 
-  return (await response.json()) as AllConversationsForSiteResponse;
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<AllConversationsForSiteResponse>(body, allConversationsResponseRequiredKeys, "GET /api/v1/conversations/all");
+    assertArrayHasKeys<ConversationSummaryDto>(body.conversations, conversationSummaryRequiredKeys, "GET /api/v1/conversations/all");
+  } catch (reason) {
+    rethrowAsApiProblem(reason, response.status);
+  }
+  return body;
 }
 
 /**
@@ -339,7 +485,18 @@ export async function fetchVisitorHistory(
     throw await problemDetailsFrom(response);
   }
 
-  return (await response.json()) as VisitorHistoryResponse;
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<VisitorHistoryResponse>(body, visitorHistoryResponseRequiredKeys, "GET /api/v1/conversations/{id}/visitor-history");
+    assertArrayHasKeys<VisitorHistoryConversationDto>(
+      body.conversations,
+      visitorHistoryConversationRequiredKeys,
+      "GET /api/v1/conversations/{id}/visitor-history",
+    );
+  } catch (reason) {
+    rethrowAsApiProblem(reason, response.status);
+  }
+  return body;
 }
 
 /** `18-01`: the query `searchConversations` below sends - a plain object rather than positional
@@ -412,7 +569,14 @@ export async function searchConversations(
   });
 
   if (response.ok) {
-    return (await response.json()) as SearchConversationsResponse;
+    const body: unknown = await response.json();
+    try {
+      assertHasKeys<SearchConversationsResponse>(body, searchResponseRequiredKeys, "GET /api/v1/conversations/search");
+      assertArrayHasKeys<ConversationSearchResultDto>(body.results, searchResultRequiredKeys, "GET /api/v1/conversations/search");
+    } catch (reason) {
+      rethrowAsApiProblem(reason, response.status);
+    }
+    return body;
   }
 
   throw await problemDetailsFrom(response);
@@ -455,7 +619,13 @@ export async function fetchOperatorAnalytics(
   });
 
   if (response.ok) {
-    return (await response.json()) as OperatorAnalyticsResponse;
+    const body: unknown = await response.json();
+    try {
+      assertHasKeys<OperatorAnalyticsResponse>(body, operatorAnalyticsResponseRequiredKeys, "GET /api/v1/conversations/analytics");
+    } catch (reason) {
+      rethrowAsApiProblem(reason, response.status);
+    }
+    return body;
   }
 
   throw await problemDetailsFrom(response);
@@ -496,7 +666,13 @@ export async function fetchOwnAnalytics(
   });
 
   if (response.ok) {
-    return (await response.json()) as OwnOperatorAnalyticsResponse;
+    const body: unknown = await response.json();
+    try {
+      assertHasKeys<OwnOperatorAnalyticsResponse>(body, ownAnalyticsResponseRequiredKeys, "GET /api/v1/conversations/analytics/me");
+    } catch (reason) {
+      rethrowAsApiProblem(reason, response.status);
+    }
+    return body;
   }
 
   throw await problemDetailsFrom(response);
@@ -542,7 +718,13 @@ export async function fetchConversionReport(
   });
 
   if (response.ok) {
-    return (await response.json()) as ConversionReportResponse;
+    const body: unknown = await response.json();
+    try {
+      assertHasKeys<ConversionReportResponse>(body, conversionReportResponseRequiredKeys, "GET /api/v1/conversations/conversion-report");
+    } catch (reason) {
+      rethrowAsApiProblem(reason, response.status);
+    }
+    return body;
   }
 
   throw await problemDetailsFrom(response);
@@ -582,7 +764,13 @@ export async function fetchTagBreakdownReport(
   });
 
   if (response.ok) {
-    return (await response.json()) as TagBreakdownReportResponse;
+    const body: unknown = await response.json();
+    try {
+      assertHasKeys<TagBreakdownReportResponse>(body, tagBreakdownResponseRequiredKeys, "GET /api/v1/conversations/tag-breakdown-report");
+    } catch (reason) {
+      rethrowAsApiProblem(reason, response.status);
+    }
+    return body;
   }
 
   throw await problemDetailsFrom(response);
@@ -601,7 +789,13 @@ export async function fetchConversationOutcome(
   });
 
   if (response.ok) {
-    return (await response.json()) as ConversationOutcomeResponse;
+    const body: unknown = await response.json();
+    try {
+      assertHasKeys<ConversationOutcomeResponse>(body, conversationOutcomeRequiredKeys, "GET /api/v1/conversations/{id}/outcome");
+    } catch (reason) {
+      rethrowAsApiProblem(reason, response.status);
+    }
+    return body;
   }
 
   throw await problemDetailsFrom(response);
@@ -658,7 +852,13 @@ export async function fetchBookingFlowReport(
   });
 
   if (response.ok) {
-    return (await response.json()) as BookingFlowReportResponse;
+    const body: unknown = await response.json();
+    try {
+      assertHasKeys<BookingFlowReportResponse>(body, bookingFlowResponseRequiredKeys, "GET /api/v1/conversations/module-flow-report");
+    } catch (reason) {
+      rethrowAsApiProblem(reason, response.status);
+    }
+    return body;
   }
 
   throw await problemDetailsFrom(response);

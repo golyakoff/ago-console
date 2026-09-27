@@ -8,6 +8,7 @@ import {
   type ConversationTagDto,
 } from "../api/tagsApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
+import { shapeMismatchMessage } from "../pages/apiErrorMessage.js";
 import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
@@ -67,7 +68,7 @@ export function ConversationTagsPanel({ conversationId, siteTags, accessToken }:
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : strings.tagsLoadError);
+          setLoadError(shapeMismatchMessage(err, strings) ?? (err instanceof Error ? err.message : strings.tagsLoadError));
         }
       });
 

@@ -13,6 +13,7 @@ export const ru: ConsoleStrings = {
     "Данные пришли не в том виде, которого ожидал этот экран, поэтому показать его не удалось. " +
     "Попробуйте ещё раз — если это повторяется, обновите страницу.",
   renderErrorRetryButton: "Повторить",
+  shapeMismatchError: "Сервер вернул данные в неожиданном виде, поэтому показать этот экран не удалось.",
   navConversations: "Диалоги",
   navMyConversations: "Мои",
   navAllConversations: "Все диалоги",

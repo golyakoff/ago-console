@@ -1,5 +1,6 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
+import { ShapeMismatchError, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `19-01`: the console's own call onto `Ago.Chat.Api.ReplyDraft.ReplyDraftEndpoints` - one operator-only
@@ -54,6 +55,15 @@ async function buildError(response: Response): Promise<ReplyDraftError> {
   return new ReplyDraftError(code, detail);
 }
 
+/**
+ * `23-118`/`23-99`: the shape the draft promises. `ConversationPage.handleSuggestReply` inserts
+ * `draftText` into the composer, so a dropped `draftText` would insert nothing and read as "no
+ * suggestion was generated" - a false empty state, not a reader that did not answer. Rejected as
+ * `ReplyDraftError('shape.mismatch')`, the same `code`-carrying type every other rejection here
+ * produces, which `shapeMismatchMessage` localizes.
+ */
+const replyDraftRequiredKeys = requiredKeysOf<ReplyDraftResponse>({ draftText: true });
+
 export async function generateReplyDraft(accessToken: string, conversationId: string): Promise<ReplyDraftResponse> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/conversations/${conversationId}/reply-draft`, {
     method: "POST",
@@ -66,5 +76,14 @@ export async function generateReplyDraft(accessToken: string, conversationId: st
     throw await buildError(response);
   }
 
-  return (await response.json()) as ReplyDraftResponse;
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<ReplyDraftResponse>(body, replyDraftRequiredKeys, "POST /api/v1/conversations/{id}/reply-draft");
+  } catch (reason) {
+    if (reason instanceof ShapeMismatchError) {
+      throw new ReplyDraftError("shape.mismatch", reason.diagnostic);
+    }
+    throw reason;
+  }
+  return body;
 }

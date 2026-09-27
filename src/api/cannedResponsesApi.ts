@@ -1,5 +1,6 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
+import { ShapeMismatchError, assertArrayHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `18-03`'s exact wire shape (`CannedResponseEndpoints.CannedResponsesResponse`/
@@ -62,6 +63,16 @@ function url(siteId: string): string {
   return `${config.apiBaseUrl}/api/v1/sites/${siteId}/canned-responses`;
 }
 
+/**
+ * `23-118`/`23-99`: the shape each canned response promises. `CannedResponsesPage` renders this list,
+ * and an empty list is a legitimate "none configured yet" - so a dropped `title`/`body`, or a dropped
+ * list, would read as that empty rather than as a reader that did not answer. Rejected as
+ * `CannedResponsesError('shape.mismatch')` - the same `code`-carrying type every other rejection in
+ * this file produces, which `shapeMismatchMessage` localizes. Only the list read guards this; the
+ * `updateCannedResponses` write echoes what the operator just saved and is out of scope.
+ */
+const cannedResponseRequiredKeys = requiredKeysOf<CannedResponseDto>({ title: true, body: true });
+
 export async function fetchCannedResponses(accessToken: string, siteId: string): Promise<CannedResponseDto[]> {
   const response = await fetch(url(siteId), {
     headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
@@ -71,7 +82,15 @@ export async function fetchCannedResponses(accessToken: string, siteId: string):
     throw await buildError(response, "CannedResponses.Unknown", "Failed to load the canned responses");
   }
 
-  const body = (await response.json()) as { responses: CannedResponseDto[] };
+  const body = (await response.json()) as { responses?: unknown };
+  try {
+    assertArrayHasKeys<CannedResponseDto>(body.responses, cannedResponseRequiredKeys, "GET /api/v1/sites/{siteId}/canned-responses");
+  } catch (reason) {
+    if (reason instanceof ShapeMismatchError) {
+      throw new CannedResponsesError("shape.mismatch", reason.diagnostic);
+    }
+    throw reason;
+  }
   return body.responses;
 }
 

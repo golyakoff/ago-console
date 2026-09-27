@@ -8,6 +8,7 @@ import {
   type ContactDetailDto,
 } from "../api/contactDetailsApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
+import { shapeMismatchMessage } from "../pages/apiErrorMessage.js";
 import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
@@ -140,7 +141,7 @@ export function ContactDetailsPanel({ conversationId, accessToken }: ContactDeta
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : strings.contactDetailsLoadError);
+          setLoadError(shapeMismatchMessage(err, strings) ?? (err instanceof Error ? err.message : strings.contactDetailsLoadError));
         }
       });
 

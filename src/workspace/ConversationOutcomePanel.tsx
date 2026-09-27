@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchConversationOutcome, setConversationOutcome } from "../api/conversationsApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
+import { shapeMismatchMessage } from "../pages/apiErrorMessage.js";
 import { Alert } from "../components/Alert.js";
 import { Badge, type BadgeTone } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
@@ -102,7 +103,7 @@ export function ConversationOutcomePanel({ conversationId, accessToken }: Conver
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : strings.outcomeLoadError);
+          setLoadError(shapeMismatchMessage(err, strings) ?? (err instanceof Error ? err.message : strings.outcomeLoadError));
         }
       });
 

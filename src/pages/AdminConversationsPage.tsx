@@ -9,6 +9,7 @@ import {
 } from "../api/conversationsApi.js";
 import { fetchTags, type TagDto } from "../api/tagsApi.js";
 import { isSessionExpiredError } from "../api/problemDetails.js";
+import { shapeMismatchMessage } from "./apiErrorMessage.js";
 import type { ConversationSummaryDto } from "../realtime/protocol/types.js";
 import { formatAbsolute, parseInstant, resolveTimeZone } from "../time/format.js";
 import { PageHead } from "../shell/AppShell.js";
@@ -264,9 +265,7 @@ export function AdminConversationsPage() {
         setError(
           isSessionExpiredError(err)
             ? strings.authSessionExpiredError
-            : err instanceof Error
-              ? err.message
-              : strings.adminLoadError,
+            : (shapeMismatchMessage(err, strings) ?? (err instanceof Error ? err.message : strings.adminLoadError)),
         ),
       );
   }, [user?.access_token, strings, tagFilter]);
