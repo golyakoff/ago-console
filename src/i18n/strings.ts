@@ -2708,6 +2708,11 @@ export interface ConsoleStrings {
    * counted noun in a sentence, and this screen does not - "Записей: 5" needs no agreement with the
    * number the way "5 записей" would. */
   calendarBookingsCountLabel: string;
+  /** `26-221`: jumps the whole loaded window to any picked date, rather than only ever the fixed
+   * "today..+6" `defaultRange()` used to build - `CalendarBookingsPage`'s own doc comment on
+   * `rangeFor(anchor)` has the full reasoning. Distinct from `calendarFromFieldLabel`/`calendarToFieldLabel`
+   * beside it: those two edit one end of the range in place, this one replaces the whole window. */
+  calendarBookingsJumpToDateFieldLabel: string;
   calendarBookingsForbidden: string;
 
   // --- `26-210`/`adr/0187`: the confirmed-bookings screen's own reschedule action -

@@ -1684,6 +1684,7 @@ export const ru: ConsoleStrings = {
   calendarBookingsGoToDialogLink: "Открыть диалог",
   calendarBookingsColumnActions: "Действия",
   calendarBookingsCountLabel: "Записей",
+  calendarBookingsJumpToDateFieldLabel: "Перейти к дате",
   calendarBookingsForbidden: "У вас нет прав на просмотр подтверждённых записей.",
 
   calendarRescheduleButton: "Перенести",

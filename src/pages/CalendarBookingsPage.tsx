@@ -34,12 +34,28 @@ function isoDate(date: Date): string {
 /** A week, not `CalendarWorkerSlotsPage`'s own fourteen days: that screen exists to verify a
  * schedule's own output ahead of time, this one exists to answer "what is actually on", which is an
  * operational, near-term question - the item's own framing is "what is on for Thursday", not "what
- * does next month look like". */
+ * does next month look like".
+ *
+ * `26-221`: anchor-parameterised, not hard-coded to "today" - this is the one place the seven-day rule
+ * lives, so `defaultRange()` below and the "Jump to date" control's own handler both build their window
+ * through it rather than each keeping a copy of "+6" that could drift apart. Android hit the identical
+ * gap first and fixed it the same way (`26-212`: `confirmedBookingsRange(anchor)`).
+ *
+ * UTC arithmetic (`setUTCDate`/`getUTCDate`), not the local-calendar `setDate` this used before picking
+ * a date became possible: the jump control hands this an anchor built from an `<input type="date">`
+ * value - `new Date("2026-09-27")` - which the language parses as UTC midnight regardless of the
+ * operator's own timezone. Local-calendar arithmetic on a UTC-midnight instant would shift the computed
+ * window by a day in any timezone east of UTC; `isoDate` was already UTC-based (`toISOString`), so the
+ * fix is making the arithmetic that feeds it UTC-based too.
+ */
+function rangeFor(anchor: Date): { from: string; to: string } {
+  const horizon = new Date(anchor);
+  horizon.setUTCDate(horizon.getUTCDate() + 6);
+  return { from: isoDate(anchor), to: isoDate(horizon) };
+}
+
 function defaultRange(): { from: string; to: string } {
-  const today = new Date();
-  const horizon = new Date(today);
-  horizon.setDate(horizon.getDate() + 6);
-  return { from: isoDate(today), to: isoDate(horizon) };
+  return rangeFor(new Date());
 }
 
 interface WorkerGroup {
@@ -139,6 +155,17 @@ function groupByDayThenWorker(rows: ConfirmedBooking[]): DayGroup[] {
  * screen still has **no realtime push** (§4.4 of the design doc records the gap) - `onRescheduled`
  * re-reads the same date range with a plain `reload()`, the manual-refresh path every other write on
  * this page already uses.
+ *
+ * <b>`26-221`: reaching a booking further out than the fixed week.</b> The "From"/"To" fields above
+ * already let an operator retype either end of the range by hand, but nothing built the *window* a
+ * picked day belongs to - shifting the horizon out meant editing both fields and doing the "+6"
+ * arithmetic in your head. "Jump to date" is a third, dedicated control: picking a day there calls
+ * `rangeFor` with that day as the anchor and replaces the whole range in one `setRange`, mirroring
+ * android's own tap-the-header-to-jump control (`26-212`). No explicit "Apply" step is needed for
+ * either the new field or the existing two: `reload`'s own `useCallback` lists `range` as a dependency,
+ * so any range change gives it a new identity, and the mount effect below - which depends on `reload` -
+ * re-runs on its own. That mechanism already existed for "From"/"To"; this control is just a second way
+ * to reach it.
  */
 export function CalendarBookingsPage() {
   const { user } = useAuth();
@@ -227,6 +254,17 @@ export function CalendarBookingsPage() {
 
   const weekdays = weekdayNames(strings);
   const groups = rows === null ? null : groupByDayThenWorker(rows);
+
+  // `26-221`: an `<input type="date">` fires `onChange` with `""` when cleared, and a clear is not a
+  // pick - there is no anchor to jump to, so this leaves `range` exactly as it was rather than handing
+  // `rangeFor` an invalid `Date`. `new Date(value)` on a real `"YYYY-MM-DD"` value parses as UTC
+  // midnight (see `rangeFor`'s own doc comment for why that matters).
+  const handleJumpToDate = (value: string) => {
+    if (value.length === 0) {
+      return;
+    }
+    setRange(rangeFor(new Date(value)));
+  };
 
   // `23-91`: replaces every row for this customer with the server's own unmasked phone - the
   // identical "match by customerId, over the flat array" replacement `CalendarQueuePage.handleReveal`/
@@ -345,6 +383,19 @@ export function CalendarBookingsPage() {
             void reload();
           }}
         >
+          {/* `26-221`: jumps the whole seven-day window to any picked date - see this component's own
+              doc comment for why this needs no separate "Apply"/submit step. Distinct from the "From"/
+              "To" fields beside it, which edit one end of the range in place and leave the other alone. */}
+          <Field label={strings.calendarBookingsJumpToDateFieldLabel}>
+            {(controlProps) => (
+              <Input
+                {...controlProps}
+                type="date"
+                value={range.from}
+                onChange={(e) => handleJumpToDate(e.target.value)}
+              />
+            )}
+          </Field>
           <Field label={strings.calendarFromFieldLabel}>
             {(controlProps) => (
               <Input
