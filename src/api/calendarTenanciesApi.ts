@@ -1,5 +1,6 @@
 import { config } from "../config.js";
 import { CalendarApiError } from "./calendarApi.js";
+import { ShapeMismatchError, assertArrayHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `22-14`/`adr/0100`: `GET /api/v1/me/tenancies` on `Ago.Calendar.Api` - which shops this identity
@@ -27,9 +28,21 @@ export interface CalendarTenancy {
   tenantName: string;
 }
 
-interface TenanciesBody {
-  tenancies: CalendarTenancy[];
-}
+/**
+ * `23-41`: this is the exact reader the incident was found in. Two backends answer
+ * `/api/v1/me/tenancies` with different shapes; a gateway/proxy/fixture that routed the *chat*
+ * backend's `{siteId, siteName}` body here left `tenantName` `undefined`, and `tenantName.trim()`
+ * threw during `CalendarElsewhereNotice`'s render - which blanked the entire console. `23-41`'s
+ * chosen reading (validate at every API boundary) is why this reader now rejects a body that is not
+ * the shape it promised *before returning it*, rather than trusting the cast `as TenanciesBody` that
+ * used to sit here: a chat body reaching this call now fails `tenantId`/`tenantName` presence and
+ * becomes an ordinary `CalendarApiError`, the same type and the same `catch` every other calendar
+ * rejection already produces, instead of a render-phase crash a boundary downstream can only turn
+ * into a generic "something went wrong". See `docs/design/decisions.md` (`ago-root`) for why the two
+ * `/me/tenancies` readers stay separate rather than merging into one that has to tell the shapes
+ * apart.
+ */
+const calendarTenancyRequiredKeys = requiredKeysOf<CalendarTenancy>({ tenantId: true, tenantName: true });
 
 /**
  * Throws `CalendarApiError`, the same type every other calendar call throws - including for "the
@@ -62,5 +75,20 @@ export async function fetchMyCalendarTenancies(
     );
   }
 
-  return ((await response.json()) as TenanciesBody).tenancies;
+  const body = (await response.json()) as { tenancies?: unknown };
+  try {
+    assertArrayHasKeys<CalendarTenancy>(
+      body.tenancies,
+      calendarTenancyRequiredKeys,
+      "GET /api/v1/me/tenancies (calendar)",
+    );
+  } catch (reason) {
+    if (reason instanceof ShapeMismatchError) {
+      // The neutral endpoint+field diagnostic, not this error's English sentence -
+      // `calendarErrorMessage` wraps a localized frame around it (`shape.mismatch` branch).
+      throw new CalendarApiError("shape.mismatch", reason.diagnostic, response.status);
+    }
+    throw reason;
+  }
+  return body.tenancies;
 }

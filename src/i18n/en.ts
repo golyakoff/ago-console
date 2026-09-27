@@ -1425,6 +1425,7 @@ export const en: ConsoleStrings = {
   calendarWeekdaySaturday: "Saturday",
   calendarPermissionDeniedError: "Your operator account does not have permission for that in this tenant.",
   calendarNetworkError: "The console could not reach AGO Calendar.",
+  calendarShapeMismatchError: "AGO Calendar returned data in a shape this screen did not expect, so it could not be shown.",
   calendarQueueTitle: "Pending bookings",
   calendarQueueDescription: "Everything here confirms itself at its deadline unless you reject it first. Ordered by deadline, soonest first.",
   calendarQueueEmpty: "Nothing is waiting.",
