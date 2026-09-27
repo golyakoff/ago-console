@@ -9,6 +9,7 @@ import {
   type SiteBrandingDto,
 } from "../api/emailChannelApi.js";
 import { logoValidationFailureMessage, validateLogoFileClientSide } from "./emailChannelLogoValidation.js";
+import { shapeMismatchMessage } from "./apiErrorMessage.js";
 import { PageHead } from "../shell/AppShell.js";
 import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
@@ -102,7 +103,9 @@ export function EmailChannelPage() {
         setCompanyNameInput(response.brandCompanyName ?? "");
         setLoadError(null);
       })
-      .catch((err: unknown) => setLoadError(err instanceof ApiProblemError ? err.message : strings.emailChannelLoadError));
+      .catch((err: unknown) =>
+        setLoadError(shapeMismatchMessage(err, strings) ?? (err instanceof ApiProblemError ? err.message : strings.emailChannelLoadError)),
+      );
   }, [accessToken, siteId, strings]);
 
   useEffect(() => {

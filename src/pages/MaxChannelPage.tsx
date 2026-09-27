@@ -9,6 +9,7 @@ import {
   type MaxChannelStatusDto,
 } from "../api/maxChannelApi.js";
 import { formatAbsolute, formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
+import { shapeMismatchMessage } from "./apiErrorMessage.js";
 import { PageHead } from "../shell/AppShell.js";
 import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
@@ -111,7 +112,9 @@ export function MaxChannelPage() {
         setStatus(response);
         setLoadError(null);
       })
-      .catch((err: unknown) => setLoadError(err instanceof ApiProblemError ? err.message : strings.maxChannelLoadError));
+      .catch((err: unknown) =>
+        setLoadError(shapeMismatchMessage(err, strings) ?? (err instanceof ApiProblemError ? err.message : strings.maxChannelLoadError)),
+      );
   }, [accessToken, siteId, strings]);
 
   useEffect(() => {

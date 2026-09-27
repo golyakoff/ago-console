@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
-import { problemDetailsFrom } from "./problemDetails.js";
+import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
+import { ShapeMismatchError, assertArrayHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /** `14-12`/`14-13`'s exact wire shape (`Ago.Chat.Api`'s `ChannelIdentityEndpoints`). `kind` is the
  * `Domain.ChannelKind` member name verbatim (`"Telegram"`, `"Sms"`, ...) - never a display label, the
@@ -26,9 +27,38 @@ function channelIdentitiesUrl(conversationId: string): string {
   return `${config.apiBaseUrl}/api/v1/conversations/${conversationId}/channel-identities`;
 }
 
+/**
+ * `23-118`/`23-99`: the runtime shape every identity row promises, checked per element before the list
+ * is returned. Every field is required (none is `?`), so the mapped `RequiredKeys<ChannelIdentityDto>`
+ * type this literal satisfies lists all six - add or rename one on the DTO and this stops compiling
+ * until it is updated too (`shapeGuard.ts`'s own doc comment).
+ */
+const channelIdentityRequiredKeys = requiredKeysOf<ChannelIdentityDto>({
+  channelIdentityId: true,
+  kind: true,
+  address: true,
+  firstSeenAt: true,
+  lastSeenAt: true,
+  isPreferred: true,
+});
+
+/**
+ * `23-118`: rethrows a `shape.mismatch` as `ApiProblemError` - the same type every other rejection in
+ * this file already produces (`problemDetailsFrom`), so a caller needs no second error vocabulary
+ * (mirrors `conversationsApi.ts#rethrowAsApiProblem`).
+ */
+function rethrowAsApiProblem(reason: unknown, status: number): never {
+  if (reason instanceof ShapeMismatchError) {
+    throw new ApiProblemError("shape.mismatch", reason.diagnostic, status);
+  }
+  throw reason;
+}
+
 /** `GET /api/v1/conversations/{id}/channel-identities` - the visitor's own active channel identities,
  * gated server-side on `conversation:read` plus the per-conversation assignment check
- * (`ListChannelIdentitiesForVisitorHandler`'s own remarks, `ago-chat`). */
+ * (`ListChannelIdentitiesForVisitorHandler`'s own remarks, `ago-chat`). `23-118`/`23-99`: the shape is
+ * validated before returning because a dropped `channelIdentities` array (or a truncated row) would
+ * render as "no linked channels" - a false empty state indistinguishable from a widget-only visitor. */
 export async function fetchChannelIdentities(accessToken: string, conversationId: string): Promise<ChannelIdentityDto[]> {
   const response = await fetch(channelIdentitiesUrl(conversationId), {
     headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
@@ -38,7 +68,16 @@ export async function fetchChannelIdentities(accessToken: string, conversationId
     throw await problemDetailsFrom(response);
   }
 
-  const body = (await response.json()) as { channelIdentities: ChannelIdentityDto[] };
+  const body = (await response.json()) as { channelIdentities?: unknown };
+  try {
+    assertArrayHasKeys<ChannelIdentityDto>(
+      body.channelIdentities,
+      channelIdentityRequiredKeys,
+      "GET /api/v1/conversations/{id}/channel-identities",
+    );
+  } catch (reason) {
+    rethrowAsApiProblem(reason, response.status);
+  }
   return body.channelIdentities;
 }
 

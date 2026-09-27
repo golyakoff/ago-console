@@ -9,6 +9,7 @@ import {
   type TelegramChannelStatusDto,
 } from "../api/telegramChannelApi.js";
 import { formatAbsolute, formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
+import { shapeMismatchMessage } from "./apiErrorMessage.js";
 import { PageHead } from "../shell/AppShell.js";
 import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
@@ -103,7 +104,9 @@ export function TelegramChannelPage() {
         setStatus(response);
         setLoadError(null);
       })
-      .catch((err: unknown) => setLoadError(err instanceof ApiProblemError ? err.message : strings.telegramChannelLoadError));
+      .catch((err: unknown) =>
+        setLoadError(shapeMismatchMessage(err, strings) ?? (err instanceof ApiProblemError ? err.message : strings.telegramChannelLoadError)),
+      );
   }, [accessToken, siteId, strings]);
 
   useEffect(() => {

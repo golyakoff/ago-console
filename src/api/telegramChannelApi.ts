@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
 import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
+import { ShapeMismatchError, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `23-36`: the console's own Telegram connect/status/disconnect flow, against `Ago.Chat.Api.Channels.
@@ -56,8 +57,50 @@ async function telegramChannelFetch<T>(accessToken: string, path: string, init?:
   return (await response.json()) as T;
 }
 
-export function fetchTelegramChannelStatus(accessToken: string, siteId: string): Promise<TelegramChannelStatusDto> {
-  return telegramChannelFetch<TelegramChannelStatusDto>(accessToken, `/api/v1/sites/${siteId}/channels/telegram`);
+/**
+ * `23-118`/`23-99`: the runtime shape the status read promises. Every field is present-but-nullable
+ * (none is `?`), so all seven are required keys. `connected` is the load-bearing one: dropped, it reads
+ * as `false` and the screen renders "not connected" for a shop whose Telegram bot is live - the false
+ * negative the `23-99` bound names explicitly for a channel-connection-status object.
+ */
+const telegramChannelStatusRequiredKeys = requiredKeysOf<TelegramChannelStatusDto>({
+  connected: true,
+  channelCredentialId: true,
+  createdAt: true,
+  verified: true,
+  unreachable: true,
+  refusalReason: true,
+  checkedAt: true,
+});
+
+/**
+ * `23-118`: rethrows a `shape.mismatch` as `ApiProblemError` - the same type every other rejection in
+ * this file already produces (`problemDetailsFrom`), so `TelegramChannelPage`'s existing `catch` needs
+ * no second error vocabulary (mirrors `conversationsApi.ts#rethrowAsApiProblem`).
+ */
+function rethrowAsApiProblem(reason: unknown, status: number): never {
+  if (reason instanceof ShapeMismatchError) {
+    throw new ApiProblemError("shape.mismatch", reason.diagnostic, status);
+  }
+  throw reason;
+}
+
+export async function fetchTelegramChannelStatus(accessToken: string, siteId: string): Promise<TelegramChannelStatusDto> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/sites/${siteId}/channels/telegram`, {
+    headers: telegramChannelHeaders(accessToken),
+  });
+
+  if (!response.ok) {
+    throw await problemDetailsFrom(response);
+  }
+
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<TelegramChannelStatusDto>(body, telegramChannelStatusRequiredKeys, "GET /api/v1/sites/{siteId}/channels/telegram");
+  } catch (reason) {
+    rethrowAsApiProblem(reason, response.status);
+  }
+  return body;
 }
 
 /** `token` never round-trips - this call sends it once and the response type
