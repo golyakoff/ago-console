@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
-import { problemDetailsFrom } from "./problemDetails.js";
+import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
+import { ShapeMismatchError, assertArrayHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `26-161`/`adr/0184`: chat's own account-scoped **Person registry**, read for display. The console
@@ -53,6 +54,24 @@ export interface PersonProfile {
 }
 
 /**
+ * `23-118`/`23-99`: the shape each returned person promises. `displayName` is required-present
+ * (`string | null` - the server always sends the key, `null` when nobody recorded a name), so a
+ * *dropped* `displayName` is a shape defect, not a nameless person - `RequiredKeys` keeps the two
+ * apart exactly as the interface's own `| null` does. Absence here renders as a false empty state by
+ * design: `usePersonNames.ts` display-merges the name onto a calendar row, so a truncated person row
+ * would read as "no name recorded yet" (the `adr/0184` degrade) rather than as a reader that did not
+ * answer what it promised. `channels` is validated for presence, not per element - only `displayName`
+ * is consumed today (this file's own remarks), and its own elements are a future concern.
+ */
+const personProfileRequiredKeys = requiredKeysOf<PersonProfile>({
+  personId: true,
+  displayName: true,
+  channels: true,
+  firstSeenAt: true,
+  lastSeenAt: true,
+});
+
+/**
  * `GET /api/v1/persons?ids=` - the batch a screen needs, in one request. An empty id list short-
  * circuits to `[]` without a round trip, so a screen with no rows (or rows that carry no person id)
  * never issues a call with an empty `?ids=`. Ids are de-duplicated by the caller
@@ -78,6 +97,14 @@ export async function getPersons(
     throw await problemDetailsFrom(response);
   }
 
-  const body = (await response.json()) as { persons: PersonProfile[] };
+  const body = (await response.json()) as { persons?: unknown };
+  try {
+    assertArrayHasKeys<PersonProfile>(body.persons, personProfileRequiredKeys, "GET /api/v1/persons");
+  } catch (reason) {
+    if (reason instanceof ShapeMismatchError) {
+      throw new ApiProblemError("shape.mismatch", reason.diagnostic, response.status);
+    }
+    throw reason;
+  }
   return body.persons;
 }

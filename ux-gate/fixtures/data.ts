@@ -465,6 +465,12 @@ export function seededAnalytics() {
     from: "2026-08-02T00:00:00.000Z",
     to: "2026-09-01T00:00:00.000Z",
     overall: bucket(),
+    // `23-16`: the immediately preceding window, always present on the wire (the response DTO's own
+    // remarks) - required here so `23-118`'s API-boundary shape guard (`conversationsApi.ts`) reads this
+    // fixture as the real contract rather than rejecting it as a dropped-field mismatch.
+    previousFrom: "2026-07-03T00:00:00.000Z",
+    previousTo: "2026-08-02T00:00:00.000Z",
+    previousOverall: bucket({ conversationCount: 38 }),
     byChannel: [
       { channel: "Widget", bucket: bucket({ conversationCount: 30 }) },
       { channel: "WhatsApp", bucket: bucket({ conversationCount: 12 }) },

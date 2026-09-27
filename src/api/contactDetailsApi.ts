@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
-import { problemDetailsFrom } from "./problemDetails.js";
+import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
+import { ShapeMismatchError, assertArrayHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `14-14`/`23-09`/`25-58`/`adr/0079` section 6's exact wire shape (`Ago.Chat.Api`'s
@@ -51,6 +52,27 @@ function url(conversationId: string): string {
   return `${config.apiBaseUrl}/api/v1/conversations/${conversationId}/contact-details`;
 }
 
+/**
+ * `23-118`/`23-99`: the shape each row promises. `ContactDetailsPanel` renders this list, and an empty
+ * list is a legitimate "this visitor gave no details" - so a dropped field on a row, or a dropped list
+ * entirely, would read as that same empty rather than as a reader that did not answer. Every field is
+ * required-present (the nullable ones, `recordedByOperatorId`, are `| null` - the key is always sent),
+ * so a missing key is a genuine shape defect. Only the list read guards this; the edit/assess/reveal
+ * writes below return the same `ContactDetailDto` but as the echo of an act the operator just took -
+ * see their own out-of-scope note in this worker's report.
+ */
+const contactDetailRequiredKeys = requiredKeysOf<ContactDetailDto>({
+  id: true,
+  kind: true,
+  value: true,
+  recordedByOperatorId: true,
+  source: true,
+  verified: true,
+  recordedAt: true,
+  masked: true,
+  assessment: true,
+});
+
 /** `GET /api/v1/conversations/{id}/contact-details`, oldest first - `ListVisitorContactDetailsHandler`'s
  * own ordering. Gated server-side on `conversation:read`. */
 export async function fetchContactDetails(accessToken: string, conversationId: string): Promise<ContactDetailDto[]> {
@@ -62,7 +84,15 @@ export async function fetchContactDetails(accessToken: string, conversationId: s
     throw await problemDetailsFrom(response);
   }
 
-  const body = (await response.json()) as { contactDetails: ContactDetailDto[] };
+  const body = (await response.json()) as { contactDetails?: unknown };
+  try {
+    assertArrayHasKeys<ContactDetailDto>(body.contactDetails, contactDetailRequiredKeys, "GET /api/v1/conversations/{id}/contact-details");
+  } catch (reason) {
+    if (reason instanceof ShapeMismatchError) {
+      throw new ApiProblemError("shape.mismatch", reason.diagnostic, response.status);
+    }
+    throw reason;
+  }
   return body.contactDetails;
 }
 

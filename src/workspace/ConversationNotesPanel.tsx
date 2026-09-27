@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchConversationNotes, addConversationNote, type ConversationNoteDto } from "../api/notesApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
+import { shapeMismatchMessage } from "../pages/apiErrorMessage.js";
 import { Alert } from "../components/Alert.js";
 import { Button } from "../components/Button.js";
 import { Textarea } from "../components/Textarea.js";
@@ -65,7 +66,7 @@ export function ConversationNotesPanel({ conversationId, timeZone, accessToken }
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : strings.notesLoadError);
+          setLoadError(shapeMismatchMessage(err, strings) ?? (err instanceof Error ? err.message : strings.notesLoadError));
         }
       });
 

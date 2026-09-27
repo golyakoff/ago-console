@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
-import { problemDetailsFrom } from "./problemDetails.js";
+import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
+import { ShapeMismatchError, assertArrayHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `18-04`'s exact wire shape (`Ago.Chat.Api`'s `NoteEndpoints`, backed by
@@ -19,6 +20,19 @@ function url(conversationId: string): string {
   return `${config.apiBaseUrl}/api/v1/conversations/${conversationId}/notes`;
 }
 
+/**
+ * `23-118`/`23-99`: the shape each note promises. `ConversationNotesPanel` renders this list, and an
+ * empty list is a legitimate "no notes yet" - so a dropped field, or a dropped list, would read as
+ * that empty rather than as a reader that did not answer. Only the list read guards this; the
+ * `addConversationNote` write below is the echo of an act the operator just took, out of scope.
+ */
+const conversationNoteRequiredKeys = requiredKeysOf<ConversationNoteDto>({
+  id: true,
+  authorId: true,
+  body: true,
+  createdAt: true,
+});
+
 /** `GET /api/v1/conversations/{id}/notes`, oldest first - `GetConversationNotesHandler`'s own
  * ordering. */
 export async function fetchConversationNotes(accessToken: string, conversationId: string): Promise<ConversationNoteDto[]> {
@@ -30,7 +44,15 @@ export async function fetchConversationNotes(accessToken: string, conversationId
     throw await problemDetailsFrom(response);
   }
 
-  const body = (await response.json()) as { notes: ConversationNoteDto[] };
+  const body = (await response.json()) as { notes?: unknown };
+  try {
+    assertArrayHasKeys<ConversationNoteDto>(body.notes, conversationNoteRequiredKeys, "GET /api/v1/conversations/{id}/notes");
+  } catch (reason) {
+    if (reason instanceof ShapeMismatchError) {
+      throw new ApiProblemError("shape.mismatch", reason.diagnostic, response.status);
+    }
+    throw reason;
+  }
   return body.notes;
 }
 

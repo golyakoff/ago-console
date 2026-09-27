@@ -23,6 +23,7 @@ import { Tooltip } from "../components/Tooltip.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { fetchChannelDeliveries, type ChannelDeliveryDto } from "../api/channelDeliveriesApi.js";
 import { isSessionExpiredError } from "../api/problemDetails.js";
+import { shapeMismatchMessage } from "./apiErrorMessage.js";
 import {
   blockVisitor,
   closeConversation,
@@ -412,9 +413,7 @@ export function ConversationPage() {
           setVisitorHistoryError(
             isSessionExpiredError(err)
               ? strings.authSessionExpiredError
-              : err instanceof Error
-                ? err.message
-                : strings.visitorHistoryError,
+              : (shapeMismatchMessage(err, strings) ?? (err instanceof Error ? err.message : strings.visitorHistoryError)),
           );
         }
       });

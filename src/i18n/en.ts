@@ -15,6 +15,7 @@ export const en: ConsoleStrings = {
     "Something did not arrive in the shape this screen expected, so it could not be shown. Try " +
     "again - if it keeps happening, reload the page.",
   renderErrorRetryButton: "Try again",
+  shapeMismatchError: "The server returned data in a shape this screen did not expect, so it could not be shown.",
   navConversations: "Conversations",
   navMyConversations: "Mine",
   navAllConversations: "All conversations",

@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
-import { problemDetailsFrom } from "./problemDetails.js";
+import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
+import { ShapeMismatchError, assertArrayHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /** `18-04`'s exact wire shape (`Ago.Chat.Api`'s `TagEndpoints`). Labels only - no field here carries
  * any meaning to automation (routing, SLAs), matching `Tag`'s own doc comment (`ago-chat`). */
@@ -20,6 +21,23 @@ export interface ConversationTagDto extends TagDto {
    * other CLR-member-name string fields already follow). */
   source: "Operator" | "Ai";
 }
+
+/**
+ * `23-118`/`23-99`: the two shapes the readers below promise. Both feed lists (`TagsPage`'s
+ * vocabulary, `ConversationTagsPanel`'s applied tags) where an empty list is a legitimate "no tags" -
+ * so a dropped field, or a dropped list, would read as that empty rather than as a reader that did not
+ * answer. `conversationTagRequiredKeys` adds `source` to the vocabulary shape (`19-02`). The
+ * create/rename writes below echo an act the operator just took and are out of scope; the delete/apply/
+ * remove writes return `204` and read no body at all.
+ */
+const tagRequiredKeys = requiredKeysOf<TagDto>({ id: true, name: true, createdAt: true });
+
+const conversationTagRequiredKeys = requiredKeysOf<ConversationTagDto>({
+  id: true,
+  name: true,
+  createdAt: true,
+  source: true,
+});
 
 function vocabularyUrl(siteId: string, tagId?: string): string {
   const base = `${config.apiBaseUrl}/api/v1/sites/${siteId}/tags`;
@@ -43,7 +61,15 @@ export async function fetchTags(accessToken: string, siteId: string): Promise<Ta
     throw await problemDetailsFrom(response);
   }
 
-  const body = (await response.json()) as { tags: TagDto[] };
+  const body = (await response.json()) as { tags?: unknown };
+  try {
+    assertArrayHasKeys<TagDto>(body.tags, tagRequiredKeys, "GET /api/v1/sites/{siteId}/tags");
+  } catch (reason) {
+    if (reason instanceof ShapeMismatchError) {
+      throw new ApiProblemError("shape.mismatch", reason.diagnostic, response.status);
+    }
+    throw reason;
+  }
   return body.tags;
 }
 
@@ -103,7 +129,15 @@ export async function fetchConversationTags(accessToken: string, conversationId:
     throw await problemDetailsFrom(response);
   }
 
-  const body = (await response.json()) as { tags: ConversationTagDto[] };
+  const body = (await response.json()) as { tags?: unknown };
+  try {
+    assertArrayHasKeys<ConversationTagDto>(body.tags, conversationTagRequiredKeys, "GET /api/v1/conversations/{id}/tags");
+  } catch (reason) {
+    if (reason instanceof ShapeMismatchError) {
+      throw new ApiProblemError("shape.mismatch", reason.diagnostic, response.status);
+    }
+    throw reason;
+  }
   return body.tags;
 }
 

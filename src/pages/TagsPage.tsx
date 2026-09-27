@@ -3,6 +3,7 @@ import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchTags, createTag, renameTag, deleteTag, type TagDto } from "../api/tagsApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
+import { shapeMismatchMessage } from "./apiErrorMessage.js";
 import { PageHead } from "../shell/AppShell.js";
 import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
@@ -57,7 +58,9 @@ export function TagsPage() {
         setTags(next);
         setLoadError(null);
       })
-      .catch((err: unknown) => setLoadError(err instanceof Error ? err.message : strings.tagsLoadError));
+      .catch((err: unknown) =>
+        setLoadError(shapeMismatchMessage(err, strings) ?? (err instanceof Error ? err.message : strings.tagsLoadError)),
+      );
   }, [user?.access_token, siteId, strings]);
 
   useEffect(() => {
