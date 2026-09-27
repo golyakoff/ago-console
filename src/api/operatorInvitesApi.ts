@@ -1,5 +1,6 @@
 import { config } from "../config.js";
-import { problemDetailsFrom } from "./problemDetails.js";
+import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
+import { ShapeMismatchError, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `23-27`: the console's own caller for `13-01`'s `POST /api/v1/operator-invites/redeem`
@@ -75,6 +76,24 @@ export interface OperatorInvitePreviewResponse {
   status: "Valid" | "Expired" | "Redeemed";
 }
 
+/**
+ * `23-118`/`23-99`: the runtime shape this read promises. A `POST` in transport (the code must not ride
+ * the URL - see this function's own doc comment) but a pure read in effect, so it is *not* a write echo
+ * the bound excludes. `status` is the load-bearing field: dropped, no branch in `InvitePreviewPage`'s
+ * `state.preview.status === ...` chain matches and the panel renders empty - a blank card with no alert
+ * and no content, the `23-99` false-empty case. `siteName` dropped renders a blank shop name inside the
+ * Valid branch. All four fields are present-but-maybe-null on the wire (none is `?`), so all four are
+ * required keys. Rethrown as `ApiProblemError('shape.mismatch')` - the file's own error type, caught by
+ * `InvitePreviewPage`'s load `catch` (which shows its generic error alert for any non-`NotFound`
+ * `ApiProblemError`) instead of the blank card.
+ */
+const operatorInvitePreviewRequiredKeys = requiredKeysOf<OperatorInvitePreviewResponse>({
+  siteName: true,
+  invitedByDisplayName: true,
+  expiresAt: true,
+  status: true,
+});
+
 export async function previewOperatorInvite(code: string): Promise<OperatorInvitePreviewResponse> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/operator-invites/preview`, {
     method: "POST",
@@ -86,7 +105,16 @@ export async function previewOperatorInvite(code: string): Promise<OperatorInvit
     throw await problemDetailsFrom(response);
   }
 
-  return (await response.json()) as OperatorInvitePreviewResponse;
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<OperatorInvitePreviewResponse>(body, operatorInvitePreviewRequiredKeys, "POST /api/v1/operator-invites/preview");
+  } catch (reason) {
+    if (reason instanceof ShapeMismatchError) {
+      throw new ApiProblemError("shape.mismatch", reason.diagnostic, response.status);
+    }
+    throw reason;
+  }
+  return body;
 }
 
 /**
@@ -99,6 +127,18 @@ export interface HasPendingOperatorInviteResponse {
   hasPendingInvite: boolean;
 }
 
+/**
+ * `23-118`/`23-99`: `hasPendingInvite` dropped reads as `undefined` and `OnboardingPage` sets it into a
+ * boolean state that renders falsy - "no pending invite", indistinguishable from a caller who genuinely
+ * has none: the `23-99` false-negative case for a status object whose absent boolean silently reads as
+ * "not-X". Thrown as a **plain** `ShapeMismatchError`, not remapped to a `shape.mismatch`-coded error,
+ * for the same reason `siteSuspensionApi.ts` gives: `OnboardingPage`'s effect `.catch(() => {})` fails
+ * open on every rejection and never renders `err.message`, so there is no localized-surfacing path a
+ * `shape.mismatch` code would feed - guarding here still makes the boundary reject the malformed body as
+ * an error rather than resolve it into a silent false.
+ */
+const hasPendingOperatorInviteRequiredKeys = requiredKeysOf<HasPendingOperatorInviteResponse>({ hasPendingInvite: true });
+
 export async function hasPendingOperatorInvite(accessToken: string): Promise<HasPendingOperatorInviteResponse> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/operator-invites/pending-for-me`, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -108,7 +148,9 @@ export async function hasPendingOperatorInvite(accessToken: string): Promise<Has
     throw await problemDetailsFrom(response);
   }
 
-  return (await response.json()) as HasPendingOperatorInviteResponse;
+  const body: unknown = await response.json();
+  assertHasKeys<HasPendingOperatorInviteResponse>(body, hasPendingOperatorInviteRequiredKeys, "GET /api/v1/operator-invites/pending-for-me");
+  return body;
 }
 
 /**

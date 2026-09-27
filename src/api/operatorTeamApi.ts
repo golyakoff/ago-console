@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
 import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
+import { ShapeMismatchError, assertArrayHasKeys, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `23-22`: the team screen's own wire contracts, against `ago-chat`'s real, verified shape - not the
@@ -88,6 +89,64 @@ export interface ListOperatorInvitesResponseDto {
   invites: OperatorInviteListEntryDto[];
 }
 
+/**
+ * `23-118`/`23-99`: the runtime shapes the three team reads promise. Each is a list-or-count screen
+ * where a dropped field and a genuinely empty result render identically:
+ * - `fetchOperatorTeam` drops `operators` -> "no colleagues" (`OperatorsTeamPage` renders `team` as an
+ *   empty table), and a member dropping `roles` -> that operator shows no roles / no seat controls, a
+ *   dropped `holdsSeat` on a role -> the seat toggle reads `undefined` = off (false-negative). Every
+ *   member is checked, and every role within each member, since one truncated row must not read as
+ *   "the rest loaded fine".
+ * - `fetchSeatAssignmentSummary` drops `roles` -> no seat limits shown, and a row dropping `heldSeats`/
+ *   `limit` -> the pre-invite capacity check silently compares against `undefined`.
+ * - `listOperatorInvites` drops `invites` -> `undefined`, which the page treats as "no invites yet" and
+ *   hides the whole table (it keeps `null` distinct from `[]`), a false-empty; an entry dropping `status`
+ *   -> a blank status badge.
+ * All fields are present-but-maybe-null on the wire (none is `?`), so all are required keys. Rethrown as
+ * `ApiProblemError('shape.mismatch')` - the file's own error type - so `OperatorsTeamPage`'s two load
+ * `catch`es surface it localized via `shapeMismatchMessage` instead of rendering a false-empty table. The
+ * write methods (`createOperatorInvite`, `revokeOperatorInvite`, `changeOperatorRole`,
+ * `toggleOperatorSeat`, `removeOperator`) are out of scope per the bound.
+ */
+const operatorTeamRequiredKeys = requiredKeysOf<OperatorTeamResponseDto>({ operators: true });
+const operatorTeamMemberRequiredKeys = requiredKeysOf<OperatorTeamMemberDto>({
+  operatorId: true,
+  displayName: true,
+  email: true,
+  roles: true,
+});
+const operatorRoleSeatRequiredKeys = requiredKeysOf<OperatorRoleSeatDto>({ roleName: true, holdsSeat: true });
+const seatAssignmentSummaryRequiredKeys = requiredKeysOf<SeatAssignmentSummaryDto>({ roles: true });
+const roleSeatAssignmentSummaryRequiredKeys = requiredKeysOf<RoleSeatAssignmentSummaryDto>({
+  roleName: true,
+  heldSeats: true,
+  limit: true,
+  overLimit: true,
+});
+const operatorInvitesListRequiredKeys = requiredKeysOf<ListOperatorInvitesResponseDto>({ invites: true });
+const operatorInviteListEntryRequiredKeys = requiredKeysOf<OperatorInviteListEntryDto>({
+  operatorInviteId: true,
+  email: true,
+  createdAt: true,
+  expiresAt: true,
+  status: true,
+  smtpErrorCode: true,
+});
+
+/**
+ * Rethrows a `ShapeMismatchError` as `ApiProblemError('shape.mismatch')`, the same type every other
+ * rejection in this file already produces (`problemDetailsFrom`), so `OperatorsTeamPage`'s existing
+ * `catch`es need no second error vocabulary (mirrors `maxChannelApi.ts#rethrowAsApiProblem`). `status`
+ * is `200`: a body only reaches validation after `operatorTeamFetch` passed the `response.ok` gate, so
+ * the mismatch is always on a `2xx` read body.
+ */
+function rethrowAsApiProblem(reason: unknown): never {
+  if (reason instanceof ShapeMismatchError) {
+    throw new ApiProblemError("shape.mismatch", reason.diagnostic, 200);
+  }
+  throw reason;
+}
+
 function operatorTeamHeaders(accessToken: string, init?: RequestInit): HeadersInit {
   return withActiveSiteHeader({
     Authorization: `Bearer ${accessToken}`,
@@ -120,12 +179,31 @@ async function operatorTeamVoidFetch(accessToken: string, path: string, init: Re
   throw await problemDetailsFrom(response);
 }
 
-export function fetchOperatorTeam(accessToken: string, siteId: string): Promise<OperatorTeamResponseDto> {
-  return operatorTeamFetch<OperatorTeamResponseDto>(accessToken, `/api/v1/sites/${siteId}/operators`);
+export async function fetchOperatorTeam(accessToken: string, siteId: string): Promise<OperatorTeamResponseDto> {
+  const body = await operatorTeamFetch<OperatorTeamResponseDto>(accessToken, `/api/v1/sites/${siteId}/operators`);
+  const context = `GET /api/v1/sites/${siteId}/operators`;
+  try {
+    assertHasKeys<OperatorTeamResponseDto>(body, operatorTeamRequiredKeys, context);
+    assertArrayHasKeys<OperatorTeamMemberDto>(body.operators, operatorTeamMemberRequiredKeys, `${context} (operators)`);
+    body.operators.forEach((member, index) => {
+      assertArrayHasKeys<OperatorRoleSeatDto>(member.roles, operatorRoleSeatRequiredKeys, `${context} (operators[${String(index)}].roles)`);
+    });
+  } catch (reason) {
+    rethrowAsApiProblem(reason);
+  }
+  return body;
 }
 
-export function fetchSeatAssignmentSummary(accessToken: string, siteId: string): Promise<SeatAssignmentSummaryDto> {
-  return operatorTeamFetch<SeatAssignmentSummaryDto>(accessToken, `/api/v1/sites/${siteId}/operators/seat-assignment-summary`);
+export async function fetchSeatAssignmentSummary(accessToken: string, siteId: string): Promise<SeatAssignmentSummaryDto> {
+  const body = await operatorTeamFetch<SeatAssignmentSummaryDto>(accessToken, `/api/v1/sites/${siteId}/operators/seat-assignment-summary`);
+  const context = `GET /api/v1/sites/${siteId}/operators/seat-assignment-summary`;
+  try {
+    assertHasKeys<SeatAssignmentSummaryDto>(body, seatAssignmentSummaryRequiredKeys, context);
+    assertArrayHasKeys<RoleSeatAssignmentSummaryDto>(body.roles, roleSeatAssignmentSummaryRequiredKeys, `${context} (roles)`);
+  } catch (reason) {
+    rethrowAsApiProblem(reason);
+  }
+  return body;
 }
 
 /** `23-72`: the only two role names any site has today (`RegisterSiteHandler`'s own seeding) - named
@@ -188,8 +266,16 @@ export function createOperatorInvite(
 /** `25-73`: the invite-list table's own read - refetched by the caller (`OperatorsTeamPage`'s own
  * `load()`) after every create/revoke, the same "no separate cache, just reload" shape this file's
  * `fetchOperatorTeam` already uses for the operator table itself. */
-export function listOperatorInvites(accessToken: string, siteId: string): Promise<ListOperatorInvitesResponseDto> {
-  return operatorTeamFetch<ListOperatorInvitesResponseDto>(accessToken, `/api/v1/sites/${siteId}/operator-invites`);
+export async function listOperatorInvites(accessToken: string, siteId: string): Promise<ListOperatorInvitesResponseDto> {
+  const body = await operatorTeamFetch<ListOperatorInvitesResponseDto>(accessToken, `/api/v1/sites/${siteId}/operator-invites`);
+  const context = `GET /api/v1/sites/${siteId}/operator-invites`;
+  try {
+    assertHasKeys<ListOperatorInvitesResponseDto>(body, operatorInvitesListRequiredKeys, context);
+    assertArrayHasKeys<OperatorInviteListEntryDto>(body.invites, operatorInviteListEntryRequiredKeys, `${context} (invites)`);
+  } catch (reason) {
+    rethrowAsApiProblem(reason);
+  }
+  return body;
 }
 
 /** `25-73`: the "отозвать" button's own call - `204 No Content` on success, the same

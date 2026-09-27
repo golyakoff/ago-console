@@ -21,6 +21,7 @@ import {
   type RoleSeatAssignmentSummaryDto,
   type SeatAssignmentSummaryDto,
 } from "../api/operatorTeamApi.js";
+import { shapeMismatchMessage } from "./apiErrorMessage.js";
 import { formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
 import { PageHead } from "../shell/AppShell.js";
 import { AccessRefusal } from "../shell/accessRefusal.js";
@@ -181,7 +182,9 @@ export function OperatorsTeamPage() {
         setSummary(summaryResponse);
         setLoadError(null);
       })
-      .catch((err: unknown) => setLoadError(err instanceof ApiProblemError ? err.message : strings.operatorsTeamLoadError));
+      .catch((err: unknown) =>
+        setLoadError(shapeMismatchMessage(err, strings) ?? (err instanceof ApiProblemError ? err.message : strings.operatorsTeamLoadError)),
+      );
   }, [accessToken, siteId, strings]);
 
   // `25-73`: its own load, separate from `load()` above - the invite list is a genuinely different
@@ -197,7 +200,11 @@ export function OperatorsTeamPage() {
         setInvites(response.invites);
         setInvitesLoadError(null);
       })
-      .catch((err: unknown) => setInvitesLoadError(err instanceof ApiProblemError ? err.message : strings.operatorsTeamInviteListLoadError));
+      .catch((err: unknown) =>
+        setInvitesLoadError(
+          shapeMismatchMessage(err, strings) ?? (err instanceof ApiProblemError ? err.message : strings.operatorsTeamInviteListLoadError),
+        ),
+      );
   }, [accessToken, siteId, strings]);
 
   useEffect(() => {
