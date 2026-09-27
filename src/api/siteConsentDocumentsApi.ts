@@ -1,5 +1,6 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
+import { ShapeMismatchError, assertArrayHasKeys, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `23-37`: the console's own read/write surface for `SiteConsentDocumentEndpoints`
@@ -84,6 +85,41 @@ async function buildError(
   return new SiteConsentDocumentsError(code, detail);
 }
 
+/**
+ * `23-118`/`23-99`: rethrows a `shape.mismatch` as `SiteConsentDocumentsError` (the file's own error
+ * type, carrying the `shape.mismatch` code `apiErrorMessage.ts#shapeMismatchMessage` duck-types on to
+ * localize) - the same "answered, but not as promised" case every other failure on this reader already
+ * throws as, caught by `DocumentsPage`'s existing load `catch`.
+ */
+function rethrowConsentShapeMismatch(reason: unknown): never {
+  if (reason instanceof ShapeMismatchError) {
+    throw new SiteConsentDocumentsError("shape.mismatch", reason.diagnostic);
+  }
+  throw reason;
+}
+
+/**
+ * `23-118`/`23-99`: the runtime shapes these two reads promise. On the documents summary, the in-scope
+ * field is `contactConsentRequired`: a dropped boolean renders as an *off* consent gate
+ * indistinguishable from a site that really has it off (the `23-99` false-negative case), and a dropped
+ * `contact`/`marketing` reads as a document group with no published versions. Top-level presence only,
+ * the same bound `ownerApi.ts` draws for its own nested arrays - the per-`versions` element shape is not
+ * checked here. On the acceptances read, a dropped element field (`acceptedAt`, `subjectId`) renders as
+ * a blank cell in the "who accepted" list, so each element is checked. `publishSiteConsentDocument` is a
+ * POST echo acted on immediately, out of scope per the bound.
+ */
+const siteConsentDocumentsRequiredKeys = requiredKeysOf<SiteConsentDocumentsDto>({
+  contact: true,
+  contactConsentRequired: true,
+  marketing: true,
+});
+const siteConsentAcceptanceRequiredKeys = requiredKeysOf<SiteConsentAcceptanceDto>({
+  subjectKind: true,
+  subjectId: true,
+  documentVersion: true,
+  acceptedAt: true,
+});
+
 export async function fetchSiteConsentDocuments(accessToken: string, siteId: string): Promise<SiteConsentDocumentsDto> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/sites/${siteId}/consent-documents`, {
     headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
@@ -93,7 +129,17 @@ export async function fetchSiteConsentDocuments(accessToken: string, siteId: str
     throw await buildError(response, "SiteConsentDocuments.Unknown", "Failed to load the site's consent documents");
   }
 
-  return (await response.json()) as SiteConsentDocumentsDto;
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<SiteConsentDocumentsDto>(
+      body,
+      siteConsentDocumentsRequiredKeys,
+      `GET /api/v1/sites/${siteId}/consent-documents`,
+    );
+  } catch (reason) {
+    rethrowConsentShapeMismatch(reason);
+  }
+  return body;
 }
 
 export async function publishSiteConsentDocument(
@@ -132,5 +178,15 @@ export async function fetchSiteConsentAcceptances(
     throw await buildError(response, "SiteConsentDocuments.Unknown", "Failed to load who accepted this document");
   }
 
-  return (await response.json()) as SiteConsentAcceptanceDto[];
+  const body: unknown = await response.json();
+  try {
+    assertArrayHasKeys<SiteConsentAcceptanceDto>(
+      body,
+      siteConsentAcceptanceRequiredKeys,
+      `GET /api/v1/sites/${siteId}/consent-documents/${purpose}/acceptances`,
+    );
+  } catch (reason) {
+    rethrowConsentShapeMismatch(reason);
+  }
+  return body;
 }

@@ -12,6 +12,7 @@ import {
   type SiteConsentDocumentSummary,
   type SiteConsentDocumentsDto,
 } from "../api/siteConsentDocumentsApi.js";
+import { shapeMismatchMessage } from "./apiErrorMessage.js";
 import { PageHead } from "../shell/AppShell.js";
 import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
@@ -72,7 +73,9 @@ export function DocumentsPage() {
       .catch((err: unknown) =>
         setState({
           status: "error",
-          message: err instanceof SiteConsentDocumentsError ? err.message : strings.documentsPageLoadError,
+          message:
+            shapeMismatchMessage(err, strings) ??
+            (err instanceof SiteConsentDocumentsError ? err.message : strings.documentsPageLoadError),
         }),
       );
   }, [user?.access_token, siteId, strings]);
@@ -455,7 +458,9 @@ function AcceptancesList({
         if (!cancelled) {
           setState({
             status: "error",
-            message: err instanceof SiteConsentDocumentsError ? err.message : strings.documentsAcceptancesLoadError,
+            message:
+              shapeMismatchMessage(err, strings) ??
+              (err instanceof SiteConsentDocumentsError ? err.message : strings.documentsAcceptancesLoadError),
           });
         }
       });

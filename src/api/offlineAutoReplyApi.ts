@@ -1,5 +1,6 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
+import { ShapeMismatchError, assertArrayHasKeys, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `14-04`'s exact wire shape (`OfflineAutoReplyEndpoints.OfflineAutoReplyResponse`/
@@ -66,6 +67,17 @@ function url(siteId: string): string {
   return `${config.apiBaseUrl}/api/v1/sites/${siteId}/offline-auto-reply`;
 }
 
+/**
+ * `23-118`/`23-99`: the runtime shapes this read promises. `enabled` dropped renders as an *off*
+ * auto-reply indistinguishable from a site that really turned it off (the `23-99` false-negative case);
+ * `rules` dropped renders as "no rules" (false empty); `fallbackReply` dropped renders blank. Each rule
+ * element is checked, since a rule missing `keyword`/`reply` renders as an empty row. `rules` order is
+ * behaviour (first-rule-wins), but that is orthogonal to presence, which is all this guard checks.
+ * `updateOfflineAutoReply` is a PUT echo acted on immediately, out of scope per the bound.
+ */
+const offlineAutoReplyRequiredKeys = requiredKeysOf<OfflineAutoReplyDto>({ enabled: true, fallbackReply: true, rules: true });
+const offlineAutoReplyRuleRequiredKeys = requiredKeysOf<OfflineAutoReplyRuleDto>({ keyword: true, reply: true });
+
 export async function fetchOfflineAutoReply(accessToken: string, siteId: string): Promise<OfflineAutoReplyDto> {
   const response = await fetch(url(siteId), {
     headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
@@ -75,7 +87,22 @@ export async function fetchOfflineAutoReply(accessToken: string, siteId: string)
     throw await buildError(response, "OfflineAutoReply.Unknown", "Failed to load the offline auto-reply");
   }
 
-  return (await response.json()) as OfflineAutoReplyDto;
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<OfflineAutoReplyDto>(body, offlineAutoReplyRequiredKeys, `GET /api/v1/sites/${siteId}/offline-auto-reply`);
+    assertArrayHasKeys<OfflineAutoReplyRuleDto>(
+      body.rules,
+      offlineAutoReplyRuleRequiredKeys,
+      `GET /api/v1/sites/${siteId}/offline-auto-reply (rules)`,
+    );
+  } catch (reason) {
+    if (reason instanceof ShapeMismatchError) {
+      // The neutral endpoint+field diagnostic, surfaced localized by `apiErrorMessage.ts#shapeMismatchMessage`.
+      throw new OfflineAutoReplyError("shape.mismatch", reason.diagnostic);
+    }
+    throw reason;
+  }
+  return body;
 }
 
 export async function updateOfflineAutoReply(

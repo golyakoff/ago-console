@@ -4,6 +4,7 @@ import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
 import { fetchModules, ModulesError } from "../api/modulesApi.js";
 import { fetchKnowledgeBase, updateKnowledgeBase, KnowledgeBaseError } from "../api/faqKnowledgeBaseApi.js";
+import { shapeMismatchMessage } from "./apiErrorMessage.js";
 import { formatAbsolute, parseInstant, resolveTimeZone } from "../time/format.js";
 import { PageHead } from "../shell/AppShell.js";
 import { AccessRefusal } from "../shell/accessRefusal.js";
@@ -90,7 +91,9 @@ export function FaqModulePage() {
         setModuleLoadError(null);
       })
       .catch((err: unknown) =>
-        setModuleLoadError(err instanceof ModulesError ? err.message : strings.faqModuleLoadError),
+        setModuleLoadError(
+          shapeMismatchMessage(err, strings) ?? (err instanceof ModulesError ? err.message : strings.faqModuleLoadError),
+        ),
       );
   }, [user?.access_token, siteId, strings]);
 
@@ -111,7 +114,9 @@ export function FaqModulePage() {
         setKbLoadError(null);
       })
       .catch((err: unknown) =>
-        setKbLoadError(err instanceof KnowledgeBaseError ? err.message : strings.faqKnowledgeBaseLoadError),
+        setKbLoadError(
+          shapeMismatchMessage(err, strings) ?? (err instanceof KnowledgeBaseError ? err.message : strings.faqKnowledgeBaseLoadError),
+        ),
       );
   }, [user?.access_token, siteId, strings]);
 

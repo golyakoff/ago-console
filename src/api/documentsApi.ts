@@ -1,5 +1,6 @@
 import { config } from "../config.js";
-import { problemDetailsFrom } from "./problemDetails.js";
+import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
+import { ShapeMismatchError, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `24-03`: the console's own caller for `24-02`'s published surface (`Ago.Chat.Api.Documents.DocumentEndpoints`)
@@ -35,6 +36,33 @@ export interface RequiredDocumentSummary {
  * `Enum.TryParse(..., ignoreCase: true)` on the server (`DocumentEndpoints.HandleGetRequiredDocumentsAsync`). */
 export type AcceptanceSubjectKind = "tenant" | "operator" | "visitor";
 
+/**
+ * `23-118`/`23-99`: the runtime shape both single-document reads promise. Every field on
+ * `DocumentVersionResponse` is present-and-non-null, so `requiredKeysOf` demands them all - and the
+ * in-scope field is `body`: `PolicyPage` renders it straight into a `<p>`, so a dropped `body` renders
+ * a blank policy document indistinguishable from one whose author published no text, the `23-99`
+ * false-empty case. `getRequiredDocuments` below is deliberately *not* guarded (its own remarks give
+ * the reason: it fails open to `[]` and never throws).
+ */
+const documentVersionRequiredKeys = requiredKeysOf<DocumentVersionResponse>({
+  documentKey: true,
+  version: true,
+  sequence: true,
+  title: true,
+  body: true,
+  publishedAt: true,
+});
+
+/** Rethrows a `shape.mismatch` as `ApiProblemError`, the same type both reads already throw on a
+ * failed response - `PolicyPage`'s load `catch` maps any non-`Document.NotFound` `ApiProblemError` to
+ * its own localized generic error, so an honest error replaces the blank document. */
+function rethrowDocumentShapeMismatch(reason: unknown, status: number): never {
+  if (reason instanceof ShapeMismatchError) {
+    throw new ApiProblemError("shape.mismatch", reason.diagnostic, status);
+  }
+  throw reason;
+}
+
 /** `GET /api/v1/documents/{documentKey}` - the current version. Throws {@link ApiProblemError}
  * (`Document.NotFound` if nothing has ever been published under this key). */
 export async function getCurrentDocument(documentKey: string): Promise<DocumentVersionResponse> {
@@ -44,7 +72,17 @@ export async function getCurrentDocument(documentKey: string): Promise<DocumentV
     throw await problemDetailsFrom(response);
   }
 
-  return (await response.json()) as DocumentVersionResponse;
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<DocumentVersionResponse>(
+      body,
+      documentVersionRequiredKeys,
+      `GET /api/v1/documents/${encodeURIComponent(documentKey)}`,
+    );
+  } catch (reason) {
+    rethrowDocumentShapeMismatch(reason, response.status);
+  }
+  return body;
 }
 
 /**
@@ -60,7 +98,17 @@ export async function getDocumentVersion(documentKey: string, version: string): 
     throw await problemDetailsFrom(response);
   }
 
-  return (await response.json()) as DocumentVersionResponse;
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<DocumentVersionResponse>(
+      body,
+      documentVersionRequiredKeys,
+      `GET /api/v1/documents/${encodeURIComponent(documentKey)}/versions/${encodeURIComponent(version)}`,
+    );
+  } catch (reason) {
+    rethrowDocumentShapeMismatch(reason, response.status);
+  }
+  return body;
 }
 
 /**

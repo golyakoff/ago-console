@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
-import { problemDetailsFrom } from "./problemDetails.js";
+import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
+import { ShapeMismatchError, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `10-06`'s exact wire shape (`Ago.Chat.Api.Sites.SiteInstallationEndpoints.SiteInstallationResponse`) -
@@ -36,6 +37,24 @@ export interface SiteInstallationDto {
  * later" and asks that nothing new copy it forward, so this is the first `api/*.ts` module in the
  * settings-screen family to use the shared one instead of adding a fourth near-identical class.
  */
+/**
+ * `23-118`/`23-99`: the runtime shape this read promises. Every field on `SiteInstallationDto` is
+ * present-but-nullable at most (none is `?`), so `requiredKeysOf` demands them all. In scope: an absent
+ * `allowedOrigins` renders as "no origins configured" (a false empty - the tenant did configure some),
+ * an absent `state` silently falls through `InstallSnippetPage`'s own state switch to a default badge,
+ * and an absent `publicKey` blanks the snippet - all the `23-99` "absence looks like emptiness" case.
+ */
+const siteInstallationRequiredKeys = requiredKeysOf<SiteInstallationDto>({
+  publicKey: true,
+  allowedOrigins: true,
+  firstSeenAt: true,
+  lastSeenAt: true,
+  lastRefusedOrigin: true,
+  lastRefusedOriginAt: true,
+  usedRecently: true,
+  state: true,
+});
+
 export async function fetchSiteInstallation(accessToken: string, siteId: string): Promise<SiteInstallationDto> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/sites/${siteId}/installation`, {
     headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
@@ -45,5 +64,17 @@ export async function fetchSiteInstallation(accessToken: string, siteId: string)
     throw await problemDetailsFrom(response);
   }
 
-  return (await response.json()) as SiteInstallationDto;
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<SiteInstallationDto>(body, siteInstallationRequiredKeys, `GET /api/v1/sites/${siteId}/installation`);
+  } catch (reason) {
+    if (reason instanceof ShapeMismatchError) {
+      // Rethrown as `ApiProblemError` (`shape.mismatch`), the same type this reader's failure path
+      // already throws - `InstallSnippetPage`'s load `catch` surfaces it localized via
+      // `apiErrorMessage.ts#shapeMismatchMessage`.
+      throw new ApiProblemError("shape.mismatch", reason.diagnostic, response.status);
+    }
+    throw reason;
+  }
+  return body;
 }

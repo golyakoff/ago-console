@@ -415,6 +415,21 @@ export function seededWidgetConfig() {
     locale: "Ru" as const,
     noticeText: "Сообщения, отправленные здесь, обрабатывает служба поддержки «Кофейни У реки».",
     noticeUrl: "https://example.invalid/privacy",
+    // `23-118`/`23-99`: the server always sends these too - they were absent from this fixture while
+    // `fetchWidgetConfig` cast the body unvalidated, which is precisely the stale-fixture drift the
+    // boundary guard now rejects. Completed to the real `WidgetConfigDto` contract; booleans and enums
+    // at their honest off/default values, tenant-facing text left null (the widget's own defaults).
+    requireContactConsent: false,
+    attractAttention: false,
+    autoOpenEnabled: false,
+    autoOpenDelaySeconds: 30 as const,
+    autoOpenGreetingText: null,
+    acceptUnverifiedPhone: false,
+    allowAttachmentUploadsByDefault: false,
+    contactCaptureConfirmationText: null,
+    channelSwitcherPlacement: "AboveComposer" as const,
+    channelSwitcherIconSize: "Medium" as const,
+    panelTitle: null,
   };
 }
 

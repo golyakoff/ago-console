@@ -3,6 +3,7 @@ import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchSiteInstallation, type SiteInstallationDto } from "../api/installationApi.js";
 import { ApiProblemError } from "../api/problemDetails.js";
+import { shapeMismatchMessage } from "./apiErrorMessage.js";
 import { PageHead } from "../shell/AppShell.js";
 import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
@@ -128,7 +129,9 @@ export function InstallSnippetPage() {
         setInstallation(dto);
         setLoadError(null);
       })
-      .catch((err: unknown) => setLoadError(err instanceof ApiProblemError ? err.message : strings.installLoadError));
+      .catch((err: unknown) =>
+        setLoadError(shapeMismatchMessage(err, strings) ?? (err instanceof ApiProblemError ? err.message : strings.installLoadError)),
+      );
   }, [user?.access_token, siteId, strings]);
 
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
-import { problemDetailsFrom } from "./problemDetails.js";
+import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
+import { ShapeMismatchError, assertArrayHasKeys, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `23-69`/`23-77`: `ago-chat`'s `VisitorRestrictionsEndpoints.VisitorRestrictionListItemDto` - one
@@ -40,6 +41,30 @@ export interface VisitorRestrictionListResult {
  * `site:configure`-gated server-side (`GetVisitorRestrictionsForSiteHandler`'s own remarks) - the same
  * tenant-wide-oversight placement `/access-records` already uses.
  */
+/**
+ * `23-118`/`23-99`: the runtime shapes this read promises. This is a list screen ("how many, by whom");
+ * a dropped `items` renders as "no restrictions" indistinguishable from a site with none (the `23-99`
+ * false-empty case), and each row is checked, since a row missing `restrictedBy`/`restrictedAt` renders
+ * with blank columns. `emojiCreature`/`emojiFood` are the two genuinely optional fields on the row
+ * (`?`, `26-202`) - `requiredKeysOf` excludes them, so a body from before that field existed still
+ * validates. `liftVisitorRestriction` is a write returning `void`, out of scope per the bound.
+ */
+const visitorRestrictionListResultRequiredKeys = requiredKeysOf<VisitorRestrictionListResult>({
+  items: true,
+  nextBeforeId: true,
+});
+const visitorRestrictionItemRequiredKeys = requiredKeysOf<VisitorRestrictionListItem>({
+  id: true,
+  visitorId: true,
+  kind: true,
+  restrictedAt: true,
+  restrictedBy: true,
+  expiresAt: true,
+  sourceConversationId: true,
+  liftedAt: true,
+  liftedBy: true,
+});
+
 export async function fetchVisitorRestrictions(
   accessToken: string,
   before?: string,
@@ -61,7 +86,27 @@ export async function fetchVisitorRestrictions(
     throw await problemDetailsFrom(response);
   }
 
-  return (await response.json()) as VisitorRestrictionListResult;
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<VisitorRestrictionListResult>(
+      body,
+      visitorRestrictionListResultRequiredKeys,
+      "GET /api/v1/visitor-restrictions",
+    );
+    assertArrayHasKeys<VisitorRestrictionListItem>(
+      body.items,
+      visitorRestrictionItemRequiredKeys,
+      "GET /api/v1/visitor-restrictions (items)",
+    );
+  } catch (reason) {
+    if (reason instanceof ShapeMismatchError) {
+      // Rethrown as `ApiProblemError` (`shape.mismatch`), the same type this reader's failure path
+      // already throws - `RestrictedVisitorsPage`'s load `catch` renders its own localized error.
+      throw new ApiProblemError("shape.mismatch", reason.diagnostic, response.status);
+    }
+    throw reason;
+  }
+  return body;
 }
 
 /**

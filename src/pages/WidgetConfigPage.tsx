@@ -12,6 +12,7 @@ import {
   type WidgetLocale,
   type WidgetPosition,
 } from "../api/widgetConfigApi.js";
+import { shapeMismatchMessage } from "./apiErrorMessage.js";
 import { isValidHexColor, isValidNoticeUrl } from "./widgetConfigValidation.js";
 import { truncateToLines } from "./textTruncation.js";
 import { PageHead } from "../shell/AppShell.js";
@@ -211,7 +212,9 @@ export function WidgetConfigPage() {
         setLoadError(null);
       })
       .catch((err: unknown) =>
-        setLoadError(err instanceof WidgetConfigError ? err.message : strings.widgetLoadError),
+        setLoadError(
+          shapeMismatchMessage(err, strings) ?? (err instanceof WidgetConfigError ? err.message : strings.widgetLoadError),
+        ),
       );
   }, [user?.access_token, siteId, strings]);
 

@@ -1,5 +1,6 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
+import { ShapeMismatchError, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `11-01`'s exact wire shape (`WidgetConfigEndpoints.WidgetConfigResponse`/`UpdateWidgetConfigRequest`,
@@ -180,6 +181,35 @@ function isProblemDetailsBody(value: unknown): value is ProblemDetailsBody {
   return typeof value === "object" && value !== null;
 }
 
+/**
+ * `23-118`/`23-99`: the runtime shape `fetchWidgetConfig` promises. Every field on `WidgetConfigDto` is
+ * present-but-nullable at most (none is `?`), so `requiredKeysOf` demands them all - which is exactly
+ * why this reader is in scope: the widget-config screen is a form of toggles, and an absent boolean
+ * (`autoOpenEnabled`, `attractAttention`, `requireContactConsent`, `allowAttachmentUploadsByDefault`,
+ * `acceptUnverifiedPhone`) would render as an *off* switch indistinguishable from a tenant who really
+ * turned it off - the `23-99` false-empty/false-negative case. An absent `position`/`locale`/enum would
+ * silently fall to its own union default. `updateWidgetConfig` is a PUT echo acted on immediately, so
+ * it stays out of scope per the bound.
+ */
+const widgetConfigRequiredKeys = requiredKeysOf<WidgetConfigDto>({
+  primaryColorHex: true,
+  position: true,
+  locale: true,
+  noticeText: true,
+  noticeUrl: true,
+  requireContactConsent: true,
+  attractAttention: true,
+  autoOpenEnabled: true,
+  autoOpenDelaySeconds: true,
+  autoOpenGreetingText: true,
+  acceptUnverifiedPhone: true,
+  allowAttachmentUploadsByDefault: true,
+  contactCaptureConfirmationText: true,
+  channelSwitcherPlacement: true,
+  channelSwitcherIconSize: true,
+  panelTitle: true,
+});
+
 // A `throw await ...` at each call site, not a helper that throws internally - keeps TypeScript's
 // control-flow analysis unambiguous (a bare `throw` statement) rather than relying on a `never`
 // return type propagating through an un-returned `await`, the same reasoning `sitesApi.ts` avoids by
@@ -212,7 +242,18 @@ export async function fetchWidgetConfig(accessToken: string, siteId: string): Pr
     throw await buildError(response, "WidgetConfig.Unknown", "Failed to load the widget configuration");
   }
 
-  return (await response.json()) as WidgetConfigDto;
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<WidgetConfigDto>(body, widgetConfigRequiredKeys, `GET /api/v1/sites/${siteId}/widget-config`);
+  } catch (reason) {
+    if (reason instanceof ShapeMismatchError) {
+      // The neutral endpoint+field diagnostic, not this error's English sentence -
+      // `apiErrorMessage.ts#shapeMismatchMessage` wraps a localized frame around `shape.mismatch`.
+      throw new WidgetConfigError("shape.mismatch", reason.diagnostic);
+    }
+    throw reason;
+  }
+  return body;
 }
 
 export async function updateWidgetConfig(
