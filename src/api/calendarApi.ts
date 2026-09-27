@@ -718,6 +718,26 @@ export function markNoShow(token: string, bookingId: string): Promise<void> {
   return requestVoid(token, "POST", `/bookings/${encodeURIComponent(bookingId)}/no-show`);
 }
 
+/**
+ * `26-210`/`adr/0187`: an operator moves a confirmed booking to a new time - «Перенести оператором».
+ * `newStartEventId` names the target by its own grid-slot id, the same id `WorkerSlot.eventId` above
+ * already carries on every row `getWorkerSlots` returns - not a wall-clock instant, so there is no
+ * timezone conversion for this console to get wrong and no "find the slot at this time" read to go
+ * stale ahead of the server's own atomic claim (`Ago.Calendar.Contracts.RescheduleBookingRequest`'s
+ * own remarks). The server composes this as cancel-old + claim-new in one transaction (`adr/0187`);
+ * this console sends one request and reads one outcome, same as `cancelBooking`/`rejectBooking`
+ * above.
+ *
+ * Refused with `booking.slot_unavailable` when the picked slot was claimed, blocked, or otherwise
+ * stopped being a legal run before the server's own claim ran - `calendarErrorMessage.ts` gives that
+ * one code its own sentence; every other refusal (a different worker, an already-cancelled booking,
+ * a lost concurrency race, the permission) surfaces the server's own `detail` verbatim, the same
+ * fallback every other calendar call already has.
+ */
+export function rescheduleBooking(token: string, bookingId: string, newStartEventId: string): Promise<void> {
+  return requestVoid(token, "POST", `/bookings/${encodeURIComponent(bookingId)}/reschedule`, { newStartEventId });
+}
+
 export function deleteDayOff(
   token: string,
   body: { calendarId: string; workerId: string; localDate: string },

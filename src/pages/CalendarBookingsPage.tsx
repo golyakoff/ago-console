@@ -3,8 +3,15 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
-import { getConfirmedBookings, revealCustomerPhone, type ConfirmedBooking } from "../api/calendarApi.js";
+import {
+  getConfirmedBookings,
+  getWorkerSlots,
+  rescheduleBooking,
+  revealCustomerPhone,
+  type ConfirmedBooking,
+} from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
+import { RescheduleBookingButton } from "./RescheduleBookingButton.js";
 import { renderPersonName, renderPhone, weekdayNames, type RevealControl } from "../calendar/calendarFormat.js";
 import { usePersonNames } from "../calendar/usePersonNames.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
@@ -122,6 +129,16 @@ function groupByDayThenWorker(rows: ConfirmedBooking[]): DayGroup[] {
  * `rows` on every render, so a customer appearing under two different day/worker groups (same
  * customer, two bookings) reveals in both groups from the one state update, the same
  * "replace every row for this customer" rule `CalendarQueuePage.handleReveal`'s own comment states.
+ *
+ * <b>`26-210`/`adr/0187`: this screen's first row action.</b> A confirmed (`Booked`) row can now be
+ * moved to a new time by the same worker and service - «Перенести» - via `RescheduleBookingButton`.
+ * The console's own job is picking the new slot (reusing `getWorkerSlots`, the identical read
+ * `CalendarWorkerSlotsPage` already makes for a worker's day) and naming it by its `eventId`; the
+ * server composes the move as cancel-old + claim-new in one transaction (`adr/0187`) and is the one
+ * place the availability decision is actually made (rule 8 - never cached, never decided here). This
+ * screen still has **no realtime push** (§4.4 of the design doc records the gap) - `onRescheduled`
+ * re-reads the same date range with a plain `reload()`, the manual-refresh path every other write on
+ * this page already uses.
  */
 export function CalendarBookingsPage() {
   const { user } = useAuth();
@@ -276,6 +293,39 @@ export function CalendarBookingsPage() {
         row.originConversationId === null ? null : (
           <Link to={`/conversations/${row.originConversationId}`}>{strings.calendarBookingsGoToDialogLink}</Link>
         ),
+    },
+    {
+      key: "actions",
+      header: strings.calendarBookingsColumnActions,
+      // `26-210`/`adr/0187`: this screen's first row action - «Перенести», reschedule-only. Cancel and
+      // no-show (§5.3 of `26-175-booking-lifecycle-actions.md`) are a later, separate wave (the design
+      // doc's own "deferred to a later wave" split) - not added here alongside it. `RescheduleBookingButton`
+      // hides itself entirely for an operator without `booking:reschedule`, so this cell is simply empty
+      // for one, the same "absent, not disabled" idiom `dialog` above already follows for a row with no
+      // origin conversation.
+      render: (row) => (
+        <RescheduleBookingButton
+          initialDate={row.localDate}
+          timeZone={timeZone}
+          onLoadSlots={(date, signal) => {
+            const accessToken = user?.access_token;
+            if (!accessToken) {
+              return Promise.reject(new Error("Not signed in."));
+            }
+            // The same read `CalendarWorkerSlotsPage` makes for this worker - one day at a time
+            // (`from`/`to` both the picked date), since the dialog only ever offers one day's grid.
+            return getWorkerSlots(accessToken, row.workerId, date, date, signal);
+          }}
+          onReschedule={(newStartEventId) => {
+            const accessToken = user?.access_token;
+            if (!accessToken) {
+              return Promise.reject(new Error("Not signed in."));
+            }
+            return rescheduleBooking(accessToken, row.bookingId, newStartEventId);
+          }}
+          onRescheduled={() => void reload()}
+        />
+      ),
     },
   ];
 

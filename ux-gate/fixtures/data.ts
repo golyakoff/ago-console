@@ -174,6 +174,12 @@ export function seededPermissions(overrides: SeededPermissionsOverrides = {}) {
       // before ever reaching its own "render the data" assertions, the identical shape every
       // permission above it in this list already follows for its own screen.
       "customer:read",
+      // `26-210`/`adr/0187`: without this, `RescheduleBookingButton` renders nothing at all on
+      // `calendar-bookings` (`CloseConversationButton.tsx`'s own "hidden, not disabled" idiom this
+      // component follows), and the gate's contrast/tap-size/overflow checks would never see the
+      // screen's own first row action - the identical reasoning `customer:read` above already carries
+      // for the table it sits in.
+      "booking:reschedule",
     ],
     // `23-24`: the tenant side of the calendar's own three-way gate (`consoleNav.ts`'s own
     // `buildTenantNavItems`) - defaults to holding the module, matching the base operator above

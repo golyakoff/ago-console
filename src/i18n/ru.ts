@@ -1682,8 +1682,16 @@ export const ru: ConsoleStrings = {
   calendarBookingsColumnPhone: "Телефон",
   calendarBookingsColumnDialog: "Диалог",
   calendarBookingsGoToDialogLink: "Открыть диалог",
+  calendarBookingsColumnActions: "Действия",
   calendarBookingsCountLabel: "Записей",
   calendarBookingsForbidden: "У вас нет прав на просмотр подтверждённых записей.",
+
+  calendarRescheduleButton: "Перенести",
+  calendarRescheduleDialogTitle: "Перенос записи",
+  calendarRescheduleDateFieldLabel: "Новая дата",
+  calendarRescheduleSlotsLabel: "Свободное время в этот день",
+  calendarRescheduleNoSlotsLabel: "На эту дату у мастера нет свободных слотов.",
+  calendarRescheduleSlotUnavailableError: "Слот уже занят, выберите другое время",
 
   calendarQueueForbidden: "У вас нет прав на просмотр очереди бронирований календаря.",
   calendarElsewhereNotice: "Календарь у вас есть в другом магазине. Переключитесь с помощью селектора вверху страницы:",

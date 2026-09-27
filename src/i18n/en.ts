@@ -1678,8 +1678,16 @@ export const en: ConsoleStrings = {
   calendarBookingsColumnPhone: "Phone",
   calendarBookingsColumnDialog: "Dialog",
   calendarBookingsGoToDialogLink: "Open dialog",
+  calendarBookingsColumnActions: "Actions",
   calendarBookingsCountLabel: "Bookings",
   calendarBookingsForbidden: "You do not have permission to view confirmed bookings.",
+
+  calendarRescheduleButton: "Reschedule",
+  calendarRescheduleDialogTitle: "Reschedule the booking",
+  calendarRescheduleDateFieldLabel: "New date",
+  calendarRescheduleSlotsLabel: "Available time on this day",
+  calendarRescheduleNoSlotsLabel: "This worker has no available slot left on this day.",
+  calendarRescheduleSlotUnavailableError: "That slot is no longer available. Pick another time.",
 
   calendarQueueForbidden: "You do not have permission to view the calendar's booking queue.",
   calendarElsewhereNotice: "You do have a calendar in another shop. Switch shops with the picker at the top of the page:",
