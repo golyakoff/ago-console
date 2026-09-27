@@ -2697,6 +2697,11 @@ export interface ConsoleStrings {
    * `originConversationId` is non-null - see `CalendarBookingsPage`'s own column definition for why
    * absence renders nothing rather than a disabled control. */
   calendarBookingsGoToDialogLink: string;
+  /** `26-210`/`adr/0187`: the row-actions column header this screen gained its first action under -
+   * see `RescheduleBookingButton.tsx`'s own doc comment for what it renders (hidden entirely, not a
+   * disabled control, for an operator without `booking:reschedule` - `CloseConversationButton.tsx`'s
+   * own established idiom). */
+  calendarBookingsColumnActions: string;
   /** Prefixes the raw count on both the day-level and the master-level `Badge` - one shared word
    * rather than a pluralised sentence, deliberately: `calendarSlotWordOne`/`Few`/`Many` three doors up
    * this file already carry the Russian noun-declension cost for the one screen that actually needs a
@@ -2704,6 +2709,34 @@ export interface ConsoleStrings {
    * number the way "5 записей" would. */
   calendarBookingsCountLabel: string;
   calendarBookingsForbidden: string;
+
+  // --- `26-210`/`adr/0187`: the confirmed-bookings screen's own reschedule action -
+  // `RescheduleBookingButton.tsx`. Cancel-old + claim-new is a backend decision (`adr/0187`); the
+  // console's own job is picking the new slot, by the same worker's own grid `CalendarWorkerSlotsPage`
+  // already reads, and naming it by its `eventId` in the `POST .../reschedule` body. ---
+  /** The row action itself, and the dialog's own submit control - one verb, reused, the same way
+   * `calendarRejectButton` names both a queue-row action and (were it ever needed) a dialog's own
+   * confirm - a reschedule needs no separate confirmation sentence because picking a slot and pressing
+   * this *is* the decision. */
+  calendarRescheduleButton: string;
+  calendarRescheduleDialogTitle: string;
+  calendarRescheduleDateFieldLabel: string;
+  /** Accessible name for the list of same-worker `Available` slots on the chosen day - a
+   * `role="radiogroup"`, since exactly one slot is ever the target. */
+  calendarRescheduleSlotsLabel: string;
+  /** Shown in place of the slot list when the chosen day has no `Available` slot left for this worker
+   * - never a blank list, the same "empty state, not a silent gap" convention every other calendar
+   * screen's own `*Empty` string already carries. */
+  calendarRescheduleNoSlotsLabel: string;
+  /** `adr/0187`'s own `booking.slot_unavailable` - the new time was claimed, blocked, or otherwise
+   * stopped being a legal run between this screen's own read and the server's atomic claim. The one
+   * refusal this item gives its own sentence rather than the server's raw English `detail`
+   * (`calendarErrorMessage.ts`'s own doc comment: an un-taught code's message reaches the operator
+   * unedited, which for this one refusal would be an English sentence on an otherwise-Russian screen).
+   * `DifferentWorker` and every other refusal stay un-taught on purpose - `booking.invalid_state` is
+   * shared by both, so the two cannot be told apart by code, and the ticket's own instruction is to
+   * surface the server's own detail for everything but this one named case. */
+  calendarRescheduleSlotUnavailableError: string;
 
   // --- `22-06`: permission-gate messages, one per moved screen (`ago-console`'s own established
   // per-screen-forbidden-sentence convention - `faqForbidden`/`autoReplyForbidden` - rather than one

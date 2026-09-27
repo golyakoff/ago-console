@@ -22,6 +22,16 @@ import type { ConsoleStrings } from "../i18n/strings.js";
  */
 export function calendarErrorMessage(reason: unknown, strings: ConsoleStrings): string {
   if (reason instanceof CalendarApiError) {
+    // `26-210`/`adr/0187`: the one reschedule refusal this file gives its own sentence - see
+    // `calendarRescheduleSlotUnavailableError`'s own doc comment in `strings.ts` for why
+    // `DifferentWorker` and every other reschedule refusal are left to the generic `reason.message`
+    // fallthrough below instead (`booking.invalid_state` is shared by both, so they cannot be told
+    // apart by code alone, and the item's own instruction is to surface the server's detail for
+    // everything but this one named case).
+    if (reason.code === "booking.slot_unavailable") {
+      return strings.calendarRescheduleSlotUnavailableError;
+    }
+
     if (
       // `access.forbidden` was here for the Access screen's own calls - removed alongside it,
       // `22-05` (`adr/0093`) having deleted the `/roles`/`/operators` endpoints that could ever

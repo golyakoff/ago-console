@@ -5,7 +5,7 @@ import type { User } from "oidc-client-ts";
 import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { CalendarBookingsPage } from "./CalendarBookingsPage.js";
-import { byText, interact, render, unmount } from "../testing/dom.js";
+import { byText, interact, one, render, unmount } from "../testing/dom.js";
 import type { ConfirmedBooking } from "../api/calendarApi.js";
 import type { PersonProfile } from "../api/personsApi.js";
 
@@ -34,7 +34,14 @@ vi.mock("../config.js", () => ({
 const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
 const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
-const calendarApi = vi.hoisted(() => ({ getConfirmedBookings: vi.fn(), revealCustomerPhone: vi.fn() }));
+const calendarApi = vi.hoisted(() => ({
+  getConfirmedBookings: vi.fn(),
+  revealCustomerPhone: vi.fn(),
+  // `26-210`/`adr/0187`: the two calls the new «Перенести» row action wires up - the same worker-slots
+  // read `CalendarWorkerSlotsPage` already makes, and the reschedule call itself.
+  getWorkerSlots: vi.fn(),
+  rescheduleBooking: vi.fn(),
+}));
 const personsApi = vi.hoisted(() => ({ getPersons: vi.fn() }));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
@@ -277,6 +284,103 @@ describe("confirmed bookings", () => {
     // distinguishing check the existing "explains a permission failure" test above relies on
     // implicitly by asserting the message text; this one asserts the role directly.
     expect(container.querySelector('[role="alert"]')).not.toBeNull();
+  });
+});
+
+/**
+ * `26-210`/`adr/0187`: this screen's first row action - «Перенести». `RescheduleBookingButton.test.tsx`
+ * covers that component's own gating, picking and error-mapping in isolation with injected handlers;
+ * this describe block is the wiring proof - that `CalendarBookingsPage` passes the *real*
+ * `getWorkerSlots`/`rescheduleBooking` calls through with the row's own `workerId`/`bookingId`, and
+ * re-reads the confirmed range on success (§4.4 of the design doc: this screen has no realtime push,
+ * so a plain `reload()` is the only way the moved booking's new time shows up).
+ */
+describe("rescheduling a confirmed booking (26-210)", () => {
+  function slot(eventId: string, startsAt: string, endsAt: string): import("../api/calendarApi.js").WorkerSlot {
+    return {
+      eventId,
+      localDate: "2026-09-08",
+      weekday: 2,
+      startsAt,
+      endsAt,
+      status: "Available",
+      serviceId: "s1",
+      serviceName: "Haircut",
+      personId: null,
+      phone: null,
+      masked: false,
+      bookingId: null,
+    };
+  }
+
+  it("hides the control for an operator without booking:reschedule", async () => {
+    const container = await render(page());
+
+    expect(byText(container, "button", "Reschedule")).toBeNull();
+  });
+
+  it("offers the control to an operator holding booking:reschedule", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({
+      permissions: [...OPERATOR_PERMISSIONS, "booking:reschedule"],
+      siteId: SITE_ID,
+    });
+
+    const container = await render(page());
+
+    expect(byText(container, "button", "Reschedule")).not.toBeNull();
+  });
+
+  it("loads the row's own worker's grid, sends the picked slot's eventId, and re-reads the range on success", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({
+      permissions: [...OPERATOR_PERMISSIONS, "booking:reschedule"],
+      siteId: SITE_ID,
+    });
+    calendarApi.getWorkerSlots.mockResolvedValue([
+      slot("new-slot", "2026-09-08T13:00:00+00:00", "2026-09-08T13:45:00+00:00"),
+    ]);
+    calendarApi.rescheduleBooking.mockResolvedValue(undefined);
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Reschedule")?.click());
+
+    // b1 is worked by "w1" - the open dialog must have asked for exactly that worker's own day.
+    expect(calendarApi.getWorkerSlots).toHaveBeenCalledWith("token", "w1", "2026-09-08", "2026-09-08", expect.anything());
+
+    await interact(() => container.querySelector<HTMLButtonElement>('[role="radiogroup"] button')?.click());
+    await interact(() =>
+      byText<HTMLButtonElement>(one(container, "dialog"), "button", "Reschedule")?.click(),
+    );
+
+    // b1's own bookingId, and the slot's own eventId - never the other row's, never a wall-clock time.
+    expect(calendarApi.rescheduleBooking).toHaveBeenCalledWith("token", "b1", "new-slot");
+    // `getConfirmedBookings` was already called once on mount; a successful move re-reads it.
+    expect(calendarApi.getConfirmedBookings).toHaveBeenCalledTimes(2);
+  });
+
+  it("names the slot-unavailable refusal in Russian-screen-appropriate English, and leaves the booking in place", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({
+      permissions: [...OPERATOR_PERMISSIONS, "booking:reschedule"],
+      siteId: SITE_ID,
+    });
+    calendarApi.getWorkerSlots.mockResolvedValue([
+      slot("new-slot", "2026-09-08T13:00:00+00:00", "2026-09-08T13:45:00+00:00"),
+    ]);
+    const { CalendarApiError } = await import("../api/calendarApi.js");
+    calendarApi.rescheduleBooking.mockRejectedValue(
+      new CalendarApiError("booking.slot_unavailable", "server wording", 409),
+    );
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Reschedule")?.click());
+    await interact(() => container.querySelector<HTMLButtonElement>('[role="radiogroup"] button')?.click());
+    await interact(() =>
+      byText<HTMLButtonElement>(one(container, "dialog"), "button", "Reschedule")?.click(),
+    );
+
+    expect(container.textContent).toContain("That slot is no longer available. Pick another time.");
+    expect(container.textContent).not.toContain("server wording");
+    // A failed reschedule is not a reason to re-read - nothing changed.
+    expect(calendarApi.getConfirmedBookings).toHaveBeenCalledTimes(1);
   });
 });
 
