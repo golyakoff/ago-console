@@ -916,8 +916,11 @@ export async function fetchOwnerTenantScopeSummary(
  * look like an empty list or count, not a schema for every response (that is reading 3, explicitly
  * out of scope). A caller that passes one gets a `CalendarApiError("shape.mismatch", ...)` in place
  * of `ShapeMismatchError` thrown - the same type, and the same `catch`, every other rejection from
- * this file already produces, so `calendarErrorMessage`'s existing fallthrough (an unrecognised code
- * renders `reason.message` verbatim) covers it for free rather than needing a sixth error type.
+ * this file already produces. `23-41` (validation at every API boundary, now the standard) gave the
+ * `shape.mismatch` code its own localized branch in `calendarErrorMessage` rather than letting it
+ * fall through to the raw-`message` case, so this wraps with `reason.diagnostic` - the neutral
+ * endpoint+field string - not the English `reason.message`, so nothing English leaks into the
+ * localized sentence built around it.
  */
 async function request<T>(
   token: string,
@@ -934,7 +937,7 @@ async function request<T>(
       validate(parsed);
     } catch (reason) {
       if (reason instanceof ShapeMismatchError) {
-        throw new CalendarApiError("shape.mismatch", reason.message, response.status);
+        throw new CalendarApiError("shape.mismatch", reason.diagnostic, response.status);
       }
       throw reason;
     }

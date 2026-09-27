@@ -52,6 +52,12 @@ export function requiredKeysOf<T>(markers: Record<RequiredKeys<T>, true>): Requi
  * for its own callers) - see this module's own callers for the concrete shape.
  */
 export class ShapeMismatchError extends Error {
+  /** The endpoint or call site the mismatch was found at - the `context` string the assertion was
+   * given (`"GET /api/v1/me/tenancies"`, and for a bad element `"…[2]"`). Kept as its own field, not
+   * only baked into `message`, so a caller re-throwing this as its own type can build a
+   * language-neutral, sentence-free diagnostic (`diagnostic` below) instead of surfacing this class's
+   * own English `message`. */
+  readonly context: string;
   readonly missingFields: string[];
 
   constructor(context: string, missingFields: string[]) {
@@ -61,7 +67,22 @@ export class ShapeMismatchError extends Error {
         : `${context}: the response is missing ${missingFields.join(", ")}.`,
     );
     this.name = "ShapeMismatchError";
+    this.context = context;
     this.missingFields = missingFields;
+  }
+
+  /**
+   * `23-41`: the endpoint and the field names, and nothing else - `"GET /api/v1/me/tenancies:
+   * tenantId, tenantName"`. An endpoint path and a wire field name are language-neutral identifiers,
+   * so this is what a caller appends to a *localized* frame (`calendarErrorMessage`'s own
+   * `shape.mismatch` branch) to tell a reader which endpoint and which field disagreed, without
+   * dragging this class's English sentence (`message`, kept for logs and dev tooling) into a
+   * translated string. `23-41` chose validation at every API boundary as the standard; a boundary
+   * that rejects a bad shape has to say *what* was wrong to be worth more than a blank page, and this
+   * is the part of "what" that survives translation unchanged.
+   */
+  get diagnostic(): string {
+    return this.missingFields.length === 0 ? this.context : `${this.context}: ${this.missingFields.join(", ")}`;
   }
 }
 

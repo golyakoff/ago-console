@@ -1429,6 +1429,7 @@ export const ru: ConsoleStrings = {
   calendarWeekdaySaturday: "Суббота",
   calendarPermissionDeniedError: "У вашей учётной записи оператора нет права на это действие в этом арендаторе.",
   calendarNetworkError: "Консоли не удалось связаться с AGO Calendar.",
+  calendarShapeMismatchError: "AGO Calendar вернул данные в неожиданном виде, поэтому показать этот экран не удалось.",
   calendarQueueTitle: "Ожидающие подтверждения записи",
   calendarQueueDescription: "Всё здесь подтверждается само по себе к своему дедлайну, если вы не отклоните это первым. По дедлайну, ближайшие сначала.",
   calendarQueueEmpty: "Ничего не ожидает.",

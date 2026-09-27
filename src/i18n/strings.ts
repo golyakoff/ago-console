@@ -2374,6 +2374,14 @@ export interface ConsoleStrings {
   calendarWeekdaySaturday: string;
   calendarPermissionDeniedError: string;
   calendarNetworkError: string;
+  /** `23-41`: shown by `calendarErrorMessage` when a calendar response was not the shape the reader
+   * promised (`CalendarApiError('shape.mismatch')`) - a contract two independently-versioned products
+   * drifted on, caught at the API boundary rather than left to throw during render and blank the
+   * console. A localized frame only; the caller appends the endpoint+field diagnostic in parens, so
+   * this string names neither and stays true for any reader that trips it. Deliberately the same
+   * "something did not arrive in the expected shape" register as `renderErrorMessage`, not the
+   * empty-state vocabulary - a broken screen must never read as an empty account. */
+  calendarShapeMismatchError: string;
   calendarQueueTitle: string;
   calendarQueueDescription: string;
   calendarQueueEmpty: string;

@@ -22,6 +22,17 @@ import type { ConsoleStrings } from "../i18n/strings.js";
  */
 export function calendarErrorMessage(reason: unknown, strings: ConsoleStrings): string {
   if (reason instanceof CalendarApiError) {
+    if (reason.code === "shape.mismatch") {
+      // `23-41`: a response that was not the shape the calling reader promised - caught at the API
+      // boundary (the chosen reading: validate at every boundary) rather than left to throw during
+      // render and blank the screen. The frame is localized; the endpoint+field diagnostic
+      // (`reason.message` here is the reader's `ShapeMismatchError.diagnostic` - a URL and wire field
+      // names, language-neutral by nature) is appended so a report can name which endpoint and field
+      // disagreed. The same "state what is actually known" rule `RenderErrorAlert` follows, never a
+      // generic "an unexpected error occurred".
+      return `${strings.calendarShapeMismatchError} (${reason.message})`;
+    }
+
     // `26-210`/`adr/0187`: the one reschedule refusal this file gives its own sentence - see
     // `calendarRescheduleSlotUnavailableError`'s own doc comment in `strings.ts` for why
     // `DifferentWorker` and every other reschedule refusal are left to the generic `reason.message`
