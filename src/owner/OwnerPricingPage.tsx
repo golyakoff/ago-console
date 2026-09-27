@@ -10,6 +10,7 @@ import {
 } from "../api/ownerApi.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
+import { shapeMismatchMessage } from "../pages/apiErrorMessage.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
 import { Alert } from "../components/Alert.js";
 import { Button } from "../components/Button.js";
@@ -131,7 +132,7 @@ export function OwnerPricingPage() {
       .catch((err: unknown) => {
         // Deliberately not folded into `refused` - "the API is broken" and "you may not see this"
         // are different facts, the identical split `OwnerSitesPage`'s own catch branch keeps.
-        setError(err instanceof Error ? err.message : strings.ownerPricingLoadFailed);
+        setError(shapeMismatchMessage(err, strings) ?? (err instanceof Error ? err.message : strings.ownerPricingLoadFailed));
       });
   }, [accessToken, strings]);
 

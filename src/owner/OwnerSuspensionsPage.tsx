@@ -10,6 +10,7 @@ import {
   type OwnerSuspension,
 } from "../api/ownerApi.js";
 import { useStrings } from "../i18n/StringsContext.js";
+import { shapeMismatchMessage } from "../pages/apiErrorMessage.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
 import { Alert } from "../components/Alert.js";
 import { Button } from "../components/Button.js";
@@ -77,7 +78,7 @@ export function OwnerSuspensionsPage() {
         setSuspensions(outcome.suspensions);
       })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : strings.ownerSuspensionsLoadFailed);
+        setError(shapeMismatchMessage(err, strings) ?? (err instanceof Error ? err.message : strings.ownerSuspensionsLoadFailed));
       });
   }, [accessToken, strings]);
 

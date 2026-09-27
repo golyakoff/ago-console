@@ -11,6 +11,7 @@ import {
   type CalendarTenantScopeSummary,
 } from "../api/calendarApi.js";
 import { useStrings } from "../i18n/StringsContext.js";
+import { shapeMismatchMessage } from "../pages/apiErrorMessage.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
 import { Alert } from "../components/Alert.js";
 import { Panel } from "../components/Panel.js";
@@ -110,7 +111,7 @@ export function OwnerTenantIsolationPage() {
       .catch((err: unknown) => {
         setChat({
           status: "unreachable",
-          message: err instanceof Error ? err.message : strings.ownerTenantIsolationChatLoadFailed,
+          message: shapeMismatchMessage(err, strings) ?? (err instanceof Error ? err.message : strings.ownerTenantIsolationChatLoadFailed),
         });
       });
 

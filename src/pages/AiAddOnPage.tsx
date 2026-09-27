@@ -18,6 +18,7 @@ import { Alert } from "../components/Alert.js";
 import { Badge } from "../components/Badge.js";
 import { Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
+import { shapeMismatchMessage } from "./apiErrorMessage.js";
 
 /**
  * `25-04`: `/settings/ai` - the one screen where a tenant turns the AI features on, and the only
@@ -60,7 +61,7 @@ export function AiAddOnPage() {
         setLoadError(null);
       })
       .catch((err: unknown) =>
-        setLoadError(err instanceof AiAddOnError ? err.message : strings.aiAddOnLoadError),
+        setLoadError(shapeMismatchMessage(err, strings) ?? (err instanceof AiAddOnError ? err.message : strings.aiAddOnLoadError)),
       );
   }, [user?.access_token, siteId, strings]);
 

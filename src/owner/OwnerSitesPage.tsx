@@ -6,6 +6,7 @@ import { usePermissions } from "../auth/PermissionsContext.js";
 import { fetchOwnerSites, type OwnerSiteSummary } from "../api/ownerApi.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
+import { shapeMismatchMessage } from "../pages/apiErrorMessage.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
 import { buildTenantNavSections } from "../shell/consoleNav.js";
 import { Alert } from "../components/Alert.js";
@@ -147,7 +148,7 @@ export function OwnerSitesPage() {
           // Deliberately not folded into `refused`: "the API is broken" and "you may not see this"
           // are different facts, and telling the owner they lack access whenever the database is
           // down would send them looking for the wrong problem.
-          setError(err instanceof Error ? err.message : strings.ownerSitesLoadFailed);
+          setError(shapeMismatchMessage(err, strings) ?? (err instanceof Error ? err.message : strings.ownerSitesLoadFailed));
         }
       });
 
@@ -203,7 +204,7 @@ export function OwnerSitesPage() {
         setError(null);
       })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : strings.ownerSitesLoadMoreFailed);
+        setError(shapeMismatchMessage(err, strings) ?? (err instanceof Error ? err.message : strings.ownerSitesLoadMoreFailed));
       })
       .finally(() => setLoadingMore(false));
   }, [accessToken, nextBefore, activeQuery, strings]);

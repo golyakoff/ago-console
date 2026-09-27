@@ -25,6 +25,7 @@ import { Alert } from "../components/Alert.js";
 import { Dialog } from "../components/Dialog.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
+import { shapeMismatchMessage } from "./apiErrorMessage.js";
 
 /** `13-04`: this screen's own gate - `13-02`/`13-03`'s checkout/cancel/seat-change endpoints, and the
  * `13-04`-added `GET .../billing/status` read, are all gated server-side on the identical permission
@@ -226,7 +227,9 @@ export function BillingPage() {
         setStatus(dto);
         setLoadError(null);
       })
-      .catch((err: unknown) => setLoadError(err instanceof ApiProblemError ? err.message : strings.billingLoadError));
+      .catch((err: unknown) =>
+        setLoadError(shapeMismatchMessage(err, strings) ?? (err instanceof ApiProblemError ? err.message : strings.billingLoadError)),
+      );
   }, [accessToken, siteId, strings]);
 
   useEffect(() => {

@@ -12,6 +12,7 @@ import { Table, type TableColumn } from "../components/Table.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { formatAbsolute, resolveTimeZone } from "../time/format.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
+import { shapeMismatchMessage } from "./apiErrorMessage.js";
 
 /** `16-03`'s own dedicated permission, checked server-side by every route `siteExportsApi.ts` calls
  * (`Ago.Chat.Application.UseCases.RequestSiteExport`/`GetSiteExportStatus`/`GetSiteExportHistory`,
@@ -108,7 +109,7 @@ export function SiteExportPage() {
       .catch((err: unknown) =>
         setState({
           status: "error",
-          message: err instanceof ApiProblemError ? err.message : strings.siteExportLoadError,
+          message: shapeMismatchMessage(err, strings) ?? (err instanceof ApiProblemError ? err.message : strings.siteExportLoadError),
         }),
       );
   }, [user?.access_token, siteId, strings]);

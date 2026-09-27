@@ -363,6 +363,11 @@ export function seededOwnerSitesPage() {
     ],
     nextBefore: null,
     recentWindowDays: 7,
+    // `23-14`: the two denominators `OwnerSitesPage` renders "N of M sites match" against, and the
+    // fields `23-118`'s `fetchOwnerSites` guard now requires present on the wire. No search is sent by
+    // this gate, so both equal the two rows above (`matchingSites === totalSites` when unfiltered).
+    matchingSites: 2,
+    totalSites: 2,
   };
 }
 

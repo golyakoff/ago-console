@@ -1,5 +1,6 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
+import { ShapeMismatchError, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `25-04`'s exact wire shape (`AiAddOnEndpoints.AiAddOnStatusResponse`, `ago-chat`).
@@ -65,6 +66,40 @@ function url(siteId: string, suffix = ""): string {
   return `${config.apiBaseUrl}/api/v1/sites/${siteId}/ai-add-on${suffix}`;
 }
 
+/**
+ * `23-118`/`23-99`: the runtime shape the status read promises. Every field is present-but-nullable
+ * (none is `?`), so all eleven are required keys. `purchased`/`enabled` are the load-bearing ones:
+ * dropped, they read as `false` and `AiAddOnPage` renders "not purchased"/"not enabled" for a shop
+ * whose add-on is live - the false-negative the `23-99` bound names for a status object whose absent
+ * boolean silently reads as "not-X".
+ */
+const aiAddOnStatusRequiredKeys = requiredKeysOf<AiAddOnStatusDto>({
+  purchased: true,
+  enabled: true,
+  effectiveFrom: true,
+  documentKey: true,
+  currentVersion: true,
+  currentTitle: true,
+  currentBody: true,
+  acceptedVersion: true,
+  acceptedAt: true,
+  declaredBy: true,
+  declaredAt: true,
+});
+
+/**
+ * `23-118`: rethrows a `shape.mismatch` as `AiAddOnError` - the same type this file's own reader
+ * already throws and `AiAddOnPage`'s `catch` already renders, so no second error vocabulary is needed
+ * (mirrors `maxChannelApi.ts#rethrowAsApiProblem`). The `shape.mismatch` code is what
+ * `apiErrorMessage.ts#shapeMismatchMessage` duck-types on to localize the surfacing.
+ */
+function rethrowAsAiAddOnError(reason: unknown): never {
+  if (reason instanceof ShapeMismatchError) {
+    throw new AiAddOnError("shape.mismatch", reason.diagnostic);
+  }
+  throw reason;
+}
+
 export async function fetchAiAddOnStatus(accessToken: string, siteId: string): Promise<AiAddOnStatusDto> {
   const response = await fetch(url(siteId), {
     headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
@@ -74,7 +109,13 @@ export async function fetchAiAddOnStatus(accessToken: string, siteId: string): P
     throw await buildError(response, "Failed to load the AI add-on status");
   }
 
-  return (await response.json()) as AiAddOnStatusDto;
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<AiAddOnStatusDto>(body, aiAddOnStatusRequiredKeys, "GET /api/v1/sites/{siteId}/ai-add-on");
+  } catch (reason) {
+    rethrowAsAiAddOnError(reason);
+  }
+  return body;
 }
 
 async function post(accessToken: string, siteId: string, suffix: string, body?: unknown): Promise<void> {

@@ -28,6 +28,7 @@ import {
 } from "../api/ownerApi.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
+import { shapeMismatchMessage } from "../pages/apiErrorMessage.js";
 import { AppShell, PageHead, ShellIdentity } from "../shell/AppShell.js";
 import { buildTenantNavSections } from "../shell/consoleNav.js";
 import { Alert } from "../components/Alert.js";
@@ -318,7 +319,7 @@ export function OwnerSiteDetailPage() {
       })
       .catch((err: unknown) => {
         // Same "the API is broken" vs. "you may not see this" split every owner screen makes.
-        setError(err instanceof Error ? err.message : strings.ownerSiteDetailLoadFailed);
+        setError(shapeMismatchMessage(err, strings) ?? (err instanceof Error ? err.message : strings.ownerSiteDetailLoadFailed));
       });
   }, [accessToken, siteId, strings]);
 
