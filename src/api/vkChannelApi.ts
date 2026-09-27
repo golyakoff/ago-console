@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
 import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
+import { ShapeMismatchError, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `25-15`/`25-65`: the console's own VK connect/status/disconnect flow, against `Ago.Chat.Api.Channels.
@@ -87,10 +88,53 @@ async function vkChannelFetch<T>(accessToken: string, path: string, init?: Reque
   return (await response.json()) as T;
 }
 
+/**
+ * `23-118`/`23-99`: the runtime shape the status read promises. Every field is present-but-nullable
+ * (none is `?`), so all seven are required keys. `connected` is the load-bearing one: dropped, it reads
+ * as `false` and the screen renders "not connected" for a shop whose VK community is live - the false
+ * negative the `23-99` bound names explicitly for a channel-connection-status object.
+ */
+const vkChannelStatusRequiredKeys = requiredKeysOf<VkChannelStatusDto>({
+  connected: true,
+  channelCredentialId: true,
+  createdAt: true,
+  verified: true,
+  unreachable: true,
+  refusalReason: true,
+  checkedAt: true,
+});
+
+/**
+ * `23-118`: rethrows a `shape.mismatch` as `ApiProblemError` - the same type every other rejection in
+ * this file already produces (`problemDetailsFrom`), so `VkChannelPage`'s existing `catch` needs no
+ * second error vocabulary (mirrors `conversationsApi.ts#rethrowAsApiProblem`).
+ */
+function rethrowAsApiProblem(reason: unknown, status: number): never {
+  if (reason instanceof ShapeMismatchError) {
+    throw new ApiProblemError("shape.mismatch", reason.diagnostic, status);
+  }
+  throw reason;
+}
+
 /** `25-65`: the same route `connectVkChannel`/`disconnectVkChannel` already call, `GET` instead of
- * `POST`/`DELETE` - `maxChannelApi.ts`'s own `fetchMaxChannelStatus` precedent. */
-export function fetchVkChannelStatus(accessToken: string, siteId: string): Promise<VkChannelStatusDto> {
-  return vkChannelFetch<VkChannelStatusDto>(accessToken, `/api/v1/sites/${siteId}/channels/vk`);
+ * `POST`/`DELETE` - `maxChannelApi.ts`'s own `fetchMaxChannelStatus` precedent. `23-118`/`23-99`
+ * validates the promised shape before returning, the same reason that precedent does. */
+export async function fetchVkChannelStatus(accessToken: string, siteId: string): Promise<VkChannelStatusDto> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/sites/${siteId}/channels/vk`, {
+    headers: vkChannelHeaders(accessToken),
+  });
+
+  if (!response.ok) {
+    throw await problemDetailsFrom(response);
+  }
+
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<VkChannelStatusDto>(body, vkChannelStatusRequiredKeys, "GET /api/v1/sites/{siteId}/channels/vk");
+  } catch (reason) {
+    rethrowAsApiProblem(reason, response.status);
+  }
+  return body;
 }
 
 /** `token` never round-trips - this call sends it once and the response type

@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
 import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
+import { ShapeMismatchError, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `25-160`: the console's own read/write for `Ago.Chat.Api.Branding.SiteBrandingEndpoints`'s wire shape
@@ -28,6 +29,32 @@ function emailChannelHeaders(accessToken: string, contentType?: string): Headers
   });
 }
 
+/**
+ * `23-118`/`23-99`: the runtime shape `GET /branding` promises. Every field is present-but-nullable
+ * (none is `?`), so all four are required keys - the mapped `RequiredKeys<SiteBrandingDto>` type this
+ * literal satisfies keeps it in step with the DTO. `logoStatus` is the load-bearing one: dropped, it
+ * reads as an absent (falsy) status and the screen renders the "no logo" state for a shop that has one -
+ * a false negative, the exact `23-99` bound for a single object whose absent field silently renders blank.
+ */
+const siteBrandingRequiredKeys = requiredKeysOf<SiteBrandingDto>({
+  brandCompanyName: true,
+  logoUrl: true,
+  logoStatus: true,
+  logoRejectionReason: true,
+});
+
+/**
+ * `23-118`: rethrows a `shape.mismatch` as `ApiProblemError` - the same type every other rejection in
+ * this file already produces (`problemDetailsFrom`), so `EmailChannelPage`'s existing `catch` needs no
+ * second error vocabulary (mirrors `conversationsApi.ts#rethrowAsApiProblem`).
+ */
+function rethrowAsApiProblem(reason: unknown, status: number): never {
+  if (reason instanceof ShapeMismatchError) {
+    throw new ApiProblemError("shape.mismatch", reason.diagnostic, status);
+  }
+  throw reason;
+}
+
 export async function fetchSiteBranding(accessToken: string, siteId: string): Promise<SiteBrandingDto> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/sites/${siteId}/branding`, {
     headers: emailChannelHeaders(accessToken),
@@ -37,7 +64,13 @@ export async function fetchSiteBranding(accessToken: string, siteId: string): Pr
     throw await problemDetailsFrom(response);
   }
 
-  return (await response.json()) as SiteBrandingDto;
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<SiteBrandingDto>(body, siteBrandingRequiredKeys, "GET /api/v1/sites/{siteId}/branding");
+  } catch (reason) {
+    rethrowAsApiProblem(reason, response.status);
+  }
+  return body;
 }
 
 export async function updateSiteBrandCompanyName(

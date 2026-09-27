@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
 import { ApiProblemError, problemDetailsFrom } from "./problemDetails.js";
+import { ShapeMismatchError, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `25-09`: the console's own MAX connect/status/disconnect flow, against
@@ -67,8 +68,50 @@ async function maxChannelFetch<T>(accessToken: string, path: string, init?: Requ
   return (await response.json()) as T;
 }
 
-export function fetchMaxChannelStatus(accessToken: string, siteId: string): Promise<MaxChannelStatusDto> {
-  return maxChannelFetch<MaxChannelStatusDto>(accessToken, `/api/v1/sites/${siteId}/channels/max`);
+/**
+ * `23-118`/`23-99`: the runtime shape the status read promises. Every field is present-but-nullable
+ * (none is `?`), so all seven are required keys. `connected` is the load-bearing one: dropped, it reads
+ * as `false` and the screen renders "not connected" for a shop whose MAX bot is live - the false
+ * negative the `23-99` bound names explicitly for a channel-connection-status object.
+ */
+const maxChannelStatusRequiredKeys = requiredKeysOf<MaxChannelStatusDto>({
+  connected: true,
+  channelCredentialId: true,
+  createdAt: true,
+  verified: true,
+  unreachable: true,
+  refusalReason: true,
+  checkedAt: true,
+});
+
+/**
+ * `23-118`: rethrows a `shape.mismatch` as `ApiProblemError` - the same type every other rejection in
+ * this file already produces (`problemDetailsFrom`), so `MaxChannelPage`'s existing `catch` needs no
+ * second error vocabulary (mirrors `conversationsApi.ts#rethrowAsApiProblem`).
+ */
+function rethrowAsApiProblem(reason: unknown, status: number): never {
+  if (reason instanceof ShapeMismatchError) {
+    throw new ApiProblemError("shape.mismatch", reason.diagnostic, status);
+  }
+  throw reason;
+}
+
+export async function fetchMaxChannelStatus(accessToken: string, siteId: string): Promise<MaxChannelStatusDto> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/sites/${siteId}/channels/max`, {
+    headers: maxChannelHeaders(accessToken),
+  });
+
+  if (!response.ok) {
+    throw await problemDetailsFrom(response);
+  }
+
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<MaxChannelStatusDto>(body, maxChannelStatusRequiredKeys, "GET /api/v1/sites/{siteId}/channels/max");
+  } catch (reason) {
+    rethrowAsApiProblem(reason, response.status);
+  }
+  return body;
 }
 
 /** `token` never round-trips - this call sends it once and the response type
