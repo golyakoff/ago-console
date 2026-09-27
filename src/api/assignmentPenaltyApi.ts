@@ -1,5 +1,6 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
+import { ShapeMismatchError, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `23-05`'s exact wire shape (`AssignmentPenaltyEndpoints.AssignmentPenaltyResponse`/
@@ -60,6 +61,18 @@ function url(siteId: string): string {
   return `${config.apiBaseUrl}/api/v1/sites/${siteId}/assignment-penalty`;
 }
 
+/**
+ * `23-118`/`23-99`: the runtime shape this read promises. `penaltySeconds` dropped renders as a blank
+ * number field - `AssignmentPenaltySettings` sets `String(dto.penaltySeconds)`, so an absent value is
+ * `String(undefined)` in an empty-looking input, indistinguishable from a site that genuinely has no
+ * penalty configured yet: the `23-99` false-empty case for a single-value settings object. Rethrown as
+ * `AssignmentPenaltyError('shape.mismatch')` - the file's own `code`-carrying type, caught by
+ * `OfflineAutoReplyPage`'s load `catch` and surfaced localized via `shapeMismatchMessage`, the same shape
+ * `offlineAutoReplyApi.ts` (this file's own sibling settings screen) already uses. `updateAssignmentPenalty`
+ * is a PUT echo acted on immediately, out of scope per the bound.
+ */
+const assignmentPenaltyRequiredKeys = requiredKeysOf<AssignmentPenaltyDto>({ penaltySeconds: true });
+
 export async function fetchAssignmentPenalty(accessToken: string, siteId: string): Promise<AssignmentPenaltyDto> {
   const response = await fetch(url(siteId), {
     headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
@@ -69,7 +82,17 @@ export async function fetchAssignmentPenalty(accessToken: string, siteId: string
     throw await buildError(response, "AssignmentPenalty.Unknown", "Failed to load the assignment penalty");
   }
 
-  return (await response.json()) as AssignmentPenaltyDto;
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<AssignmentPenaltyDto>(body, assignmentPenaltyRequiredKeys, `GET /api/v1/sites/${siteId}/assignment-penalty`);
+  } catch (reason) {
+    if (reason instanceof ShapeMismatchError) {
+      // The neutral endpoint+field diagnostic, surfaced localized by `apiErrorMessage.ts#shapeMismatchMessage`.
+      throw new AssignmentPenaltyError("shape.mismatch", reason.diagnostic);
+    }
+    throw reason;
+  }
+  return body;
 }
 
 export async function updateAssignmentPenalty(

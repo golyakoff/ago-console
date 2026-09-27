@@ -303,7 +303,8 @@ function AssignmentPenaltySection() {
       })
       .catch((err: unknown) =>
         setLoadError(
-          err instanceof AssignmentPenaltyError ? err.message : strings.assignmentPenaltyLoadError,
+          shapeMismatchMessage(err, strings) ??
+            (err instanceof AssignmentPenaltyError ? err.message : strings.assignmentPenaltyLoadError),
         ),
       );
   }, [user?.access_token, siteId, strings]);
