@@ -1,4 +1,5 @@
 import { config } from "../config.js";
+import { ShapeMismatchError, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `19-03`'s exact wire shape for `Ago.Faq.Api`'s own `GET`/`PUT /api/v1/sites/{siteId}/knowledge-base`
@@ -92,6 +93,15 @@ function url(baseUrl: string, siteId: string): string {
   return `${baseUrl}/api/v1/sites/${siteId}/knowledge-base`;
 }
 
+/**
+ * `23-118`/`23-99`: `text` is the field this read exists to carry, and `FaqModulePage` renders it
+ * straight into the editor - a dropped `text` renders as a blank editor indistinguishable from a site
+ * whose knowledge base is genuinely empty, the `23-99` false-empty case. `updatedAt` is present-but-
+ * nullable (`string | null`, never `?`), so the server always sends the key and `requiredKeysOf`
+ * demands it too. `updateKnowledgeBase` is a PUT echo acted on immediately, out of scope per the bound.
+ */
+const knowledgeBaseRequiredKeys = requiredKeysOf<KnowledgeBaseDto>({ text: true, updatedAt: true });
+
 export async function fetchKnowledgeBase(accessToken: string, siteId: string): Promise<KnowledgeBaseDto> {
   const baseUrl = requireBaseUrl();
   const response = await fetch(url(baseUrl, siteId), {
@@ -102,7 +112,17 @@ export async function fetchKnowledgeBase(accessToken: string, siteId: string): P
     throw await buildError(response, "KnowledgeBase.Unknown", "Failed to load the knowledge base");
   }
 
-  return (await response.json()) as KnowledgeBaseDto;
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<KnowledgeBaseDto>(body, knowledgeBaseRequiredKeys, `GET /api/v1/sites/${siteId}/knowledge-base (faq)`);
+  } catch (reason) {
+    if (reason instanceof ShapeMismatchError) {
+      // The neutral endpoint+field diagnostic, surfaced localized by `apiErrorMessage.ts#shapeMismatchMessage`.
+      throw new KnowledgeBaseError("shape.mismatch", reason.diagnostic);
+    }
+    throw reason;
+  }
+  return body;
 }
 
 export async function updateKnowledgeBase(

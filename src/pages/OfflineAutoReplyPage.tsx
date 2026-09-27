@@ -18,6 +18,7 @@ import {
   AssignmentPenaltyError,
 } from "../api/assignmentPenaltyApi.js";
 import { validatePenaltySeconds } from "./assignmentPenaltyValidation.js";
+import { shapeMismatchMessage } from "./apiErrorMessage.js";
 import { PageHead } from "../shell/AppShell.js";
 import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
@@ -76,7 +77,7 @@ export function OfflineAutoReplyPage() {
       })
       .catch((err: unknown) =>
         setLoadError(
-          err instanceof OfflineAutoReplyError ? err.message : strings.autoReplyLoadError,
+          shapeMismatchMessage(err, strings) ?? (err instanceof OfflineAutoReplyError ? err.message : strings.autoReplyLoadError),
         ),
       );
   }, [user?.access_token, siteId, strings]);

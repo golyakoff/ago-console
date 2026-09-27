@@ -1,5 +1,6 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
+import { ShapeMismatchError, assertArrayHasKeys, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * `19-03`'s exact wire shape for `Ago.Chat.Api`'s new `GET`/`PUT /api/v1/sites/{siteId}/modules`
@@ -69,6 +70,16 @@ function url(siteId: string): string {
   return `${config.apiBaseUrl}/api/v1/sites/${siteId}/modules`;
 }
 
+/**
+ * `23-118`/`23-99`: the runtime shapes this read promises. `fetchModules` returns a list wrapped in
+ * `{ modules }`, and `FaqModulePage` renders "no modules enabled" from an empty one - so a dropped
+ * `modules` key reads as a false empty, and a truncated element (a module row missing `triggerWords` or
+ * `entryPoint`) reads as a module that has none, both the `23-99` case. Each element is checked, not
+ * just the first. `updateModule` is a PUT echo acted on immediately, out of scope per the bound.
+ */
+const modulesListRequiredKeys = requiredKeysOf<ModulesListDto>({ modules: true });
+const moduleConfigRequiredKeys = requiredKeysOf<ModuleConfigDto>({ moduleKey: true, triggerWords: true, entryPoint: true });
+
 export async function fetchModules(accessToken: string, siteId: string): Promise<ModulesListDto> {
   const response = await fetch(url(siteId), {
     headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
@@ -78,7 +89,18 @@ export async function fetchModules(accessToken: string, siteId: string): Promise
     throw await buildError(response, "Modules.Unknown", "Failed to load the site's modules");
   }
 
-  return (await response.json()) as ModulesListDto;
+  const body: unknown = await response.json();
+  try {
+    assertHasKeys<ModulesListDto>(body, modulesListRequiredKeys, `GET /api/v1/sites/${siteId}/modules`);
+    assertArrayHasKeys<ModuleConfigDto>(body.modules, moduleConfigRequiredKeys, `GET /api/v1/sites/${siteId}/modules (modules)`);
+  } catch (reason) {
+    if (reason instanceof ShapeMismatchError) {
+      // The neutral endpoint+field diagnostic, surfaced localized by `apiErrorMessage.ts#shapeMismatchMessage`.
+      throw new ModulesError("shape.mismatch", reason.diagnostic);
+    }
+    throw reason;
+  }
+  return body;
 }
 
 /** Registers or updates one module. The response mirrors `ModuleConfigDto` - one list item's own
