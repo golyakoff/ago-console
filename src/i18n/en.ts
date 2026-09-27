@@ -1680,6 +1680,7 @@ export const en: ConsoleStrings = {
   calendarBookingsGoToDialogLink: "Open dialog",
   calendarBookingsColumnActions: "Actions",
   calendarBookingsCountLabel: "Bookings",
+  calendarBookingsJumpToDateFieldLabel: "Jump to date",
   calendarBookingsForbidden: "You do not have permission to view confirmed bookings.",
 
   calendarRescheduleButton: "Reschedule",

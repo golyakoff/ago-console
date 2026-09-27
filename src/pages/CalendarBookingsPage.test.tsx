@@ -58,6 +58,38 @@ function person(personId: string, displayName: string | null): PersonProfile {
   return { personId, displayName, channels: [], firstSeenAt: "2026-09-01T09:00:00+00:00", lastSeenAt: "2026-09-08T09:00:00+00:00" };
 }
 
+// React swallows a direct `.value` assignment as "no change" (it patches the native setter to track
+// what it last rendered); the prototype's own setter is what makes the synthetic `input` event real -
+// the same workaround `SearchConversationsPage.test.tsx#fill`/`OperatorAnalyticsPage.test.tsx#fillDate`
+// already use for a typed/picked `<input type="date">` value.
+const INPUT_VALUE_DESCRIPTOR = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+
+async function fillDate(input: HTMLInputElement, value: string) {
+  await interact(() => {
+    INPUT_VALUE_DESCRIPTOR?.set?.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+/** `26-221`: the "Jump to date" control, found via its `<label>`'s `htmlFor` - the identical
+ * `label`-then-walk-to-the-control way `WidgetConfigPage.test.tsx#localeSelect` already establishes,
+ * never by class name (`testing.md`). Distinct from the pre-existing "From"/"To" fields, which are
+ * also `input[type="date"]` and so cannot be told apart by tag/type alone. */
+function jumpToDateInput(container: HTMLElement): HTMLInputElement {
+  const label = byText<HTMLLabelElement>(container, ".ago-field__label", "Jump to date");
+  if (label === null) {
+    throw new Error("no 'Jump to date' field label found");
+  }
+
+  const id = label.getAttribute("for");
+  const input = id ? document.getElementById(id) : null;
+  if (!(input instanceof HTMLInputElement)) {
+    throw new Error("'Jump to date' field is not an <input>");
+  }
+
+  return input;
+}
+
 const SITE_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 
 function signedIn(): User {
@@ -284,6 +316,43 @@ describe("confirmed bookings", () => {
     // distinguishing check the existing "explains a permission failure" test above relies on
     // implicitly by asserting the message text; this one asserts the role directly.
     expect(container.querySelector('[role="alert"]')).not.toBeNull();
+  });
+});
+
+/**
+ * `26-221`: the one promise this item makes - the operator can pick any date and the whole seven-day
+ * window jumps there, no separate Apply step. `rangeFor(anchor)` (`CalendarBookingsPage`'s own doc
+ * comment) is the exact same +6-day rule `defaultRange()` already used for "today"; picking a date
+ * just hands it a different anchor. The re-fetch itself needs no explicit trigger here: `reload`'s own
+ * `useCallback` already lists `range` in its dependencies, so a new anchor gives it a new identity and
+ * the mount effect (which depends on `reload`) re-runs on its own - the identical mechanism that
+ * already makes editing "From"/"To" by hand re-fetch without a submit click.
+ */
+describe("jumping to a picked date (26-221)", () => {
+  it("re-fetches the seven-day window anchored on the picked date, and shows that window in the From/To fields", async () => {
+    const container = await render(page());
+    expect(calendarApi.getConfirmedBookings).toHaveBeenCalledTimes(1);
+
+    await fillDate(jumpToDateInput(container), "2026-10-01");
+
+    expect(calendarApi.getConfirmedBookings).toHaveBeenCalledTimes(2);
+    expect(calendarApi.getConfirmedBookings).toHaveBeenLastCalledWith("token", "2026-10-01", "2026-10-07", expect.anything());
+
+    const fromLabel = byText<HTMLLabelElement>(container, ".ago-field__label", "From");
+    const toLabel = byText<HTMLLabelElement>(container, ".ago-field__label", "To");
+    const fromId = fromLabel?.getAttribute("for") ?? "";
+    const toId = toLabel?.getAttribute("for") ?? "";
+    expect((document.getElementById(fromId) as HTMLInputElement | null)?.value).toBe("2026-10-01");
+    expect((document.getElementById(toId) as HTMLInputElement | null)?.value).toBe("2026-10-07");
+  });
+
+  it("ignores the field being cleared, rather than requesting an empty-anchor range", async () => {
+    const container = await render(page());
+
+    await fillDate(jumpToDateInput(container), "");
+
+    // A clear is not a pick - the range from the initial load is left exactly as it was, no second call.
+    expect(calendarApi.getConfirmedBookings).toHaveBeenCalledTimes(1);
   });
 });
 
