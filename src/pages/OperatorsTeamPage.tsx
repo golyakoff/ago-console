@@ -12,6 +12,7 @@ import {
   removeOperator,
   revokeOperatorInvite,
   toggleOperatorSeat,
+  inviteLimitRoleForCode,
   ROLE_ADMIN,
   ROLE_OPERATOR,
   type CreateOperatorInviteResponseDto,
@@ -28,7 +29,6 @@ import { Table } from "../components/Table.js";
 import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
 import { Dialog } from "../components/Dialog.js";
-import { Select } from "../components/Select.js";
 import { Field } from "../components/Field.js";
 import { Input } from "../components/Input.js";
 import { Alert } from "../components/Alert.js";
@@ -71,6 +71,21 @@ function roleSummary(summary: SeatAssignmentSummaryDto | null, roleName: string)
   return summary?.roles.find((r) => r.roleName === roleName) ?? null;
 }
 
+/** `26-241`: the two seeded roles an invite can grant, in the order the dialog offers their checkboxes
+ * and the order `roleNames` goes on the wire in - a single source both the checkbox list and the
+ * selected-set filter read, so the request body is always seeded-order and never depends on the order
+ * a tenant happened to tick the boxes. */
+const INVITE_ROLE_ORDER = [ROLE_OPERATOR, ROLE_ADMIN] as const;
+
+/** `26-241`: does this role's own pool have no room for one more seat - the per-role half of the invite
+ * pre-flight, the same `heldSeats >= limit` "at capacity" predicate `OperatorRoleSeatCapacity.CheckAsync`
+ * gates each role in the set with server-side. `null` (summary not yet loaded) is treated as "not
+ * known to be full" so the pre-flight never blocks purely on a slow read - the server is the real gate. */
+function roleSeatFull(summary: SeatAssignmentSummaryDto | null, roleName: string): boolean {
+  const s = roleSummary(summary, roleName);
+  return s !== null && s.heldSeats >= s.limit;
+}
+
 /**
  * `23-22`: `/settings/operators` - "a tenant can invite a colleague, see who is on the site, see who
  * occupies a paid seat, and remove somebody who has left - from the console, in one place"
@@ -99,10 +114,19 @@ function roleSummary(summary: SeatAssignmentSummaryDto | null, roleName: string)
  * That predicate is gone. Both invite redemption and this screen's own pre-flight check now go through
  * the one unified `OperatorRoleSeatCapacity.CheckAsync(siteId, roleName, ct)` - "does this *specific
  * role's own* live held-seat count already meet its own limit" - so `activeOperatorCount` is retired
- * entirely and the prediction is read straight off `summary.roles`, scoped to whichever role the
- * dialog's own picker currently has selected (`roleSummary`/`selectedRoleSummary` below). An
- * administrator invite is checked against the Admin role's own `Site.AdminLimit`, never the Operator
+ * entirely and the prediction is read straight off `summary.roles` (`roleSummary`/`roleSeatFull` below).
+ * An administrator invite is checked against the Admin role's own `Site.AdminLimit`, never the Operator
  * role's - the two counted pools this item's own design gave each seeded role.
+ *
+ * ## `26-241`: one invite, a *set* of roles
+ *
+ * The invite dialog offers a multi-select (a checkbox per seeded role) rather than the single-choice
+ * `Select` `23-72` gave it - one invite can grant both seeded roles at once (`roleNames`, gated per
+ * role at send time, `ago-chat#383`). The pre-flight generalises accordingly: submit is blocked while
+ * *any* ticked role's own pool is full or nothing is ticked (`inviteSubmitBlocked`), with the form left
+ * visible and a per-role message shown - so untick a full role and invite the rest, rather than the
+ * old whole-dialog "Close only" dead-end. The server refuses a full role with a `402`
+ * (`SeatLimitReached`/`AdminLimitReached`); `attemptInvite` maps that code back to which role to name.
  *
  * ## The removal consequence, said before the click
  *
@@ -127,9 +151,11 @@ export function OperatorsTeamPage() {
   // `23-70`: the link's own "copied" confirmation - the identical `Button`+`Alert` shape
   // `InstallSnippetPage`'s own `copyKey`/`copySnippet` already establish for the same UX need.
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
-  // `23-72`: the invite dialog's own role choice - defaults to Operator, the console's original,
-  // only offer before this item.
-  const [inviteRoleName, setInviteRoleName] = useState(ROLE_OPERATOR);
+  // `23-72`/`26-241`: the invite dialog's own role choice - now a *set*, not a single pick. Defaults to
+  // just Operator (the console's original, only offer before `23-72`); a one-role invite is simply a
+  // one-element set. Held as an array in seeded order (`INVITE_ROLE_ORDER`) rather than a `Set`, so it
+  // maps straight onto `roleNames` on the wire and renders deterministically.
+  const [inviteRoles, setInviteRoles] = useState<string[]>([ROLE_OPERATOR]);
   // `25-73`: required on the form now - the address Keycloak's own invite email goes to.
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteEmailValidationError, setInviteEmailValidationError] = useState<string | null>(null);
@@ -191,24 +217,34 @@ export function OperatorsTeamPage() {
     return <AccessRefusal title={strings.operatorsTeamTitle} message={strings.operatorsTeamForbidden} strings={strings} />;
   }
 
-  // `25-170`: this used to be derived from the team list's own row count (`activeOperatorCount`), never
-  // `summary.heldSeats` - because `OperatorInviteRedemptionRepository`'s own real refusal predicate used
-  // to count every active `operators` row regardless of role or current seat-holding status. That
-  // predicate is gone: invite-time capacity is now checked by the one unified
-  // `OperatorRoleSeatCapacity.CheckAsync(siteId, roleName, ct)` - "does this *specific role's* own live
-  // held-seat count already meet its own limit" (`IsAtCapacity = heldSeats >= limit`) - so the honest
-  // prediction is exactly that, read straight off `summary.roles`, per the role actually selected in the
-  // dialog below. Not `overLimit` (`RoleSeatAssignmentSummaryDto`'s own `heldSeats > limit`) - that flag
-  // answers a different question (the informational "you are already over" banner), one strictly higher
-  // threshold than "no room for one more" (`>=`).
-  const selectedRoleSummary = roleSummary(summary, inviteRoleName);
-  const atSeatLimit = selectedRoleSummary !== null && selectedRoleSummary.heldSeats >= selectedRoleSummary.limit;
+  // `25-170`: invite-time capacity is checked by the one unified `OperatorRoleSeatCapacity.CheckAsync(
+  // siteId, roleName, ct)` - "does this *specific role's* own live held-seat count already meet its own
+  // limit" (`IsAtCapacity = heldSeats >= limit`) - read straight off `summary.roles`, never the team
+  // list's own row count and never `overLimit` (`heldSeats > limit`, a strictly higher threshold that
+  // answers the "you are already over" banner, not "no room for one more").
+  //
+  // `26-241`: the invite grants a *set* of roles, each gated against its own pool at send time - so the
+  // pre-flight is now "every selected role has a free seat", not one selected role's. `fullSelectedRoles`
+  // is which ticked roles are already full (in seeded order, for a stable message); submit is blocked
+  // while that list is non-empty or nothing is ticked at all. The server enforces the same per-role gate
+  // (defense in depth) - a `402` on any one role is handled in `attemptInvite` below.
+  const fullSelectedRoles = INVITE_ROLE_ORDER.filter((roleName) => inviteRoles.includes(roleName) && roleSeatFull(summary, roleName));
+  const anySelectedRoleFull = fullSelectedRoles.length > 0;
+  const noRoleSelected = inviteRoles.length === 0;
+  const inviteSubmitBlocked = noRoleSelected || anySelectedRoleFull;
+
+  const toggleInviteRole = (roleName: string, selected: boolean) => {
+    setInviteRoles((current) => {
+      const without = current.filter((r) => r !== roleName);
+      return selected ? INVITE_ROLE_ORDER.filter((r) => r === roleName || without.includes(r)) : without;
+    });
+  };
 
   const openInviteDialog = () => {
     setInviteError(null);
     setInviteResult(null);
     setInviteLinkCopied(false);
-    setInviteRoleName(ROLE_OPERATOR);
+    setInviteRoles([ROLE_OPERATOR]);
     setInviteEmail("");
     setInviteEmailValidationError(null);
     setInviteDialogOpen(true);
@@ -229,6 +265,12 @@ export function OperatorsTeamPage() {
     // `25-73`: refused by the API too (`OperatorInvite.InvalidEmail`) - this is only the same
     // "catch an obvious mistake before a round trip" UX-only check `OnboardingPage.tsx`'s own
     // `validate()` already uses for its origin field, never the real gate.
+    // `26-241`: mirrors the render-time `inviteSubmitBlocked` gate (submit is disabled while it holds) -
+    // repeated here so a stale click cannot slip an empty-set or full-seat invite past to the server.
+    if (inviteSubmitBlocked) {
+      return;
+    }
+
     const trimmedEmail = inviteEmail.trim();
     if (trimmedEmail.length === 0) {
       setInviteEmailValidationError(strings.operatorsTeamInviteEmailValidationEmpty);
@@ -239,17 +281,36 @@ export function OperatorsTeamPage() {
     setInviteSubmitting(true);
     setInviteError(null);
     try {
-      const created = await createOperatorInvite(accessToken, siteId, inviteRoleName, trimmedEmail);
+      // `26-241`: the ticked roles, in seeded order (`inviteRoles` is already kept ordered) - a one-role
+      // invite is a one-element set, so an ordinary Operator-only invite still sends `["Operator"]`.
+      const created = await createOperatorInvite(accessToken, siteId, inviteRoles, trimmedEmail);
       setInviteResult(created);
       // The invite list below should reflect this new row (and, if the send failed, its status) the
       // moment the dialog is closed - reloaded now rather than only on the next full page visit.
       loadInvites();
     } catch (err) {
-      setInviteError(err instanceof ApiProblemError ? err.message : strings.operatorsTeamInviteSubmitError);
+      setInviteError(inviteSubmitErrorMessage(err));
     } finally {
       setInviteSubmitting(false);
     }
   };
+
+  // `26-241`: the server gates each role in the set at send time (defense in depth behind the
+  // `inviteSubmitBlocked` pre-flight) - a `402` `OperatorInvite.SeatLimitReached`/`AdminLimitReached`
+  // names which role's own pool refused. `inviteLimitRoleForCode` turns that `type` back into a role
+  // name so the surfaced message says *which* seat is full, in the tenant's own words, rather than the
+  // server's generic `detail`. Any other failure keeps the existing generic-then-`ApiProblemError.message`
+  // shape this page already used.
+  function inviteSubmitErrorMessage(err: unknown): string {
+    if (err instanceof ApiProblemError) {
+      const fullRole = inviteLimitRoleForCode(err.code);
+      if (fullRole !== null) {
+        return `${roleDisplayName(fullRole, strings)} ${strings.operatorsTeamInviteRoleSeatFull}`;
+      }
+      return err.message;
+    }
+    return strings.operatorsTeamInviteSubmitError;
+  }
 
   const attemptRevoke = async () => {
     if (!accessToken || !siteId || !revokeTarget) {
@@ -537,16 +598,21 @@ export function OperatorsTeamPage() {
             <Button variant="primary" onClick={closeInviteDialog}>
               {strings.operatorsTeamInviteCloseButton}
             </Button>
-          ) : atSeatLimit ? (
-            <Button variant="ghost" onClick={closeInviteDialog}>
-              {strings.operatorsTeamInviteCloseButton}
-            </Button>
           ) : (
             <>
               <Button variant="ghost" onClick={closeInviteDialog} disabled={inviteSubmitting}>
                 {strings.cancelButton}
               </Button>
-              <Button variant="primary" onClick={() => void attemptInvite()} disabled={inviteSubmitting}>
+              {/* `26-241`: the pre-flight is now "submit disabled + a clear message", not a whole-form
+                  replacement - the form (with its role checkboxes) stays visible so a tenant whose
+                  default Operator seat is full can untick it and invite an Admin instead. Submit is
+                  blocked while no role is ticked or any ticked role's own pool is full
+                  (`inviteSubmitBlocked`); the per-role reason is shown in the body. */}
+              <Button
+                variant="primary"
+                onClick={() => void attemptInvite()}
+                disabled={inviteSubmitting || inviteSubmitBlocked}
+              >
                 {inviteSubmitting ? strings.operatorsTeamInviteSendingButton : strings.operatorsTeamInviteConfirmButton}
               </Button>
             </>
@@ -581,20 +647,6 @@ export function OperatorsTeamPage() {
               </p>
             )}
           </div>
-        ) : atSeatLimit ? (
-          // Done-when: "inviting when the seat limit is already reached is refused *before* the
-          // invite is created, and says so in the tenant's own words" - no `createOperatorInvite`
-          // call is ever made from this branch; the dialog's only footer action is `Close`. `25-170`:
-          // the *selected role's own* limit, not a shared one - an administrator invite is refused by
-          // the Admin role's own capacity, never exempted by the Operator role happening to have room.
-          // `23-107`: same fix as the over-seats Alert above - a real link, not a name.
-          <Alert
-            tone="info"
-            title={strings.operatorsTeamInviteAtLimitTitle}
-            action={<Link to="/account/billing">{strings.navBilling}</Link>}
-          >
-            {strings.operatorsTeamInviteAtLimitBody} {selectedRoleSummary?.limit}.
-          </Alert>
         ) : (
           <div className="ago-stack">
             {/* `25-73`: required now - refused server-side (`OperatorInvite.InvalidEmail`) when
@@ -612,27 +664,63 @@ export function OperatorsTeamPage() {
               )}
             </Field>
 
-            {/* `23-72`: the role picker - the API already took `roleName` at invite creation
-                (`13-01`), this dialog just never offered a choice before this item. */}
-            <label>
-              {strings.operatorsTeamInviteRoleLabel}
-              <Select value={inviteRoleName} onChange={(event) => setInviteRoleName(event.target.value)}>
-                <option value={ROLE_OPERATOR}>{strings.operatorsTeamInviteRoleOperatorOption}</option>
-                <option value={ROLE_ADMIN}>{strings.operatorsTeamInviteRoleAdminOption}</option>
-              </Select>
-            </label>
+            {/* `26-241`: the role picker is now a *multi-select* - one checkbox per seeded role, at
+                least one required (`23-72`'s single-choice `Select` could only ever grant one). The API
+                takes a set (`roleNames`, `ago-chat#383`); a one-role invite is a one-element set. */}
+            <fieldset className="ago-stack">
+              <legend>{strings.operatorsTeamInviteRolesLabel}</legend>
+              {INVITE_ROLE_ORDER.map((roleName) => (
+                <label key={roleName} className="ago-row">
+                  <input
+                    type="checkbox"
+                    checked={inviteRoles.includes(roleName)}
+                    onChange={(e) => toggleInviteRole(roleName, e.target.checked)}
+                    disabled={inviteSubmitting}
+                  />
+                  <span>
+                    {roleName === ROLE_ADMIN
+                      ? strings.operatorsTeamInviteRoleAdminOption
+                      : strings.operatorsTeamInviteRoleOperatorOption}
+                  </span>
+                </label>
+              ))}
+            </fieldset>
 
-            {/* `25-18`/`25-170`: names which seat is being spent, reactively - re-reads
-                `inviteRoleName` on every render, so switching the picker above updates this line before
-                submit, never only at the values the dialog opened with. The count and limit are now the
-                *selected role's own* real figures (`selectedRoleSummary`), not the pre-`25-170` shared
-                `activeOperatorCount`/`summary.seatLimit` - see `operatorsTeamInviteCostBodyOperator`'s
-                own doc comment in `strings.ts` for why this is now a real per-role number rather than a
-                fabricated one. */}
-            <p>
-              {(inviteRoleName === ROLE_ADMIN ? strings.operatorsTeamInviteCostBodyAdmin : strings.operatorsTeamInviteCostBodyOperator)}{" "}
-              {(selectedRoleSummary?.heldSeats ?? 0) + 1}/{selectedRoleSummary?.limit}.
-            </p>
+            {/* `25-18`/`25-170`/`26-241`: one cost line per *selected* role that still has room - names
+                which seat each grant spends, reactively (re-reads `inviteRoles` every render, so ticking
+                a box updates this before submit). The count/limit are the role's own real figures, not a
+                shared or fabricated one - see `operatorsTeamInviteCostBodyOperator`'s own doc comment. */}
+            {inviteRoles
+              .filter((roleName) => !roleSeatFull(summary, roleName))
+              .map((roleName) => {
+                const s = roleSummary(summary, roleName);
+                return (
+                  <p key={roleName}>
+                    {roleName === ROLE_ADMIN ? strings.operatorsTeamInviteCostBodyAdmin : strings.operatorsTeamInviteCostBodyOperator}{" "}
+                    {(s?.heldSeats ?? 0) + 1}/{s?.limit}.
+                  </p>
+                );
+              })}
+
+            {/* `26-241`: the pre-flight's "clear message" half - which ticked role(s) have no free seat,
+                said in the tenant's own words, with a real link to where the limit is raised (`23-107`'s
+                fix). Submit stays disabled (`inviteSubmitBlocked`) while this shows - the invite is
+                refused before a round trip, and the server gates it again at send time. */}
+            {anySelectedRoleFull && (
+              <Alert
+                tone="info"
+                title={strings.operatorsTeamInviteAtLimitTitle}
+                action={<Link to="/account/billing">{strings.navBilling}</Link>}
+              >
+                {fullSelectedRoles.map((roleName) => (
+                  <p key={roleName}>
+                    {roleDisplayName(roleName, strings)} {strings.operatorsTeamInviteRoleSeatFull}
+                  </p>
+                ))}
+              </Alert>
+            )}
+
+            {noRoleSelected && <Alert tone="info">{strings.operatorsTeamInviteNoRoleSelected}</Alert>}
 
             {inviteError && <Alert tone="danger">{inviteError}</Alert>}
           </div>

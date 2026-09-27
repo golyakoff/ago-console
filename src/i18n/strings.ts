@@ -1671,6 +1671,21 @@ export interface ConsoleStrings {
   operatorsTeamInviteRoleOperatorOption: string;
   operatorsTeamInviteRoleAdminOption: string;
 
+  /** `26-241`: the invite dialog offers a *set* of roles (two checkboxes, Operator + Admin) rather than
+   * the single-choice `Select` it had before this item - one invite can grant both seeded roles at
+   * once, each gated against its own seat pool. This is the checkbox group's own heading (plural
+   * "Roles"), distinct from `operatorsTeamInviteRoleLabel` ("Role") which the option labels still use. */
+  operatorsTeamInviteRolesLabel: string;
+  /** Shown, and submit disabled, when no role checkbox is ticked - at least one role is required for an
+   * invite to mean anything (`26-241`). */
+  operatorsTeamInviteNoRoleSelected: string;
+  /** `26-241`: appended after `roleDisplayName(role)` to name a *selected* role whose own seat pool is
+   * already full - `${roleDisplayName} ${operatorsTeamInviteRoleSeatFull}`. The per-role half of the
+   * pre-flight: submit stays disabled while any ticked role reads this. Reused verbatim as the `402`
+   * fallback message when the server refuses one role's seat at send time (`inviteLimitRoleForCode`
+   * turns the `SeatLimitReached`/`AdminLimitReached` code back into which role to prefix). */
+  operatorsTeamInviteRoleSeatFull: string;
+
   /** The row action offered to an `Operator`-only colleague - promotes them. */
   operatorsTeamChangeRoleToAdminButton: string;
   /** The row action offered to an `Admin` colleague - demotes them back to `Operator`. */

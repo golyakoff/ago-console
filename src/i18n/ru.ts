@@ -1045,6 +1045,9 @@ export const ru: ConsoleStrings = {
   operatorsTeamInviteRoleLabel: "Роль",
   operatorsTeamInviteRoleOperatorOption: "Оператор - отвечает на обращения",
   operatorsTeamInviteRoleAdminOption: "Администратор - управляет командой, не отвечает на обращения",
+  operatorsTeamInviteRolesLabel: "Роли",
+  operatorsTeamInviteNoRoleSelected: "Выберите хотя бы одну роль для приглашения.",
+  operatorsTeamInviteRoleSeatFull: "- мест нет: освободите место или повысьте лимит, прежде чем приглашать.",
 
   operatorsTeamChangeRoleToAdminButton: "Сделать администратором",
   operatorsTeamChangeRoleToOperatorButton: "Сделать оператором",
