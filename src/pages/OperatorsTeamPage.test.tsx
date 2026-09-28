@@ -9,6 +9,7 @@ import { OperatorsTeamPage, OPERATORS_TEAM_PERMISSION } from "./OperatorsTeamPag
 // to drive the server's own `402` per-role refusal through the dialog's `catch`.
 import { ApiProblemError } from "../api/operatorTeamApi.js";
 import { all, byText, interact, render, unmount } from "../testing/dom.js";
+import { formatDateStamp, parseInstant } from "../time/format.js";
 
 /**
  * `23-22`: `/settings/operators`. Modeled on `AccountDeletionPage.test.tsx`/`BillingPage.test.tsx` for
@@ -135,11 +136,11 @@ function twoOperatorsAndASummary(seatLimit: number, adminLimit = 5) {
     operators: [
       {
         operatorId: NAMED_ID, displayName: "Ada Lovelace", email: "ada@example.invalid",
-        roles: [{ roleName: "Operator", holdsSeat: true }],
+        roles: [{ roleName: "Operator", holdsSeat: true }], joinedAt: null,
       },
       {
         operatorId: UNNAMED_ID, displayName: null, email: null,
-        roles: [{ roleName: "Operator", holdsSeat: false }],
+        roles: [{ roleName: "Operator", holdsSeat: false }], joinedAt: null,
       },
     ],
   });
@@ -170,6 +171,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   await unmount();
+  vi.unstubAllEnvs();
 });
 
 describe("who is offered the screen", () => {
@@ -216,11 +218,11 @@ describe("the team list", () => {
       operators: [
         {
           operatorId: NAMED_ID, displayName: "Ada Lovelace", email: "ada@example.invalid",
-          roles: [{ roleName: "Operator", holdsSeat: true }],
+          roles: [{ roleName: "Operator", holdsSeat: true }], joinedAt: null,
         },
         {
           operatorId: UNNAMED_ID, displayName: null, email: null,
-          roles: [{ roleName: "Admin", holdsSeat: false }],
+          roles: [{ roleName: "Admin", holdsSeat: false }], joinedAt: null,
         },
       ],
     });
@@ -262,7 +264,7 @@ describe("the team list", () => {
       operators: [
         {
           operatorId: NAMED_ID, displayName: "Ada Lovelace", email: "ada@example.invalid",
-          roles: [{ roleName: "Operator", holdsSeat: true }, { roleName: "Admin", holdsSeat: true }],
+          roles: [{ roleName: "Operator", holdsSeat: true }, { roleName: "Admin", holdsSeat: true }], joinedAt: null,
         },
       ],
     });
@@ -434,7 +436,7 @@ describe("the invite dialog's role multi-select", () => {
       operators: [
         {
           operatorId: NAMED_ID, displayName: "Ada Lovelace", email: "ada@example.invalid",
-          roles: [{ roleName: "Operator", holdsSeat: true }, { roleName: "Admin", holdsSeat: true }],
+          roles: [{ roleName: "Operator", holdsSeat: true }, { roleName: "Admin", holdsSeat: true }], joinedAt: null,
         },
       ],
     });
@@ -572,7 +574,7 @@ describe("row actions (seat and removal)", () => {
       operators: [
         {
           operatorId: NAMED_ID, displayName: "Ada Lovelace", email: "ada@example.invalid",
-          roles: [{ roleName: "Operator", holdsSeat: true }, { roleName: "Admin", holdsSeat: true }],
+          roles: [{ roleName: "Operator", holdsSeat: true }, { roleName: "Admin", holdsSeat: true }], joinedAt: null,
         },
       ],
     });
@@ -630,11 +632,13 @@ describe("the invite list", () => {
     const container = await render(page());
 
     expect(container.textContent).not.toContain("Invites");
+    expect(container.textContent).not.toContain("Archive");
   });
 
-  /** Fails-before: rendering the panel unconditionally (dropping the `invites.length > 0` guard)
-   * makes the test right above this one fail - "Invites" would appear even with an empty list. */
-  it("renders every column, with the SMTP error code for a failed send, once an invite exists", async () => {
+  /** Fails-before: rendering the panel unconditionally (dropping the `pendingInvites.length > 0`
+   * guard) makes the test right above this one fail - "Invites" would appear even with an empty
+   * list. */
+  it("renders every column, with the SMTP error code for a failed send, for a still-pending invite", async () => {
     twoOperatorsAndASummary(5);
     operatorTeamApi.listOperatorInvites.mockResolvedValue({
       invites: [
@@ -646,6 +650,10 @@ describe("the invite list", () => {
           status: "Sent",
           smtpErrorCode: null,
           roles: ["Operator"],
+          effectiveStatus: "Pending",
+          redeemedAt: null,
+          removedAt: null,
+          revokedAt: null,
         },
         {
           operatorInviteId: "invite-b",
@@ -656,15 +664,10 @@ describe("the invite list", () => {
           smtpErrorCode: "550",
           // `26-258`: a two-role invite (`26-241`) - both role labels render on this one row.
           roles: ["Admin", "Operator"],
-        },
-        {
-          operatorInviteId: "invite-c",
-          email: "gone@example.com",
-          createdAt: "2026-09-08T00:00:00Z",
-          expiresAt: "2026-09-15T00:00:00Z",
-          status: "Revoked",
-          smtpErrorCode: null,
-          roles: ["Admin"],
+          effectiveStatus: "Pending",
+          redeemedAt: null,
+          removedAt: null,
+          revokedAt: null,
         },
       ],
     });
@@ -679,16 +682,21 @@ describe("the invite list", () => {
     expect(container.textContent).toContain("Administrator");
     expect(container.textContent).toContain("sent@example.com");
     expect(container.textContent).toContain("failed@example.com");
-    // This item's own stated wording for the failure case, minus the Russian-only literal text (that
-    // exact string is asserted in `preSessionLocale.test.tsx`/`ru.ts`'s own review, not here - this
-    // file mounts the English strings, `OperatorsTeamPage.test.tsx`'s own established shape).
+    // `26-263`: the pill is now the `effectiveStatus` word, not the delivery `status` - both rows are
+    // `Pending`, so the "Ожидает"/"Pending" pill (twice), and its own "Valid until" detail line off
+    // `expiresAt`.
+    expect(all(container, ".ago-badge").filter((b) => b.textContent === "Pending")).toHaveLength(2);
+    expect(container.textContent).toContain("Valid until");
+    // The SMTP failure wording is kept, exactly as before - now a second element alongside the pill
+    // rather than the pill's own text. This item's own stated wording for the failure case, minus the
+    // Russian-only literal text (asserted in `preSessionLocale.test.tsx`/`ru.ts`'s own review, not
+    // here - this file mounts the English strings).
     expect(container.textContent).toContain("550");
-    expect(container.textContent).toContain("gone@example.com");
 
-    // Only the still-live "Sent"/"SendFailed" rows offer "Revoke" - not the already-revoked one, and
-    // not the (always-rendered, initially closed) confirmation dialog's own same-labelled button.
+    // Every row in the "Invites" panel is `Pending` by construction now, so both offer "Revoke" - not
+    // the (always-rendered, initially closed) confirmation dialog's own same-labelled button.
     const revokeButtons = all(container, "button:not(dialog button)").filter((b) => b.textContent === "Revoke");
-    expect(revokeButtons).toHaveLength(2); // "Sent" and "SendFailed" rows, not "Revoked"
+    expect(revokeButtons).toHaveLength(2);
   });
 
   it("revokes an invite, after confirming, and reloads the list", async () => {
@@ -703,6 +711,10 @@ describe("the invite list", () => {
           status: "Sent",
           smtpErrorCode: null,
           roles: ["Operator"],
+          effectiveStatus: "Pending",
+          redeemedAt: null,
+          removedAt: null,
+          revokedAt: null,
         },
       ],
     });
@@ -724,5 +736,231 @@ describe("the invite list", () => {
 
     expect(operatorTeamApi.revokeOperatorInvite).toHaveBeenCalledWith("token", SITE_ID, "invite-a");
     expect(operatorTeamApi.listOperatorInvites).toHaveBeenCalledTimes(2);
+  });
+});
+
+/**
+ * `26-263`: the five `effectiveStatus` states, the grouping they drive, and the roster's own `joinedAt`
+ * line - the console-side half of `ago-chat#387`'s new read fields, matched against the android app's
+ * own settled design (`https://android-design.reserve-me.ru/team.html`).
+ */
+describe("the effective status mapping (26-263)", () => {
+  it("shows the roster's own In the team pill, with the Accepted line for an invited member and none for the founder", async () => {
+    operatorTeamApi.fetchOperatorTeam.mockResolvedValue({
+      operators: [
+        {
+          operatorId: NAMED_ID, displayName: "Ada Lovelace", email: "ada@example.invalid",
+          roles: [{ roleName: "Operator", holdsSeat: true }], joinedAt: "2026-09-01T00:00:00Z",
+        },
+        {
+          // The founder - minted at registration, never invited.
+          operatorId: UNNAMED_ID, displayName: "Founder", email: "founder@example.invalid",
+          roles: [{ roleName: "Admin", holdsSeat: true }], joinedAt: null,
+        },
+      ],
+    });
+    operatorTeamApi.fetchSeatAssignmentSummary.mockResolvedValue({
+      roles: [
+        { roleName: "Operator", heldSeats: 1, limit: 5, overLimit: false },
+        { roleName: "Admin", heldSeats: 1, limit: 5, overLimit: false },
+      ],
+    });
+
+    const container = await render(page());
+
+    expect(all(container, ".ago-badge").filter((b) => b.textContent === "In the team")).toHaveLength(2);
+    expect(container.textContent).toContain("Accepted");
+    // Exactly one "Accepted" line - Ada's own, not a second one manufactured for the founder's `null`.
+    expect(all(container, "p.ago-meta").filter((p) => p.textContent?.startsWith("Accepted"))).toHaveLength(1);
+  });
+
+  it("groups a Pending invite under Invites and a Removed one under Archive, both showing BOTH their Accepted and Removed dates for the latter", async () => {
+    vi.stubEnv("TZ", "UTC");
+    twoOperatorsAndASummary(5);
+    operatorTeamApi.listOperatorInvites.mockResolvedValue({
+      invites: [
+        {
+          operatorInviteId: "invite-pending",
+          email: "pending@example.com",
+          createdAt: "2026-09-01T00:00:00Z",
+          expiresAt: "2026-10-05T00:00:00Z",
+          status: "Sent",
+          smtpErrorCode: null,
+          roles: ["Operator"],
+          effectiveStatus: "Pending",
+          redeemedAt: null,
+          removedAt: null,
+          revokedAt: null,
+        },
+        {
+          operatorInviteId: "invite-removed",
+          email: "removed@example.com",
+          createdAt: "2026-08-01T00:00:00Z",
+          expiresAt: "2026-08-08T00:00:00Z",
+          status: "Redeemed",
+          smtpErrorCode: null,
+          roles: ["Operator"],
+          effectiveStatus: "Removed",
+          redeemedAt: "2026-08-02T00:00:00Z",
+          removedAt: "2026-09-20T00:00:00Z",
+          revokedAt: null,
+        },
+      ],
+    });
+
+    const container = await render(page());
+
+    // `Pending` -> the "Invites" panel, revocable.
+    const invitesPanel = byText<HTMLElement>(container, "h2", "Invites")?.closest(".ago-panel") ?? null;
+    expect(invitesPanel?.textContent).toContain("pending@example.com");
+    expect(invitesPanel?.textContent).not.toContain("removed@example.com");
+
+    // `Removed` -> the "Archive" panel, not revocable, and BOTH dates shown - the specific formatted
+    // text for each, not just the bare pill word "Removed" (which would pass even with the
+    // `removedAt` line dropped entirely, since the status pill itself already reads "Removed"). This
+    // is the actual fails-before proof of `26-263`'s own "accepted-vs-removed distinction": dropping
+    // the `removedAt` line (while keeping `redeemedAt`'s) fails only this pair of assertions.
+    const archivePanel = byText<HTMLElement>(container, "h2", "Archive")?.closest(".ago-panel") ?? null;
+    expect(archivePanel?.textContent).toContain("removed@example.com");
+    expect(archivePanel?.textContent).not.toContain("pending@example.com");
+    const expectedAcceptedDate = formatDateStamp(parseInstant("2026-08-02T00:00:00Z"), "UTC");
+    const expectedRemovedDate = formatDateStamp(parseInstant("2026-09-20T00:00:00Z"), "UTC");
+    expect(archivePanel?.textContent).toContain(`Accepted ${expectedAcceptedDate}`);
+    expect(archivePanel?.textContent).toContain(`Removed ${expectedRemovedDate}`);
+    expect(all(container, "button:not(dialog button)").filter((b) => b.textContent === "Revoke")).toHaveLength(1);
+  });
+
+  it("shows the Expired pill with its own expiry date, and the Revoked pill with its own revoked date", async () => {
+    // Pinned so the expected date text below is deterministic regardless of the machine running this
+    // test - `resolveTimeZone()` reads the real `Intl` default, the same reasoning
+    // `AdminConversationsPage.test.tsx`'s own "started column" test already pins for.
+    vi.stubEnv("TZ", "UTC");
+    twoOperatorsAndASummary(5);
+    operatorTeamApi.listOperatorInvites.mockResolvedValue({
+      invites: [
+        {
+          operatorInviteId: "invite-expired",
+          email: "expired@example.com",
+          createdAt: "2026-08-01T00:00:00Z",
+          expiresAt: "2026-08-08T00:00:00Z",
+          status: "Expired",
+          smtpErrorCode: null,
+          roles: ["Operator"],
+          effectiveStatus: "Expired",
+          redeemedAt: null,
+          removedAt: null,
+          revokedAt: null,
+        },
+        {
+          operatorInviteId: "invite-revoked",
+          email: "revoked@example.com",
+          createdAt: "2026-08-01T00:00:00Z",
+          // `expiresAt` deliberately differs from `revokedAt` below, so a regression that fell back to
+          // `expiresAt` (or `createdAt`) instead of the real `revokedAt` would show a visibly wrong date
+          // and fail the assertion, rather than coincidentally matching it.
+          expiresAt: "2026-08-30T00:00:00Z",
+          status: "Revoked",
+          smtpErrorCode: null,
+          roles: ["Admin"],
+          effectiveStatus: "Revoked",
+          redeemedAt: null,
+          removedAt: null,
+          // `26-263`/`ago-chat#388`: the revocation instant - additive one PR after `redeemedAt`/
+          // `removedAt`, on the wire in every real response now, so the fixture always sets it too.
+          revokedAt: "2026-08-15T00:00:00Z",
+        },
+      ],
+    });
+
+    const container = await render(page());
+
+    const archivePanel = byText<HTMLElement>(container, "h2", "Archive")?.closest(".ago-panel") ?? null;
+    expect(archivePanel).not.toBeNull();
+    expect(archivePanel?.textContent).toContain("Expired");
+    expect(archivePanel?.textContent).toContain("Revoked");
+    // Both detail lines, off the real fields - never fabricated. Computed through the real formatter
+    // (`AdminConversationsPage.test.tsx`'s own precedent) rather than hand-typed date strings, so this
+    // does not silently drift from what `formatDateStamp` actually renders.
+    const expectedExpiredDate = formatDateStamp(parseInstant("2026-08-08T00:00:00Z"), "UTC");
+    const expectedRevokedDate = formatDateStamp(parseInstant("2026-08-15T00:00:00Z"), "UTC");
+    expect(archivePanel?.textContent).toContain(`Expired ${expectedExpiredDate}`);
+    expect(archivePanel?.textContent).toContain(`Revoked ${expectedRevokedDate}`);
+    // Fails-before for the fallback risk named above: the revoked row's own `expiresAt` (30 Aug) must
+    // not appear anywhere near it - only `revokedAt` (15 Aug) should.
+    const revokedRow = all(container, "tr").find((tr) => tr.textContent?.includes("revoked@example.com"));
+    expect(revokedRow?.textContent).not.toContain(formatDateStamp(parseInstant("2026-08-30T00:00:00Z"), "UTC"));
+  });
+
+  it("hides an InTeam invite from both invite groups - that colleague's own roster row already carries the fact", async () => {
+    operatorTeamApi.fetchOperatorTeam.mockResolvedValue({
+      operators: [
+        {
+          operatorId: NAMED_ID, displayName: "Ada Lovelace", email: "ada@example.invalid",
+          roles: [{ roleName: "Operator", holdsSeat: true }], joinedAt: "2026-08-02T00:00:00Z",
+        },
+      ],
+    });
+    operatorTeamApi.fetchSeatAssignmentSummary.mockResolvedValue({
+      roles: [
+        { roleName: "Operator", heldSeats: 1, limit: 5, overLimit: false },
+        { roleName: "Admin", heldSeats: 0, limit: 5, overLimit: false },
+      ],
+    });
+    operatorTeamApi.listOperatorInvites.mockResolvedValue({
+      invites: [
+        {
+          operatorInviteId: "invite-in-team",
+          email: "ada@example.invalid",
+          createdAt: "2026-08-01T00:00:00Z",
+          expiresAt: "2026-08-08T00:00:00Z",
+          status: "Redeemed",
+          smtpErrorCode: null,
+          roles: ["Operator"],
+          effectiveStatus: "InTeam",
+          redeemedAt: "2026-08-02T00:00:00Z",
+          removedAt: null,
+          revokedAt: null,
+        },
+      ],
+    });
+
+    const container = await render(page());
+
+    expect(container.textContent).not.toContain("Invites");
+    expect(container.textContent).not.toContain("Archive");
+    // The one mention of the email is the roster row, not a second invite-list row.
+    expect(all(container, "td").filter((td) => td.textContent === "ada@example.invalid")).toHaveLength(1);
+  });
+
+  /** `26-263`'s own defensive requirement: `effectiveStatus` is typed as the five known members, but a
+   * value the wire sends tomorrow that this union does not yet list must still render, not vanish or
+   * throw - `inviteEffectiveStatusTone`/`inviteEffectiveStatusLabel`'s own `default` branches, proven
+   * here against a value neither lists. Fails-before: dropping either `default` branch (letting
+   * TypeScript's own exhaustiveness stand in for a runtime check) either throws or silently omits this
+   * row, rather than showing the "Unknown" pill this test asserts. */
+  it("still renders a row whose effectiveStatus is not one of the five known values, as an Unknown archive entry", async () => {
+    twoOperatorsAndASummary(5);
+    operatorTeamApi.listOperatorInvites.mockResolvedValue({
+      invites: [
+        {
+          operatorInviteId: "invite-mystery",
+          email: "mystery@example.com",
+          createdAt: "2026-08-01T00:00:00Z",
+          expiresAt: "2026-08-08T00:00:00Z",
+          status: "Redeemed",
+          smtpErrorCode: null,
+          roles: ["Operator"],
+          effectiveStatus: "SomeFutureStatus" as never,
+          redeemedAt: null,
+          removedAt: null,
+          revokedAt: null,
+        },
+      ],
+    });
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("mystery@example.com");
+    expect(all(container, ".ago-badge--danger").filter((b) => b.textContent === "Unknown")).toHaveLength(1);
   });
 });

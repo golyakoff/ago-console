@@ -64,6 +64,9 @@ const team = {
       displayName: "Ada",
       email: "ada@example.test",
       roles: [{ roleName: "Operator", holdsSeat: true }],
+      // `26-263`: the redeemed instant this member joined through - `null` here (as it would be for
+      // the founder), a real value is exercised in `OperatorsTeamPage.test.tsx`'s own status tests.
+      joinedAt: null,
     },
   ],
 };
@@ -82,6 +85,13 @@ const invites = {
       status: "Sent",
       smtpErrorCode: null,
       roles: ["Operator", "Admin"],
+      // `26-263`/`ago-chat#388`: the four additive fields - a still-pending invite the same "Sent"
+      // fixture already described before this item, so `effectiveStatus` is `Pending` and every date
+      // (including the later-added `revokedAt`) is null.
+      effectiveStatus: "Pending",
+      redeemedAt: null,
+      removedAt: null,
+      revokedAt: null,
     },
   ],
 };
@@ -117,6 +127,22 @@ describe("fetchOperatorTeam - shape validation", () => {
 
     expect(failure).toBeInstanceOf(ApiProblemError);
     expect((failure as ApiProblemError).message).toContain("holdsSeat");
+    expect((failure as ApiProblemError).message).toContain("[0]");
+  });
+
+  // `26-263`: `joinedAt` is a required key now (`ago-chat#387`'s own additive field, the roster's own
+  // «Принято» line) - a body dropping it must be caught as a shape mismatch, not read as "no roles" the
+  // way `26-258`'s own `roles` precedent above already proves for that field. Fails-before: against
+  // `main`, `joinedAt` is not in `operatorTeamMemberRequiredKeys`, so this body passes the guard and the
+  // missing field goes unnoticed - `OperatorsTeamPage` would then render every member as if born with no
+  // "Принято" line rather than surfacing a truncated response.
+  it("throws shape.mismatch when a member is missing joinedAt, naming the index", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { operators: [without(team.operators[0], "joinedAt")] }));
+
+    const failure = await caught(fetchOperatorTeam("token", "s-1"));
+
+    expect(failure).toBeInstanceOf(ApiProblemError);
+    expect((failure as ApiProblemError).message).toContain("joinedAt");
     expect((failure as ApiProblemError).message).toContain("[0]");
   });
 
@@ -186,6 +212,58 @@ describe("listOperatorInvites - shape validation", () => {
 
     expect(failure).toBeInstanceOf(ApiProblemError);
     expect((failure as ApiProblemError).message).toContain("roles");
+    expect((failure as ApiProblemError).message).toContain("[0]");
+  });
+
+  // `26-263`: the three additive fields (`ago-chat#387`) are required keys, the same "a dropped field
+  // must not silently render as an empty/false fact" reasoning the `roles`/`status` precedents above
+  // already establish - `effectiveStatus` dropped would read every invite as `undefined`, which
+  // `OperatorsTeamPage`'s own defensive `default` branch shows as "Unknown" rather than a load error;
+  // catching it here instead is what keeps that fallback for a genuinely new *wire value*, never for a
+  // genuinely truncated response. Fails-before: against `main`, none of the three is in
+  // `operatorInviteListEntryRequiredKeys`, so this body passes the guard.
+  it("throws shape.mismatch when an invite entry is missing effectiveStatus, naming the index", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { invites: [without(invites.invites[0], "effectiveStatus")] }));
+
+    const failure = await caught(listOperatorInvites("token", "s-1"));
+
+    expect(failure).toBeInstanceOf(ApiProblemError);
+    expect((failure as ApiProblemError).message).toContain("effectiveStatus");
+    expect((failure as ApiProblemError).message).toContain("[0]");
+  });
+
+  it("throws shape.mismatch when an invite entry is missing redeemedAt, naming the index", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { invites: [without(invites.invites[0], "redeemedAt")] }));
+
+    const failure = await caught(listOperatorInvites("token", "s-1"));
+
+    expect(failure).toBeInstanceOf(ApiProblemError);
+    expect((failure as ApiProblemError).message).toContain("redeemedAt");
+    expect((failure as ApiProblemError).message).toContain("[0]");
+  });
+
+  it("throws shape.mismatch when an invite entry is missing removedAt, naming the index", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { invites: [without(invites.invites[0], "removedAt")] }));
+
+    const failure = await caught(listOperatorInvites("token", "s-1"));
+
+    expect(failure).toBeInstanceOf(ApiProblemError);
+    expect((failure as ApiProblemError).message).toContain("removedAt");
+    expect((failure as ApiProblemError).message).toContain("[0]");
+  });
+
+  // `26-263`/`ago-chat#388`: `revokedAt` joined the wire one PR after `redeemedAt`/`removedAt` - the
+  // «Отозвано `<date>`» line's own field, required the same way its two siblings already are above.
+  // Fails-before: against the pre-`ago-chat#388` shape, `revokedAt` is not in
+  // `operatorInviteListEntryRequiredKeys`, so this body passes the guard and a truncated response would
+  // render the `Revoked` card with no date rather than surfacing a load error.
+  it("throws shape.mismatch when an invite entry is missing revokedAt, naming the index", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { invites: [without(invites.invites[0], "revokedAt")] }));
+
+    const failure = await caught(listOperatorInvites("token", "s-1"));
+
+    expect(failure).toBeInstanceOf(ApiProblemError);
+    expect((failure as ApiProblemError).message).toContain("revokedAt");
     expect((failure as ApiProblemError).message).toContain("[0]");
   });
 });

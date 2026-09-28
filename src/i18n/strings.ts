@@ -1538,6 +1538,10 @@ export interface ConsoleStrings {
    * agnostic badge per row before the per-role wire shape. */
   operatorsTeamSeatHeld: string;
   operatorsTeamSeatNotHeld: string;
+  /** `26-263`: the roster's own Status column header - every row here is, by construction, a currently
+   * active operator, so the cell always shows the "В команде"/`operatorsTeamEffectiveStatusInTeam`
+   * pill; its value is `joinedAt` (`operatorsTeamEffectiveDetailRedeemedAt`), `null` for the founder. */
+  operatorsTeamStatusColumn: string;
   /** `25-170`: rendered once per seeded role, each prefixed with that role's own display name -
    * `${roleDisplayName} ${operatorsTeamSeatsSummaryLabel} ${role.heldSeats}/${role.limit}`, the same
    * "fixed label, one value appended" shape `searchRangeLabel`'s own doc comment establishes, applied
@@ -1659,6 +1663,50 @@ export interface ConsoleStrings {
   operatorsTeamInviteRevokeDialogBody: string;
   operatorsTeamInviteRevokeConfirmButton: string;
   operatorsTeamInviteRevokeError: string;
+
+  /**
+   * `26-263`: the five `OperatorInviteListEntryDto.effectiveStatus` members, rendered as the status
+   * pill's own word - distinct from `operatorsTeamInviteStatus*` above, which still renders the
+   * *delivery* `status` (`Sent`/`SendFailed`/…) wherever the SMTP-failure wording is shown. Colour
+   * language is the android app's own settled design (`https://android-design.reserve-me.ru/team.html`):
+   * `Pending` is the only "still live and actionable" invite state and gets the brand-tint `accent`
+   * pill; `InTeam` is the only positive outcome and gets `success`; `Removed`/`Revoked`/`Expired` are
+   * three different *reasons* for the same outcome - "not on the team, nothing to do" - and share one
+   * neutral grey pill and uniform, neuter labels rather than three visually distinct ones.
+   */
+  operatorsTeamEffectiveStatusPending: string;
+  operatorsTeamEffectiveStatusInTeam: string;
+  operatorsTeamEffectiveStatusRemoved: string;
+  operatorsTeamEffectiveStatusRevoked: string;
+  operatorsTeamEffectiveStatusExpired: string;
+  /** The `default` branch of every switch over `effectiveStatus` (`AdminConversationsPage.tsx#stateLabel`'s
+   * own precedent) - a value this union does not yet list still renders a visible word, never a blank
+   * pill or a thrown error. */
+  operatorsTeamEffectiveStatusUnknown: string;
+
+  /** `${operatorsTeamEffectiveDetailExpiresAt} ${date}` - the `Pending` detail line, `expiresAt`. */
+  operatorsTeamEffectiveDetailExpiresAt: string;
+  /** `${operatorsTeamEffectiveDetailRedeemedAt} ${date}` - the `InTeam`/`Removed` detail line (and the
+   * roster's own `joinedAt` line), `redeemedAt`. */
+  operatorsTeamEffectiveDetailRedeemedAt: string;
+  /** `${operatorsTeamEffectiveDetailRemovedAt} ${date}` - the second `Removed` detail line, `removedAt`
+   * - shown alongside `operatorsTeamEffectiveDetailRedeemedAt` above, never instead of it (`26-263`:
+   * "Detail shows BOTH «Принято» and «Удалено»"). */
+  operatorsTeamEffectiveDetailRemovedAt: string;
+  /** `${operatorsTeamEffectiveDetailExpiredAt} ${date}` - the `Expired` detail line, `expiresAt` (the
+   * instant that has now passed, the same field `Pending`'s own detail line reads before it does). */
+  operatorsTeamEffectiveDetailExpiredAt: string;
+  /** `${operatorsTeamEffectiveDetailRevokedAt} ${date}` - the `Revoked` detail line, `revokedAt`
+   * (`ago-chat#388`, additive one PR after `redeemedAt`/`removedAt`) - `null` (no line at all) before
+   * that field existed on the wire, never a date borrowed from `createdAt`/`expiresAt` instead. */
+  operatorsTeamEffectiveDetailRevokedAt: string;
+
+  /** `26-263`: the terminal-state group at the bottom of the invite list - `Removed`/`Revoked`/`Expired`
+   * invites, grouped exactly the way `https://android-design.reserve-me.ru/team.html`'s own «АРХИВ»
+   * section does. `operatorsTeamInviteListPanelTitle` above is now implicitly "pending invites only" -
+   * an `InTeam` invite is not shown a second time here at all (the roster panel already shows that
+   * person), and a `Removed`/`Revoked`/`Expired` one moves to this panel instead. */
+  operatorsTeamInviteArchivePanelTitle: string;
 
   // `23-72`: "a tenant can appoint another administrator" - the role column, the invite dialog's role
   // picker, and the per-row change-role action.

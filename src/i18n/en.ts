@@ -972,6 +972,7 @@ export const en: ConsoleStrings = {
   operatorsTeamActionsColumn: "Actions",
   operatorsTeamSeatHeld: "Holds a seat",
   operatorsTeamSeatNotHeld: "No seat",
+  operatorsTeamStatusColumn: "Status",
   operatorsTeamSeatsSummaryLabel: "Seats occupied:",
 
   operatorsTeamOverSeatsTitle: "Over your seat limit",
@@ -1035,6 +1036,21 @@ export const en: ConsoleStrings = {
   operatorsTeamInviteRevokeDialogBody: "will no longer be able to redeem the invite sent to",
   operatorsTeamInviteRevokeConfirmButton: "Revoke",
   operatorsTeamInviteRevokeError: "Could not revoke that invite. Try again.",
+
+  operatorsTeamEffectiveStatusPending: "Pending",
+  operatorsTeamEffectiveStatusInTeam: "In the team",
+  operatorsTeamEffectiveStatusRemoved: "Removed",
+  operatorsTeamEffectiveStatusRevoked: "Revoked",
+  operatorsTeamEffectiveStatusExpired: "Expired",
+  operatorsTeamEffectiveStatusUnknown: "Unknown",
+
+  operatorsTeamEffectiveDetailExpiresAt: "Valid until",
+  operatorsTeamEffectiveDetailRedeemedAt: "Accepted",
+  operatorsTeamEffectiveDetailRemovedAt: "Removed",
+  operatorsTeamEffectiveDetailExpiredAt: "Expired",
+  operatorsTeamEffectiveDetailRevokedAt: "Revoked",
+
+  operatorsTeamInviteArchivePanelTitle: "Archive",
 
   operatorsTeamRoleColumn: "Role",
   operatorsTeamRoleOperator: "Operator",

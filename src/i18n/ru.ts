@@ -974,6 +974,7 @@ export const ru: ConsoleStrings = {
   operatorsTeamActionsColumn: "Действия",
   operatorsTeamSeatHeld: "Занимает место",
   operatorsTeamSeatNotHeld: "Без места",
+  operatorsTeamStatusColumn: "Статус",
   operatorsTeamSeatsSummaryLabel: "Занято мест:",
 
   operatorsTeamOverSeatsTitle: "Превышен лимит мест",
@@ -1038,6 +1039,21 @@ export const ru: ConsoleStrings = {
   operatorsTeamInviteRevokeDialogBody: "больше не сможет воспользоваться приглашением, отправленным на",
   operatorsTeamInviteRevokeConfirmButton: "Отозвать",
   operatorsTeamInviteRevokeError: "Не удалось отозвать приглашение. Попробуйте ещё раз.",
+
+  operatorsTeamEffectiveStatusPending: "Ожидает",
+  operatorsTeamEffectiveStatusInTeam: "В команде",
+  operatorsTeamEffectiveStatusRemoved: "Удалено",
+  operatorsTeamEffectiveStatusRevoked: "Отозвано",
+  operatorsTeamEffectiveStatusExpired: "Истекло",
+  operatorsTeamEffectiveStatusUnknown: "Неизвестно",
+
+  operatorsTeamEffectiveDetailExpiresAt: "Действует до",
+  operatorsTeamEffectiveDetailRedeemedAt: "Принято",
+  operatorsTeamEffectiveDetailRemovedAt: "Удалено",
+  operatorsTeamEffectiveDetailExpiredAt: "Истёк",
+  operatorsTeamEffectiveDetailRevokedAt: "Отозвано",
+
+  operatorsTeamInviteArchivePanelTitle: "Архив",
 
   operatorsTeamRoleColumn: "Роль",
   operatorsTeamRoleOperator: "Оператор",
