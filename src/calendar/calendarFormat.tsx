@@ -159,6 +159,41 @@ export function renderPhone(
 }
 
 /**
+ * `26-269`/`decisions.md` §5: the Клиенты list's phone-status glyph - a bare "!" in a warning-toned
+ * circle, shown on a row only when *neither* `phoneVerifiedAt` (the SMS-code fact) nor
+ * `phoneConfirmedByOperatorAt` (the operator's own "I called and it is them") is set. That is the
+ * single actionable state the redesign's own §3.3 names: verified either way renders **no glyph at
+ * all** - a tick on every confirmed row would be noise, and the glyph earns attention precisely
+ * because it is rare. The two facts stay two facts here too (this function only ORs them to decide
+ * *whether* to render, never which one fired) - a later screen that needs to say *which* fact is
+ * missing reads `phoneVerifiedAt`/`phoneConfirmedByOperatorAt` directly, the same as this list's
+ * columns used to.
+ *
+ * Lives beside `renderPhone`/`renderPersonName` rather than in the page itself because the
+ * client-detail hub (`26-269` ticket #4) needs the identical glyph on its own header - shared
+ * calendar-row vocabulary, not a `CalendarContactsPage`-only concern.
+ */
+export function phoneStatusWarningGlyph(
+  contact: { phoneVerifiedAt: string | null; phoneConfirmedByOperatorAt: string | null },
+  strings: ConsoleStrings,
+) {
+  if (contact.phoneVerifiedAt !== null || contact.phoneConfirmedByOperatorAt !== null) {
+    return null;
+  }
+
+  return (
+    <span
+      className="ago-phone-status-warning"
+      role="img"
+      aria-label={strings.calendarContactsPhoneStatusWarningLabel}
+      title={strings.calendarContactsPhoneStatusWarningLabel}
+    >
+      !
+    </span>
+  );
+}
+
+/**
  * `25-16`: the eleven time zones of the Russian Federation (fixed since the 2014 return to permanent
  * standard time - `24-17` in `ago-calendar` already settled that none of this deployment's zones
  * observe DST, so "the offset" and "the current offset" are the same reading for every zone below,

@@ -2749,16 +2749,40 @@ export interface ConsoleStrings {
   /** The `title` on the above - one sentence saying the name lives in chat and this is a transient
    * reachability gap, not a missing person. */
   calendarPersonNameUnavailableTooltip: string;
-  /** `23-30`/`23-12`/`decisions.md` §5: the two verification facts, rendered as separate columns
-   * with separate badge tones - never merged into one "verified" state. `PhoneVerified` is the SMS
-   * code's own answer (`20-09`); `PhoneConfirmed` is an operator's "I called and it is them", a
-   * weaker, human-asserted fact. */
-  calendarContactsColumnPhoneVerified: string;
-  calendarContactsColumnPhoneConfirmed: string;
-  calendarContactsVerifiedLabel: string;
-  calendarContactsNotVerifiedLabel: string;
-  calendarContactsConfirmedLabel: string;
-  calendarContactsNotConfirmedLabel: string;
+  // `26-269`: the two verification-fact columns above (`calendarContactsColumnPhoneVerified`/
+  // `calendarContactsColumnPhoneConfirmed`/`calendarContactsVerifiedLabel`/
+  // `calendarContactsNotVerifiedLabel`/`calendarContactsConfirmedLabel`/
+  // `calendarContactsNotConfirmedLabel`) are gone - `26-269-clients-redesign.md` §3.3 replaces the two
+  // full-sentence badge columns with one warning glyph, shown only in the single actionable state
+  // (neither fact holds). The two facts themselves are unchanged on the wire (`Contact.phoneVerifiedAt`/
+  // `phoneConfirmedByOperatorAt`) and still render separately wherever a screen needs the distinction
+  // `decisions.md` §5 requires - only this list's own two-column presentation is collapsed.
+  /** `26-269`: the phone-status column header - one column now, replacing the two verification-badge
+   * columns it used to take (comment above). */
+  calendarContactsColumnPhoneStatus: string;
+  /** `26-269`/`decisions.md` §5: the warning glyph's own accessible name and hover title, shown on a
+   * row only when *neither* `phoneVerifiedAt` nor `phoneConfirmedByOperatorAt` is set - the single
+   * actionable state (verified either way renders no glyph at all, since a tick on every row is
+   * noise). Doubles as `aria-label` (the glyph itself is a bare "!", meaningless to a screen reader on
+   * its own) and `title` (the mouse-hover hint the design doc's own §3.3 calls for). */
+  calendarContactsPhoneStatusWarningLabel: string;
+  /** `26-269`: the search field above the list - filters the already-loaded, already
+   * name-merged list client-side, by name or by phone, live as the operator types. No backend
+   * change (`26-269-clients-redesign.md` §1.5.3/§6: server-side search is a scale follow-up, not v1). */
+  calendarContactsSearchLabel: string;
+  calendarContactsSearchPlaceholder: string;
+  /** `26-269`: the explicit empty-search state - distinct from `calendarContactsEmpty` (no contacts
+   * at all). A filtered-to-nothing list must say so, not render a blank area under the search field. */
+  calendarContactsSearchEmptyTitle: string;
+  calendarContactsSearchEmptyBody: (query: string) => string;
+  calendarContactsClearSearchButton: string;
+  /** `26-269`: the no-show pill's own Russian three-way plural (1 / 2-4 / 5+) - the identical shape
+   * `calendarSlotWordOne`/`Few`/`Many` already established for `WorkerScheduleSection`'s slot count,
+   * kept as its own trio here rather than reused because the counted noun differs ("неявка", not
+   * "слот"). Shown only when `noShowCount > 0` - zero is the quiet default, no pill at all. */
+  calendarNoShowWordOne: string;
+  calendarNoShowWordFew: string;
+  calendarNoShowWordMany: string;
 
   // `26-161`/`adr/0184` (author decision O2): the `23-60` "shares a phone" hint, the Merge button, the
   // whole merge-confirmation dialog and the `EventStatus` labels it needed

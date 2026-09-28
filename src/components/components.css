@@ -402,6 +402,28 @@
   opacity: 0.8;
 }
 
+/* `26-269`: the Клиенты list's phone-status glyph (`CalendarContactsPage`/`calendarFormat.tsx`'s own
+   `phoneStatusWarningGlyph`) - not a `Badge`, because a badge always carries a word beside its colour
+   (the `ago-badge__ai-marker` comment above states why) and this is deliberately word-free in the row:
+   the row's own `title`/`aria-label` carry the meaning instead, the same split `Alert`'s `aria-hidden`
+   glyph already uses when the surrounding text (there, the alert body) says it in words. It renders at
+   all only in the one actionable state (`decisions.md` §5's "neither fact holds"), so it never needs
+   to compete with a word for attention. */
+.ago-phone-status-warning {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+  border-radius: 50%;
+  background: var(--ago-warning-tint);
+  color: var(--ago-warning);
+  font-weight: 800;
+  font-size: var(--ago-text-xs);
+  line-height: 1;
+}
+
 /* ============================================================================ Panel */
 
 .ago-panel {

@@ -5,17 +5,48 @@ import { config } from "../config.js";
 import { getContacts, revealCustomerPhone, type Contact } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
-import { renderPersonName, renderPhone, type RevealControl } from "../calendar/calendarFormat.js";
-import { usePersonNames } from "../calendar/usePersonNames.js";
+import { phoneStatusWarningGlyph, renderPersonName, renderPhone, type RevealControl } from "../calendar/calendarFormat.js";
+import { usePersonNames, type PersonNames } from "../calendar/usePersonNames.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
+import { Field } from "../components/Field.js";
+import { Input } from "../components/Input.js";
 import { Alert } from "../components/Alert.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { Table, type TableColumn } from "../components/Table.js";
 import { useStrings } from "../i18n/StringsContext.js";
+import type { ConsoleStrings } from "../i18n/strings.js";
 import { formatAbsolute, formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
+
+/** `26-269`: the Russian three-way plural (1 / 2-4 / 5+) for the no-show pill's own counted noun -
+ * kept page-local, the same way `WorkerScheduleSection`'s own `slotWord` is, since no other screen
+ * counts no-shows in a sentence. */
+function noShowWord(strings: ConsoleStrings, count: number): string {
+  if (count === 1) {
+    return strings.calendarNoShowWordOne;
+  }
+  return count < 5 ? strings.calendarNoShowWordFew : strings.calendarNoShowWordMany;
+}
+
+/** `26-269`/`26-269-clients-redesign.md` §1.5.3: client-side search over the already-loaded,
+ * already name-merged list - by name (read through the same `PersonNames` lookup the name column
+ * renders through) or by phone (the raw wire string, masked or not - an operator searching a masked
+ * row by its visible digits still finds it). Empty query matches everything, so this doubles as the
+ * "no filter active" case without a separate branch at the call site. */
+function matchesContactSearch(contact: Contact, names: PersonNames, normalizedQuery: string): boolean {
+  if (normalizedQuery === "") {
+    return true;
+  }
+
+  if (contact.phone.toLowerCase().includes(normalizedQuery)) {
+    return true;
+  }
+
+  const nameState = names.lookup(contact.personId);
+  return nameState.status === "resolved" && nameState.displayName !== null && nameState.displayName.toLowerCase().includes(normalizedQuery);
+}
 
 /**
  * `22-06`/`adr/0093`: `/calendar/contacts` - every customer lead card the tenant holds, moved from
@@ -30,10 +61,15 @@ import { formatAbsolute, formatDateStamp, parseInstant, resolveTimeZone } from "
  * `consoleNav.ts`'s `buildCalendarItems` draws this entry for the same `customer:read` check, so the
  * page has to accept what the nav promises.
  *
- * `23-30`/`23-12`: a masked phone gets a Reveal button (`renderPhone`'s own doc comment), and two
- * more columns show `phoneVerifiedAt`/`phoneConfirmedByOperatorAt` as separate badges with different
- * tones - `decisions.md` §5: "'I called and it is them' is a different fact from an SMS code", so
- * this report never collapses the two into one generic "verified" state.
+ * `23-30`/`23-12`: a masked phone gets a Reveal button (`renderPhone`'s own doc comment). The two
+ * underlying facts `phoneVerifiedAt`/`phoneConfirmedByOperatorAt` are never merged - `decisions.md`
+ * §5: "'I called and it is them' is a different fact from an SMS code" - but `26-269` collapsed their
+ * *list-row presentation* from two full-sentence badge columns to one warning glyph
+ * (`phoneStatusWarningGlyph`), shown only when neither fact holds; see that function's own doc comment.
+ *
+ * `26-269`: a search field above the table filters the already-loaded, already name-merged list by
+ * name or phone, client-side and live as the operator types (`matchesContactSearch`). No new backend
+ * read - `26-269-clients-redesign.md` §1.5.3 records server-side search as a scale follow-up, not v1.
  */
 export function CalendarContactsPage() {
   const { user } = useAuth();
@@ -42,6 +78,8 @@ export function CalendarContactsPage() {
   const timeZone = useMemo(() => resolveTimeZone(), []);
   const [contacts, setContacts] = useState<Contact[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // `26-269`: the live search box's own text - filters `contacts` client-side, never refetched.
+  const [searchText, setSearchText] = useState("");
   // `23-30`: which person's own Reveal is in flight, if any - `CalendarWorkerSlotsPage`'s own
   // identical state.
   const [revealingPersonId, setRevealingPersonId] = useState<string | null>(null);
@@ -150,40 +188,28 @@ export function CalendarContactsPage() {
       header: strings.calendarContactsColumnName,
       render: (contact) => renderPersonName(contact.personId, personNames, strings),
     },
-    { key: "noShows", header: strings.calendarContactsColumnNoShows, render: (contact) => contact.noShowCount, align: "end" },
     {
-      // `23-30`/`decisions.md` §5: the SMS-code fact - `tone="success"`, the same tone
-      // `ContactDetailsPanel`'s own `verified` badge uses, since this is the identical strength of
-      // evidence (a code the visitor actually received and typed back).
-      key: "phoneVerified",
-      header: strings.calendarContactsColumnPhoneVerified,
-      render: (contact) => {
-        const instant = parseInstant(contact.phoneVerifiedAt);
-        return instant === null ? (
-          <Badge tone="neutral">{strings.calendarContactsNotVerifiedLabel}</Badge>
-        ) : (
-          <Badge tone="success" dot>
-            <span title={formatAbsolute(instant, timeZone, strings)}>{strings.calendarContactsVerifiedLabel}</span>
-          </Badge>
-        );
-      },
+      // `26-269`: replaces the two verification-badge columns (`phoneVerified`/`phoneConfirmed`) with
+      // one glyph column - see `phoneStatusWarningGlyph`'s own doc comment for the single-actionable-
+      // state rule. Renders nothing (not an empty cell wrapper) when the phone is verified either way.
+      key: "phoneStatus",
+      header: strings.calendarContactsColumnPhoneStatus,
+      render: (contact) => phoneStatusWarningGlyph(contact, strings),
     },
     {
-      // `23-30`/`decisions.md` §5: "I called and it is them" - a weaker, human-asserted fact, given
-      // `tone="accent"` rather than `"success"` so it never reads as the same strength as the code
-      // badge beside it.
-      key: "phoneConfirmed",
-      header: strings.calendarContactsColumnPhoneConfirmed,
-      render: (contact) => {
-        const instant = parseInstant(contact.phoneConfirmedByOperatorAt);
-        return instant === null ? (
-          <Badge tone="neutral">{strings.calendarContactsNotConfirmedLabel}</Badge>
-        ) : (
-          <Badge tone="accent">
-            <span title={formatAbsolute(instant, timeZone, strings)}>{strings.calendarContactsConfirmedLabel}</span>
+      // `26-269`/`26-269-clients-redesign.md` §3.4: a pill only when `noShowCount > 0` - zero is the
+      // quiet default, exactly the same "no icon for the unremarkable case" rule the phone-status
+      // glyph beside it follows. `tone="danger"` matches the mockup's own reddish pill - this is a
+      // reliability warning to the operator, the same severity family as a failed request.
+      key: "noShows",
+      header: strings.calendarContactsColumnNoShows,
+      render: (contact) =>
+        contact.noShowCount > 0 ? (
+          <Badge tone="danger">
+            {contact.noShowCount} {noShowWord(strings, contact.noShowCount)}
           </Badge>
-        );
-      },
+        ) : null,
+      align: "end",
     },
     {
       key: "firstSeen",
@@ -202,6 +228,13 @@ export function CalendarContactsPage() {
       },
     },
   ];
+
+  // `26-269`: filters the already-loaded, already name-merged list - see `matchesContactSearch`'s own
+  // doc comment. Recomputed on every render rather than memoised: the list this screen shows is at
+  // most a tenant's whole customer roster, and `usePersonNames` is the one piece of this computation
+  // expensive enough to memoise, which it already does internally.
+  const normalizedQuery = searchText.trim().toLowerCase();
+  const filteredContacts = (contacts ?? []).filter((contact) => matchesContactSearch(contact, personNames, normalizedQuery));
 
   return (
     <>
@@ -222,7 +255,36 @@ export function CalendarContactsPage() {
           <p className="ago-meta">{strings.calendarContactsEmpty}</p>
         </Panel>
       ) : contacts !== null && contacts.length > 0 ? (
-        <Table caption={strings.calendarContactsDescription} columns={columns} rows={contacts} rowKey={(contact) => contact.personId} />
+        <>
+          <Field label={strings.calendarContactsSearchLabel}>
+            {(controlProps) => (
+              <Input
+                {...controlProps}
+                type="search"
+                value={searchText}
+                onChange={(event) => setSearchText(event.target.value)}
+                placeholder={strings.calendarContactsSearchPlaceholder}
+              />
+            )}
+          </Field>
+
+          {filteredContacts.length === 0 ? (
+            <Panel>
+              <p className="ago-meta">{strings.calendarContactsSearchEmptyTitle}</p>
+              <p className="ago-meta">{strings.calendarContactsSearchEmptyBody(searchText.trim())}</p>
+              <Button variant="secondary" onClick={() => setSearchText("")}>
+                {strings.calendarContactsClearSearchButton}
+              </Button>
+            </Panel>
+          ) : (
+            <Table
+              caption={strings.calendarContactsDescription}
+              columns={columns}
+              rows={filteredContacts}
+              rowKey={(contact) => contact.personId}
+            />
+          )}
+        </>
       ) : null}
     </>
   );

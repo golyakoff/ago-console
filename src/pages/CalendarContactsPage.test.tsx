@@ -5,7 +5,7 @@ import type { User } from "oidc-client-ts";
 import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { CalendarContactsPage } from "./CalendarContactsPage.js";
-import { byText, interact, render, unmount } from "../testing/dom.js";
+import { byText, interact, one, render, unmount } from "../testing/dom.js";
 import type { Contact } from "../api/calendarApi.js";
 import type { PersonProfile } from "../api/personsApi.js";
 
@@ -131,11 +131,16 @@ describe("the contacts report", () => {
     expect(container.textContent).toContain("name not shown yet");
   });
 
-  it("shows the real no-show count, including zero", async () => {
+  it("shows a no-show pill only for a customer with at least one no-show", async () => {
     const container = await render(page());
 
-    const noShowCell = Array.from(container.querySelectorAll("td")).find((td) => td.textContent === "2");
-    expect(noShowCell).toBeDefined();
+    // `26-269`: c2 has 2 no-shows - a pill naming the count, not a bare number.
+    const pilledRow = Array.from(container.querySelectorAll("tr")).find((tr) => tr.textContent?.includes("+79990000002"));
+    expect(pilledRow?.textContent).toContain("2 no-shows");
+
+    // c1 has zero - the quiet default: no pill, and the word never appears on its row at all.
+    const zeroRow = Array.from(container.querySelectorAll("tr")).find((tr) => tr.textContent?.includes("+79990000001"));
+    expect(zeroRow?.textContent).not.toContain("no-show");
   });
 
   it("explains a permission failure in words an operator can act on", async () => {
@@ -199,57 +204,117 @@ describe("revealing a masked phone (23-30)", () => {
   });
 });
 
-/** `23-30`/`23-12`/`decisions.md` §5: an SMS code and an operator's "I called and it is them" are
- * two different strengths of evidence - this report must never merge them into one generic
- * "verified" state. */
-describe("the two verification facts (23-30)", () => {
-  it("shows both facts as unconfirmed for a customer with neither", async () => {
-    calendarApi.getContacts.mockResolvedValue(contacts);
+/** `26-269`/`decisions.md` §5: the two full-sentence verification-badge columns are gone, replaced by
+ * one warning glyph shown only in the single actionable state - neither an SMS code nor an operator's
+ * "I called and it is them" is on file. The two underlying facts stay two facts on the wire
+ * (`phoneVerifiedAt`/`phoneConfirmedByOperatorAt`, unchanged); this only asserts the collapsed
+ * *row presentation* the redesign asks for. */
+describe("the phone-status warning glyph (26-269)", () => {
+  it("shows the warning glyph for a customer with neither fact on file", async () => {
+    calendarApi.getContacts.mockResolvedValue(contacts); // c1, c2: both null/null
 
     const container = await render(page());
 
-    expect(container.textContent).toContain("Not verified");
-    expect(container.textContent).toContain("Not confirmed");
+    const glyph = container.querySelector(".ago-phone-status-warning");
+    expect(glyph).not.toBeNull();
+    // The glyph itself is a bare "!" - the accessible name and hover hint live in the attributes,
+    // not as visible text (`phoneStatusWarningGlyph`'s own doc comment).
+    expect(glyph?.getAttribute("aria-label")).toBe("Phone not verified");
+    expect(glyph?.getAttribute("title")).toBe("Phone not verified");
   });
 
-  it("distinguishes an SMS-verified number from an operator-confirmed one, on the same row and on different rows", async () => {
+  it("shows no glyph once the phone is verified by SMS code alone", async () => {
     calendarApi.getContacts.mockResolvedValue([
       {
         personId: "c4", phone: "+79990000004", masked: false,
         noShowCount: 0, phoneVerifiedAt: "2026-05-01T09:00:00+00:00", phoneConfirmedByOperatorAt: null,
         firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00",
       },
+    ]);
+    personsApi.getPersons.mockResolvedValue([person("c4", "Дана")]);
+
+    const container = await render(page());
+
+    expect(container.querySelector(".ago-phone-status-warning")).toBeNull();
+  });
+
+  it("shows no glyph once the phone is confirmed by the operator alone", async () => {
+    calendarApi.getContacts.mockResolvedValue([
       {
         personId: "c5", phone: "+79990000005", masked: false,
         noShowCount: 0, phoneVerifiedAt: null, phoneConfirmedByOperatorAt: "2026-05-02T09:00:00+00:00",
         firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00",
       },
+    ]);
+    personsApi.getPersons.mockResolvedValue([person("c5", "Дана")]);
+
+    const container = await render(page());
+
+    expect(container.querySelector(".ago-phone-status-warning")).toBeNull();
+  });
+
+  it("shows no glyph when verified both ways", async () => {
+    calendarApi.getContacts.mockResolvedValue([
       {
         personId: "c6", phone: "+79990000006", masked: false,
         noShowCount: 0, phoneVerifiedAt: "2026-05-01T09:00:00+00:00", phoneConfirmedByOperatorAt: "2026-05-02T09:00:00+00:00",
         firstSeenAt: "2026-03-01T09:00:00+00:00", lastSeenAt: "2026-05-01T09:00:00+00:00",
       },
     ]);
-    // Person names are deliberately neutral here so they cannot collide with the badge words the
-    // assertions look for - the rows are found by their unique phone instead.
-    personsApi.getPersons.mockResolvedValue([person("c4", "Дана"), person("c5", "Дана"), person("c6", "Дана")]);
+    personsApi.getPersons.mockResolvedValue([person("c6", "Дана")]);
 
     const container = await render(page());
 
-    // The two facts are rendered with different words, never one merged "verified" badge - the
-    // row that has only the operator's own confirmation must never read as SMS-verified, and vice
-    // versa.
-    const verifiedOnlyRow = Array.from(container.querySelectorAll("tr")).find((tr) => tr.textContent?.includes("+79990000004"));
-    expect(verifiedOnlyRow?.textContent).toContain("Verified");
-    expect(verifiedOnlyRow?.textContent).not.toContain("Confirmed");
+    expect(container.querySelector(".ago-phone-status-warning")).toBeNull();
+  });
+});
 
-    const confirmedOnlyRow = Array.from(container.querySelectorAll("tr")).find((tr) => tr.textContent?.includes("+79990000005"));
-    expect(confirmedOnlyRow?.textContent).toContain("Confirmed");
-    expect(confirmedOnlyRow?.textContent).not.toContain("Not confirmed");
-    expect(confirmedOnlyRow?.textContent).not.toContain("Verified");
+/** `26-269`/`26-269-clients-redesign.md` §1.5.3: client-side search over the already-loaded,
+ * already name-merged list, by name or by phone, live as the operator types. No new backend read. */
+describe("the client-side search field (26-269)", () => {
+  /** `PhoneInput.test.tsx`'s own idiom: React tracks the last value it set on the DOM node, so
+   * assigning `input.value` directly and dispatching a plain `input` event is a no-op - the native
+   * setter has to be called first to bypass that tracker, the same way a real keystroke would. */
+  function typeInto(input: HTMLInputElement, value: string): void {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
 
-    const bothRow = Array.from(container.querySelectorAll("tr")).find((tr) => tr.textContent?.includes("+79990000006"));
-    expect(bothRow?.textContent).toContain("Verified");
-    expect(bothRow?.textContent).toContain("Confirmed");
+  it("filters the list by name as the operator types", async () => {
+    const container = await render(page());
+    expect(container.textContent).toContain("Anna");
+
+    const search = one<HTMLInputElement>(container, "input[type='search']");
+    await interact(() => typeInto(search, "anna"));
+
+    expect(container.textContent).toContain("Anna");
+    expect(container.textContent).not.toContain("+79990000002");
+  });
+
+  it("filters the list by phone as the operator types", async () => {
+    const container = await render(page());
+
+    const search = one<HTMLInputElement>(container, "input[type='search']");
+    await interact(() => typeInto(search, "0000002"));
+
+    expect(container.textContent).toContain("+79990000002");
+    expect(container.textContent).not.toContain("+79990000001");
+  });
+
+  it("shows an explicit no-results state, distinct from the no-contacts-at-all state, and clears back to the full list", async () => {
+    const container = await render(page());
+
+    const search = one<HTMLInputElement>(container, "input[type='search']");
+    await interact(() => typeInto(search, "no such customer"));
+
+    expect(container.querySelector("table")).toBeNull();
+    expect(container.textContent).toContain("No matches");
+    expect(container.textContent).toContain("no such customer");
+
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Clear search")?.click());
+
+    expect(container.querySelector("table")).not.toBeNull();
+    expect(container.textContent).toContain("+79990000001");
+    expect(container.textContent).toContain("+79990000002");
   });
 });
