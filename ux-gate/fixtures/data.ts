@@ -256,7 +256,11 @@ export function seededAllConversations() {
  * now carries its own seat flag (`roles: OperatorRoleSeatDto[]`, `Operator.HoldsSeat` no longer
  * exists at all). Мария still holds only Admin, seated; Иван only Operator, seated; the unseated row
  * still holds only Operator, unseated - the identical three states this fixture always tested, just
- * addressed through the role-scoped shape now. */
+ * addressed through the role-scoped shape now.
+ * `26-263`: `joinedAt` joined the wire shape (`ago-chat#387`) - Мария is seeded as the founder (`null`,
+ * minted at registration, never invited), so the gate's own screenshot shows the roster's "В команде"
+ * pill both with and without its own "Принято" line in the same run, the same "both states in one
+ * screenshot" discipline this fixture's own role/seat rows already follow. */
 export function seededOperatorTeam() {
   return {
     operators: [
@@ -268,26 +272,33 @@ export function seededOperatorTeam() {
       // screen ran).
       {
         operatorId: OPERATOR_ID, displayName: "Мария Кузнецова", email: "мария@кофейня.рф",
-        roles: [{ roleName: "Admin", holdsSeat: true }],
+        roles: [{ roleName: "Admin", holdsSeat: true }], joinedAt: null,
       },
       {
         operatorId: OTHER_OPERATOR_ID, displayName: "Иван Петров", email: "иван@кофейня.рф",
-        roles: [{ roleName: "Operator", holdsSeat: true }],
+        roles: [{ roleName: "Operator", holdsSeat: true }], joinedAt: "2026-08-01T09:00:00.000Z",
       },
       {
         operatorId: UNSEATED_OPERATOR_ID, displayName: null, email: null,
-        roles: [{ roleName: "Operator", holdsSeat: false }],
+        roles: [{ roleName: "Operator", holdsSeat: false }], joinedAt: "2026-08-15T09:00:00.000Z",
       },
     ],
   };
 }
 
-/** `25-73`: the same screen's invite-list panel - `GET .../operator-invites`. Two rows, not one:
- * `Sent` (the ordinary case) and `SendFailed` (so the SMTP-failure row's own error-code text is part
- * of the gate's rendered content, not only reachable behind an interaction this gate never drives) -
- * `status` itself is a fixed enum member the client's own `strings.ts` translates, so only the
- * free-text `email` needs `seededOperatorTeam`'s own Cyrillic-domain discipline above to keep this
- * screen's "no untranslated interface text" run clean. */
+/** `25-73`: the same screen's invite-list panel - `GET .../operator-invites`. Two `Pending` rows, not
+ * one: `Sent` (the ordinary case) and `SendFailed` (so the SMTP-failure row's own error-code text is
+ * part of the gate's rendered content, not only reachable behind an interaction this gate never
+ * drives) - `status` itself is a fixed enum member the client's own `strings.ts` translates, so only
+ * the free-text `email` needs `seededOperatorTeam`'s own Cyrillic-domain discipline above to keep this
+ * screen's "no untranslated interface text" run clean.
+ * `26-263`: a third row, `Removed` (Пётр) - the settled «Архив» panel below "Invites" needs its own row
+ * in the gate's screenshot too, and `Removed` is the one state whose detail shows *two* dates at once
+ * (redeemed and removed), the richest of the three terminal cases to exercise for overflow/contrast.
+ * `26-263`/`ago-chat#388`: a fourth row, `Revoked` (Наталья) - added one PR after `Removed` above, once
+ * `revokedAt` existed on the wire to give its own «Отозвано `<date>`» line something real to render;
+ * before that PR this state rendered no date at all (`OperatorsTeamPage`'s own doc comment names why:
+ * inventing one from `expiresAt` would have been a fabricated number, not a real fact). */
 export function seededOperatorInvites() {
   return {
     invites: [
@@ -300,6 +311,10 @@ export function seededOperatorInvites() {
         smtpErrorCode: null,
         // `26-258`: a single-role invite - one role label on the row.
         roles: ["Operator"],
+        effectiveStatus: "Pending",
+        redeemedAt: null,
+        removedAt: null,
+        revokedAt: null,
       },
       {
         operatorInviteId: "77777777-7777-4777-8777-777777777777",
@@ -312,6 +327,36 @@ export function seededOperatorInvites() {
         // alphabetical order the backend read store returns them, so the gate renders the new column's
         // multi-value case too, not only the single-role one.
         roles: ["Admin", "Operator"],
+        effectiveStatus: "Pending",
+        redeemedAt: null,
+        removedAt: null,
+        revokedAt: null,
+      },
+      {
+        operatorInviteId: "88888888-8888-4888-8888-888888888888",
+        email: "пётр@кофейня.рф",
+        createdAt: "2026-08-01T09:00:00.000Z",
+        expiresAt: "2026-08-08T09:00:00.000Z",
+        status: "Redeemed",
+        smtpErrorCode: null,
+        roles: ["Operator"],
+        effectiveStatus: "Removed",
+        redeemedAt: "2026-08-02T09:00:00.000Z",
+        removedAt: "2026-09-20T09:00:00.000Z",
+        revokedAt: null,
+      },
+      {
+        operatorInviteId: "99999999-9999-4999-8999-999999999999",
+        email: "наталья@кофейня.рф",
+        createdAt: "2026-08-10T09:00:00.000Z",
+        expiresAt: "2026-08-17T09:00:00.000Z",
+        status: "Revoked",
+        smtpErrorCode: null,
+        roles: ["Admin"],
+        effectiveStatus: "Revoked",
+        redeemedAt: null,
+        removedAt: null,
+        revokedAt: "2026-08-12T09:00:00.000Z",
       },
     ],
   };

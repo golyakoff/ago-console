@@ -27,7 +27,7 @@ import { PageHead } from "../shell/AppShell.js";
 import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
 import { Table } from "../components/Table.js";
-import { Badge } from "../components/Badge.js";
+import { Badge, type BadgeTone } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
 import { Dialog } from "../components/Dialog.js";
 import { Field } from "../components/Field.js";
@@ -85,6 +85,133 @@ const INVITE_ROLE_ORDER = [ROLE_OPERATOR, ROLE_ADMIN] as const;
 function roleSeatFull(summary: SeatAssignmentSummaryDto | null, roleName: string): boolean {
   const s = roleSummary(summary, roleName);
   return s !== null && s.heldSeats >= s.limit;
+}
+
+/** `26-263`: `OperatorInviteListEntryDto.effectiveStatus` - the invite/team-membership pill this page
+ * now groups and colours by, distinct from the pre-existing delivery `status` (kept, unchanged, for
+ * the SMTP-failure wording). Type alias only, no new runtime shape. */
+type InviteEffectiveStatus = OperatorInviteListEntryDto["effectiveStatus"];
+
+/** `26-263`: the pill's own colour, matching the android app's settled design
+ * (`https://android-design.reserve-me.ru/team.html`) - `Pending` (lavender/`accent`, the one still-live
+ * state) and `InTeam` (green/`success`, the one positive outcome) are the only two coloured pills;
+ * `Removed`/`Revoked`/`Expired` are three different reasons for the identical "not on the team, nothing
+ * to do" outcome and share one neutral grey. The `default` branch is a real runtime check, not dead
+ * code - `AdminConversationsPage.tsx#stateTone`'s own doc comment explains why a compile-time union
+ * alone is not enough: a `danger` pill for a value this switch does not yet list fails visibly instead
+ * of silently mis-colouring an unknown state as some existing one. */
+function inviteEffectiveStatusTone(status: InviteEffectiveStatus): BadgeTone {
+  switch (status) {
+    case "Pending":
+      return "accent";
+    case "InTeam":
+      return "success";
+    case "Removed":
+    case "Revoked":
+    case "Expired":
+      return "neutral";
+    default:
+      return "danger";
+  }
+}
+
+/** `26-263`: the pill's own word - see `inviteEffectiveStatusTone` just above for the `default` branch's
+ * reasoning, which applies identically here. */
+function inviteEffectiveStatusLabel(status: InviteEffectiveStatus, strings: ConsoleStrings): string {
+  switch (status) {
+    case "Pending":
+      return strings.operatorsTeamEffectiveStatusPending;
+    case "InTeam":
+      return strings.operatorsTeamEffectiveStatusInTeam;
+    case "Removed":
+      return strings.operatorsTeamEffectiveStatusRemoved;
+    case "Revoked":
+      return strings.operatorsTeamEffectiveStatusRevoked;
+    case "Expired":
+      return strings.operatorsTeamEffectiveStatusExpired;
+    default:
+      return strings.operatorsTeamEffectiveStatusUnknown;
+  }
+}
+
+/** `26-263`: the detail line(s) under the pill - one date for every state except `Removed`, which shows
+ * both the acceptance and the removal instant (the android design's own "Detail shows BOTH «Принято»
+ * and «Удалено»"). `Revoked`'s own `revokedAt` (`ago-chat#388`) shipped one PR after `redeemedAt`/
+ * `removedAt` - until then this branch rendered no date at all, on purpose: the wire carried no
+ * revocation instant yet, and inventing one from `createdAt`/`expiresAt` would have been exactly the
+ * fabricated number `CLAUDE.md` rules out ("do not invent numbers... measure or stay silent"). Every
+ * branch below still follows that same rule - it renders `revokedAt` now because the field is real, not
+ * because a date was owed to the layout. */
+function inviteEffectiveStatusDetail(
+  row: OperatorInviteListEntryDto,
+  timeZone: string | null,
+  strings: ConsoleStrings,
+): ReactNode {
+  const expiresAt = parseInstant(row.expiresAt);
+  const redeemedAt = parseInstant(row.redeemedAt);
+  const removedAt = parseInstant(row.removedAt);
+  const revokedAt = parseInstant(row.revokedAt);
+
+  switch (row.effectiveStatus) {
+    case "Pending":
+      return expiresAt ? (
+        <p className="ago-meta">
+          {strings.operatorsTeamEffectiveDetailExpiresAt} {formatDateStamp(expiresAt, timeZone, strings)}
+        </p>
+      ) : null;
+    case "InTeam":
+      return redeemedAt ? (
+        <p className="ago-meta">
+          {strings.operatorsTeamEffectiveDetailRedeemedAt} {formatDateStamp(redeemedAt, timeZone, strings)}
+        </p>
+      ) : null;
+    case "Removed":
+      return (
+        <>
+          {redeemedAt && (
+            <p className="ago-meta">
+              {strings.operatorsTeamEffectiveDetailRedeemedAt} {formatDateStamp(redeemedAt, timeZone, strings)}
+            </p>
+          )}
+          {removedAt && (
+            <p className="ago-meta">
+              {strings.operatorsTeamEffectiveDetailRemovedAt} {formatDateStamp(removedAt, timeZone, strings)}
+            </p>
+          )}
+        </>
+      );
+    case "Expired":
+      return expiresAt ? (
+        <p className="ago-meta">
+          {strings.operatorsTeamEffectiveDetailExpiredAt} {formatDateStamp(expiresAt, timeZone, strings)}
+        </p>
+      ) : null;
+    case "Revoked":
+      return revokedAt ? (
+        <p className="ago-meta">
+          {strings.operatorsTeamEffectiveDetailRevokedAt} {formatDateStamp(revokedAt, timeZone, strings)}
+        </p>
+      ) : null;
+    default:
+      return null;
+  }
+}
+
+/** `26-263`: an invite still worth acting on - the "Приглашения" group (revocable, still shown with the
+ * live role picker's own cost reasoning) - versus everything already settled, which moves to "Архив"
+ * below. `InTeam` is neither: that invite's own colleague already has a roster row (`fetchOperatorTeam`)
+ * showing the identical status, so listing it a second time here would just repeat the same fact under a
+ * different heading - it is filtered out of both groups entirely, on purpose. */
+function isPendingInvite(entry: OperatorInviteListEntryDto): boolean {
+  return entry.effectiveStatus === "Pending";
+}
+
+/** Everything settled - `Removed`/`Revoked`/`Expired` - and, defensively, anything this union does not
+ * yet name: an unrecognised `effectiveStatus` still has to render *somewhere* (`inviteEffectiveStatusTone`'s
+ * own `danger` fallback), never silently disappear the way it would if this were instead written as an
+ * explicit `=== "Removed" || === "Revoked" || === "Expired"` allow-list. */
+function isArchivedInvite(entry: OperatorInviteListEntryDto): boolean {
+  return !isPendingInvite(entry) && entry.effectiveStatus !== "InTeam";
 }
 
 /**
@@ -337,20 +464,14 @@ export function OperatorsTeamPage() {
     }
   };
 
-  const inviteStatusLabel = (entry: OperatorInviteListEntryDto): string => {
-    switch (entry.status) {
-      case "Sent":
-        return strings.operatorsTeamInviteStatusSent;
-      case "SendFailed":
-        return `${strings.operatorsTeamInviteStatusSendFailed} ${entry.smtpErrorCode ?? "?"}`;
-      case "Revoked":
-        return strings.operatorsTeamInviteStatusRevoked;
-      case "Redeemed":
-        return strings.operatorsTeamInviteStatusRedeemed;
-      case "Expired":
-        return strings.operatorsTeamInviteStatusExpired;
-    }
-  };
+  // `26-263`: the invite list splits into the same two groups android's own «Люди» screen shows -
+  // still-live `Pending` invites (revocable, shown with the role picker's own cost reasoning) and a
+  // settled «Архив» group for everything else terminal. An `InTeam` entry is deliberately in neither:
+  // that colleague already has their own roster row above, with the identical status - see
+  // `isPendingInvite`/`isArchivedInvite`'s own doc comments for why repeating it here would be a second,
+  // redundant rendering of the same fact rather than new information.
+  const pendingInvites = invites?.filter(isPendingInvite) ?? null;
+  const archivedInvites = invites?.filter(isArchivedInvite) ?? null;
 
   const expiresAtDate = inviteResult ? parseInstant(inviteResult.expiresAt) : null;
   // `23-70`: "the invitation is a URL, not a token... something that can be pasted into whatever the
@@ -446,6 +567,31 @@ export function OperatorsTeamPage() {
                     ),
                   },
                   {
+                    // `26-263`: every row in this table is, by construction, a currently active
+                    // operator (`fetchOperatorTeam` only ever returns active operators) - so the pill
+                    // is always the fixed "В команде"/`InTeam`, never computed from a per-row field.
+                    // `joinedAt` is the one thing that does vary per row: the redeemed instant of the
+                    // invite this member came in through, `null` for the founder (`RegisterSiteHandler`
+                    // minted them at registration, never invited) - who then shows the pill alone, no
+                    // detail line, matching `inviteEffectiveStatusDetail`'s own "no line when the wire
+                    // sent no instant" shape for the `InTeam` case.
+                    key: "status",
+                    header: strings.operatorsTeamStatusColumn,
+                    render: (row) => {
+                      const joinedAt = parseInstant(row.joinedAt);
+                      return (
+                        <div>
+                          <Badge tone={inviteEffectiveStatusTone("InTeam")}>{strings.operatorsTeamEffectiveStatusInTeam}</Badge>
+                          {joinedAt && (
+                            <p className="ago-meta">
+                              {strings.operatorsTeamEffectiveDetailRedeemedAt} {formatDateStamp(joinedAt, timeZone, strings)}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    },
+                  },
+                  {
                     key: "seat",
                     header: strings.operatorsTeamSeatColumn,
                     render: (row) => (
@@ -515,17 +661,18 @@ export function OperatorsTeamPage() {
             </div>
           </Panel>
 
-          {/* `25-73`: shown only when at least one invite exists for the site - this item's own
-              point 7. `invites === null` (not yet loaded) and `invites.length === 0` (loaded, none
-              exist) are both "render nothing", the identical "no Panel at all" shape this page
-              already gives an empty state elsewhere rather than an empty table with a caption. */}
+          {/* `25-73`/`26-263`: shown only when at least one invite exists in the relevant group - this
+              item's own point 7, now applied per group rather than to one combined list. `invites ===
+              null` (not yet loaded) and an empty filtered group (loaded, none in this group) are both
+              "render nothing", the identical "no Panel at all" shape this page already gives an empty
+              state elsewhere rather than an empty table with a caption. */}
           {invitesLoadError && <Alert tone="danger">{invitesLoadError}</Alert>}
-          {invites !== null && invites.length > 0 && (
+          {pendingInvites !== null && pendingInvites.length > 0 && (
             <Panel title={strings.operatorsTeamInviteListPanelTitle}>
               <Table<OperatorInviteListEntryDto>
                 caption={strings.operatorsTeamInviteListPanelTitle}
                 rowKey={(row) => row.operatorInviteId}
-                rows={invites}
+                rows={pendingInvites}
                 columns={[
                   {
                     key: "email",
@@ -548,33 +695,83 @@ export function OperatorsTeamPage() {
                       row.roles.length > 0 ? row.roles.map((roleName) => roleDisplayName(roleName, strings)).join(", ") : "—",
                   },
                   {
+                    // `26-263`: the pill is now `effectiveStatus` (every row here is `Pending`, so
+                    // always the lavender "Ожидает" pill with its own «Действует до» detail line) - the
+                    // pre-existing delivery `status` is kept, but narrowed to only the one thing it
+                    // still uniquely says: a `SendFailed` row gets its own SMTP-error note underneath,
+                    // exactly the wording this screen already showed (`operatorsTeamInviteStatusSendFailed`),
+                    // now a second line rather than replacing the pill.
                     key: "status",
                     header: strings.operatorsTeamInviteListStatusColumn,
                     render: (row) => (
-                      <Badge tone={row.status === "SendFailed" ? "danger" : row.status === "Revoked" ? "neutral" : "success"}>
-                        {inviteStatusLabel(row)}
-                      </Badge>
+                      <div>
+                        <Badge tone={inviteEffectiveStatusTone(row.effectiveStatus)}>
+                          {inviteEffectiveStatusLabel(row.effectiveStatus, strings)}
+                        </Badge>
+                        {inviteEffectiveStatusDetail(row, timeZone, strings)}
+                        {row.status === "SendFailed" && (
+                          <Badge tone="danger">
+                            {strings.operatorsTeamInviteStatusSendFailed} {row.smtpErrorCode ?? "?"}
+                          </Badge>
+                        )}
+                      </div>
                     ),
-                  },
-                  {
-                    key: "expiry",
-                    header: strings.operatorsTeamInviteListExpiryColumn,
-                    render: (row) => formatDateStamp(parseInstant(row.expiresAt), timeZone, strings),
                   },
                   {
                     key: "actions",
                     header: strings.operatorsTeamInviteListActionsColumn,
+                    // `26-263`: every row in this panel is `Pending` (not revoked, not redeemed, not
+                    // expired) by construction (`isPendingInvite`'s own filter above) - so Revoke is
+                    // always offered here, replacing the pre-`26-263` `status === "Sent" ||
+                    // "SendFailed"` check with the same outcome for the invites that still reach this
+                    // panel at all (`RevokeOperatorInviteHandler`'s own `AlreadyRedeemed`/`Revoked`
+                    // guard is still the real, load-bearing check - this is presentation only).
+                    render: (row) => (
+                      <Button variant="ghost" onClick={() => setRevokeTarget(row)}>
+                        {strings.operatorsTeamInviteRevokeButton}
+                      </Button>
+                    ),
+                  },
+                ]}
+              />
+            </Panel>
+          )}
+
+          {/* `26-263`: the settled group - `Removed`/`Revoked`/`Expired` (`isArchivedInvite` above),
+              matching android's own «АРХИВ» section. No actions column: nothing here can still be
+              revoked, and no separate "sent"/"expiry" columns either - the dates that matter for a
+              settled invite are exactly the ones `inviteEffectiveStatusDetail` already renders under the
+              pill (one line, or two for `Removed`), so a third rendering of the same instant in its own
+              column would only be noise. */}
+          {archivedInvites !== null && archivedInvites.length > 0 && (
+            <Panel title={strings.operatorsTeamInviteArchivePanelTitle}>
+              <Table<OperatorInviteListEntryDto>
+                caption={strings.operatorsTeamInviteArchivePanelTitle}
+                rowKey={(row) => row.operatorInviteId}
+                rows={archivedInvites}
+                columns={[
+                  {
+                    key: "email",
+                    header: strings.operatorsTeamInviteListEmailColumn,
+                    render: (row) => row.email,
+                  },
+                  {
+                    key: "roles",
+                    header: strings.operatorsTeamInviteListRolesColumn,
                     render: (row) =>
-                      // Only an unredeemed, unrevoked, still-live invite can be revoked at all - the
-                      // button simply is not offered for a row already past that point, rather than
-                      // being offered and refused server-side (RevokeOperatorInviteHandler's own
-                      // AlreadyRedeemed/Revoked checks still exist as the real, load-bearing guard;
-                      // this is presentation only).
-                      row.status === "Sent" || row.status === "SendFailed" ? (
-                        <Button variant="ghost" onClick={() => setRevokeTarget(row)}>
-                          {strings.operatorsTeamInviteRevokeButton}
-                        </Button>
-                      ) : null,
+                      row.roles.length > 0 ? row.roles.map((roleName) => roleDisplayName(roleName, strings)).join(", ") : "—",
+                  },
+                  {
+                    key: "status",
+                    header: strings.operatorsTeamInviteListStatusColumn,
+                    render: (row) => (
+                      <div>
+                        <Badge tone={inviteEffectiveStatusTone(row.effectiveStatus)}>
+                          {inviteEffectiveStatusLabel(row.effectiveStatus, strings)}
+                        </Badge>
+                        {inviteEffectiveStatusDetail(row, timeZone, strings)}
+                      </div>
+                    ),
                   },
                 ]}
               />

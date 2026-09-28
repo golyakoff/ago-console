@@ -31,6 +31,12 @@ export interface OperatorTeamMemberDto {
    * plural because the account's own founder holds both seeded roles at once (`RegisterSiteHandler`'s
    * own remarks), not a single "the" role. */
   roles: OperatorRoleSeatDto[];
+  /** `26-263`: the redeemed instant of the invite this member joined through (`ago-chat#387`'s own
+   * `GetOperatorTeamHandler` - a correlated scalar subquery over `operator_invites`) - the «Принято
+   * `<date>`» line `OperatorsTeamPage` renders next to the "В команде" status. `null` for the founder,
+   * who was minted at registration and never invited (`RegisterSiteHandler`), never for anyone else -
+   * every other active operator reached this site through exactly one redeemed invite. */
+  joinedAt: string | null;
 }
 
 export interface OperatorTeamResponseDto {
@@ -89,6 +95,41 @@ export interface OperatorInviteListEntryDto {
   status: "Sent" | "SendFailed" | "Revoked" | "Redeemed" | "Expired";
   smtpErrorCode: string | null;
   roles: string[];
+  /**
+   * `26-263`: a SECOND, distinct status from `status` above - never a replacement for it
+   * (`ago-chat#387`'s own remarks: "`status` is unchanged so the console's existing invite-list screen
+   * keeps working"). `status` is the invite's *delivery* lifecycle (`Sent`/`SendFailed`/…), which
+   * collapses every redemption into one `Redeemed` value and so cannot say whether that operator is
+   * still on the team; `effectiveStatus` is the *team-membership* view `OperatorsTeamPage` groups and
+   * colours by - `Pending` (not yet redeemed, not revoked, not expired), `InTeam` (redeemed, operator
+   * still active), `Removed` (redeemed, operator since soft-removed), `Revoked`, `Expired`. Computed
+   * server-side against `IClock` (`adr/0011`) - never derived client-side from `expiresAt`, the same
+   * "ordering/time facts come from the server, not a client clock" reasoning `date-and-time.md` states
+   * for every other server-truth timestamp. Sent as the enum member name, the same `api-design.md`
+   * "clients branch on the code, never on the message" convention `status` above already follows.
+   *
+   * Typed as the five known members, but every switch over it in `OperatorsTeamPage` carries a
+   * `default` branch (`AdminConversationsPage.tsx#stateTone`'s own established shape for exactly this
+   * reason) - a compile-time union only ever protects against the cases *this* file's author already
+   * knew about, and a value the wire sends tomorrow that this type does not yet list must still render
+   * as something visible, not silently vanish or throw.
+   */
+  effectiveStatus: "Pending" | "InTeam" | "Removed" | "Revoked" | "Expired";
+  /** `26-263`: when this invite was redeemed (the «Принято `<date>`» line) - non-null for `InTeam`/
+   * `Removed` (the only two states reached by an actual redemption), `null` for `Pending`/`Revoked`/
+   * `Expired` (never redeemed at all). */
+  redeemedAt: string | null;
+  /** `26-263`: the redeemed operator's own removal instant (the «Удалено `<date>`» line) - non-null
+   * only when `effectiveStatus === "Removed"`, `null` in every other case (including `InTeam`, where
+   * the operator has not been removed at all). */
+  removedAt: string | null;
+  /** `26-263`/`ago-chat#388`: when this invite was revoked (the «Отозвано `<date>`» line) - additive
+   * alongside `redeemedAt`/`removedAt`, non-null only when `effectiveStatus === "Revoked"`, `null` in
+   * every other case. Added one PR after `redeemedAt`/`removedAt` because the `Revoked` archive card
+   * initially shipped with no date at all - the wire carried no revocation instant yet at that point,
+   * and `OperatorsTeamPage` said so explicitly rather than fabricating one from `createdAt`/`expiresAt`
+   * (`CLAUDE.md`: "do not invent numbers... measure or stay silent"). This field is that gap closed. */
+  revokedAt: string | null;
 }
 
 export interface ListOperatorInvitesResponseDto {
@@ -120,6 +161,7 @@ const operatorTeamMemberRequiredKeys = requiredKeysOf<OperatorTeamMemberDto>({
   displayName: true,
   email: true,
   roles: true,
+  joinedAt: true,
 });
 const operatorRoleSeatRequiredKeys = requiredKeysOf<OperatorRoleSeatDto>({ roleName: true, holdsSeat: true });
 const seatAssignmentSummaryRequiredKeys = requiredKeysOf<SeatAssignmentSummaryDto>({ roles: true });
@@ -138,6 +180,10 @@ const operatorInviteListEntryRequiredKeys = requiredKeysOf<OperatorInviteListEnt
   status: true,
   smtpErrorCode: true,
   roles: true,
+  effectiveStatus: true,
+  redeemedAt: true,
+  removedAt: true,
+  revokedAt: true,
 });
 
 /**
