@@ -538,6 +538,16 @@ export function OperatorsTeamPage() {
                     render: (row) => formatDateStamp(parseInstant(row.createdAt), timeZone, strings),
                   },
                   {
+                    // `26-258`: the role SET this pending invite grants (`26-241`'s multi-role write, now
+                    // read back). Each name localized through the same `roleDisplayName` the operator
+                    // table and invite dialog use; a single-role invite is one label, a multi-role invite
+                    // several joined by ", ". An empty list (should not occur) simply renders "—".
+                    key: "roles",
+                    header: strings.operatorsTeamInviteListRolesColumn,
+                    render: (row) =>
+                      row.roles.length > 0 ? row.roles.map((roleName) => roleDisplayName(roleName, strings)).join(", ") : "—",
+                  },
+                  {
                     key: "status",
                     header: strings.operatorsTeamInviteListStatusColumn,
                     render: (row) => (

@@ -298,6 +298,8 @@ export function seededOperatorInvites() {
         expiresAt: "2026-09-17T09:00:00.000Z",
         status: "Sent",
         smtpErrorCode: null,
+        // `26-258`: a single-role invite - one role label on the row.
+        roles: ["Operator"],
       },
       {
         operatorInviteId: "77777777-7777-4777-8777-777777777777",
@@ -306,6 +308,10 @@ export function seededOperatorInvites() {
         expiresAt: "2026-09-18T09:00:00.000Z",
         status: "SendFailed",
         smtpErrorCode: "550",
+        // `26-258`: a multi-role invite (`26-241`) - both role labels render on the one row, in the
+        // alphabetical order the backend read store returns them, so the gate renders the new column's
+        // multi-value case too, not only the single-role one.
+        roles: ["Admin", "Operator"],
       },
     ],
   };
