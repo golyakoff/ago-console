@@ -1637,6 +1637,10 @@ export interface ConsoleStrings {
   operatorsTeamInviteListLoadError: string;
   operatorsTeamInviteListEmailColumn: string;
   operatorsTeamInviteListSentColumn: string;
+  /** `26-258`: the role(s) a still-pending invite grants - the read-side mirror of the multi-role invite
+   * `26-241` added to creation, so the list shows which role a pending invite will confer (one name, or
+   * several joined by the locale's list separator). */
+  operatorsTeamInviteListRolesColumn: string;
   operatorsTeamInviteListStatusColumn: string;
   operatorsTeamInviteListExpiryColumn: string;
   operatorsTeamInviteListActionsColumn: string;

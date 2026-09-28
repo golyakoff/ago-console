@@ -1024,6 +1024,7 @@ export const ru: ConsoleStrings = {
   operatorsTeamInviteListLoadError: "Не удалось загрузить список приглашений. Попробуйте ещё раз.",
   operatorsTeamInviteListEmailColumn: "Почта",
   operatorsTeamInviteListSentColumn: "Отправлено",
+  operatorsTeamInviteListRolesColumn: "Роли",
   operatorsTeamInviteListStatusColumn: "Статус",
   operatorsTeamInviteListExpiryColumn: "Действует до",
   operatorsTeamInviteListActionsColumn: "",

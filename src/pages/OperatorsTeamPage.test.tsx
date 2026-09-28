@@ -645,6 +645,7 @@ describe("the invite list", () => {
           expiresAt: "2026-09-17T00:00:00Z",
           status: "Sent",
           smtpErrorCode: null,
+          roles: ["Operator"],
         },
         {
           operatorInviteId: "invite-b",
@@ -653,6 +654,8 @@ describe("the invite list", () => {
           expiresAt: "2026-09-18T00:00:00Z",
           status: "SendFailed",
           smtpErrorCode: "550",
+          // `26-258`: a two-role invite (`26-241`) - both role labels render on this one row.
+          roles: ["Admin", "Operator"],
         },
         {
           operatorInviteId: "invite-c",
@@ -661,6 +664,7 @@ describe("the invite list", () => {
           expiresAt: "2026-09-15T00:00:00Z",
           status: "Revoked",
           smtpErrorCode: null,
+          roles: ["Admin"],
         },
       ],
     });
@@ -668,6 +672,11 @@ describe("the invite list", () => {
     const container = await render(page());
 
     expect(container.textContent).toContain("Invites");
+    // `26-258`: the roles column header and its localized role labels - the multi-role invite-b row
+    // shows the "Administrator" label its role set (`26-241`) confers, which no single-role fixture on
+    // its own would surface.
+    expect(container.textContent).toContain("Roles");
+    expect(container.textContent).toContain("Administrator");
     expect(container.textContent).toContain("sent@example.com");
     expect(container.textContent).toContain("failed@example.com");
     // This item's own stated wording for the failure case, minus the Russian-only literal text (that
@@ -693,6 +702,7 @@ describe("the invite list", () => {
           expiresAt: "2026-09-17T00:00:00Z",
           status: "Sent",
           smtpErrorCode: null,
+          roles: ["Operator"],
         },
       ],
     });

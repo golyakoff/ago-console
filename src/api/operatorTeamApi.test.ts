@@ -81,6 +81,7 @@ const invites = {
       expiresAt: "2026-01-08T00:00:00Z",
       status: "Sent",
       smtpErrorCode: null,
+      roles: ["Operator", "Admin"],
     },
   ],
 };
@@ -170,6 +171,21 @@ describe("listOperatorInvites - shape validation", () => {
 
     expect(failure).toBeInstanceOf(ApiProblemError);
     expect((failure as ApiProblemError).message).toContain("status");
+    expect((failure as ApiProblemError).message).toContain("[0]");
+  });
+
+  // `26-258`: the new `roles` field is a required key on the entry - an invite created for a role SET
+  // (`26-241`) that lists with no role information is the exact bug this item closes, so a body dropping
+  // `roles` must be caught as a shape mismatch rather than rendering a role-less row. Fails-before:
+  // against `main` `roles` is not in `operatorInviteListEntryRequiredKeys`, so this body passes the
+  // guard and the missing field goes unnoticed.
+  it("throws shape.mismatch when an invite entry is missing roles, naming the index", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { invites: [without(invites.invites[0], "roles")] }));
+
+    const failure = await caught(listOperatorInvites("token", "s-1"));
+
+    expect(failure).toBeInstanceOf(ApiProblemError);
+    expect((failure as ApiProblemError).message).toContain("roles");
     expect((failure as ApiProblemError).message).toContain("[0]");
   });
 });

@@ -1021,6 +1021,7 @@ export const en: ConsoleStrings = {
   operatorsTeamInviteListLoadError: "Could not load the invite list. Try again.",
   operatorsTeamInviteListEmailColumn: "Email",
   operatorsTeamInviteListSentColumn: "Sent",
+  operatorsTeamInviteListRolesColumn: "Roles",
   operatorsTeamInviteListStatusColumn: "Status",
   operatorsTeamInviteListExpiryColumn: "Expires",
   operatorsTeamInviteListActionsColumn: "",

@@ -75,7 +75,12 @@ export interface CreateOperatorInviteResponseDto {
 /** `25-73`: the console's own invite-list screen - `GET /api/v1/sites/{siteId}/operator-invites`.
  * `status` is one of `ListOperatorInvitesHandler`'s own five `OperatorInviteListStatus` members, sent
  * as its enum member name (`api-design.md`: "clients branch on `type`, never on the message").
- * `smtpErrorCode` is present only when `status === "SendFailed"`. */
+ * `smtpErrorCode` is present only when `status === "SendFailed"`.
+ * `26-258`: `roles` is the role SET this still-pending invite grants, as the role names
+ * (`["Operator", "Admin"]`) - the read-side mirror of the multi-role invite `26-241` added to creation,
+ * alphabetically ordered by the backend read store. A single-role invite is a one-element list; the
+ * field is always present and never null (an empty list at worst), so the page always has something to
+ * render on the pending-invite row. */
 export interface OperatorInviteListEntryDto {
   operatorInviteId: string;
   email: string;
@@ -83,6 +88,7 @@ export interface OperatorInviteListEntryDto {
   expiresAt: string;
   status: "Sent" | "SendFailed" | "Revoked" | "Redeemed" | "Expired";
   smtpErrorCode: string | null;
+  roles: string[];
 }
 
 export interface ListOperatorInvitesResponseDto {
@@ -131,6 +137,7 @@ const operatorInviteListEntryRequiredKeys = requiredKeysOf<OperatorInviteListEnt
   expiresAt: true,
   status: true,
   smtpErrorCode: true,
+  roles: true,
 });
 
 /**
