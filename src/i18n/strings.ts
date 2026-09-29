@@ -2463,7 +2463,10 @@ export interface ConsoleStrings {
   calendarQueueDescription: string;
   calendarQueueEmpty: string;
   calendarQueueColumnWhen: string;
-  calendarQueueColumnCalendar: string;
+  // `26-272` T1: `calendarQueueColumnCalendar` is gone with the pending queue's raw calendar-id
+  // column - the exact "engineering view" (`Календарь 01a084eb`) `26-163` already deleted from the
+  // Android app's equivalent screen; the calendar is chosen elsewhere and the queue spans every
+  // calendar the tenant has by design (`CalendarQueuePage.tsx`'s own doc comment).
   /** `26-50`: never gated - a worker's own name is the shop's own roster, not personal data about a
    * customer, the identical reasoning `calendarBookingsColumnService`'s own sibling column already
    * carries for this screen's `.ago-mono`-free counterpart. */

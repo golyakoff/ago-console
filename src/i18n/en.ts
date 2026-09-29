@@ -1451,7 +1451,7 @@ export const en: ConsoleStrings = {
   calendarQueueDescription: "Everything here confirms itself at its deadline unless you reject it first. Ordered by deadline, soonest first.",
   calendarQueueEmpty: "Nothing is waiting.",
   calendarQueueColumnWhen: "When",
-  calendarQueueColumnCalendar: "Calendar",
+  // `26-272` T1: `calendarQueueColumnCalendar` removed with the dropped raw calendar-id column.
   calendarQueueColumnWorker: "Worker",
   calendarQueueColumnService: "Service",
   calendarQueueColumnCustomer: "Customer",

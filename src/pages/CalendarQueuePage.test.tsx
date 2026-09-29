@@ -143,6 +143,10 @@ afterEach(async () => {
 
 describe("the pending-bookings queue", () => {
   it("shows bookings from every calendar the tenant has, not just one", async () => {
+    // `26-272` T1: the queue no longer prints a calendar column (dropped with the raw-hex
+    // "engineering view" `26-163` already removed on the Android app's equivalent screen) - this
+    // still proves the promise in its name via row count, since `CalendarQueuePage`'s own "one
+    // queue, spanning every calendar" never filters by calendar.
     calendarApi.getPendingBookings.mockResolvedValue([
       booking("b1", "cal-1aaa", "2026-05-05T09:00:00+00:00", "2026-05-05T08:15:00+00:00", false),
       booking("b2", "cal-2aaa", "2026-05-05T11:00:00+00:00", "2026-05-05T08:45:00+00:00", false),
@@ -150,8 +154,7 @@ describe("the pending-bookings queue", () => {
 
     const container = await render(page());
 
-    expect(container.textContent).toContain("cal-1aaa".slice(0, 8));
-    expect(container.textContent).toContain("cal-2aaa".slice(0, 8));
+    expect(all(container, "tbody tr")).toHaveLength(2);
   });
 
   it("rejects a booking and drops it from the queue", async () => {
@@ -163,13 +166,13 @@ describe("the pending-bookings queue", () => {
       .mockResolvedValueOnce([booking("b1", "cal-1aaa", "2026-05-05T09:00:00+00:00", "2026-05-05T08:15:00+00:00", false)]);
 
     const container = await render(page());
-    expect(container.textContent).toContain("cal-2aaa".slice(0, 8));
+    expect(all(container, "tbody tr")).toHaveLength(2);
 
     const rejectButtons = all(container, "button").filter((b) => b.textContent === "Reject");
     await interact(() => (rejectButtons[1] as HTMLButtonElement).click());
 
     expect(calendarApi.rejectBooking).toHaveBeenCalledWith("token", "b2");
-    expect(container.textContent).not.toContain("cal-2aaa".slice(0, 8));
+    expect(all(container, "tbody tr")).toHaveLength(1);
   });
 
   it("shows an overdue row loudly instead of hiding it", async () => {

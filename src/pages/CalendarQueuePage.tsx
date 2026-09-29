@@ -235,16 +235,6 @@ export function CalendarQueuePage() {
       },
     },
     {
-      key: "calendar",
-      header: strings.calendarQueueColumnCalendar,
-      // `.ago-mono`, not a bare `<code>` - `AdminConversationsPage.tsx`'s own convention for a
-      // truncated id, and also what `ux-gate/lib/i18nCompleteness.ts`'s own "no untranslated
-      // interface text" assertion treats as "literally an identifier" rather than a translation gap.
-      // `26-50`'s own out-of-scope note: the calendar keeps its short id deliberately - naming it is a
-      // separate judgement nobody has asked for.
-      render: (row) => <span className="ago-mono">{row.calendarId.slice(0, 8)}</span>,
-    },
-    {
       key: "worker",
       header: strings.calendarQueueColumnWorker,
       // `26-50`: never gated - a worker's own name is the shop's own roster, not personal data about

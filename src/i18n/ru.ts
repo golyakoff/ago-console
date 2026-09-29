@@ -1455,7 +1455,7 @@ export const ru: ConsoleStrings = {
   calendarQueueDescription: "Всё здесь подтверждается само по себе к своему дедлайну, если вы не отклоните это первым. По дедлайну, ближайшие сначала.",
   calendarQueueEmpty: "Ничего не ожидает.",
   calendarQueueColumnWhen: "Когда",
-  calendarQueueColumnCalendar: "Календарь",
+  // `26-272` T1: `calendarQueueColumnCalendar` removed with the dropped raw calendar-id column.
   calendarQueueColumnWorker: "Мастер",
   calendarQueueColumnService: "Услуга",
   calendarQueueColumnCustomer: "Клиент",
