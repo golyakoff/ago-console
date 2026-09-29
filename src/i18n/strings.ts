@@ -1310,13 +1310,41 @@ export interface ConsoleStrings {
   billingLoadError: string;
   billingLoadingLabel: string;
 
-  /** `26-294`: the "Current plan" card's own title - `13-04`'s original "Subscription" repurposed
-   * for the merged card (tier, status, seats, admins, paid-until all in one dense grid) rather than
-   * a new key, since nothing outside this file ever depended on the old wording. */
+  /**
+   * `26-300`: the full v2 rebuild of the `26-294` three-card page, onto the `26-299` backend (floor
+   * proration, a per-purchase save-card choice, per-kind connected channels, a next-period
+   * composition write, and a proration-preview read). Three cards, same as `26-294`, but each now
+   * does more: **Current plan** (`billingPanelTitle`) is unchanged in shape - a status badge plus a
+   * dense fact grid - but gains a payment-method fact and folds channels into it;
+   * **Buy now** (`billingBuyNowHeading`) replaces the old "Add to your plan" card's own two-branch
+   * (checkout-or-change) rows with one honest "always an instant, charged purchase against an
+   * already-`Succeeded` subscription's stored payment method" shape, its amounts always sourced from
+   * `previewBillingPurchase` rather than computed here (`CLAUDE.md` rule 8); **Next period**
+   * (`billingNextPeriodHeading`) replaces the old read-only "Next renewal" card and the separate
+   * reduce-seats sub-panel with one editable composition (operators, administrators, per-kind channel
+   * renewal) written through `setNextPeriodComposition` - which, unlike the old seat-only downgrade
+   * path, moves in either direction and touches administrators too, charging nothing until the next
+   * real renewal.
+   *
+   * **Why "buy now" and "next period" are two different actions, not one.** An instant purchase charges
+   * a prorated amount today and keeps working until the next renewal *and past it* (the row simply
+   * updates what next period's `SetNextPeriodComposition` would otherwise leave unchanged); a next-period
+   * edit charges nothing today and only takes effect at the next renewal, in either direction. Collapsing
+   * them into one control would either lose the "buy it right now" e-commerce affordance the mockup
+   * calls for, or silently charge someone who only meant to plan ahead - the same reasoning `25-95`
+   * already gave for keeping add/reduce apart, generalised to a second dimension and to channels.
+   *
+   * **The Solo -> Business transition has no dedicated "buy now" of its own.** A site with no
+   * `Succeeded` subscription cannot call `setNextPeriodComposition` (`SetNextPeriodCompositionHandler`'s
+   * own guard) or any of the three instant-purchase endpoints (all three need an existing stored
+   * payment method) - the *only* way onto Business is `createCheckoutSession`, so the Next period
+   * card's own composition control doubles as the checkout entry point while no subscription exists,
+   * complete with its own save-payment-method checkbox (`billingSavePaymentMethodLabel`) - the one
+   * place in this screen that choice is actually asked, because `CreateCheckoutSessionRequest` is the
+   * only wire shape that carries it at all.
+   */
   billingPanelTitle: string;
   billingTierLabel: string;
-  billingSeatsUsedLabel: string;
-  billingSeatLimitLabel: string;
   /** `26-294`: the status-badge row the redesign's Case 1 asked for - `latestSubscription.status`
    * rendered as one word plus colour, not a raw enum. `Pending`/`Failed` reuse `billingPendingTitle`/
    * `billingFailedTitle` (the same word already shown as that state's `Alert` title) rather than a
@@ -1333,131 +1361,30 @@ export interface ConsoleStrings {
 
   /** `25-23`: the two headings that split one undifferentiated "Лимит мест" into the two counts
    * `ago-business` decision `0011` actually keeps apart ("администраторы считаются отдельно от
-   * мест"). Before this item the screen had a single seat block and no concept of an Administrator
-   * seat at all, so an owner reading it could not tell which of the two limits they were near. */
+   * мест"). `26-300` reuses both as row labels in the Buy-now and Next-period cards too - one name
+   * for one concept everywhere it appears on this screen, rather than a second wording per card. */
   billingOperatorSeatsHeading: string;
   billingAdminSeatsHeading: string;
   /** Names the separation out loud rather than leaving a reader to infer it from two panels sitting
    * next to each other - `0011`'s own rule, stated where it is acted on. */
   billingAdminSeatsNote: string;
-
-  /** `25-23`: the free-allowance-vs-bought-beyond-it split, named rather than collapsed into one
-   * number (`25-23`'s own Scope). For Operators the allowance is
-   * `seatPricing.freeSeatsIncluded` - a property of the grid, the same for every site; for
-   * Administrators it is `adminLimit - extraAdministratorsPurchased`, because
-   * `Site.ActivateSubscription` builds `AdminLimit` as exactly
-   * `ResolveAdminLimit(tier) + ExtraAdministratorsPurchased` and the second term is a real persisted
-   * field (`25-41`), not an estimate. */
-  billingFreeSeatsIncludedLabel: string;
-  billingAdminsIncludedLabel: string;
-  billingAdminsPurchasedLabel: string;
-  /** Value is `₽${adminExtraPriceRub}`, or `billingAdminExtraNotPriced` when that field is `null` -
-   * `25-43`'s own "a key with no published version is the ordinary 'built, not yet for sale' state".
-   * Never rendered as ₽0: a price nobody published is an absence, not a free one. */
-  billingAdminExtraPriceLabel: string;
-  billingAdminExtraNotPriced: string;
-
-  /** `25-23`: the sourced replacement for `billingSeatCountFieldDescription`'s deleted
-   * "От 2 до 100 мест" - every number below comes off `GET .../billing/status`'s own `seatPricing`
-   * (`SubscriptionTierBands` plus `25-43`'s published price versions), so the console holds no second
-   * copy of the grid to drift from it. Trailing interpolation throughout, this table's own
-   * convention: `${label}: ${value}`, values composed at the call site. */
-  billingPurchasableSeatsLabel: string;
-  billingBaseSeatPriceLabel: string;
-  billingBaseSeatsCoveredLabel: string;
-  billingExtraSeatPriceLabel: string;
-  billingBillingPeriodDaysLabel: string;
-
-  /** `25-23`: the add-seats control that replaced the direct-edit seat field. The old field let an
-   * owner type an absolute seat total over their current one, which read as "set my seats to N" and
-   * gave no sense of what was being bought; this is the quantity-plus-add shape the author asked
-   * for - a read-only current count, a "how many more" spinner, and one button. */
-  /** `26-294`: the "Add to your plan" card's own title - replaces the three separate stepper
-   * panels (add seats / reduce seats / add administrators) this screen used to stack full-width, one
-   * under another. The three headings below (`billingAddSeatsHeading` etc.) stay - they now label
-   * one row inside this card instead of a panel of their own. */
-  billingAddToPlanHeading: string;
-  billingCurrentSeatCountLabel: string;
-  billingAddSeatsHeading: string;
-  billingAddSeatsFieldLabel: string;
-  billingNewSeatCountLabel: string;
-  billingAddSeatsButton: string;
-  /** Shown in place of the control once `seatLimit` has reached `seatPricing.maxSeats` - there is no
-   * self-serve purchase above that band at all (`SubscriptionTierBands.TryResolveTier` refuses it),
-   * so offering the control would be offering something the server will decline. */
-  billingSeatMaximumReached: string;
-  /** Says out loud what pressing the button does when this site has no active paid subscription: it
-   * starts a real ЮKassa checkout and moves the site onto Business. The control must never imply
-   * less than it does, and on a Solo site "add operators" *is* "subscribe". */
-  billingAddSeatsStartsCheckout: string;
-  /** Trailing interpolation - `${billingSeatCountOutOfRange} ${min}-${max}.` Replaces the old
-   * validation message, which reused the stale "2-100" description string as its own error text. */
-  billingSeatCountOutOfRange: string;
-
-  /** `25-95`: the reduce-seats control `25-23` left no way to reach - a second, explicit control
-   * rather than letting the add-seats stepper above cross zero, because the two directions are not
-   * the same action wearing a different sign: an increase on a `Succeeded` subscription charges
-   * immediately, a decrease only ever schedules (`ChangeSubscriptionSeatsHandler.ScheduleDowngradeAsync`,
-   * no charge, no immediate write). Its own quantity field, its own floor
-   * (`billingSeatMinimumReached`, `SubscriptionTierBands.MinSeats`'s own mirror of
-   * `billingSeatMaximumReached` above), and its own "here is what pressing this actually does" line -
-   * `billingReduceSeatsSchedulesAtRenewal` - the identical "say what happens before it happens"
-   * posture `billingAddSeatsStartsCheckout`/`billingAddAdminSeatsChargesImmediately` already hold for
-   * their own, different mechanisms. No success toast of its own: a scheduled, uncharged change is
-   * told entirely through the persistent `billingPendingDowngradeBody` block once `load()` refetches
-   * it, the same discipline `billingUpgradeSuccessBody`'s own remarks already state for this exact
-   * case. */
-  billingReduceSeatsHeading: string;
-  billingReduceSeatsFieldLabel: string;
-  /** Deliberately not a reuse of `billingNewSeatCountLabel` ("Seats after this purchase") - that
-   * wording is honest for the add control, which can apply immediately, and would be dishonest here:
-   * nothing changes the moment this form submits, so this label says "scheduled" rather than implying
-   * an instant result. */
-  billingReduceSeatsNewCountLabel: string;
-  billingReduceSeatsButton: string;
-  /** Shown in place of the reduce-seats control once `seatLimit` has reached `seatPricing.minSeats` -
-   * `billingSeatMaximumReached`'s own mirror for the opposite floor. */
-  billingSeatMinimumReached: string;
-  /** Says out loud, unconditionally (unlike `billingAddSeatsStartsCheckout`, which only shows on a
-   * site with no active subscription), that a decrease never applies now and never charges - the
-   * control's own honesty about timing, `25-95`'s own Done-when. */
-  billingReduceSeatsSchedulesAtRenewal: string;
-
-  /** `25-96`: the Administrator-seat counterpart to the add-seats control above, wired to `25-41`'s
-   * own `POST .../billing/subscriptions/{id}/administrators` - built and tested, but unused by the
-   * console until this item. Deliberately diverges from the Operator control rather than reusing its
-   * shape wholesale: `PurchaseAdministratorSlotHandler` requires an already-`Succeeded` subscription
-   * with a stored payment method (its own guard, `Billing.SubscriptionNotActive`) and has no
-   * checkout-session branch at all, so - unlike Operator seats - there is no "starts a subscription"
-   * path here; and it enforces only "the requested count must exceed the current one"
-   * (`Billing.AdministratorCountNotAnIncrease`), no `SubscriptionTierBands`-style min/max band, so this
-   * control carries no analogue of `billingSeatCountOutOfRange`/`billingSeatMaximumReached` at all. */
-  billingCurrentAdminCountLabel: string;
-  billingAddAdminSeatsHeading: string;
-  billingAddAdminSeatsFieldLabel: string;
-  billingNewAdminCountLabel: string;
-  billingAddAdminSeatsButton: string;
-  /** Says out loud that, unlike the Operator control, pressing this button never opens a ЮKassa
-   * redirect - `PurchaseAdministratorSlotHandler` always charges the stored payment method
-   * synchronously, in the same request, the identical "state what happens before it happens" posture
-   * `billingAddSeatsStartsCheckout` holds for its own, different mechanism. */
-  billingAddAdminSeatsChargesImmediately: string;
-  /** Shown, control withheld, when `status.adminExtraPriceRub` is `null` - purchasing would only ever
-   * fail server-side with `Billing.PriceNotConfigured` (`25-43`'s own "built, not yet for sale"
-   * state), so the control is not offered rather than offered and refused. */
-  billingAddAdminSeatsNotForSale: string;
-  /** Shown, control withheld, when there is no `Succeeded` subscription - `PurchaseAdministratorSlotHandler`
-   * has no checkout-session path of its own, so an owner on Solo (or mid-checkout, or lapsed) cannot
-   * buy an extra Administrator until an Operator-seat purchase above has put the site on a paid,
-   * `Succeeded` subscription first. */
-  billingAddAdminSeatsNeedsSubscription: string;
-  billingAdminPurchaseSubmittingButton: string;
-  billingAdminPurchaseError: string;
-  /** Trailing interpolation - `${billingAdminPurchaseSuccessBody} ₽${amount} · ${count}.`, the
-   * Administrator-purchase counterpart to `billingUpgradeSuccessBody` above (no `tier` term here -
-   * an Administrator purchase never changes the site's tier). */
-  billingAdminPurchaseSuccessTitle: string;
-  billingAdminPurchaseSuccessBody: string;
+  /** `26-300`: trailing interpolation - `${used} / ${limit}` is the fact's own value; this is the
+   * `note` underneath it, `${billingIncludedUpToLabel} ${includedCount}` - «до N включено», the
+   * mockup's own wording, for both the Operator and Administrator rows. */
+  billingIncludedUpToLabel: string;
+  /** `26-300`: the channels fact - the site's own built-in website channel, always included, plus the
+   * name of each connected paid channel (`connectedChannels`, rendered by its own proper-noun name -
+   * "Telegram"/"MAX" - never translated, the same "a brand name is not a string to localise" posture
+   * `billingCancelDialogBody`'s own "ЮKassa" already holds). */
+  billingChannelsHeading: string;
+  billingWebsiteChannelName: string;
+  /** `26-300`: `hasStoredPaymentMethod` as its own fact - every instant purchase in the Buy-now card
+   * depends on this being `true`, so a tenant with a `Succeeded` subscription who declined to save a
+   * card at checkout (`CreateCheckoutSession`'s own `savePaymentMethod` choice) can see why Buy-now
+   * is withheld before opening that card at all. */
+  billingPaymentMethodLabel: string;
+  billingPaymentMethodSaved: string;
+  billingPaymentMethodNotSaved: string;
 
   /** Shown while `latestSubscription.status === "Pending"` - the screen's own honest "payment
    * submitted, confirmation pending" state, polled via `usePollUntilCheckoutSettled` rather than
@@ -1478,50 +1405,105 @@ export interface ConsoleStrings {
    * codebase's other date-carrying string. */
   billingCancelRequestedTitle: string;
   billingCancelRequestedBody: string;
-  /** Trailing interpolation - `${billingPendingDowngradeBody} ${seats} (${tier}).` */
-  billingPendingDowngradeTitle: string;
-  billingPendingDowngradeBody: string;
+  /** `26-300`: generalises the old seat-only `billingPendingDowngradeBody` to the whole next-period
+   * composition `SetNextPeriodComposition` can now schedule (seats and administrators, either
+   * direction) - trailing interpolation, `${billingPendingChangeBody} ${summary}.`, `summary` composed
+   * at the call site from `pendingSeatCount`/`pendingAdminCount`/`pendingTier`. */
+  billingPendingChangeTitle: string;
+  billingPendingChangeBody: string;
 
-  /** `25-23` deleted four keys from this block: `billingSeatCountFieldLabel`/
-   * `billingSeatCountFieldDescription` (the direct-edit field and its stale "От 2 до 100 мест"
-   * copy), and `billingSubscribeButton`/`billingChangeSeatsButton` (two button captions for what is
-   * now one `billingAddSeatsButton`, because the control no longer changes shape depending on
-   * whether a subscription already exists - it always adds). The two *submitting* captions below
-   * stay and stay distinct: they are the only place this screen says which of the two things is
-   * actually happening, and "Переход в ЮKassa…" is a materially different promise from
-   * "Отправка…". */
+  /** `26-300`: "Buy now" - the always-instant, always-charged-today purchase card, offered only
+   * against an already-`Succeeded` (or `PastDue`) subscription with a stored payment method; every
+   * other state explains, in place of the buy rows, why it is withheld rather than offering a control
+   * the server would refuse. */
+  billingBuyNowHeading: string;
+  billingBuyNowIntro: string;
+  /** Shown, buy rows withheld, when there is no `Succeeded`/`PastDue` base subscription at all - a
+   * Solo site with nothing yet to charge a card against. Points at the Next period card, the actual
+   * entry point onto Business now that `setNextPeriodComposition`/instant purchases both require one. */
+  billingBuyNowNeedsSubscription: string;
+  /** Shown, buy rows withheld, when `hasStoredPaymentMethod` is `false` on an otherwise-eligible
+   * subscription - the operator declined to save a card at checkout, so every instant-charge endpoint
+   * would 402 with `Billing.NoStoredPaymentMethod`. */
+  billingBuyNowNoPaymentMethod: string;
+  billingBuyQuantityLabel: string;
+  /** Trailing interpolation - `${billingBuyButtonLabel} ₽${amount}`, `amount` always
+   * `previewBillingPurchase`'s own `chargedNowRub` for the exact quantity selected, never computed
+   * client-side (`CLAUDE.md` rule 8: a compare-and-set-adjacent number comes from the database inside
+   * the transaction, not a local guess - the identical reasoning extended to its own read-only preview
+   * of that same number). */
+  billingBuyButtonLabel: string;
+  /** Shown on the button in place of the previewed amount while `previewBillingPurchase` is still in
+   * flight for the currently-selected quantity - never a stale amount for a quantity no longer
+   * selected, and never a fabricated placeholder number. */
+  billingBuyPriceCalculating: string;
+  billingBuySubmittingButton: string;
+  /** Shown in place of the Operator buy row once `seatLimit` has reached `seatPricing.maxSeats` -
+   * there is no self-serve purchase above that band at all (`SubscriptionTierBands.TryResolveTier`
+   * refuses it), so offering the row would be offering something the server will decline. */
+  billingBuyAtMaximumNote: string;
+  billingBuyPurchaseError: string;
+  /** Trailing interpolation - `${billingBuySuccessBody} ₽${amount}.` */
+  billingBuySuccessTitle: string;
+  billingBuySuccessBody: string;
+  /** Trailing interpolation - `${billingChannelConnectButtonLabel} ₽${amount}` - the per-kind channel
+   * buy row's own button caption, the identical "amount always previewed, never computed" contract
+   * `billingBuyButtonLabel` states above. */
+  billingChannelConnectButtonLabel: string;
+  /** Shown in place of a channel's own connect button once it is already in `connectedChannels` -
+   * reconnecting the same kind is not a purchase this screen offers a second time. */
+  billingChannelConnectedLabel: string;
+  /** `25-43`'s own "built, not yet for sale" honest-absence wording, unchanged from `26-294` -
+   * shown, buy row withheld, wherever a price key (`adminExtraPriceRub`, `channelAddOnPriceRub`) has
+   * never had a version published. Never rendered as ₽0: a price nobody published is an absence, not
+   * a free one. */
+  billingNotPricedYetLabel: string;
+
+  /** `26-300`: "Next period" - the whole base subscription's own next-period composition
+   * (`SetNextPeriodComposition`), editable in either direction, charging nothing until the real
+   * renewal that applies it. On a site with no `Succeeded`/`PastDue` subscription yet, this card's own
+   * composition control is instead the entry point onto Business (`createCheckoutSession`) - see this
+   * screen's own top-level remarks for why there is no separate "start a subscription" card. */
+  billingNextPeriodHeading: string;
+  /** Trailing interpolation - `${billingNextPeriodIntroActive} ${date}:` - what is about to renew, and
+   * when. */
+  billingNextPeriodIntroActive: string;
+  billingNextPeriodIntroNoSubscription: string;
+  billingSavePaymentMethodLabel: string;
+  billingSavePaymentMethodHintOn: string;
+  billingSavePaymentMethodHintOff: string;
+  billingStartSubscriptionButton: string;
+  /** `25-23`'s own caption, kept for the identical mechanism (`createCheckoutSession`'s own redirect) -
+   * the Next period card's own "start a subscription" submit now shows it, in place of the old Buy-now
+   * card that used to. */
   billingSubscribingButton: string;
-  billingChangingSeatsButton: string;
   billingCheckoutError: string;
-  billingSeatChangeError: string;
-  /** Trailing interpolation - `${billingUpgradeSuccessBody} ₽${amount} · ${tier}, ${seats}.` The only
-   * one-off confirmation this screen shows for a write: the charged amount is not otherwise visible
-   * anywhere once the page reflects the new tier, unlike a downgrade or a cancellation, both of which
-   * this screen shows entirely through persistent state (`billingPendingDowngradeBody`/
-   * `billingCancelRequestedBody` above) rather than a second, redundant toast. */
-  billingUpgradeSuccessTitle: string;
-  billingUpgradeSuccessBody: string;
+  billingNextPeriodChannelRenewLabel: string;
+  /** `26-300`: shown when choosing a Next-period composition that exceeds Solo's own free allowance
+   * while still on Solo - the mockup's own Соло->Бизнес transition line. `billingBusinessTransitionBody`
+   * is trailing interpolation, `${billingBusinessTransitionBody} ₽${baseSeatPriceRub}/${billingPerMonthAbbrev}
+   * (${baseSeats} ${billingOperatorSeatsHeading})` - built only from `seatPricing`'s own sourced fields,
+   * never a number this screen invents (`CLAUDE.md`: no fabricated figures) - so it deliberately does not
+   * name Business's own included-Administrator count, which is not knowable from a Solo site's own status
+   * before it ever subscribes. */
+  billingBusinessTransitionTitle: string;
+  billingBusinessTransitionBody: string;
+  billingPerMonthAbbrev: string;
+  billingNextPeriodTotalLabel: string;
+  billingNextPeriodTotalFree: string;
+  /** Trailing interpolation - `${billingNextPeriodVsCurrentLabel} ${signedAmount}` - the delta this
+   * composition's own recomputed total carries against what is billing today, shown only once already
+   * on a paid tier. */
+  billingNextPeriodVsCurrentLabel: string;
+  billingNextPeriodNote: string;
+  billingNextPeriodSaveError: string;
+  billingNextPeriodChannelToggleError: string;
 
   billingCancelButton: string;
   billingCancelDialogTitle: string;
   billingCancelDialogBody: string;
   billingCancelConfirmButton: string;
   billingCancelError: string;
-
-  /** `26-294`: the "Next renewal" card - `26-290`'s Case 3, display half only. The exact recurring
-   * amount is deliberately not computed here (`billingNextRenewalAmountPending`, never a fabricated
-   * figure - `CLAUDE.md`: "do not invent numbers"): it needs a channel-option count this screen's own
-   * `BillingStatusDto` does not carry yet (`26-290` slice 2's own `nextChargeRub` addition). Pay-early
-   * is its own later slice (`26-290` slice 4) - this card states only that renewal is automatic. */
-  billingNextRenewalHeading: string;
-  billingNextRenewalDateLabel: string;
-  billingNextRenewalAmountLabel: string;
-  billingNextRenewalAmountPending: string;
-  billingNextRenewalAutomaticNote: string;
-  billingNextRenewalNoSubscription: string;
-  /** Shown while `latestSubscription.status` is `Pending`/`Failed` - there is no settled period to
-   * name a renewal date against yet. */
-  billingNextRenewalPending: string;
 
   // `23-25`: ProductsPage (`/settings/products`) - every product AGO offers, and whether this
   // workspace already has it, addressed to whoever holds `site:configure` - the same permission
