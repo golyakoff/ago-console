@@ -1310,10 +1310,26 @@ export interface ConsoleStrings {
   billingLoadError: string;
   billingLoadingLabel: string;
 
+  /** `26-294`: the "Current plan" card's own title - `13-04`'s original "Subscription" repurposed
+   * for the merged card (tier, status, seats, admins, paid-until all in one dense grid) rather than
+   * a new key, since nothing outside this file ever depended on the old wording. */
   billingPanelTitle: string;
   billingTierLabel: string;
   billingSeatsUsedLabel: string;
   billingSeatLimitLabel: string;
+  /** `26-294`: the status-badge row the redesign's Case 1 asked for - `latestSubscription.status`
+   * rendered as one word plus colour, not a raw enum. `Pending`/`Failed` reuse `billingPendingTitle`/
+   * `billingFailedTitle` (the same word already shown as that state's `Alert` title) rather than a
+   * second, parallel translation of an identical concept. */
+  billingStatusLabel: string;
+  billingStatusFreeLabel: string;
+  billingStatusActiveLabel: string;
+  billingStatusPastDueLabel: string;
+  billingStatusLapsedLabel: string;
+  /** `26-294`: Case 1's "paid until" fact - `latestSubscription.currentPeriodEnd`, already on the
+   * wire, just not previously surfaced as its own labelled fact (it only ever appeared inline inside
+   * the cancel-requested/pending-downgrade notices). */
+  billingPaidUntilLabel: string;
 
   /** `25-23`: the two headings that split one undifferentiated "Лимит мест" into the two counts
    * `ago-business` decision `0011` actually keeps apart ("администраторы считаются отдельно от
@@ -1356,6 +1372,11 @@ export interface ConsoleStrings {
    * owner type an absolute seat total over their current one, which read as "set my seats to N" and
    * gave no sense of what was being bought; this is the quantity-plus-add shape the author asked
    * for - a read-only current count, a "how many more" spinner, and one button. */
+  /** `26-294`: the "Add to your plan" card's own title - replaces the three separate stepper
+   * panels (add seats / reduce seats / add administrators) this screen used to stack full-width, one
+   * under another. The three headings below (`billingAddSeatsHeading` etc.) stay - they now label
+   * one row inside this card instead of a panel of their own. */
+  billingAddToPlanHeading: string;
   billingCurrentSeatCountLabel: string;
   billingAddSeatsHeading: string;
   billingAddSeatsFieldLabel: string;
@@ -1486,6 +1507,21 @@ export interface ConsoleStrings {
   billingCancelDialogBody: string;
   billingCancelConfirmButton: string;
   billingCancelError: string;
+
+  /** `26-294`: the "Next renewal" card - `26-290`'s Case 3, display half only. The exact recurring
+   * amount is deliberately not computed here (`billingNextRenewalAmountPending`, never a fabricated
+   * figure - `CLAUDE.md`: "do not invent numbers"): it needs a channel-option count this screen's own
+   * `BillingStatusDto` does not carry yet (`26-290` slice 2's own `nextChargeRub` addition). Pay-early
+   * is its own later slice (`26-290` slice 4) - this card states only that renewal is automatic. */
+  billingNextRenewalHeading: string;
+  billingNextRenewalDateLabel: string;
+  billingNextRenewalAmountLabel: string;
+  billingNextRenewalAmountPending: string;
+  billingNextRenewalAutomaticNote: string;
+  billingNextRenewalNoSubscription: string;
+  /** Shown while `latestSubscription.status` is `Pending`/`Failed` - there is no settled period to
+   * name a renewal date against yet. */
+  billingNextRenewalPending: string;
 
   // `23-25`: ProductsPage (`/settings/products`) - every product AGO offers, and whether this
   // workspace already has it, addressed to whoever holds `site:configure` - the same permission

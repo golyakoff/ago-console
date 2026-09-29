@@ -227,3 +227,104 @@
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
+
+/* --- Billing page (`26-294`): three-card redesign ----------------------------------------------
+ * `26-290`'s design replaced six stacked full-width panels (~20 one-fact-per-line rows, up to five
+ * stacked forms, one under another) with three dense cards - Current plan, Add to your plan, Next
+ * renewal. These are that redesign's own layout primitives, not a new component: a responsive card
+ * grid (Card 1 full-width on top, Cards 2 and 3 side by side below on a wide viewport, all three
+ * stacked on narrow - `BillingPage.tsx` renders Card 1 first, which is what `:first-child` below
+ * relies on) and a tight label/value definition grid, replacing the old one-`<p>`-per-fact list. */
+.ago-billing-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ago-space-4);
+}
+
+@media (min-width: 60rem) {
+  .ago-billing-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .ago-billing-grid > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+.ago-billing-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--ago-space-3) var(--ago-space-5);
+  margin: 0;
+}
+
+.ago-billing-fact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-1);
+}
+
+.ago-billing-fact dt {
+  font-size: var(--ago-text-xs);
+  color: var(--ago-ink-soft);
+}
+
+.ago-billing-fact dd {
+  margin: 0;
+  font-size: var(--ago-text-base);
+  font-weight: 600;
+}
+
+.ago-billing-fact__note {
+  font-size: var(--ago-text-xs);
+  color: var(--ago-ink-soft);
+}
+
+/* One buyable dimension - name and unit price on the left, the stepper-plus-button control on the
+ * right, sharing a single line via `Field`'s own `adornment` slot (`WidgetConfigPage`'s hex-swatch
+ * precedent) rather than the label-above-control stack every other form on this screen used to use.
+ * Rows inside one card, not separate cards of their own - the actual merge `26-290` asked for, not
+ * just a visual grouping of the old panels. */
+.ago-billing-buy-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--ago-space-3);
+  padding: var(--ago-space-3) 0;
+}
+
+.ago-billing-buy-row + .ago-billing-buy-row {
+  border-top: 1px solid var(--ago-line);
+}
+
+.ago-billing-buy-row__info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-1);
+  min-width: 12rem;
+}
+
+.ago-billing-buy-row__name {
+  font-weight: 600;
+}
+
+.ago-billing-buy-row__price {
+  font-size: var(--ago-text-sm);
+  color: var(--ago-ink-soft);
+}
+
+.ago-billing-buy-row__controls {
+  display: flex;
+  align-items: flex-end;
+}
+
+/* A small, secondary explanatory line - the same one-step-down-in-size-and-ink treatment
+ * `.ago-install-origin-hint` already gives a hint under a form, reused here for the notices
+ * (`26-290`'s "small inline notes rather than separate full-width Alert panels") that replaced this
+ * screen's old cancel-requested/pending-downgrade `Alert`s. */
+.ago-billing-note {
+  margin: 0;
+  font-size: var(--ago-text-sm);
+  color: var(--ago-ink-soft);
+}
