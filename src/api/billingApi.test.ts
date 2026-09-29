@@ -67,6 +67,11 @@ const status = {
     billingPeriodDays: 30,
   },
   adminExtraPriceRub: null,
+  channelCount: 0,
+  channelAddOnPriceRub: null,
+  nextChargeRub: null,
+  hasStoredPaymentMethod: false,
+  connectedChannels: [],
 };
 
 describe("fetchBillingStatus - shape validation", () => {

@@ -7,20 +7,24 @@ import {
   changeSubscriptionSeats,
   createCheckoutSession,
   fetchBillingStatus,
+  previewBillingPurchase,
   purchaseAdministratorSlot,
+  purchaseChannelAddOn,
+  setNextPeriodComposition,
+  type BillingConnectedChannelDto,
+  type BillingSeatPricingDto,
   type BillingStatusDto,
   type BillingSubscriptionSummaryDto,
 } from "../api/billingApi.js";
 import { checkCheckoutConfirmation } from "../billing/checkoutConfirmation.js";
 import type { CheckoutConfirmationOutcome } from "../billing/checkoutConfirmation.js";
 import { usePollUntilCheckoutSettled } from "../billing/usePollUntilCheckoutSettled.js";
-import { isValidSeatCount } from "./billingValidation.js";
 import { formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
 import { PageHead } from "../shell/AppShell.js";
 import { AccessRefusal } from "../shell/accessRefusal.js";
 import { Panel } from "../components/Panel.js";
 import { Field } from "../components/Field.js";
-import { Input } from "../components/Input.js";
+import { Select } from "../components/Select.js";
 import { Button } from "../components/Button.js";
 import { Alert } from "../components/Alert.js";
 import { Badge, type BadgeTone } from "../components/Badge.js";
@@ -30,46 +34,90 @@ import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
 import { shapeMismatchMessage } from "./apiErrorMessage.js";
 
-/** `13-04`: this screen's own gate - `13-02`/`13-03`'s checkout/cancel/seat-change endpoints, and the
- * `13-04`-added `GET .../billing/status` read, are all gated server-side on the identical permission
- * (`Ago.Chat.Domain.Permission.SiteConfigure`), the same category `5-08` already put "site
- * configuration" screens under (`WidgetConfigPage`/`OfflineAutoReplyPage`/`AdminConversationsPage`'s
- * own precedent). Client-side, this is UX only - it hides the form the same way those screens hide
- * theirs; the real gate is the server's own check on every call. */
+/** `13-04`: this screen's own gate - every billing endpoint below is gated server-side on the
+ * identical permission (`Ago.Chat.Domain.Permission.SiteConfigure`), the same category `5-08` already
+ * put "site configuration" screens under. Client-side, this is UX only - the real gate is the
+ * server's own check on every call. */
 export const BILLING_PERMISSION = "site:configure";
 
 const CHECKOUT_POLL_INTERVAL_MS = 3_000;
 
-/** `25-23`: the stepper's own floor. One is the smallest purchase that means anything, and the
- * control starts there rather than at the site's current seat count - the whole point of the change
- * from a direct-edit field is that the number being typed is a *quantity being bought*, not a total
- * being overwritten. */
-const MIN_SEATS_TO_ADD = 1;
+/** The smallest quantity any "докупить"/buy-row stepper can name - one is the smallest purchase that
+ * means anything, the identical floor `25-23`'s own `MIN_SEATS_TO_ADD` established for the `26-294`
+ * page this rebuilds. */
+const MIN_QUANTITY = 1;
 
-/** `25-95`: the reduce control's own floor - the smallest quantity a decrease request can name, the
- * identical "one is the smallest change that means anything" reasoning `MIN_SEATS_TO_ADD` already
- * gives, mirrored rather than shared because the two constants bound two different directions of the
- * same number and a single shared name would read as if zero were a valid quantity for either. */
-const MIN_SEATS_TO_REMOVE = 1;
+/** `26-300`: `PurchaseAdministratorSlotHandler`/`SetNextPeriodCompositionHandler` both enforce only
+ * "the requested extra-Administrator count is not negative" - no `SubscriptionTierBands`-style band
+ * the way Operator seats have one. This is a UI-only ceiling for the `<select>` these two controls
+ * render (a dropdown needs a finite option list), never a number this screen tells the server about -
+ * a quantity beyond it is simply not offered as a menu item, not refused as invalid. */
+const ADMIN_EXTRA_UI_MAX = 10;
 
-type SeatChangeSuccess = { amountRub: number; tier: string; seats: number };
-
-/** `25-96`: no `tier` field - unlike a seat change, an Administrator purchase never moves the site
- * between tiers, so there is nothing here to echo back beyond what was charged and the new count. */
-type AdminPurchaseSuccess = { amountRub: number; count: number };
-
-/** `25-23`: `₽NNN.00`, the identical formatting `OwnerPricingPage` already uses for the same
- * catalog-sourced amounts - so a price shown to a tenant here and to the owner there cannot render
- * differently from one another. */
 function rub(amount: number): string {
   return `₽${amount.toFixed(2)}`;
 }
 
-/** `26-294`: one row of the dense label/value grid every card below uses - `.ago-billing-facts`
- * (`index.css`) lays these out two-to-a-row on a wide viewport, one-per-row on narrow, replacing the
- * old `<p><strong>label</strong>: value</p>` this screen used to repeat about twenty times. `note` is
- * the small, second-order fact that used to be its own row ("Included free on Solo", "Purchased
- * beyond the tier") - folded under the primary value instead of given a row of its own. */
+function range(from: number, to: number): number[] {
+  const values: number[] = [];
+  for (let value = from; value <= to; value++) {
+    values.push(value);
+  }
+  return values;
+}
+
+/** `Ago.Chat.Domain.ChannelKind`'s own display names. `src/owner/ownerSites.ts` keeps the identical
+ * mapping for the owner's own screens - copied locally rather than imported, the same "a channel kind
+ * is shared vocabulary, but `owner/` and `pages/` stay their own modules" precedent
+ * `CalendarClientDetailPage.tsx`'s own local `channelKindLabel` copy already sets for an analogous
+ * small enum-label helper. Reuses the exact `ownerChannelKind*` string keys rather than a second,
+ * billing-specific translation of the same handful of proper nouns. */
+function channelKindLabel(kind: string, strings: ConsoleStrings): string {
+  if (kind === "Max") {
+    return strings.ownerChannelKindMax;
+  }
+  if (kind === "Telegram") {
+    return strings.ownerChannelKindTelegram;
+  }
+  if (kind === "Vk") {
+    return strings.ownerChannelKindVk;
+  }
+  if (kind === "WhatsApp") {
+    return strings.ownerChannelKindWhatsApp;
+  }
+  if (kind === "Avito") {
+    return strings.ownerChannelKindAvito;
+  }
+  return kind;
+}
+
+/** `SubscriptionTierBands.ComputeSeatPriceRub`'s own formula, mirrored client-side for display only -
+ * never sent to the server as a charge (every real charge in this screen is `previewBillingPurchase`'s
+ * own server-computed number, `CLAUDE.md` rule 8). Used only to show what the *next period's own
+ * recurring total* would be against a composition already confirmed by the server
+ * (`nextChargeRub`/the pending fields it was computed from), so this can never honestly disagree with
+ * what `GetBillingStatusHandler` itself already computed the identical way. */
+function computeSeatPriceRub(seats: number, baseSeatPriceRub: number, pricePerExtraSeatRub: number, baseSeats: number): number {
+  return baseSeatPriceRub + Math.max(0, seats - baseSeats) * pricePerExtraSeatRub;
+}
+
+function computeRecurringTotal(
+  seats: number,
+  extraAdministrators: number,
+  renewingChannelCount: number,
+  pricing: BillingSeatPricingDto,
+  adminExtraPriceRub: number | null,
+  channelAddOnPriceRub: number | null,
+): number {
+  const seatAmount = computeSeatPriceRub(seats, pricing.baseSeatPriceRub, pricing.pricePerExtraSeatRub, pricing.baseSeats);
+  const adminAmount = extraAdministrators * (adminExtraPriceRub ?? 0);
+  const channelAmount = renewingChannelCount * (channelAddOnPriceRub ?? 0);
+  return seatAmount + adminAmount + channelAmount;
+}
+
+/** `26-300`: one row of the dense label/value grid Card C uses - `.ago-billing-facts` (`index.css`,
+ * `26-294`) lays these out two-to-a-row on a wide viewport. `note` is the small, second-order fact
+ * shown under the primary value - "included up to N" for the seat/admin pairs. */
 function FactRow({ label, value, note }: { label: string; value: ReactNode; note?: ReactNode }) {
   return (
     <div className="ago-billing-fact">
@@ -80,11 +128,9 @@ function FactRow({ label, value, note }: { label: string; value: ReactNode; note
   );
 }
 
-/** `26-294`: Card 1's status badge - `26-290`'s own Case 1 table ("Status badge ... rendered as
- * active / past-due / pending badges"). `Pending` and `Failed` reuse `billingPendingTitle`/
- * `billingFailedTitle` rather than a second translation of the identical word, since those are
- * already the exact word shown as that state's own `Alert` title just below. A `null` subscription
- * is the ordinary free-tier state, not an error - `tone: "neutral"`, not `"danger"`. */
+/** `26-294`: Card 1's status badge, unchanged by this item - `latestSubscription.status` rendered as
+ * one word plus colour, not a raw enum. A `null` subscription is the ordinary free-tier state, not an
+ * error - `tone: "neutral"`. */
 function subscriptionStatusBadge(
   sub: BillingSubscriptionSummaryDto | null,
   strings: ConsoleStrings,
@@ -106,136 +152,516 @@ function subscriptionStatusBadge(
   }
 }
 
+interface BuyQuantityRowProps {
+  strings: ConsoleStrings;
+  label: string;
+  hint?: ReactNode;
+  maxQuantity: number;
+  notPriced?: boolean;
+  atMaximum?: boolean;
+  atMaximumNote?: string;
+  preview: (qty: number) => Promise<number>;
+  purchase: (qty: number) => Promise<number>;
+  onPurchased: () => void;
+}
+
+/** `26-300`: one buyable dimension in the "Buy now" card - a quantity stepper plus one button whose
+ * own caption is always `previewBillingPurchase`'s own `chargedNowRub` for the quantity currently
+ * selected, refetched every time that quantity changes. Shared by the Operator and Administrator buy
+ * rows (they differ only in label, bound, and which two closures the parent passes); the per-kind
+ * channel rows use `BuyChannelRow` below instead, since a channel has no quantity to choose. */
+function BuyQuantityRow({
+  strings,
+  label,
+  hint,
+  maxQuantity,
+  notPriced,
+  atMaximum,
+  atMaximumNote,
+  preview,
+  purchase,
+  onPurchased,
+}: BuyQuantityRowProps) {
+  const [qty, setQty] = useState(MIN_QUANTITY);
+  // `26-300`: the last *settled* preview, keyed by the quantity it answers for - not two separate
+  // `amount`/`loadingPreview` flags set synchronously at the top of the effect below
+  // (`react-hooks/set-state-in-effect` refuses that shape: an effect may only set state from an async
+  // callback, never synchronously during its own body). `loadingPreview`/`amount` are derived from
+  // this below rather than tracked as their own state - "still loading" is simply "no settled answer
+  // for the currently-selected quantity yet".
+  const [resolvedPreview, setResolvedPreview] = useState<{ qty: number; amount: number | null } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (notPriced || atMaximum) {
+      return;
+    }
+    let cancelled = false;
+    preview(qty)
+      .then((value) => {
+        if (!cancelled) {
+          setResolvedPreview({ qty, amount: value });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setResolvedPreview({ qty, amount: null });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [notPriced, atMaximum, preview, qty]);
+
+  const loadingPreview = resolvedPreview === null || resolvedPreview.qty !== qty;
+  const amount = !loadingPreview ? resolvedPreview.amount : null;
+
+  if (notPriced) {
+    return (
+      <div className="ago-billing-buy-row">
+        <div className="ago-billing-buy-row__info">
+          <span className="ago-billing-buy-row__name">{label}</span>
+        </div>
+        <span className="ago-billing-note">{strings.billingNotPricedYetLabel}</span>
+      </div>
+    );
+  }
+
+  if (atMaximum) {
+    return (
+      <div className="ago-billing-buy-row">
+        <div className="ago-billing-buy-row__info">
+          <span className="ago-billing-buy-row__name">{label}</span>
+        </div>
+        <span className="ago-billing-note">{atMaximumNote}</span>
+      </div>
+    );
+  }
+
+  const handleBuy = async () => {
+    setSubmitting(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const charged = await purchase(qty);
+      setSuccess(charged);
+      setQty(MIN_QUANTITY);
+      onPurchased();
+    } catch (err) {
+      setError(err instanceof ApiProblemError ? err.message : strings.billingBuyPurchaseError);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const buttonLabel =
+    submitting
+      ? strings.billingBuySubmittingButton
+      : loadingPreview || amount === null
+        ? `${strings.billingBuyButtonLabel} (${strings.billingBuyPriceCalculating})`
+        : `${strings.billingBuyButtonLabel} ${rub(amount)}`;
+
+  return (
+    <div className="ago-billing-buy-row">
+      <div className="ago-billing-buy-row__info">
+        <span className="ago-billing-buy-row__name">{label}</span>
+        {hint && <span className="ago-billing-buy-row__price">{hint}</span>}
+      </div>
+      <div className="ago-billing-buy-row__controls">
+        <Field label={strings.billingBuyQuantityLabel}>
+          {(controlProps) => (
+            <Select
+              {...controlProps}
+              value={qty}
+              disabled={submitting}
+              onChange={(event) => setQty(Number(event.target.value))}
+            >
+              {range(MIN_QUANTITY, maxQuantity).map((n) => (
+                <option key={n} value={n}>{`+${n}`}</option>
+              ))}
+            </Select>
+          )}
+        </Field>
+        <Button variant="primary" disabled={submitting || loadingPreview} onClick={() => void handleBuy()}>
+          {buttonLabel}
+        </Button>
+      </div>
+      {error && <Alert tone="danger">{error}</Alert>}
+      {success !== null && (
+        <Alert tone="success" title={strings.billingBuySuccessTitle}>
+          {strings.billingBuySuccessBody} {rub(success)}.
+        </Alert>
+      )}
+    </div>
+  );
+}
+
+interface BuyChannelRowProps {
+  strings: ConsoleStrings;
+  displayName: string;
+  connected: boolean;
+  priced: boolean;
+  preview: () => Promise<number>;
+  purchase: () => Promise<number>;
+  onPurchased: () => void;
+}
+
+/** `26-300`: the per-kind channel buy row - Telegram and MAX only (`billingApi.ts`'s own
+ * `OfferedChannelKind` remarks), each its own row since a channel purchase has no quantity, only a
+ * connect-or-not state. */
+function BuyChannelRow({ strings, displayName, connected, priced, preview, purchase, onPurchased }: BuyChannelRowProps) {
+  // `26-300`: the same "derive loading from a settled-or-not preview" shape `BuyQuantityRow` above
+  // uses, for the identical `react-hooks/set-state-in-effect` reason - `null` means "not settled for
+  // the current connected/priced combination yet".
+  const [resolvedPreview, setResolvedPreview] = useState<number | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (connected || !priced) {
+      return;
+    }
+    let cancelled = false;
+    preview()
+      .then((value) => {
+        if (!cancelled) {
+          setResolvedPreview(value);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setResolvedPreview(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, priced, preview]);
+
+  const loadingPreview = !connected && priced && resolvedPreview === null;
+  const amount = resolvedPreview;
+
+  const handleBuy = async () => {
+    setSubmitting(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const charged = await purchase();
+      setSuccess(charged);
+      onPurchased();
+    } catch (err) {
+      setError(err instanceof ApiProblemError ? err.message : strings.billingBuyPurchaseError);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="ago-billing-buy-row">
+      <div className="ago-billing-buy-row__info">
+        <span className="ago-billing-buy-row__name">{displayName}</span>
+      </div>
+      {connected ? (
+        <span className="ago-billing-note">{strings.billingChannelConnectedLabel}</span>
+      ) : !priced ? (
+        <span className="ago-billing-note">{strings.billingNotPricedYetLabel}</span>
+      ) : (
+        <Button variant="primary" disabled={submitting || loadingPreview} onClick={() => void handleBuy()}>
+          {submitting
+            ? strings.billingBuySubmittingButton
+            : loadingPreview || amount === null
+              ? `${strings.billingChannelConnectButtonLabel} (${strings.billingBuyPriceCalculating})`
+              : `${strings.billingChannelConnectButtonLabel} ${rub(amount)}`}
+        </Button>
+      )}
+      {error && <Alert tone="danger">{error}</Alert>}
+      {success !== null && (
+        <Alert tone="success" title={strings.billingBuySuccessTitle}>
+          {strings.billingBuySuccessBody} {rub(success)}.
+        </Alert>
+      )}
+    </div>
+  );
+}
+
+interface ActiveNextPeriodPanelProps {
+  strings: ConsoleStrings;
+  timeZone: string;
+  accessToken: string;
+  siteId: string;
+  status: BillingStatusDto;
+  sub: BillingSubscriptionSummaryDto;
+  onChanged: () => void;
+  onRequestCancel: () => void;
+}
+
+/** `26-300`: the editable next-period composition for a site that already has a `Succeeded`/`PastDue`
+ * base subscription - the one state `SetNextPeriodCompositionHandler`'s own top gate accepts a
+ * composition change on at all. Every dropdown persists immediately on change (`setNextPeriodComposition`
+ * charges nothing - only `PendingSeatCount`/`PendingAdminCount`/`PendingTier` move), then refetches
+ * `status` - there is no separate "unsaved edit" state to reconcile, and the displayed total is always
+ * `status.nextChargeRub` itself, never a locally-held guess of what the save is about to produce. */
+function ActiveNextPeriodPanel({
+  strings,
+  timeZone,
+  accessToken,
+  siteId,
+  status,
+  sub,
+  onChanged,
+  onRequestCancel,
+}: ActiveNextPeriodPanelProps) {
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [channelSavingId, setChannelSavingId] = useState<string | null>(null);
+  const [channelError, setChannelError] = useState<string | null>(null);
+
+  const pricing = status.seatPricing;
+  const effectiveSeats = sub.pendingSeatCount ?? sub.requestedSeats;
+  const effectiveAdmins = sub.pendingAdminCount ?? status.extraAdministratorsPurchased;
+  const renewingChannelCount = status.connectedChannels.filter((channel) => !channel.cancelRequested).length;
+
+  // What is billing *today*, for the "vs. current charge" delta below - the identical formula
+  // `GetBillingStatusHandler` itself uses for `nextChargeRub`, applied to the currently-billing
+  // composition instead of the pending one, so the comparison is apples to apples.
+  const currentTotal = computeRecurringTotal(
+    sub.requestedSeats,
+    status.extraAdministratorsPurchased,
+    renewingChannelCount,
+    pricing,
+    status.adminExtraPriceRub,
+    status.channelAddOnPriceRub,
+  );
+  const nextTotal = status.nextChargeRub;
+  const delta = nextTotal !== null ? nextTotal - currentTotal : 0;
+
+  const periodEndDate = sub.currentPeriodEnd ? parseInstant(sub.currentPeriodEnd) : null;
+
+  async function persist(newSeats: number, newAdmins: number) {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await setNextPeriodComposition(accessToken, siteId, sub.subscriptionId, newSeats, newAdmins);
+      onChanged();
+    } catch (err) {
+      setSaveError(err instanceof ApiProblemError ? err.message : strings.billingNextPeriodSaveError);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleChannelTurnOff(channel: BillingConnectedChannelDto) {
+    setChannelSavingId(channel.subscriptionId);
+    setChannelError(null);
+    try {
+      await cancelSubscription(accessToken, siteId, channel.subscriptionId);
+      onChanged();
+    } catch (err) {
+      setChannelError(err instanceof ApiProblemError ? err.message : strings.billingNextPeriodChannelToggleError);
+    } finally {
+      setChannelSavingId(null);
+    }
+  }
+
+  return (
+    <div className="ago-stack">
+      <p className="ago-billing-note">
+        {strings.billingNextPeriodIntroActive} {periodEndDate ? formatDateStamp(periodEndDate, timeZone, strings) : "—"}:
+      </p>
+
+      <div className="ago-billing-buy-row">
+        <div className="ago-billing-buy-row__info">
+          <span className="ago-billing-buy-row__name">{strings.billingOperatorSeatsHeading}</span>
+        </div>
+        <Field label={strings.billingOperatorSeatsHeading}>
+          {(controlProps) => (
+            <Select
+              {...controlProps}
+              value={effectiveSeats}
+              disabled={saving}
+              onChange={(event) => void persist(Number(event.target.value), effectiveAdmins)}
+            >
+              {range(pricing.minSeats, pricing.maxSeats).map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+      </div>
+
+      <div className="ago-billing-buy-row">
+        <div className="ago-billing-buy-row__info">
+          <span className="ago-billing-buy-row__name">{strings.billingAdminSeatsHeading}</span>
+        </div>
+        <Field label={strings.billingAdminSeatsHeading}>
+          {(controlProps) => (
+            <Select
+              {...controlProps}
+              value={effectiveAdmins}
+              disabled={saving}
+              onChange={(event) => void persist(effectiveSeats, Number(event.target.value))}
+            >
+              {range(0, ADMIN_EXTRA_UI_MAX).map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+      </div>
+
+      {saveError && <Alert tone="danger">{saveError}</Alert>}
+
+      <div className="ago-billing-channel-list">
+        <label className="ago-row">
+          <input type="checkbox" checked disabled />
+          <span>{strings.billingWebsiteChannelName}</span>
+        </label>
+        {status.connectedChannels.map((channel) => (
+          <label className="ago-row" key={channel.subscriptionId}>
+            <input
+              type="checkbox"
+              checked={!channel.cancelRequested}
+              disabled={channel.cancelRequested || channelSavingId === channel.subscriptionId}
+              onChange={() => void handleChannelTurnOff(channel)}
+            />
+            <span>{channelKindLabel(channel.kind, strings)}</span>
+          </label>
+        ))}
+      </div>
+      {channelError && <Alert tone="danger">{channelError}</Alert>}
+
+      <div className="ago-billing-total">
+        <span>{strings.billingNextPeriodTotalLabel}</span>
+        <strong>{nextTotal !== null && nextTotal > 0 ? rub(nextTotal) : strings.billingNextPeriodTotalFree}</strong>
+      </div>
+      {nextTotal !== null && delta !== 0 && (
+        <p className="ago-billing-note">
+          {strings.billingNextPeriodVsCurrentLabel} {delta > 0 ? "+" : "−"}
+          {rub(Math.abs(delta))}
+        </p>
+      )}
+
+      <p className="ago-billing-note">{strings.billingNextPeriodNote}</p>
+
+      {!sub.cancelRequested && (
+        <div className="ago-row">
+          <Button variant="danger" size="sm" onClick={onRequestCancel}>
+            {strings.billingCancelButton}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface CheckoutNextPeriodPanelProps {
+  strings: ConsoleStrings;
+  accessToken: string;
+  siteId: string;
+  pricing: BillingSeatPricingDto;
+}
+
+/** `26-300`: a site with no `Succeeded`/`PastDue` base subscription cannot call
+ * `setNextPeriodComposition` (`SetNextPeriodCompositionHandler`'s own guard) or any instant-purchase
+ * endpoint (all three need an existing stored payment method) - the *only* way onto Business is
+ * `createCheckoutSession`. This panel is that entry point, doubling as "Next period" while on Solo (or
+ * `Failed`/`Lapsed`) - complete with the one save-payment-method choice this screen ever asks for,
+ * because `CreateCheckoutSessionRequest` is the only wire shape that carries it at all. */
+function CheckoutNextPeriodPanel({ strings, accessToken, siteId, pricing }: CheckoutNextPeriodPanelProps) {
+  const [seats, setSeats] = useState(pricing.minSeats);
+  const [savePaymentMethod, setSavePaymentMethod] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      const { confirmationUrl } = await createCheckoutSession(accessToken, siteId, seats, savePaymentMethod);
+      // A real, full-page navigation to ЮKassa's hosted checkout - the component unmounts here on
+      // success; `submitting` is only ever reset on the failure path below.
+      window.location.href = confirmationUrl;
+    } catch (err) {
+      setError(err instanceof ApiProblemError ? err.message : strings.billingCheckoutError);
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form className="ago-stack" onSubmit={(event) => void handleSubmit(event)}>
+      <p className="ago-billing-note">{strings.billingNextPeriodIntroNoSubscription}</p>
+
+      <div className="ago-billing-transition">
+        <strong>{strings.billingBusinessTransitionTitle}</strong>
+        <span>
+          {strings.billingBusinessTransitionBody} {rub(pricing.baseSeatPriceRub)}/{strings.billingPerMonthAbbrev}
+        </span>
+      </div>
+
+      <Field label={strings.billingOperatorSeatsHeading}>
+        {(controlProps) => (
+          <Select
+            {...controlProps}
+            value={seats}
+            disabled={submitting}
+            onChange={(event) => setSeats(Number(event.target.value))}
+          >
+            {range(pricing.minSeats, pricing.maxSeats).map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </Select>
+        )}
+      </Field>
+
+      <label className="ago-row">
+        <input
+          type="checkbox"
+          checked={savePaymentMethod}
+          onChange={(event) => setSavePaymentMethod(event.target.checked)}
+          disabled={submitting}
+        />
+        <span>{strings.billingSavePaymentMethodLabel}</span>
+      </label>
+      <p className="ago-billing-note">
+        {savePaymentMethod ? strings.billingSavePaymentMethodHintOn : strings.billingSavePaymentMethodHintOff}
+      </p>
+
+      {error && <Alert tone="danger">{error}</Alert>}
+
+      <div className="ago-row">
+        <Button type="submit" variant="primary" disabled={submitting}>
+          {submitting ? strings.billingSubscribingButton : strings.billingStartSubscriptionButton}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 /**
- * `13-04`: `/settings/billing` - current tier, seats used vs. seat limit, and the full subscription
- * lifecycle surface `13-03`'s policy unblocked: upgrade (a seat-count input, `13-02`'s
- * checkout-session endpoint, ЮKassa's hosted redirect), downgrade and cancellation (`13-03`'s own
- * seat-change/cancel endpoints). See this item's own report for the explicit scope decision and why
- * downgrade/cancellation are included now that `13-03` answered the policy questions the original
- * backlog item was blocked on.
+ * `26-300`: the full v2 rebuild of the `26-294` three-card page - see `strings.ts`'s own
+ * `billingPanelTitle` remarks for the shape this rewrites and why "Buy now" and "Next period" are two
+ * different actions rather than one. Reads `GET .../billing/status` (`26-299`'s five additive fields:
+ * `channelCount`/`channelAddOnPriceRub`/`nextChargeRub`/`hasStoredPaymentMethod`/`connectedChannels`)
+ * and writes through five endpoints: the two this screen already had
+ * (`createCheckoutSession`/`cancelSubscription`), one whose shape changed
+ * (`changeSubscriptionSeats`, now only ever called as an immediate upgrade - the downgrade branch
+ * `26-294` used is superseded by `setNextPeriodComposition`, which covers both directions and
+ * Administrators too), and three new ones (`purchaseAdministratorSlot`'s call site moved, plus
+ * `purchaseChannelAddOn`, `setNextPeriodComposition`, `previewBillingPurchase`).
  *
- * ## The honest pending-then-confirmed mechanism
- *
- * `13-02`'s checkout-session creation never touches `Site.Tier`/`Site.SeatLimit` - only a verified
- * webhook does. This screen never claims success off ЮKassa's redirect return alone: on mount (and
- * after every refresh), it reads `latestSubscription.status` from the server's own
- * `GET .../billing/status`, and while that status is `"Pending"` it shows `billingPendingBody` and
- * polls (`usePollUntilCheckoutSettled`, the same ref-based interval shape `16-02`'s
- * `usePollUntilErased` already established for its own "poll until a real async job completes"
- * problem) until the status genuinely moves to `"Succeeded"` or `"Failed"` - never sooner. A mid-cycle
- * seat change and a cancellation need no such poll: both resolve synchronously (`ChangeSubscriptionSeatsHandler`'s
- * upgrade path charges and applies in the same request; a downgrade/cancellation is a single
- * synchronous write, `ago-chat`'s own `13-03` implementation), so this screen simply refetches status
- * after each and renders whatever comes back - the identical "never render success before the server
- * says so" discipline, just without a webhook in the loop to wait for.
- *
- * ## `25-23`: catching up to the Solo/Business grid
- *
- * This screen predated the tariff grid `ago-business` decisions `0011`/`0012` settled and showed
- * three things that were wrong about it. It rendered `status.tier` raw - the server's own enum
- * value, so a free site read "free" where the grid says **Solo**. It showed one undifferentiated
- * "Лимит мест", although `0011` counts Administrators separately from Operator seats against a limit
- * of their own. And its seat-count description hand-typed "От 2 до 100 мест" while
- * `SubscriptionTierBands.MaxSeats` is **5** - so the console advertised, and its own
- * `billingValidation.ts` locally accepted, seat counts `TryResolveTier` refuses outright.
- *
- * All three are now server facts: `tierDisplayName` (mapped server-side, `BillingStatusDto`'s own C#
- * remarks say why there), `adminLimit`/`adminsUsed`/`extraAdministratorsPurchased`, and the whole of
- * `seatPricing`. **Nothing on this screen is a second copy of the grid any more** - `25-20`'s
- * "sourced, not retyped" discipline, which is the only thing that would have caught the 100-vs-5
- * drift.
- *
- * ### The seat control: a quantity to add, not a total to overwrite
- *
- * The direct-edit field is gone. It let an owner type an absolute seat total over their current one,
- * which reads as "set my seats to N" and never says what is being *bought*; in its place is the
- * read-only current count plus an add-this-many spinner and one **Добавить** button, the
- * e-commerce quantity-plus-add shape the author asked for.
- *
- * **That button is wired to the real purchase path, not left a stub, and `25-23`'s own Scope asked
- * for a stub.** The Scope's reason was that "there is no ЮKassa integration yet (`23-86` is that
- * gap)"; re-checked against `ago-chat` on 2026-09-14, that premise no longer holds - ЮKassa is real
- * (`Ago.Chat.Infrastructure.YooKassa`, a signature-verified webhook, a stored payment method),
- * `23-86` is closed as done and was about the option-to-entitlement mapping rather than about
- * payments at all, and this very screen has been calling `createCheckoutSession`/
- * `changeSubscriptionSeats` in production since `13-02`/`13-03`. Replacing two working calls with a
- * deliberate no-op would have deleted shipped capability and left a button that lies in the other
- * direction. So the shape changed and the wiring did not: the same two endpoints, called with
- * `seatLimit + seatsToAdd` instead of a typed absolute, and `billingAddSeatsStartsCheckout` saying
- * out loud when pressing it will open ЮKassa.
- *
- * ## `25-96`: an Administrator-seat control, deliberately not a copy of the Operator one
- *
- * `25-23` gave the Administrator panel above facts and no way to change them; `25-41` had already
- * built and tested the purchase endpoint (`POST .../billing/subscriptions/{id}/administrators`), so
- * this item is the console half. The quantity-to-add shape is the same, and so is the discipline -
- * `purchaseAdministratorSlot` returns a real, synchronous, charged result and this screen never
- * shows it before that response comes back, then calls `load()` to refetch `extraAdministratorsPurchased`/
- * `adminLimit`/`adminsUsed` from the server rather than computing them locally.
- *
- * What is deliberately different: `PurchaseAdministratorSlotHandler` (`ago-chat`, read directly
- * rather than assumed) has no checkout-session branch at all - it 400s with
- * `Billing.SubscriptionNotActive` on anything but an already-`Succeeded` subscription, because
- * buying an extra Administrator charges a *stored payment method* that only exists once a real
- * subscription has succeeded once. So this control has no "starts a subscription" fallback the way
- * the Operator one does; instead it explains, in place of the form, that an Operator-seat purchase
- * above has to happen first. It also carries no `SubscriptionTierBands`-style min/max band - the
- * handler's own only guard is `Billing.AdministratorCountNotAnIncrease` ("must exceed what is
- * already bought"), which starting the quantity at `MIN_SEATS_TO_ADD` already guarantees - so there
- * is no Administrator analogue of `seatCountError`/`billingSeatMaximumReached` to compute or render.
- *
- * ## `25-95`: a decrease got a control of its own, not a sign flip on the add stepper
- *
- * `25-23`'s add-only stepper (`seatsToAdd`, floored at `MIN_SEATS_TO_ADD`) removed the one console
- * path that could ever request fewer seats than a site already holds - the backend side never moved:
- * `ChangeSubscriptionSeatsHandler` has always taken an absolute `RequestedSeats` and branched
- * internally (more than current: charge and apply now, `Upgraded`; less: `ScheduleDowngradeAsync`, no
- * charge, applied at the next renewal, `DowngradeScheduled`), and `billingPendingDowngradeBody`
- * already knew how to render the result. The gap this item closed was narrowly the input: nothing
- * could make `seatsAfterPurchase` compute below `status.seatLimit`.
- *
- * The two shapes on the table were letting the existing stepper go negative (turning "+N" into "±N",
- * reusing `handleSeatChangeSubmit` unchanged), or a second, explicit control. This screen took the
- * second: an increase and a decrease are not the same request wearing a different sign, they are two
- * differently-consequential actions (an immediate charge against a stored payment method versus a
- * deferred, uncharged schedule), and a single control that silently swaps between them the moment a
- * spinner crosses zero would make the more consequential of the two - the one that moves money - the
- * one an idle nudge past zero could trigger by accident. The `±N` alternative would also have
- * complicated the bound itself: the add direction's ceiling is `pricing.maxSeats - seatLimit` and the
- * remove direction's is `seatLimit - pricing.minSeats`, two different numbers a single `min`/`max`
- * pair cannot both express without recomputing them on every sign change. Splitting the control keeps
- * each one's own bound simple and keeps `MIN_SEATS_TO_ADD`'s "1 is the smallest change that means
- * anything" reading honest for both directions, rather than reusing it to also mean "zero is a valid
- * quantity to type." The new `handleSeatReductionSubmit` still calls the identical
- * `changeSubscriptionSeats` endpoint `handleSeatChangeSubmit` already calls - only the control offering
- * it, and the state it owns, are new - and it is shown only once a subscription is already `Succeeded`,
- * the one state `ChangeSubscriptionSeatsHandler`'s own top gate accepts a seat change of either
- * direction on at all.
- *
- * ## `26-294`: three cards, not six stacked panels
- *
- * `26-290`'s own design (`docs/backlog/26-290-console-billing-redesign.md`, slice 1) found this
- * screen reading as "empty and scrolly" not because it lacked data but because ~20 one-fact-per-line
- * rows and five stacked forms buried the two things a paying tenant actually came to check - what is
- * paid and until when, and what can be bought - under a wall of read-only pricing trivia. This item
- * is a pure regrouping of data **already on the wire**, never a backend change: **Current plan**
- * merges the old Subscription/Operator-seats/Administrator-seats panels into one dense
- * `.ago-billing-facts` grid (`FactRow` below) plus a status `Badge`; **Add to your plan** merges the
- * add-seats/add-administrator stepper panels into `.ago-billing-buy-row`s (name, unit price, and a
- * stepper-plus-button sharing one line via `Field`'s `adornment` slot) and demotes reduce-seats/cancel
- * - real money-relevant actions, but not *purchases* - into a `quiet` sub-panel and a small button
- * beneath the buy rows, per `26-290`'s own layout call; **Next renewal** is new, and deliberately
- * thin: it shows only `currentPeriodEnd` (already on the wire) and says renewal is automatic, never a
- * computed charge total - `26-290`'s own finding is that the recurring amount needs a channel-option
- * count this screen's `BillingStatusDto` does not carry yet, and `CLAUDE.md` bars inventing a number
- * to fill the gap in the meantime.
- *
- * **What this item deliberately does not add**: a connected-channel add-on purchase row. `26-290`'s
- * own premise-check found `billingApi.ts` has no `purchaseChannelAddOn` and `BillingStatusDto` has no
- * `channelAddOnPriceRub` - both are `26-290` slice 2's own addition, alongside the channel count and
- * the next-charge total. Building a row here would mean either fabricating a price or wiring a button
- * to an endpoint that does not exist; the seam is left in the Add-to-your-plan card's own code comment
- * instead.
+ * The honest pending-then-confirmed mechanism `13-04` established is unchanged: `latestSubscription.status`
+ * is polled while `"Pending"` (`usePollUntilCheckoutSettled`) and never claimed settled off the ЮKassa
+ * redirect alone.
  */
 export function BillingPage() {
   const { user } = useAuth();
@@ -245,40 +671,6 @@ export function BillingPage() {
 
   const [status, setStatus] = useState<BillingStatusDto | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-
-  // `25-23`: a quantity, so it has one fixed starting value and needs no seeding from the server at
-  // all. The `prevSeedInputs` render-phase adjustment this component used to carry (re-seeding an
-  // absolute seat field from `latestSubscription.requestedSeats` on every fresh status, but only
-  // until the operator touched it) is deleted with the field it existed for - a background refresh
-  // can no longer overwrite a half-typed total, because there is no total being typed.
-  const [seatsToAdd, setSeatsToAdd] = useState(MIN_SEATS_TO_ADD);
-
-  const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
-  const [checkoutError, setCheckoutError] = useState<string | null>(null);
-
-  const [seatChangeSubmitting, setSeatChangeSubmitting] = useState(false);
-  const [seatChangeError, setSeatChangeError] = useState<string | null>(null);
-  const [seatChangeSuccess, setSeatChangeSuccess] = useState<SeatChangeSuccess | null>(null);
-
-  // `25-95`: the reduce-seats control's own state, kept apart from the add control's above for the
-  // identical reason `adminSlotsToAdd`'s own comment already gives for staying apart from
-  // `seatsToAdd` - two controls that submit independently of one another, this time against the same
-  // current count but in opposite directions. No success state of its own: a scheduled, uncharged
-  // downgrade is told entirely through the persistent `billingPendingDowngradeBody` block once
-  // `load()` refetches it - the identical "no separate toast to keep in sync with persistent state"
-  // reasoning `handleCancelConfirm` below already gives for its own success path.
-  const [seatsToRemove, setSeatsToRemove] = useState(MIN_SEATS_TO_REMOVE);
-  const [seatReductionSubmitting, setSeatReductionSubmitting] = useState(false);
-  const [seatReductionError, setSeatReductionError] = useState<string | null>(null);
-
-  // `25-96`: the identical "quantity to add, reset to the floor after every purchase" shape
-  // `seatsToAdd` above uses, kept as its own state rather than shared with it - the two controls buy
-  // against two different current counts (`seatLimit` vs `extraAdministratorsPurchased`) and submit
-  // independently of one another.
-  const [adminSlotsToAdd, setAdminSlotsToAdd] = useState(MIN_SEATS_TO_ADD);
-  const [adminPurchaseSubmitting, setAdminPurchaseSubmitting] = useState(false);
-  const [adminPurchaseError, setAdminPurchaseError] = useState<string | null>(null);
-  const [adminPurchaseSuccess, setAdminPurchaseSuccess] = useState<AdminPurchaseSuccess | null>(null);
 
   const [cancelConfirming, setCancelConfirming] = useState(false);
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
@@ -324,172 +716,102 @@ export function BillingPage() {
 
   usePollUntilCheckoutSettled(isPending, CHECKOUT_POLL_INTERVAL_MS, checkConfirmation, onCheckoutSettled);
 
+  // `26-300`: Card A's own preview/purchase closures - `useCallback`, not inline arrows, so
+  // `BuyQuantityRow`/`BuyChannelRow`'s own preview effect only refires when a real input (the
+  // subscription id, or `status` itself) actually changes, not on every unrelated re-render of this
+  // page.
+  const subscriptionId = sub?.subscriptionId;
+
+  const previewSeats = useCallback(
+    (qty: number) => {
+      if (!accessToken || !siteId || !subscriptionId || status === null) {
+        return Promise.reject(new Error("billing status not loaded"));
+      }
+      return previewBillingPurchase(accessToken, siteId, subscriptionId, {
+        kind: "Seats",
+        requestedSeats: status.seatLimit + qty,
+      }).then((result) => result.chargedNowRub);
+    },
+    [accessToken, siteId, subscriptionId, status],
+  );
+  const buySeats = useCallback(
+    async (qty: number) => {
+      if (!accessToken || !siteId || !subscriptionId || status === null) {
+        throw new Error("billing status not loaded");
+      }
+      const response = await changeSubscriptionSeats(accessToken, siteId, subscriptionId, status.seatLimit + qty);
+      // `ChangeSubscriptionSeatsResponseDto`'s own discriminated union - this call site is always an
+      // increase (the quantity picker only ever adds), so the `Upgraded` shape (`proratedAmountRub`
+      // present) is the only one that can come back; the fallback is defensive, never expected to run.
+      return "proratedAmountRub" in response ? response.proratedAmountRub : 0;
+    },
+    [accessToken, siteId, subscriptionId, status],
+  );
+
+  const previewAdmins = useCallback(
+    (qty: number) => {
+      if (!accessToken || !siteId || !subscriptionId || status === null) {
+        return Promise.reject(new Error("billing status not loaded"));
+      }
+      return previewBillingPurchase(accessToken, siteId, subscriptionId, {
+        kind: "Administrators",
+        requestedExtraAdministrators: status.extraAdministratorsPurchased + qty,
+      }).then((result) => result.chargedNowRub);
+    },
+    [accessToken, siteId, subscriptionId, status],
+  );
+  const buyAdmins = useCallback(
+    async (qty: number) => {
+      if (!accessToken || !siteId || !subscriptionId || status === null) {
+        throw new Error("billing status not loaded");
+      }
+      const response = await purchaseAdministratorSlot(accessToken, siteId, subscriptionId, status.extraAdministratorsPurchased + qty);
+      return response.proratedAmountRub;
+    },
+    [accessToken, siteId, subscriptionId, status],
+  );
+
+  const previewTelegram = useCallback(() => {
+    if (!accessToken || !siteId || !subscriptionId) {
+      return Promise.reject(new Error("billing status not loaded"));
+    }
+    return previewBillingPurchase(accessToken, siteId, subscriptionId, { kind: "Channel", channelKind: "Telegram" }).then(
+      (result) => result.chargedNowRub,
+    );
+  }, [accessToken, siteId, subscriptionId]);
+  const buyTelegram = useCallback(async () => {
+    if (!accessToken || !siteId || !subscriptionId) {
+      throw new Error("billing status not loaded");
+    }
+    const response = await purchaseChannelAddOn(accessToken, siteId, subscriptionId, "Telegram");
+    return response.proratedAmountRub;
+  }, [accessToken, siteId, subscriptionId]);
+
+  const previewMax = useCallback(() => {
+    if (!accessToken || !siteId || !subscriptionId) {
+      return Promise.reject(new Error("billing status not loaded"));
+    }
+    return previewBillingPurchase(accessToken, siteId, subscriptionId, { kind: "Channel", channelKind: "Max" }).then(
+      (result) => result.chargedNowRub,
+    );
+  }, [accessToken, siteId, subscriptionId]);
+  const buyMax = useCallback(async () => {
+    if (!accessToken || !siteId || !subscriptionId) {
+      throw new Error("billing status not loaded");
+    }
+    const response = await purchaseChannelAddOn(accessToken, siteId, subscriptionId, "Max");
+    return response.proratedAmountRub;
+  }, [accessToken, siteId, subscriptionId]);
+
   if (permissions === null) {
     return <Spinner label={strings.siteConfigCheckingPermissions} />;
   }
 
   if (!hasPermission(BILLING_PERMISSION)) {
-    // `23-24`: shared `AccessRefusal`, replacing this screen's own copy of the block.
     return <AccessRefusal title={strings.billingTitle} message={strings.billingForbidden} strings={strings} />;
   }
 
   const pricing = status?.seatPricing ?? null;
-  // `25-23`: what the purchase actually asks for. Both endpoints below take an absolute seat total
-  // (`CreateCheckoutSessionRequest.RequestedSeats`/`ChangeSubscriptionSeatsRequest.RequestedSeats`),
-  // so the quantity the owner chose is added to the seat count the *server* last reported - never to
-  // a number this screen was holding on to.
-  const seatsAfterPurchase = status === null ? 0 : status.seatLimit + seatsToAdd;
-  const atSeatMaximum = status !== null && pricing !== null && status.seatLimit >= pricing.maxSeats;
-  const seatsAddable = status !== null && pricing !== null ? pricing.maxSeats - status.seatLimit : 0;
-
-  // `25-23`: derived during render, not kept in a second state variable synced by a submit handler.
-  // The old field validated only on submit, which is why it could sit showing a stale error (or
-  // none) while the value under it changed; this is the "you might not need an effect" shape the
-  // seeding block above was already rewritten into by `23-96`, applied to the error too. The
-  // practical consequence is that an over-range quantity says so the moment it is typed rather than
-  // after a round trip - and the browser's own `min`/`max` constraint validation on the input below
-  // independently refuses to submit it, so the message is what explains a refusal rather than being
-  // the only thing preventing one.
-  const seatCountError =
-    pricing !== null && seatsToAdd >= MIN_SEATS_TO_ADD && !isValidSeatCount(seatsAfterPurchase, pricing.minSeats, pricing.maxSeats)
-      ? `${strings.billingSeatCountOutOfRange} ${pricing.minSeats}-${pricing.maxSeats}.`
-      : null;
-  // A quantity below one buys nothing, so it is refused without a message of its own - the spinner's
-  // own floor already says what the minimum is, and an error explaining "1 is the smallest number of
-  // seats you can add" tells a reader nothing the control did not.
-  const canSubmitPurchase = pricing !== null && seatsToAdd >= MIN_SEATS_TO_ADD && seatCountError === null;
-
-  // `25-95`: what the reduce-seats control actually asks for - `status.seatLimit` minus the quantity
-  // chosen, the same "add to (here, subtract from) the server's own last-reported count" shape
-  // `seatsAfterPurchase` above uses, never a number this screen was holding on to. Decrease is only
-  // ever reachable on an already-`Succeeded` subscription (`ChangeSubscriptionSeatsHandler`'s own top
-  // gate refuses anything else before it even looks at the direction), so - unlike the add control,
-  // which also serves the "no subscription yet" checkout case - this one control covers exactly one
-  // branch and needs no `sub?.status` fork of its own at render time; the panel below is withheld
-  // entirely otherwise.
-  const seatsRemovable = status !== null && pricing !== null ? status.seatLimit - pricing.minSeats : 0;
-  const atSeatMinimum = status !== null && pricing !== null && status.seatLimit <= pricing.minSeats;
-  const seatsAfterReduction = status === null ? 0 : status.seatLimit - seatsToRemove;
-  const seatReductionCountError =
-    pricing !== null && seatsToRemove >= MIN_SEATS_TO_REMOVE && !isValidSeatCount(seatsAfterReduction, pricing.minSeats, pricing.maxSeats)
-      ? `${strings.billingSeatCountOutOfRange} ${pricing.minSeats}-${pricing.maxSeats}.`
-      : null;
-  const canSubmitReduction = pricing !== null && seatsToRemove >= MIN_SEATS_TO_REMOVE && seatReductionCountError === null;
-
-  // `25-96`: what the Administrator purchase actually asks for - `status.extraAdministratorsPurchased`
-  // plus the quantity chosen, the identical "add to the server's own last-reported count, never to a
-  // number this screen was holding on to" shape `seatsAfterPurchase` uses above.
-  const adminCountAfterPurchase = status === null ? 0 : status.extraAdministratorsPurchased + adminSlotsToAdd;
-  // `PurchaseAdministratorSlotHandler` requires an already-`Succeeded` subscription with a stored
-  // payment method and has no checkout-session branch of its own (unlike the Operator path above) -
-  // so, unlike `canSubmitPurchase`, this also gates on `sub.status`. It carries no min/max band check:
-  // `25-41`'s own contract enforces only "the requested count must exceed the current one"
-  // (`Billing.AdministratorCountNotAnIncrease`), which `adminSlotsToAdd >= MIN_SEATS_TO_ADD` already
-  // guarantees, so there is no analogue of `seatCountError` to compute here.
-  const canPurchaseAdminSlot =
-    status !== null &&
-    status.adminExtraPriceRub !== null &&
-    sub !== null &&
-    sub.status === "Succeeded" &&
-    adminSlotsToAdd >= MIN_SEATS_TO_ADD;
-
-  const handleCheckoutSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!canSubmitPurchase || !accessToken || !siteId) {
-      return;
-    }
-
-    setCheckoutSubmitting(true);
-    setCheckoutError(null);
-    try {
-      const { confirmationUrl } = await createCheckoutSession(accessToken, siteId, seatsAfterPurchase);
-      // A real, full-page navigation to ЮKassa's hosted checkout - not an in-app state change. The
-      // component unmounts here on success; `checkoutSubmitting` is only ever reset on the failure
-      // path below.
-      window.location.href = confirmationUrl;
-    } catch (err) {
-      setCheckoutError(err instanceof ApiProblemError ? err.message : strings.billingCheckoutError);
-      setCheckoutSubmitting(false);
-    }
-  };
-
-  const handleSeatChangeSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!canSubmitPurchase || !accessToken || !siteId || !sub) {
-      return;
-    }
-
-    setSeatChangeSubmitting(true);
-    setSeatChangeError(null);
-    setSeatChangeSuccess(null);
-    try {
-      const response = await changeSubscriptionSeats(accessToken, siteId, sub.subscriptionId, seatsAfterPurchase);
-      if ("proratedAmountRub" in response) {
-        setSeatChangeSuccess({ amountRub: response.proratedAmountRub, tier: response.newTier, seats: response.newSeatCount });
-      }
-      // `25-23`: back to one, so the control never invites the same purchase twice by still showing
-      // the quantity that was just bought.
-      setSeatsToAdd(MIN_SEATS_TO_ADD);
-      load();
-    } catch (err) {
-      setSeatChangeError(err instanceof ApiProblemError ? err.message : strings.billingSeatChangeError);
-    } finally {
-      setSeatChangeSubmitting(false);
-    }
-  };
-
-  const handleSeatReductionSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!canSubmitReduction || !accessToken || !siteId || !sub) {
-      return;
-    }
-
-    setSeatReductionSubmitting(true);
-    setSeatReductionError(null);
-    try {
-      // `ChangeSubscriptionSeatsHandler` branches on the same endpoint by comparing this absolute
-      // count to the subscription's own stored `RequestedSeats`: below it, `ScheduleDowngradeAsync`
-      // runs - `subscription.PendingSeatCount`/`PendingTier` are recorded, no charge is made, and
-      // nothing changes until the next renewal. The response is never inspected here: it carries no
-      // `proratedAmountRub` field for this branch (`ChangeSubscriptionSeatsResponseDto`'s own remarks),
-      // so there is nothing in it this screen would show that `load()`'s refetch does not already
-      // provide through `billingPendingDowngradeBody` above.
-      await changeSubscriptionSeats(accessToken, siteId, sub.subscriptionId, seatsAfterReduction);
-      setSeatsToRemove(MIN_SEATS_TO_REMOVE);
-      load();
-    } catch (err) {
-      setSeatReductionError(err instanceof ApiProblemError ? err.message : strings.billingSeatChangeError);
-    } finally {
-      setSeatReductionSubmitting(false);
-    }
-  };
-
-  const handleAdminPurchaseSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!canPurchaseAdminSlot || !accessToken || !siteId || !sub) {
-      return;
-    }
-
-    setAdminPurchaseSubmitting(true);
-    setAdminPurchaseError(null);
-    setAdminPurchaseSuccess(null);
-    try {
-      const response = await purchaseAdministratorSlot(accessToken, siteId, sub.subscriptionId, adminCountAfterPurchase);
-      setAdminPurchaseSuccess({ amountRub: response.proratedAmountRub, count: response.newExtraAdministratorCount });
-      // `25-96`: back to one, the identical "never invites the same purchase twice" reasoning
-      // `handleSeatChangeSubmit` already gives for its own reset.
-      setAdminSlotsToAdd(MIN_SEATS_TO_ADD);
-      // `25-96`'s own Done-when: the purchased count and the resulting limit refresh on the same
-      // screen after a successful purchase - `load()` refetches `GET .../billing/status`, which is
-      // what actually re-renders `extraAdministratorsPurchased`/`adminLimit`/`adminsUsed` below, the
-      // identical refresh `handleSeatChangeSubmit` already performs for its own purchase.
-      load();
-    } catch (err) {
-      setAdminPurchaseError(err instanceof ApiProblemError ? err.message : strings.billingAdminPurchaseError);
-    } finally {
-      setAdminPurchaseSubmitting(false);
-    }
-  };
 
   const handleCancelConfirm = async () => {
     if (!accessToken || !siteId || !sub) {
@@ -501,9 +823,6 @@ export function BillingPage() {
     try {
       await cancelSubscription(accessToken, siteId, sub.subscriptionId);
       setCancelConfirming(false);
-      // Same reasoning as the downgrade path above: `load()` refreshes `cancelRequested`/
-      // `currentPeriodEnd`, and the persistent `billingCancelRequestedBody` block already renders
-      // that - no separate success message to keep in sync with it.
       load();
     } catch (err) {
       setCancelError(err instanceof ApiProblemError ? err.message : strings.billingCancelError);
@@ -513,6 +832,30 @@ export function BillingPage() {
   };
 
   const periodEndDate = sub?.currentPeriodEnd ? parseInstant(sub.currentPeriodEnd) : null;
+  const badge = subscriptionStatusBadge(sub, strings);
+
+  // `26-300`: an instant "Buy now" purchase always needs an already-`Succeeded` subscription with a
+  // stored payment method - `PastDue` is excluded too, the identical "a retrying subscription has a
+  // more pressing question than a new purchase" reasoning `26-294`'s own add-seats control already
+  // held for the same state.
+  const canBuyNow = status !== null && sub !== null && sub.status === "Succeeded";
+  const buyNowNoPaymentMethod = canBuyNow && status !== null && !status.hasStoredPaymentMethod;
+
+  // `26-300`: `SetNextPeriodCompositionHandler`'s own top gate - `Succeeded` or `PastDue`.
+  const canScheduleNextPeriod = status !== null && sub !== null && (sub.status === "Succeeded" || sub.status === "PastDue");
+
+  const isBusiness = status !== null && status.tier !== "free";
+  const includedOperators = status !== null && pricing !== null ? (isBusiness ? pricing.baseSeats : pricing.freeSeatsIncluded) : 0;
+  const includedAdmins = status !== null ? status.adminLimit - status.extraAdministratorsPurchased : 0;
+
+  const renewingChannelNames =
+    status?.connectedChannels.filter((channel) => !channel.cancelRequested).map((channel) => channelKindLabel(channel.kind, strings)) ?? [];
+  const channelsValue =
+    renewingChannelNames.length > 0
+      ? `${strings.billingWebsiteChannelName} + ${renewingChannelNames.join(", ")}`
+      : strings.billingWebsiteChannelName;
+
+  const opsAddable = status !== null && pricing !== null ? pricing.maxSeats - status.seatLimit : 0;
 
   return (
     <>
@@ -528,44 +871,29 @@ export function BillingPage() {
         )
       ) : (
         <div className="ago-billing-grid">
-          {/* Card 1 - "what's paid now, and until when" (`26-290` Case 1). One dense fact grid
-              replacing the old Subscription/Operator-seats/Administrator-seats panels; the
-              status-carrying Alerts below it stay full-width (they are transient/actionable, with
-              their own spinner or retry framing), but the cancel-requested/pending-downgrade
-              notices are folded into small inline lines - `26-290`'s own call, since neither is an
-              error needing an assertive live region. */}
-          <Panel title={strings.billingPanelTitle}>
+          {/* Card C - "Текущий тариф" / Current plan. */}
+          <Panel title={strings.billingPanelTitle} actions={<Badge tone={badge.tone}>{badge.label}</Badge>}>
             <div className="ago-stack">
               <dl className="ago-billing-facts">
-                {/* `25-23`: the grid's own name for this tier, resolved server-side - never
-                    `status.tier`, which is the raw enum value ("free"/"starter") the wire carries. */}
                 <FactRow label={strings.billingTierLabel} value={status.tierDisplayName} />
-                <FactRow
-                  label={strings.billingStatusLabel}
-                  value={
-                    <Badge tone={subscriptionStatusBadge(sub, strings).tone}>
-                      {subscriptionStatusBadge(sub, strings).label}
-                    </Badge>
-                  }
-                />
-                {/* `25-23`: Operator and Administrator seats stay two separate facts against two
-                    separate limits - `ago-business 0011`'s own separation, which a single "Лимит
-                    мест" line would collapse. Each note names its allowance apart from what was
-                    bought beyond it, the same split the old two-panel layout made, now a sub-line
-                    instead of two rows of its own. */}
                 <FactRow
                   label={strings.billingOperatorSeatsHeading}
                   value={`${status.seatsUsed} / ${status.seatLimit}`}
-                  note={`${strings.billingFreeSeatsIncludedLabel}: ${pricing.freeSeatsIncluded}`}
+                  note={`${strings.billingIncludedUpToLabel} ${includedOperators}`}
                 />
                 <FactRow
                   label={strings.billingAdminSeatsHeading}
                   value={`${status.adminsUsed} / ${status.adminLimit}`}
-                  note={`${strings.billingAdminsPurchasedLabel}: ${status.extraAdministratorsPurchased}`}
+                  note={`${strings.billingIncludedUpToLabel} ${includedAdmins}`}
                 />
+                <FactRow label={strings.billingChannelsHeading} value={channelsValue} />
                 <FactRow
                   label={strings.billingPaidUntilLabel}
                   value={periodEndDate ? formatDateStamp(periodEndDate, timeZone, strings) : "—"}
+                />
+                <FactRow
+                  label={strings.billingPaymentMethodLabel}
+                  value={status.hasStoredPaymentMethod ? strings.billingPaymentMethodSaved : strings.billingPaymentMethodNotSaved}
                 />
               </dl>
 
@@ -592,248 +920,93 @@ export function BillingPage() {
                   {periodEndDate ? formatDateStamp(periodEndDate, timeZone, strings) : "—"}.
                 </p>
               )}
-              {sub?.pendingSeatCount !== null && sub?.pendingSeatCount !== undefined && (
+              {sub && (sub.pendingSeatCount !== null || sub.pendingAdminCount !== null) && (
                 <p className="ago-billing-note">
-                  <strong>{strings.billingPendingDowngradeTitle}:</strong> {strings.billingPendingDowngradeBody}{" "}
-                  {sub.pendingSeatCount} ({sub.pendingTier}).
+                  <strong>{strings.billingPendingChangeTitle}:</strong> {strings.billingPendingChangeBody}{" "}
+                  {sub.pendingSeatCount ?? sub.requestedSeats} {strings.billingOperatorSeatsHeading.toLowerCase()},{" "}
+                  {sub.pendingAdminCount ?? status.extraAdministratorsPurchased} {strings.billingAdminSeatsHeading.toLowerCase()}
+                  {sub.pendingTier ? ` (${sub.pendingTier})` : ""}.
                 </p>
               )}
             </div>
           </Panel>
 
-          {/* Card 2 - "what can I buy, and for how much" (`26-290` Case 2). Each buyable dimension
-              is one `.ago-billing-buy-row` (name + unit price on the left, a stepper-plus-button on
-              the right via `Field`'s `adornment` slot) instead of a stepper panel of its own.
-              Reduce-seats and cancellation are demoted below the buy rows - `26-290`'s own call,
-              since neither is a purchase and both would otherwise compete with the buy rows for
-              attention. */}
-          <Panel title={strings.billingAddToPlanHeading}>
+          {/* Card A - "Докупить сейчас" / Buy now. */}
+          <Panel title={strings.billingBuyNowHeading}>
             <div className="ago-stack">
-              {/* `25-23`: one control for both directions of the same purchase - a site with no
-                  active paid subscription starts a checkout, one with a `Succeeded` subscription
-                  changes its seat count in place. Withheld while a payment is pending or retrying,
-                  exactly as before. */}
-              {!isPending && sub?.status !== "PastDue" && (
-                <div className="ago-billing-buy-row">
-                  <div className="ago-billing-buy-row__info">
-                    <span className="ago-billing-buy-row__name">{strings.billingAddSeatsHeading}</span>
-                    <span className="ago-billing-buy-row__price">
-                      {strings.billingBaseSeatPriceLabel} {rub(pricing.baseSeatPriceRub)} ({strings.billingBaseSeatsCoveredLabel}:{" "}
-                      {pricing.baseSeats}) · {strings.billingExtraSeatPriceLabel} {rub(pricing.pricePerExtraSeatRub)}
-                    </span>
-                    {/* `26-290` §4: pure reference pricing moves to its point of use rather than a
-                        standalone fact nobody is about to act on - the purchasable range belongs
-                        here, beside the control it bounds, not in Card 1. */}
-                    <span className="ago-billing-buy-row__price">
-                      {strings.billingPurchasableSeatsLabel}: {pricing.minSeats}-{pricing.maxSeats}
-                    </span>
-                    <span className="ago-billing-buy-row__price">
-                      {strings.billingCurrentSeatCountLabel}: {status.seatLimit}
-                    </span>
-                  </div>
-
-                  {atSeatMaximum ? (
-                    <p>{strings.billingSeatMaximumReached}</p>
-                  ) : (
-                    <form
-                      className="ago-billing-buy-row__controls"
-                      onSubmit={(e) => void (sub?.status === "Succeeded" ? handleSeatChangeSubmit(e) : handleCheckoutSubmit(e))}
-                    >
-                      <Field
-                        label={strings.billingAddSeatsFieldLabel}
-                        description={`${strings.billingNewSeatCountLabel}: ${seatsAfterPurchase}`}
-                        error={seatCountError}
-                        adornment={
-                          sub?.status === "Succeeded" ? (
-                            <Button type="submit" variant="primary" disabled={seatChangeSubmitting || !canSubmitPurchase}>
-                              {seatChangeSubmitting ? strings.billingChangingSeatsButton : strings.billingAddSeatsButton}
-                            </Button>
-                          ) : (
-                            <Button type="submit" variant="primary" disabled={checkoutSubmitting || !canSubmitPurchase}>
-                              {checkoutSubmitting ? strings.billingSubscribingButton : strings.billingAddSeatsButton}
-                            </Button>
-                          )
-                        }
-                      >
-                        {(controlProps) => (
-                          <Input
-                            {...controlProps}
-                            type="number"
-                            min={MIN_SEATS_TO_ADD}
-                            max={seatsAddable}
-                            value={seatsToAdd}
-                            onChange={(e) => setSeatsToAdd(Number(e.target.value))}
-                            disabled={checkoutSubmitting || seatChangeSubmitting}
-                          />
-                        )}
-                      </Field>
-                    </form>
-                  )}
-
-                  {!atSeatMaximum && sub?.status !== "Succeeded" && (
-                    <p className="ago-billing-note">{strings.billingAddSeatsStartsCheckout}</p>
-                  )}
-                  {checkoutError && <Alert tone="danger">{checkoutError}</Alert>}
-                  {seatChangeError && <Alert tone="danger">{seatChangeError}</Alert>}
-                  {seatChangeSuccess && (
-                    <Alert tone="success" title={strings.billingUpgradeSuccessTitle}>
-                      {strings.billingUpgradeSuccessBody} ₽{seatChangeSuccess.amountRub.toFixed(2)} · {seatChangeSuccess.tier},{" "}
-                      {seatChangeSuccess.seats}.
-                    </Alert>
-                  )}
-                </div>
-              )}
-
-              {/* `25-96`: the Administrator-seat purchase row. Deliberately not the same two-branch
-                  shape as Operator seats above: `PurchaseAdministratorSlotHandler` has no
-                  checkout-session path at all, only an immediate charge against an already-
-                  `Succeeded` subscription's stored payment method - so this row explains what is
-                  missing and points at the Operator row above when there is no such subscription
-                  yet, rather than starting a checkout of its own.
-                  `26-294`: this is the row a connected-channel add-on purchase would join next to,
-                  once `26-290` slice 2 adds `channelAddOnPriceRub` to `BillingStatusDto` and a
-                  `purchaseChannelAddOn` client function to `billingApi.ts` - neither exists yet, so
-                  no channel row is built here (`26-290`'s own "leave a clean seam" call). */}
-              <div className="ago-billing-buy-row">
-                <div className="ago-billing-buy-row__info">
-                  <span className="ago-billing-buy-row__name">{strings.billingAddAdminSeatsHeading}</span>
-                  <span className="ago-billing-buy-row__price">
-                    {strings.billingAdminExtraPriceLabel}:{" "}
-                    {status.adminExtraPriceRub === null ? strings.billingAdminExtraNotPriced : rub(status.adminExtraPriceRub)}
-                  </span>
-                  <span className="ago-billing-buy-row__price">
-                    {strings.billingCurrentAdminCountLabel}: {status.extraAdministratorsPurchased}
-                  </span>
-                </div>
-
-                {status.adminExtraPriceRub === null ? (
-                  <p>{strings.billingAddAdminSeatsNotForSale}</p>
-                ) : sub === null || sub.status !== "Succeeded" ? (
-                  <p>{strings.billingAddAdminSeatsNeedsSubscription}</p>
-                ) : (
-                  <form className="ago-billing-buy-row__controls" onSubmit={(e) => void handleAdminPurchaseSubmit(e)}>
-                    <Field
-                      label={strings.billingAddAdminSeatsFieldLabel}
-                      description={`${strings.billingNewAdminCountLabel}: ${adminCountAfterPurchase}`}
-                      adornment={
-                        <Button type="submit" variant="primary" disabled={adminPurchaseSubmitting || !canPurchaseAdminSlot}>
-                          {adminPurchaseSubmitting ? strings.billingAdminPurchaseSubmittingButton : strings.billingAddAdminSeatsButton}
-                        </Button>
-                      }
-                    >
-                      {(controlProps) => (
-                        <Input
-                          {...controlProps}
-                          type="number"
-                          min={MIN_SEATS_TO_ADD}
-                          value={adminSlotsToAdd}
-                          onChange={(e) => setAdminSlotsToAdd(Number(e.target.value))}
-                          disabled={adminPurchaseSubmitting}
-                        />
-                      )}
-                    </Field>
-                  </form>
-                )}
-
-                {status.adminExtraPriceRub !== null && sub !== null && sub.status === "Succeeded" && (
-                  <p className="ago-billing-note">{strings.billingAddAdminSeatsChargesImmediately}</p>
-                )}
-                {adminPurchaseError && <Alert tone="danger">{adminPurchaseError}</Alert>}
-                {adminPurchaseSuccess && (
-                  <Alert tone="success" title={strings.billingAdminPurchaseSuccessTitle}>
-                    {strings.billingAdminPurchaseSuccessBody} ₽{adminPurchaseSuccess.amountRub.toFixed(2)} ·{" "}
-                    {adminPurchaseSuccess.count}.
-                  </Alert>
-                )}
-              </div>
-
-              {/* `25-95`: the decrease direction, demoted into a `quiet` sub-panel below the buy
-                  rows - a decrease is not a purchase (no charge, nothing applies until the next
-                  renewal), so it should not visually compete with the two rows above that do charge
-                  immediately. Shown only on an already-`Succeeded` subscription, unchanged from
-                  before. */}
-              {sub?.status === "Succeeded" && (
-                <Panel quiet title={strings.billingReduceSeatsHeading}>
-                  {atSeatMinimum ? (
-                    <p>{strings.billingSeatMinimumReached}</p>
-                  ) : (
-                    <div className="ago-stack">
-                      <form className="ago-billing-buy-row__controls" onSubmit={(e) => void handleSeatReductionSubmit(e)}>
-                        <Field
-                          label={strings.billingReduceSeatsFieldLabel}
-                          description={`${strings.billingReduceSeatsNewCountLabel}: ${seatsAfterReduction}`}
-                          error={seatReductionCountError}
-                          adornment={
-                            <Button type="submit" variant="secondary" disabled={seatReductionSubmitting || !canSubmitReduction}>
-                              {seatReductionSubmitting ? strings.billingChangingSeatsButton : strings.billingReduceSeatsButton}
-                            </Button>
-                          }
-                        >
-                          {(controlProps) => (
-                            <Input
-                              {...controlProps}
-                              type="number"
-                              min={MIN_SEATS_TO_REMOVE}
-                              max={seatsRemovable}
-                              value={seatsToRemove}
-                              onChange={(e) => setSeatsToRemove(Number(e.target.value))}
-                              disabled={seatReductionSubmitting}
-                            />
-                          )}
-                        </Field>
-                      </form>
-
-                      <p className="ago-billing-note">{strings.billingReduceSeatsSchedulesAtRenewal}</p>
-
-                      {seatReductionError && <Alert tone="danger">{seatReductionError}</Alert>}
-                    </div>
-                  )}
-                </Panel>
-              )}
-
-              {(sub?.status === "Succeeded" || sub?.status === "PastDue") && !sub.cancelRequested && (
-                <div className="ago-row">
-                  {cancelError && <Alert tone="danger">{cancelError}</Alert>}
-                  <Button variant="danger" size="sm" onClick={() => setCancelConfirming(true)}>
-                    {strings.billingCancelButton}
-                  </Button>
-                </div>
-              )}
-            </div>
-          </Panel>
-
-          {/* Card 3 - "next charge: how much, when, and pay-early" (`26-290` Case 3), display half
-              only. Deliberately thin: `currentPeriodEnd` is already on the wire, but the recurring
-              amount is not (it needs a channel-option count `BillingStatusDto` does not carry yet -
-              `26-290` slice 2) and pay-early does not exist as a command at all (`26-290` slice 4).
-              Showing only what is actually known, with an honest "not shown yet" for the rest, is
-              the point - `CLAUDE.md` bars inventing a number to fill the gap. */}
-          <Panel title={strings.billingNextRenewalHeading}>
-            <div className="ago-stack">
-              {sub === null ? (
-                <p>{strings.billingNextRenewalNoSubscription}</p>
-              ) : isPending || sub.status === "Failed" ? (
-                <p>{strings.billingNextRenewalPending}</p>
-              ) : sub.cancelRequested ? (
-                <p>
-                  {strings.billingCancelRequestedBody} {periodEndDate ? formatDateStamp(periodEndDate, timeZone, strings) : "—"}.
-                </p>
+              {!canBuyNow ? (
+                <p className="ago-billing-note">{strings.billingBuyNowNeedsSubscription}</p>
+              ) : buyNowNoPaymentMethod ? (
+                <p className="ago-billing-note">{strings.billingBuyNowNoPaymentMethod}</p>
               ) : (
                 <>
-                  <dl className="ago-billing-facts">
-                    <FactRow
-                      label={strings.billingNextRenewalDateLabel}
-                      value={periodEndDate ? formatDateStamp(periodEndDate, timeZone, strings) : "—"}
-                    />
-                    <FactRow label={strings.billingNextRenewalAmountLabel} value={strings.billingNextRenewalAmountPending} />
-                    {/* `26-290` §4: the period length is reference pricing too - moved here, next to
-                        the renewal date it explains, rather than left in a standalone panel. */}
-                    <FactRow label={strings.billingBillingPeriodDaysLabel} value={pricing.billingPeriodDays} />
-                  </dl>
-                  <p className="ago-billing-note">{strings.billingNextRenewalAutomaticNote}</p>
+                  <p className="ago-billing-note">{strings.billingBuyNowIntro}</p>
+
+                  <BuyQuantityRow
+                    strings={strings}
+                    label={strings.billingOperatorSeatsHeading}
+                    hint={`${strings.billingIncludedUpToLabel} ${pricing.baseSeats} · +${rub(pricing.pricePerExtraSeatRub)}`}
+                    maxQuantity={Math.max(opsAddable, MIN_QUANTITY)}
+                    atMaximum={opsAddable <= 0}
+                    atMaximumNote={strings.billingBuyAtMaximumNote}
+                    preview={previewSeats}
+                    purchase={buySeats}
+                    onPurchased={load}
+                  />
+
+                  <BuyQuantityRow
+                    strings={strings}
+                    label={strings.billingAdminSeatsHeading}
+                    hint={status.adminExtraPriceRub !== null ? `+${rub(status.adminExtraPriceRub)}` : undefined}
+                    maxQuantity={ADMIN_EXTRA_UI_MAX}
+                    notPriced={status.adminExtraPriceRub === null}
+                    preview={previewAdmins}
+                    purchase={buyAdmins}
+                    onPurchased={load}
+                  />
+
+                  <div className="ago-billing-note">{strings.billingChannelsHeading}</div>
+                  <BuyChannelRow
+                    strings={strings}
+                    displayName={strings.ownerChannelKindTelegram}
+                    connected={status.connectedChannels.some((channel) => channel.kind === "Telegram")}
+                    priced={status.channelAddOnPriceRub !== null}
+                    preview={previewTelegram}
+                    purchase={buyTelegram}
+                    onPurchased={load}
+                  />
+                  <BuyChannelRow
+                    strings={strings}
+                    displayName={strings.ownerChannelKindMax}
+                    connected={status.connectedChannels.some((channel) => channel.kind === "Max")}
+                    priced={status.channelAddOnPriceRub !== null}
+                    preview={previewMax}
+                    purchase={buyMax}
+                    onPurchased={load}
+                  />
                 </>
               )}
             </div>
+          </Panel>
+
+          {/* Card B - "Следующий период" / Next period. */}
+          <Panel title={strings.billingNextPeriodHeading}>
+            {isPending ? (
+              <p className="ago-billing-note">{strings.billingPendingBody}</p>
+            ) : canScheduleNextPeriod && sub ? (
+              <ActiveNextPeriodPanel
+                strings={strings}
+                timeZone={timeZone}
+                accessToken={accessToken ?? ""}
+                siteId={siteId ?? ""}
+                status={status}
+                sub={sub}
+                onChanged={load}
+                onRequestCancel={() => setCancelConfirming(true)}
+              />
+            ) : (
+              <CheckoutNextPeriodPanel strings={strings} accessToken={accessToken ?? ""} siteId={siteId ?? ""} pricing={pricing} />
+            )}
           </Panel>
         </div>
       )}
@@ -853,6 +1026,7 @@ export function BillingPage() {
           </>
         }
       >
+        {cancelError && <Alert tone="danger">{cancelError}</Alert>}
         <p>{strings.billingCancelDialogBody}</p>
       </Dialog>
     </>

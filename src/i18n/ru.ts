@@ -845,15 +845,13 @@ export const ru: ConsoleStrings = {
     "либо соединение оборвалось — попробуйте снова из результатов поиска или из очереди.",
 
   billingTitle: "Оплата",
-  billingDescription: "Текущий тариф вашего сайта, использование мест и подписка.",
+  billingDescription: "Что оплачено сейчас, что можно докупить сразу и что спишется в следующем периоде.",
   billingForbidden: "У вас нет права просматривать оплату этого сайта.",
   billingLoadError: "Не удалось загрузить статус оплаты.",
   billingLoadingLabel: "Загрузка статуса оплаты…",
 
   billingPanelTitle: "Текущий тариф",
   billingTierLabel: "Тариф",
-  billingSeatsUsedLabel: "Занято",
-  billingSeatLimitLabel: "Лимит",
   billingStatusLabel: "Статус",
   billingStatusFreeLabel: "Бесплатный",
   billingStatusActiveLabel: "Активна",
@@ -861,58 +859,15 @@ export const ru: ConsoleStrings = {
   billingStatusLapsedLabel: "Истекла",
   billingPaidUntilLabel: "Оплачено до",
 
-  billingOperatorSeatsHeading: "Операторские места",
-  billingAdminSeatsHeading: "Места администраторов",
+  billingOperatorSeatsHeading: "Операторы",
+  billingAdminSeatsHeading: "Администраторы",
   billingAdminSeatsNote: "Администраторы считаются отдельно от операторских мест.",
-
-  billingFreeSeatsIncludedLabel: "Бесплатно включено в Solo",
-  billingAdminsIncludedLabel: "Включено в тариф",
-  billingAdminsPurchasedLabel: "Докуплено сверх тарифа",
-  billingAdminExtraPriceLabel: "Цена дополнительного администратора",
-  billingAdminExtraNotPriced: "пока не продаётся",
-
-  billingPurchasableSeatsLabel: "Можно купить на Business",
-  billingBaseSeatPriceLabel: "Базовая цена",
-  billingBaseSeatsCoveredLabel: "Мест в базовой цене",
-  billingExtraSeatPriceLabel: "Каждое место сверх них",
-  billingBillingPeriodDaysLabel: "Списание раз в, дней",
-
-  billingAddToPlanHeading: "Что можно купить",
-  billingCurrentSeatCountLabel: "Мест сейчас",
-  billingAddSeatsHeading: "Добавить операторов",
-  billingAddSeatsFieldLabel: "Сколько добавить",
-  billingNewSeatCountLabel: "Станет мест после покупки",
-  billingAddSeatsButton: "Добавить",
-  billingSeatMaximumReached: "У вас уже максимальное количество мест, доступное без отдельного обсуждения.",
-  billingAddSeatsStartsCheckout:
-    "Добавление операторов сверх бесплатных переводит сайт на тариф Business. Кнопка открывает " +
-    "оплату в ЮKassa — места появятся после подтверждения платежа, а не по одному возврату со " +
-    "страницы оплаты.",
-  billingSeatCountOutOfRange: "Итоговое количество мест должно быть в диапазоне",
-
-  billingReduceSeatsHeading: "Уменьшить количество операторов",
-  billingReduceSeatsFieldLabel: "Сколько убрать",
-  billingReduceSeatsNewCountLabel: "Станет мест после этого запланированного изменения",
-  billingReduceSeatsButton: "Запланировать уменьшение",
-  billingSeatMinimumReached: "У вас уже минимальное количество мест, доступное на этом тарифе.",
-  billingReduceSeatsSchedulesAtRenewal:
-    "Изменение не вступает в силу сейчас и никогда не списывает деньги. Количество мест изменится " +
-    "при следующем продлении — до этого всё остаётся как есть.",
-
-  billingCurrentAdminCountLabel: "Докуплено администраторов сейчас",
-  billingAddAdminSeatsHeading: "Докупить администраторов",
-  billingAddAdminSeatsFieldLabel: "Сколько добавить",
-  billingNewAdminCountLabel: "Станет докупленных администраторов после покупки",
-  billingAddAdminSeatsButton: "Докупить администраторов",
-  billingAddAdminSeatsChargesImmediately: "Списание с сохранённого способа оплаты произойдёт сразу — без перехода в ЮKassa.",
-  billingAddAdminSeatsNotForSale: "Дополнительные администраторы пока не продаются.",
-  billingAddAdminSeatsNeedsSubscription:
-    "Для покупки дополнительных администраторов нужна активная платная подписка. Сначала добавьте " +
-    "операторов выше, чтобы её оформить, а затем здесь можно будет докупить администраторов.",
-  billingAdminPurchaseSubmittingButton: "Отправка…",
-  billingAdminPurchaseError: "Не удалось докупить администраторов.",
-  billingAdminPurchaseSuccessTitle: "Куплено",
-  billingAdminPurchaseSuccessBody: "Списано",
+  billingIncludedUpToLabel: "включено до",
+  billingChannelsHeading: "Каналы",
+  billingWebsiteChannelName: "Сайт",
+  billingPaymentMethodLabel: "Способ оплаты",
+  billingPaymentMethodSaved: "Карта сохранена",
+  billingPaymentMethodNotSaved: "Не сохраняется",
 
   billingPendingTitle: "Подтверждение платежа",
   billingPendingBody:
@@ -923,35 +878,65 @@ export const ru: ConsoleStrings = {
   billingPastDueTitle: "Повторная попытка оплаты",
   billingPastDueBody:
     "Повторное списание не удалось. Ваш текущий тариф и места сохраняются без изменений, пока в " +
-    "течение недели идут повторные попытки; изменение мест недоступно до успешной попытки.",
+    "течение недели идут повторные попытки; докупка недоступна до успешной попытки.",
 
   billingCancelRequestedTitle: "Подписка завершается",
   billingCancelRequestedBody: "Автопродление отключено. Платный тариф остаётся активным без дальнейших списаний до",
-  billingPendingDowngradeTitle: "Изменение мест запланировано",
-  billingPendingDowngradeBody: "При следующем продлении количество мест изменится на",
+  billingPendingChangeTitle: "Изменение запланировано",
+  billingPendingChangeBody: "При следующем продлении это изменится на",
 
+  billingBuyNowHeading: "Докупить сейчас",
+  billingBuyNowIntro: "Доступ откроется сразу. Списание — пропорционально остатку текущего периода.",
+  billingBuyNowNeedsSubscription:
+    "Разовая докупка доступна на тарифе Business. Расширьте состав ниже, в «Следующем периоде», " +
+    "чтобы перейти на него.",
+  billingBuyNowNoPaymentMethod:
+    "Мгновенная докупка требует сохранённого способа оплаты. Оформите новую подписку ниже с " +
+    "включённым флажком «Сохранять способ оплаты», чтобы это стало доступно.",
+  billingBuyQuantityLabel: "Количество",
+  billingBuyButtonLabel: "Докупить за",
+  billingBuyPriceCalculating: "считаем…",
+  billingBuySubmittingButton: "Покупка…",
+  billingBuyAtMaximumNote: "У вас уже максимальное количество мест, доступное без отдельного обсуждения.",
+  billingBuyPurchaseError: "Не удалось завершить покупку.",
+  billingBuySuccessTitle: "Куплено",
+  billingBuySuccessBody: "Списано",
+  billingChannelConnectButtonLabel: "Подключить за",
+  billingChannelConnectedLabel: "Подключён",
+  billingNotPricedYetLabel: "пока не продаётся",
+
+  billingNextPeriodHeading: "Следующий период",
+  billingNextPeriodIntroActive: "Что продлится",
+  billingNextPeriodIntroNoSubscription: "Расширьте состав, чтобы перейти на тариф Business. Это оформит новую подписку.",
+  billingSavePaymentMethodLabel: "Сохранять способ оплаты для автосписаний",
+  billingSavePaymentMethodHintOn:
+    "Включено: мгновенная докупка списывается с сохранённой карты, подписка продлевается автоматически.",
+  billingSavePaymentMethodHintOff:
+    "Выключено: каждая оплата проходит отдельно через ЮKassa; способ оплаты не хранится, мгновенная " +
+    "докупка и автопродление недоступны.",
+  billingStartSubscriptionButton: "Оформить подписку",
   billingSubscribingButton: "Переход в ЮKassa…",
-  billingChangingSeatsButton: "Отправка…",
   billingCheckoutError: "Не удалось начать оформление.",
-  billingSeatChangeError: "Не удалось изменить количество мест.",
-  billingUpgradeSuccessTitle: "Тариф повышен",
-  billingUpgradeSuccessBody: "Списано",
+  billingNextPeriodChannelRenewLabel: "Продлевать",
+  billingBusinessTransitionTitle: "Переход на тариф Business",
+  billingBusinessTransitionBody: "Базовая подписка —",
+  billingPerMonthAbbrev: "мес",
+  billingNextPeriodTotalLabel: "Сумма следующего списания",
+  billingNextPeriodTotalFree: "Бесплатно",
+  billingNextPeriodVsCurrentLabel: "к текущему списанию:",
+  billingNextPeriodNote:
+    "Изменения вступают в силу со следующего периода. Сейчас деньги не списываются; при уменьшении " +
+    "возврат не производится.",
+  billingNextPeriodSaveError: "Не удалось обновить следующий период.",
+  billingNextPeriodChannelToggleError: "Не удалось изменить канал.",
 
-  billingCancelButton: "Отменить подписку",
-  billingCancelDialogTitle: "Отменить эту подписку?",
+  billingCancelButton: "Не продлевать",
+  billingCancelDialogTitle: "Не продлевать эту подписку?",
   billingCancelDialogBody:
     "Платный тариф будет действовать до конца уже оплаченного периода, затем перейдёт на " +
     "бесплатный тариф. Возврат средств за оставшееся время не производится.",
-  billingCancelConfirmButton: "Отменить подписку",
+  billingCancelConfirmButton: "Не продлевать",
   billingCancelError: "Не удалось отменить подписку.",
-
-  billingNextRenewalHeading: "Следующее списание",
-  billingNextRenewalDateLabel: "Дата продления",
-  billingNextRenewalAmountLabel: "Сумма",
-  billingNextRenewalAmountPending: "Пока не показывается",
-  billingNextRenewalAutomaticNote: "Продление происходит автоматически — досрочная оплата пока недоступна.",
-  billingNextRenewalNoSubscription: "У вас бесплатный тариф. Автопродления нет.",
-  billingNextRenewalPending: "Информация о продлении появится после подтверждения платежа.",
 
   productsTitle: "Что предлагает AGO",
   productsDescription: "Все продукты платформы и то, что из них уже подключено этому рабочему пространству.",

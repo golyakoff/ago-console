@@ -5,10 +5,10 @@ import type { BillingStatusDto } from "../api/billingApi.js";
 const billingApi = vi.hoisted(() => ({ fetchBillingStatus: vi.fn() }));
 vi.mock("../api/billingApi.js", () => billingApi);
 
-/** `25-23` grew `BillingStatusDto` by six fields. Nothing `checkCheckoutConfirmation` reads is among
- * them - it looks at `latestSubscription.status` and nothing else - so they are filled in here only
- * to keep the fixture a real `BillingStatusDto` rather than a partial cast, which would have let a
- * future field go missing silently. */
+/** `25-23`/`26-299` grew `BillingStatusDto` by eleven fields in total. Nothing `checkCheckoutConfirmation`
+ * reads is among them - it looks at `latestSubscription.status` and nothing else - so they are filled
+ * in here only to keep the fixture a real `BillingStatusDto` rather than a partial cast, which would
+ * have let a future field go missing silently. */
 function statusWith(latestSubscription: BillingStatusDto["latestSubscription"]): BillingStatusDto {
   return {
     tier: "starter",
@@ -29,6 +29,11 @@ function statusWith(latestSubscription: BillingStatusDto["latestSubscription"]):
       billingPeriodDays: 30,
     },
     adminExtraPriceRub: null,
+    channelCount: 0,
+    channelAddOnPriceRub: null,
+    nextChargeRub: null,
+    hasStoredPaymentMethod: false,
+    connectedChannels: [],
   };
 }
 
@@ -48,6 +53,7 @@ describe("checkCheckoutConfirmation", () => {
         currentPeriodEnd: null,
         pendingSeatCount: null,
         pendingTier: null,
+        pendingAdminCount: null,
       }),
     );
 
@@ -65,6 +71,7 @@ describe("checkCheckoutConfirmation", () => {
         currentPeriodEnd: "2026-09-28T12:00:00Z",
         pendingSeatCount: null,
         pendingTier: null,
+        pendingAdminCount: null,
       }),
     );
 
@@ -82,6 +89,7 @@ describe("checkCheckoutConfirmation", () => {
         currentPeriodEnd: null,
         pendingSeatCount: null,
         pendingTier: null,
+        pendingAdminCount: null,
       }),
     );
 

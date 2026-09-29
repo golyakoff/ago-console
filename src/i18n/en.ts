@@ -845,15 +845,13 @@ export const en: ConsoleStrings = {
     "closed, or the connection may have dropped - try again from the search results or the queue.",
 
   billingTitle: "Billing",
-  billingDescription: "Your site's current tier, seat usage, and subscription.",
+  billingDescription: "What is paid now, what you can buy right away, and what renews next period.",
   billingForbidden: "You do not have permission to view this site's billing.",
   billingLoadError: "Failed to load billing status.",
   billingLoadingLabel: "Loading billing status…",
 
   billingPanelTitle: "Current plan",
   billingTierLabel: "Tier",
-  billingSeatsUsedLabel: "In use",
-  billingSeatLimitLabel: "Limit",
   billingStatusLabel: "Status",
   billingStatusFreeLabel: "Free",
   billingStatusActiveLabel: "Active",
@@ -861,58 +859,15 @@ export const en: ConsoleStrings = {
   billingStatusLapsedLabel: "Lapsed",
   billingPaidUntilLabel: "Paid until",
 
-  billingOperatorSeatsHeading: "Operator seats",
-  billingAdminSeatsHeading: "Administrator seats",
+  billingOperatorSeatsHeading: "Operators",
+  billingAdminSeatsHeading: "Administrators",
   billingAdminSeatsNote: "Administrators are counted separately from Operator seats.",
-
-  billingFreeSeatsIncludedLabel: "Included free on Solo",
-  billingAdminsIncludedLabel: "Included in the tier",
-  billingAdminsPurchasedLabel: "Purchased beyond the tier",
-  billingAdminExtraPriceLabel: "Price per extra Administrator",
-  billingAdminExtraNotPriced: "not on sale yet",
-
-  billingPurchasableSeatsLabel: "Purchasable on Business",
-  billingBaseSeatPriceLabel: "Base price",
-  billingBaseSeatsCoveredLabel: "Seats covered by the base price",
-  billingExtraSeatPriceLabel: "Each seat beyond those",
-  billingBillingPeriodDaysLabel: "Charged every, days",
-
-  billingAddToPlanHeading: "Add to your plan",
-  billingCurrentSeatCountLabel: "Seats you have now",
-  billingAddSeatsHeading: "Add operators",
-  billingAddSeatsFieldLabel: "How many to add",
-  billingNewSeatCountLabel: "Seats after this purchase",
-  billingAddSeatsButton: "Add",
-  billingSeatMaximumReached: "You already hold the largest seat count sold without a conversation.",
-  billingAddSeatsStartsCheckout:
-    "Adding operators beyond the free allowance moves this site onto Business. The button opens " +
-    "ЮKassa's hosted checkout - the seats appear once the payment is confirmed, never on the " +
-    "redirect alone.",
-  billingSeatCountOutOfRange: "The resulting seat count has to be within",
-
-  billingReduceSeatsHeading: "Reduce operators",
-  billingReduceSeatsFieldLabel: "How many to remove",
-  billingReduceSeatsNewCountLabel: "Seats after this scheduled change",
-  billingReduceSeatsButton: "Schedule reduction",
-  billingSeatMinimumReached: "You already hold the smallest seat count this tier allows.",
-  billingReduceSeatsSchedulesAtRenewal:
-    "This does not take effect now and is never charged. Your seat count changes at your next " +
-    "renewal - until then, everything stays exactly as it is.",
-
-  billingCurrentAdminCountLabel: "Extra Administrators you have now",
-  billingAddAdminSeatsHeading: "Add administrators",
-  billingAddAdminSeatsFieldLabel: "How many to add",
-  billingNewAdminCountLabel: "Extra Administrators after this purchase",
-  billingAddAdminSeatsButton: "Add administrators",
-  billingAddAdminSeatsChargesImmediately: "This charges your saved payment method immediately - there is no ЮKassa redirect.",
-  billingAddAdminSeatsNotForSale: "Extra Administrators are not on sale yet.",
-  billingAddAdminSeatsNeedsSubscription:
-    "Purchasing extra Administrators needs an active paid subscription. Add operators above first to " +
-    "start one, then extra Administrators can be bought here.",
-  billingAdminPurchaseSubmittingButton: "Submitting…",
-  billingAdminPurchaseError: "Failed to purchase extra Administrators.",
-  billingAdminPurchaseSuccessTitle: "Purchased",
-  billingAdminPurchaseSuccessBody: "Charged",
+  billingIncludedUpToLabel: "included up to",
+  billingChannelsHeading: "Channels",
+  billingWebsiteChannelName: "Website",
+  billingPaymentMethodLabel: "Payment method",
+  billingPaymentMethodSaved: "Card on file",
+  billingPaymentMethodNotSaved: "Not saved",
 
   billingPendingTitle: "Confirming payment",
   billingPendingBody:
@@ -923,35 +878,63 @@ export const en: ConsoleStrings = {
   billingPastDueTitle: "Payment retry in progress",
   billingPastDueBody:
     "A recurring charge failed. Your current tier and seats stay exactly as they are while retries " +
-    "run for up to a week; seat changes are unavailable until the retry succeeds.",
+    "run for up to a week; buying more is unavailable until the retry succeeds.",
 
   billingCancelRequestedTitle: "Subscription ending",
   billingCancelRequestedBody: "Auto-renewal is off. Your paid tier stays active, with no further charges, until",
-  billingPendingDowngradeTitle: "Seat change scheduled",
-  billingPendingDowngradeBody: "At your next renewal your seat count will change to",
+  billingPendingChangeTitle: "Change scheduled",
+  billingPendingChangeBody: "At your next renewal this changes to",
 
+  billingBuyNowHeading: "Buy now",
+  billingBuyNowIntro: "Access opens immediately. Charged now, prorated for the rest of this billing period.",
+  billingBuyNowNeedsSubscription:
+    "One-off purchases open once you are on Business. Increase your plan below, in Next period, to get there.",
+  billingBuyNowNoPaymentMethod:
+    "Instant purchases need a saved payment method. Start a new subscription below with " +
+    "\"Save this payment method\" checked to enable this.",
+  billingBuyQuantityLabel: "Quantity",
+  billingBuyButtonLabel: "Buy for",
+  billingBuyPriceCalculating: "calculating…",
+  billingBuySubmittingButton: "Purchasing…",
+  billingBuyAtMaximumNote: "You already hold the largest seat count sold without a conversation.",
+  billingBuyPurchaseError: "Failed to complete the purchase.",
+  billingBuySuccessTitle: "Purchased",
+  billingBuySuccessBody: "Charged",
+  billingChannelConnectButtonLabel: "Connect for",
+  billingChannelConnectedLabel: "Connected",
+  billingNotPricedYetLabel: "not on sale yet",
+
+  billingNextPeriodHeading: "Next period",
+  billingNextPeriodIntroActive: "What renews on",
+  billingNextPeriodIntroNoSubscription: "Increase your plan to move onto Business. This starts a new subscription.",
+  billingSavePaymentMethodLabel: "Save this payment method for future automatic charges",
+  billingSavePaymentMethodHintOn:
+    "On: instant purchases charge the saved card, and the subscription renews automatically.",
+  billingSavePaymentMethodHintOff:
+    "Off: payment goes through ЮKassa's own checkout page each time; nothing is saved, so instant " +
+    "purchases and auto-renewal will not be available.",
+  billingStartSubscriptionButton: "Subscribe",
   billingSubscribingButton: "Redirecting to ЮKassa…",
-  billingChangingSeatsButton: "Submitting…",
   billingCheckoutError: "Failed to start checkout.",
-  billingSeatChangeError: "Failed to change the seat count.",
-  billingUpgradeSuccessTitle: "Upgraded",
-  billingUpgradeSuccessBody: "Charged",
+  billingNextPeriodChannelRenewLabel: "Renew",
+  billingBusinessTransitionTitle: "Moving to Business",
+  billingBusinessTransitionBody: "Base subscription —",
+  billingPerMonthAbbrev: "mo",
+  billingNextPeriodTotalLabel: "Next charge",
+  billingNextPeriodTotalFree: "Free",
+  billingNextPeriodVsCurrentLabel: "vs. current charge:",
+  billingNextPeriodNote:
+    "Changes apply from the next renewal. Nothing is charged now, and a decrease is never refunded.",
+  billingNextPeriodSaveError: "Failed to update the next period.",
+  billingNextPeriodChannelToggleError: "Failed to update the channel.",
 
-  billingCancelButton: "Cancel subscription",
-  billingCancelDialogTitle: "Cancel this subscription?",
+  billingCancelButton: "Do not renew",
+  billingCancelDialogTitle: "Stop renewing this subscription?",
   billingCancelDialogBody:
     "Your paid tier will keep running until the end of the period you already paid for, then drop " +
     "to the free tier. No refund is given for the remaining time.",
-  billingCancelConfirmButton: "Cancel subscription",
+  billingCancelConfirmButton: "Do not renew",
   billingCancelError: "Failed to cancel the subscription.",
-
-  billingNextRenewalHeading: "Next renewal",
-  billingNextRenewalDateLabel: "Renewal date",
-  billingNextRenewalAmountLabel: "Amount",
-  billingNextRenewalAmountPending: "Not shown yet",
-  billingNextRenewalAutomaticNote: "Renewal is automatic - paying early is not available yet.",
-  billingNextRenewalNoSubscription: "You are on the free plan. Nothing renews automatically.",
-  billingNextRenewalPending: "Renewal details will appear once your payment is confirmed.",
 
   productsTitle: "What AGO offers",
   productsDescription: "Every product on this platform, and which of them this workspace already has.",

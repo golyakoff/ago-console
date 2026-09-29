@@ -317,6 +317,8 @@
 .ago-billing-buy-row__controls {
   display: flex;
   align-items: flex-end;
+  gap: var(--ago-space-3);
+  flex-wrap: wrap;
 }
 
 /* A small, secondary explanatory line - the same one-step-down-in-size-and-ink treatment
@@ -327,4 +329,41 @@
   margin: 0;
   font-size: var(--ago-text-sm);
   color: var(--ago-ink-soft);
+}
+
+/* --- Billing page (`26-300`): the v2 rebuild's own three additions -----------------------------
+ * `.ago-billing-channel-list` groups the Next-period card's own per-kind renew checkboxes (plus the
+ * always-included website row) the same tight-stack way a form's own checkbox rows already sit
+ * (`OfflineAutoReplyPage`'s own bare `<label className="ago-row">` precedent, repeated here rather
+ * than a new checkbox component - `adr/0030` closed that set at eleven). `.ago-billing-total` is the
+ * Next-period card's own headline sum, set apart from the ordinary fact rows above it by a rule and
+ * heavier type, the same "the number that actually matters reads bigger" precedent a page total
+ * anywhere else in this codebase already uses. `.ago-billing-transition` is the Соло→Business note
+ * shown only while planning a next period that would leave Solo's own free allowance - a bordered
+ * callout, not a full-width `Alert`, since it is informational rather than a warning or an error. */
+.ago-billing-channel-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-2);
+}
+
+.ago-billing-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ago-space-3);
+  padding-top: var(--ago-space-3);
+  border-top: 1px solid var(--ago-line);
+  font-size: var(--ago-text-lg);
+}
+
+.ago-billing-transition {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-1);
+  padding: var(--ago-space-3) var(--ago-space-4);
+  border: 1px solid var(--ago-line);
+  border-radius: var(--ago-radius-md);
+  background: var(--ago-surface-raised);
+  font-size: var(--ago-text-sm);
 }
