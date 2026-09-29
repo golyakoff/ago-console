@@ -3004,6 +3004,34 @@ export interface ConsoleStrings {
    * already carries. */
   calendarClientDetailNoChannels: string;
 
+  // --- `26-275`/`adr/0189`: the client-detail hub's own delete-client action - an admin-gated,
+  // desktop-equivalent destructive control mirroring the android swipe's *intent*, not its gesture
+  // (`26-272`'s "don't import mobile IA" lesson). Two dialogs: a past-only confirm naming the full
+  // blast radius (Option A - the calendar record, booking history, *and* the chat history), and a
+  // future-present blocked state explaining the guard and offering `calendarClientDetailDeleteBlockedGoToBookingsButton`
+  // to jump to the Предстоящие section instead. See `CalendarClientDetailPage.tsx`'s own doc comment. ---
+  calendarClientDetailDeleteButton: string;
+  calendarClientDetailDeleteConfirmTitle: string;
+  /** Names the erasure's real blast radius (adr/0189 §2.3 Option A) - a chat-originated client's whole
+   * conversation history goes with the calendar record, not only the booking history. Never left
+   * silent - `adr/0189`'s own requirement. */
+  calendarClientDetailDeleteConfirmBody: string;
+  calendarClientDetailDeleteConfirmButton: string;
+  calendarClientDetailDeleting: string;
+  calendarClientDetailDeleteBlockedTitle: string;
+  calendarClientDetailDeleteBlockedBody: string;
+  /** Closes the blocked dialog and scrolls the already-loaded Предстоящие section into view - no new
+   * read, the bookings are already on this page (`26-269`). */
+  calendarClientDetailDeleteBlockedGoToBookingsButton: string;
+  /** `26-275`/`adr/0189` §4: the client-side branch is a courtesy only - if a stale client-side read
+   * lets a doomed delete through, the server's own `409 person_erase.future_bookings` reaches this same
+   * sentence via `calendarErrorMessage.ts`'s mapping, never a generic alert. */
+  calendarDeleteClientFutureBookingsError: string;
+  /** The fallback sentence for `person_erase.not_found` - see `calendarErrorMessage.ts`'s own doc
+   * comment for why `CalendarClientDetailPage` normally never shows this (it treats the code as an
+   * already-completed delete instead). */
+  calendarDeleteClientNotFoundError: string;
+
   // --- `22-06`: permission-gate messages, one per moved screen (`ago-console`'s own established
   // per-screen-forbidden-sentence convention - `faqForbidden`/`autoReplyForbidden` - rather than one
   // shared sentence, since each names the resource it refused). ---

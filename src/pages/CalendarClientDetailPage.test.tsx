@@ -6,7 +6,7 @@ import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { CalendarClientDetailPage } from "./CalendarClientDetailPage.js";
 import { byText, interact, one, render, unmount } from "../testing/dom.js";
-import type { Contact, PersonBooking } from "../api/calendarApi.js";
+import { CalendarApiError, type Contact, type PersonBooking } from "../api/calendarApi.js";
 import type { PersonConversation, PersonProfile } from "../api/personsApi.js";
 
 /**
@@ -38,6 +38,9 @@ const calendarApi = vi.hoisted(() => ({
   confirmOperatorVerifiedPhone: vi.fn(),
   getWorkerSlots: vi.fn(),
   rescheduleBooking: vi.fn(),
+  // `26-275`/`adr/0189`: the delete-client action and the per-row booking cancel it composes with.
+  deleteClient: vi.fn(),
+  cancelBooking: vi.fn(),
 }));
 const personsApi = vi.hoisted(() => ({ getPersons: vi.fn(), getPersonConversations: vi.fn() }));
 
@@ -78,6 +81,40 @@ function page(): ReactNode {
         </PermissionsProvider>
       </Signed>
     </MemoryRouter>
+  );
+}
+
+/** `26-275`: the delete flow's own success path leaves for `/calendar/clients` - this variant of
+ * `page()` gives that route a real element (a marker, not the real list page) so a test can prove the
+ * navigation happened rather than only that `deleteClient` was called. */
+function pageWithClientsListRoute(): ReactNode {
+  return (
+    <MemoryRouter initialEntries={[`/calendar/clients/${PERSON_ID}`]}>
+      <Signed>
+        <PermissionsProvider>
+          <Routes>
+            <Route path="/calendar/clients/:personId" element={<CalendarClientDetailPage />} />
+            <Route path="/calendar/clients" element={<p>the clients list</p>} />
+          </Routes>
+        </PermissionsProvider>
+      </Signed>
+    </MemoryRouter>
+  );
+}
+
+/** `26-275`: the one non-dialog «Cancel» button on an upcoming booking's own row - filters out
+ * `RescheduleBookingButton`'s own identically-labelled dismiss control inside its (closed but still
+ * mounted) dialog, the same `.closest("dialog") === null` filter the reschedule test above already
+ * establishes for the sibling "Reschedule" trigger. */
+function rowCancelButton(container: ParentNode, rowMarker: string): HTMLButtonElement | null {
+  const row = Array.from(container.querySelectorAll("tr")).find((tr) => (tr.textContent ?? "").includes(rowMarker)) ?? null;
+  if (row === null) {
+    return null;
+  }
+  return (
+    Array.from(row.querySelectorAll<HTMLButtonElement>("button")).find(
+      (btn) => btn.textContent === "Cancel" && btn.closest("dialog") === null,
+    ) ?? null
   );
 }
 
@@ -152,6 +189,8 @@ beforeEach(() => {
   ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
   calendarApi.getContacts.mockResolvedValue([contact()]);
   calendarApi.getPersonBookings.mockResolvedValue([]);
+  calendarApi.deleteClient.mockResolvedValue(undefined);
+  calendarApi.cancelBooking.mockResolvedValue(undefined);
   personsApi.getPersons.mockResolvedValue([person()]);
   personsApi.getPersonConversations.mockResolvedValue([]);
 });
@@ -333,5 +372,152 @@ describe("permission gate", () => {
 
     expect(container.textContent).toMatch(/not have permission/i);
     expect(calendarApi.getContacts).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * `26-275`/`adr/0189`: the delete-client action - hidden without `customer:erase`, then the two-dialog
+ * flow (`CalendarClientDetailPage.tsx`'s own doc comment): a past-only confirm naming the blast radius,
+ * or a future-present block with a jump to Предстоящие, chosen client-side from the bookings this page
+ * already loaded, and re-decided the same way when the server itself refuses.
+ */
+describe("the delete-client action (26-275)", () => {
+  it("hides the delete button entirely without customer:erase - hide, not disable", async () => {
+    const container = await render(page());
+
+    expect(byText(container, "button", "Delete client")).toBeNull();
+  });
+
+  it("shows the delete button once customer:erase is held", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure", "customer:erase"], siteId: SITE_ID });
+
+    const container = await render(page());
+
+    expect(byText(container, "button", "Delete client")).not.toBeNull();
+  });
+
+  it("confirms and deletes a past-only client, then returns to the clients list", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure", "customer:erase"], siteId: SITE_ID });
+    calendarApi.getPersonBookings.mockResolvedValue([
+      booking({ bookingId: "past-row", status: "NoShow", startsAt: "2026-05-01T09:00:00Z", endsAt: "2026-05-01T09:15:00Z" }),
+    ]);
+
+    const container = await render(pageWithClientsListRoute());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Delete client")?.click());
+
+    // Past-only client: the confirm dialog, not the blocked one - and it names the full blast radius
+    // (`adr/0189` §2.3 Option A), never left silent.
+    const confirmDialog = one<HTMLDialogElement>(container, "dialog[open]");
+    expect(confirmDialog.open).toBe(true);
+    expect(confirmDialog.textContent).toContain("chat history");
+    expect(calendarApi.deleteClient).not.toHaveBeenCalled();
+
+    await interact(() => byText<HTMLButtonElement>(confirmDialog, "button", "Delete")?.click());
+
+    expect(calendarApi.deleteClient).toHaveBeenCalledWith("token", PERSON_ID);
+    expect(container.textContent).toContain("the clients list");
+  });
+
+  it("blocks the delete client-side, without ever calling the server, when a future booking is already loaded", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure", "customer:erase"], siteId: SITE_ID });
+    calendarApi.getPersonBookings.mockResolvedValue([booking({ startsAt: "2026-06-10T09:00:00Z" })]);
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Delete client")?.click());
+
+    expect(calendarApi.deleteClient).not.toHaveBeenCalled();
+    const blockedDialog = one<HTMLDialogElement>(container, "dialog[open]");
+    expect(blockedDialog.textContent).toContain("upcoming bookings");
+    expect(byText(blockedDialog, "button", "Go to bookings")).not.toBeNull();
+  });
+
+  it("swaps the confirm dialog for the blocked one when the server refuses with 409 person_erase.future_bookings", async () => {
+    // The client-side read is stale (empty/past-only) - the server is the real authority (rule 8) and
+    // catches a booking made in the moment between this page's load and the click.
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure", "customer:erase"], siteId: SITE_ID });
+    calendarApi.getPersonBookings.mockResolvedValue([]);
+    calendarApi.deleteClient.mockRejectedValue(
+      new CalendarApiError("person_erase.future_bookings", "Person has one or more upcoming bookings.", 409),
+    );
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Delete client")?.click());
+    const confirmDialog = one<HTMLDialogElement>(container, "dialog[open]");
+    await interact(() => byText<HTMLButtonElement>(confirmDialog, "button", "Delete")?.click());
+
+    expect(calendarApi.deleteClient).toHaveBeenCalledWith("token", PERSON_ID);
+    expect(confirmDialog.open).toBe(false);
+    const blockedDialog = one<HTMLDialogElement>(container, "dialog[open]");
+    expect(blockedDialog.textContent).toContain("upcoming bookings");
+  });
+
+  it("treats a 404 person_erase.not_found the same as a completed delete - the person is gone either way", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure", "customer:erase"], siteId: SITE_ID });
+    calendarApi.deleteClient.mockRejectedValue(new CalendarApiError("person_erase.not_found", "Person does not exist.", 404));
+
+    const container = await render(pageWithClientsListRoute());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Delete client")?.click());
+    const confirmDialog = one<HTMLDialogElement>(container, "dialog[open]");
+    await interact(() => byText<HTMLButtonElement>(confirmDialog, "button", "Delete")?.click());
+
+    expect(container.textContent).toContain("the clients list");
+  });
+
+  it("shows a plain error and keeps the confirm dialog open on any other refusal", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure", "customer:erase"], siteId: SITE_ID });
+    calendarApi.deleteClient.mockRejectedValue(new CalendarApiError("person_erase.forbidden", "Not allowed.", 403));
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Delete client")?.click());
+    const confirmDialog = one<HTMLDialogElement>(container, "dialog[open]");
+    await interact(() => byText<HTMLButtonElement>(confirmDialog, "button", "Delete")?.click());
+
+    expect(confirmDialog.open).toBe(true);
+    expect(confirmDialog.textContent).toMatch(/not have permission/i);
+  });
+});
+
+/**
+ * `26-275`/`adr/0189` §5: the per-row «Отменить» on an upcoming booking - the navigate-to-cancel
+ * affordance the blocked-delete dialog points at, composing the existing `cancelBooking` write.
+ */
+describe("cancelling an upcoming booking, gated booking:cancel (26-275)", () => {
+  it("offers Cancel on an upcoming held row once booking:cancel is granted, and reloads on success", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure", "booking:cancel"], siteId: SITE_ID });
+    calendarApi.getPersonBookings.mockResolvedValue([
+      booking({ bookingId: "future-row", serviceName: "Haircut", status: "Booked", startsAt: "2026-06-10T09:00:00Z", endsAt: "2026-06-10T09:30:00Z" }),
+    ]);
+
+    const container = await render(page());
+    const cancel = rowCancelButton(container, "Haircut");
+    expect(cancel).not.toBeNull();
+
+    await interact(() => cancel?.click());
+
+    expect(calendarApi.cancelBooking).toHaveBeenCalledWith("token", "future-row");
+    // `handleCancelBooking`'s own re-read, the identical "reload rather than patch by hand" shape
+    // `RescheduleBookingButton.onRescheduled` already uses on this page - one initial load, one reload.
+    expect(calendarApi.getPersonBookings).toHaveBeenCalledTimes(2);
+  });
+
+  it("hides Cancel on the identical row without booking:cancel", async () => {
+    calendarApi.getPersonBookings.mockResolvedValue([
+      booking({ bookingId: "future-row", serviceName: "Haircut", status: "Booked", startsAt: "2026-06-10T09:00:00Z", endsAt: "2026-06-10T09:30:00Z" }),
+    ]);
+
+    const container = await render(page());
+
+    expect(rowCancelButton(container, "Haircut")).toBeNull();
+  });
+
+  it("never offers Cancel on a past NoShow row, even with booking:cancel", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure", "booking:cancel"], siteId: SITE_ID });
+    calendarApi.getPersonBookings.mockResolvedValue([
+      booking({ bookingId: "past-row", serviceName: "Shave", status: "NoShow", startsAt: "2026-05-01T09:00:00Z", endsAt: "2026-05-01T09:15:00Z" }),
+    ]);
+
+    const container = await render(page());
+
+    expect(rowCancelButton(container, "Shave")).toBeNull();
   });
 });

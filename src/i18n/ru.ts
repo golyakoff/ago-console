@@ -1803,6 +1803,19 @@ export const ru: ConsoleStrings = {
   calendarClientDetailMetaTitle: "Сведения",
   calendarClientDetailNoChannels: "Каналы связи пока не записаны.",
 
+  calendarClientDetailDeleteButton: "Удалить клиента",
+  calendarClientDetailDeleteConfirmTitle: "Удалить этого клиента?",
+  calendarClientDetailDeleteConfirmBody:
+    "Будут безвозвратно удалены карточка клиента, вся история записей и вся переписка с ним. Отменить это действие нельзя.",
+  calendarClientDetailDeleteConfirmButton: "Удалить",
+  calendarClientDetailDeleting: "Удаляем…",
+  calendarClientDetailDeleteBlockedTitle: "Нельзя удалить: есть предстоящие записи",
+  calendarClientDetailDeleteBlockedBody:
+    "У этого клиента есть предстоящие записи. Сначала отмените их, затем удалите клиента.",
+  calendarClientDetailDeleteBlockedGoToBookingsButton: "Перейти к записям",
+  calendarDeleteClientFutureBookingsError: "У этого клиента есть предстоящие записи. Сначала отмените их, затем удалите клиента.",
+  calendarDeleteClientNotFoundError: "Этот клиент уже удалён.",
+
   calendarQueueForbidden: "У вас нет прав на просмотр очереди бронирований календаря.",
   calendarElsewhereNotice: "Календарь у вас есть в другом магазине. Переключитесь с помощью селектора вверху страницы:",
   calendarSetupForbidden: "У вас нет прав на настройку календаря.",
