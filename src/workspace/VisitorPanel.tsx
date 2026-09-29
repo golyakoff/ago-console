@@ -6,6 +6,7 @@ import { Tooltip } from "../components/Tooltip.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
 import { VisitorHistoryPanel } from "./VisitorHistoryPanel.js";
+import { VisitorBookingsPanel } from "./VisitorBookingsPanel.js";
 import { ChannelIdentitiesPanel } from "./ChannelIdentitiesPanel.js";
 import { ContactDetailsPanel } from "./ContactDetailsPanel.js";
 import { ConversationNotesPanel } from "./ConversationNotesPanel.js";
@@ -75,6 +76,13 @@ export interface VisitorPanelProps {
  * `<dl>` (which used to render them in full, deliberately un-truncated, for copying into a ticket or
  * a log query) and move to a single `console.log` the effect below fires whenever the conversation
  * identity actually changes, reachable through the browser's own DevTools (F12) instead.
+ *
+ * `26-272` T3: **the booking↔dialog↔client triangle's missing third side.** `26-269` built client ->
+ * dialog and client -> booking from its own client-detail hub; nothing here pointed back the other way -
+ * an operator mid-conversation had no way to see this visitor's upcoming bookings or reach their client
+ * record without leaving the dialog for Записи ▸ Клиенты and searching. `VisitorBookingsPanel` below
+ * closes that gap by reusing `26-269`'s per-person bookings read and linking to its client-detail route,
+ * gated off entirely for a tenant with no calendar module or an operator without the permission.
  *
  * `25-54`: **this panel's own explanatory paragraph moved from the foot of it to a tooltip on its own
  * header.** It used to be the last thing rendered - after `VisitorHistoryPanel` and every aside
@@ -155,6 +163,12 @@ export function VisitorPanel({
         timeZone={timeZone}
         accessToken={accessToken}
       />
+
+      {/* `26-272` T3: the reverse of `VisitorHistoryPanel` above - not this visitor's past
+          conversations, but their bookings, plus the deep link to the `26-269` client-detail hub. See
+          `VisitorBookingsPanel`'s own doc comment for why it renders a count rather than a second list,
+          and for the gate that hides it entirely for a no-calendar tenant or a permission-less operator. */}
+      <VisitorBookingsPanel personId={visitorId} accessToken={accessToken} />
 
       {/* `18-04`: internal notes and tags - see each panel's own doc comment. */}
       <ConversationTagsPanel conversationId={conversationId} siteTags={siteTags} accessToken={accessToken} />

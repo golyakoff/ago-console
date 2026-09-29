@@ -187,6 +187,11 @@ export const en: ConsoleStrings = {
   visitorHistoryDialogLoadingLabel: "Loading conversation…",
   visitorHistoryDialogError: "Could not load this conversation.",
 
+  visitorBookingsOpenClientCardLink: "Open client card",
+  visitorBookingsWordOne: "upcoming booking",
+  visitorBookingsWordFew: "upcoming bookings",
+  visitorBookingsWordMany: "upcoming bookings",
+
   closeConversationButton: "Close conversation",
   closeConversationDialogTitle: "Close this conversation?",
   cancelButton: "Cancel",

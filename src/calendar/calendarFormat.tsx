@@ -1,7 +1,8 @@
 import type { ConsoleStrings } from "../i18n/strings.js";
-import type { WorkerSlot } from "../api/calendarApi.js";
+import type { PersonBooking, WorkerSlot } from "../api/calendarApi.js";
 import type { PersonNames } from "./usePersonNames.js";
 import { Button } from "../components/Button.js";
+import { parseInstant } from "../time/format.js";
 
 /**
  * `22-06`: locale-aware rendering helpers shared by the calendar screens - moved from
@@ -203,6 +204,44 @@ export function noShowWord(strings: ConsoleStrings, count: number): string {
     return strings.calendarNoShowWordOne;
   }
   return count < 5 ? strings.calendarNoShowWordFew : strings.calendarNoShowWordMany;
+}
+
+/**
+ * `26-269`/`26-269-clients-redesign.md` §6 decision (b): past-vs-future is a property of a *booking*,
+ * not of the *client*, so the split happens here, client-side, against `Date.now()` - never against
+ * `status` (a `Booked` row can be in the past for a moment before the confirmation sweep marks a
+ * missed one `NoShow`; a `PendingConfirmation` row is always in the near future by construction). A
+ * booking whose `startsAt` fails to parse (never expected - `PersonBooking.startsAt` is a required,
+ * server-produced timestamp) sorts into the past rather than being silently dropped, the same "never
+ * let a shape surprise erase a row" posture `matchesContactSearch`'s own callers take.
+ *
+ * Upcoming is ordered soonest-first, past is ordered most-recent-first - the mockup's own "Предстоящие
+ * leads" framing (§4) applied to each segment's own natural reading order.
+ *
+ * `26-269`'s own client-detail hub (`CalendarClientDetailPage`) was this function's first and, until
+ * `26-272` T3, only caller - it lives here rather than there so `VisitorBookingsPanel`'s compact "N
+ * upcoming bookings" hint in the dialog's visitor panel can count the exact same way, instead of a
+ * second past-vs-future rule drifting from this one. `calendarFormat.tsx` is this console's shared
+ * "calendar-specific vocabulary with no equivalent anywhere else" module (see this file's own header
+ * comment) - the same reason `noShowWord` above lives here rather than on either of its two callers.
+ */
+export function splitBookings(bookings: PersonBooking[], nowMs: number): { upcoming: PersonBooking[]; past: PersonBooking[] } {
+  const upcoming: PersonBooking[] = [];
+  const past: PersonBooking[] = [];
+
+  for (const booking of bookings) {
+    const startsAt = parseInstant(booking.startsAt);
+    if (startsAt !== null && startsAt.getTime() >= nowMs) {
+      upcoming.push(booking);
+    } else {
+      past.push(booking);
+    }
+  }
+
+  const time = (booking: PersonBooking) => parseInstant(booking.startsAt)?.getTime() ?? 0;
+  upcoming.sort((a, b) => time(a) - time(b));
+  past.sort((a, b) => time(b) - time(a));
+  return { upcoming, past };
 }
 
 /**

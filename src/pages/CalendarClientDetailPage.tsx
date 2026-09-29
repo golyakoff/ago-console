@@ -17,7 +17,7 @@ import { getPersonConversations, getPersons, type PersonContactChannel, type Per
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { RescheduleBookingButton } from "./RescheduleBookingButton.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
-import { noShowWord, phoneStatusWarningGlyph, renderPhone, slotStatusLabel, type RevealControl } from "../calendar/calendarFormat.js";
+import { noShowWord, phoneStatusWarningGlyph, renderPhone, slotStatusLabel, splitBookings, type RevealControl } from "../calendar/calendarFormat.js";
 import { usePersonNames } from "../calendar/usePersonNames.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
@@ -42,37 +42,6 @@ function channelKindLabel(kind: string, strings: ConsoleStrings): string {
     return strings.contactDetailsKindEmail;
   }
   return kind;
-}
-
-/**
- * `26-269`/`26-269-clients-redesign.md` §6 decision (b): past-vs-future is a property of a *booking*,
- * not of the *client*, so the split happens here, client-side, against `Date.now()` - never against
- * `status` (a `Booked` row can be in the past for a moment before the confirmation sweep marks a
- * missed one `NoShow`; a `PendingConfirmation` row is always in the near future by construction). A
- * booking whose `startsAt` fails to parse (never expected - `PersonBooking.startsAt` is a required,
- * server-produced timestamp) sorts into the past rather than being silently dropped, the same "never
- * let a shape surprise erase a row" posture `matchesContactSearch`'s own callers take.
- *
- * Upcoming is ordered soonest-first, past is ordered most-recent-first - the mockup's own "Предстоящие
- * leads" framing (§4) applied to each segment's own natural reading order.
- */
-function splitBookings(bookings: PersonBooking[], nowMs: number): { upcoming: PersonBooking[]; past: PersonBooking[] } {
-  const upcoming: PersonBooking[] = [];
-  const past: PersonBooking[] = [];
-
-  for (const booking of bookings) {
-    const startsAt = parseInstant(booking.startsAt);
-    if (startsAt !== null && startsAt.getTime() >= nowMs) {
-      upcoming.push(booking);
-    } else {
-      past.push(booking);
-    }
-  }
-
-  const time = (booking: PersonBooking) => parseInstant(booking.startsAt)?.getTime() ?? 0;
-  upcoming.sort((a, b) => time(a) - time(b));
-  past.sort((a, b) => time(b) - time(a));
-  return { upcoming, past };
 }
 
 /**
