@@ -41,6 +41,12 @@ const calendarApi = vi.hoisted(() => ({
   // read `CalendarWorkerSlotsPage` already makes, and the reschedule call itself.
   getWorkerSlots: vi.fn(),
   rescheduleBooking: vi.fn(),
+  // `26-268`/`adr/0188`: the four calls «Добавить вручную» wires up - the tenant configuration
+  // (services/workers/calendars), phone recognition, and the write itself. `getWorkerSlots` above is
+  // reused verbatim by this dialog too.
+  getConfiguration: vi.fn(),
+  getPersonCandidatesByPhone: vi.fn(),
+  createManualBooking: vi.fn(),
 }));
 const personsApi = vi.hoisted(() => ({ getPersons: vi.fn() }));
 
@@ -185,6 +191,16 @@ beforeEach(() => {
   calendarApi.getConfirmedBookings.mockResolvedValue(bookings);
   // `26-161`: the names are chat's now - c1 is "Ivan", c3 is "Olga", c2 has no recorded name.
   personsApi.getPersons.mockResolvedValue([person("c1", "Ivan"), person("c2", null), person("c3", "Olga")]);
+  // `26-268`: a minimal, always-resolving configuration so a test opting into `booking:create` gets a
+  // rendered button without also having to stub this read every time.
+  calendarApi.getConfiguration.mockResolvedValue({
+    tenantName: "Test Site",
+    publicKey: "pk_test",
+    allowedOrigins: [],
+    calendars: [{ calendarId: "cal1", name: "Main", timeZone: "UTC", isPublished: true, workerIds: ["w1"], workingHours: [] }],
+    workers: [{ workerId: "w1", displayName: "Anna Petrova", isActive: true, serviceIds: ["s1"] }],
+    services: [{ serviceId: "s1", name: "Haircut", durationMinutes: 60, priceMinorUnits: null, priceCurrencyCode: null, priceIsFrom: false, description: null, isActive: true }],
+  });
 });
 
 afterEach(async () => {
@@ -514,5 +530,110 @@ describe("revealing a masked phone (23-91)", () => {
     expect(container.textContent).toContain("Customer c9 does not exist in this tenant.");
     expect(container.textContent).toContain("+7999•••0009");
     expect(container.textContent).not.toContain("+79990000009");
+  });
+});
+
+/**
+ * `26-268`/`adr/0188`: this screen's second `PageHead` action - «Добавить вручную».
+ * `ManualBookingButton.test.tsx` covers that component's own gating, phone-recognition and
+ * step-by-step behaviour with injected handlers in isolation; this describe block is the wiring
+ * proof - that `CalendarBookingsPage` loads the tenant configuration only for an operator holding
+ * `booking:create`, and passes the *real* `getConfiguration`/`getPersonCandidatesByPhone`/`getPersons`/
+ * `getWorkerSlots`/`createManualBooking` calls through, re-reading the confirmed range on success
+ * (`RescheduleBookingButton`'s own "26-210" describe block above is the identical precedent).
+ */
+describe("manual booking (26-268)", () => {
+  it("hides the control, and never loads the tenant configuration, for an operator without booking:create", async () => {
+    const container = await render(page());
+
+    expect(byText(container, "button", "Add manually")).toBeNull();
+    expect(calendarApi.getConfiguration).not.toHaveBeenCalled();
+  });
+
+  it("offers the control to an operator holding booking:create, once its own configuration read resolves", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({
+      permissions: [...OPERATOR_PERMISSIONS, "booking:create"],
+      siteId: SITE_ID,
+    });
+
+    const container = await render(page());
+
+    expect(calendarApi.getConfiguration).toHaveBeenCalledWith("token", expect.anything());
+    expect(byText(container, "button", "Add manually")).not.toBeNull();
+  });
+
+  it("searches by phone, creates the booking with the resolved calendarId, and re-reads the range on success", async () => {
+    operatorsApi.fetchMyPermissions.mockResolvedValue({
+      permissions: [...OPERATOR_PERMISSIONS, "booking:create"],
+      siteId: SITE_ID,
+    });
+    calendarApi.getPersonCandidatesByPhone.mockResolvedValue([]);
+    calendarApi.getWorkerSlots.mockResolvedValue([
+      {
+        eventId: "new-slot",
+        localDate: "2026-10-02",
+        weekday: 5,
+        startsAt: "2026-10-02T14:00:00+00:00",
+        endsAt: "2026-10-02T15:00:00+00:00",
+        status: "Available",
+        serviceId: "s1",
+        serviceName: "Haircut",
+        personId: null,
+        phone: null,
+        masked: false,
+        bookingId: null,
+      },
+    ]);
+    calendarApi.createManualBooking.mockResolvedValue({
+      bookingId: "new-booking",
+      workerId: "w1",
+      startsAt: "2026-10-02T14:00:00+00:00",
+      endsAt: "2026-10-02T15:00:00+00:00",
+      localDate: "2026-10-02",
+    });
+
+    const container = await render(page());
+    await interact(() => byText<HTMLButtonElement>(container, "button", "Add manually")?.click());
+
+    const dialogEl = one(container, "dialog");
+    const phoneInput = one<HTMLInputElement>(dialogEl, 'input[type="tel"]');
+    await interact(() => {
+      INPUT_VALUE_DESCRIPTOR?.set?.call(phoneInput, "+79210000000");
+      phoneInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await interact(() => byText<HTMLButtonElement>(dialogEl, "button", "Find client")?.click());
+
+    expect(calendarApi.getPersonCandidatesByPhone).toHaveBeenCalledWith("token", "+79210000000", expect.anything());
+
+    await interact(() => byText<HTMLButtonElement>(dialogEl, "button", "Continue as new")?.click());
+    const nameInput = one<HTMLInputElement>(dialogEl, "input[type='text'], input:not([type])");
+    await interact(() => {
+      INPUT_VALUE_DESCRIPTOR?.set?.call(nameInput, "Irina Melnikova");
+      nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await interact(() => byText<HTMLButtonElement>(dialogEl, "button", "Next")?.click());
+    await interact(() => byText<HTMLButtonElement>(dialogEl, '[role="radiogroup"] button', "Haircut · 60 min")?.click());
+    await interact(() => byText<HTMLButtonElement>(dialogEl, "button", "Next")?.click());
+    await interact(() => byText<HTMLButtonElement>(dialogEl, '[role="radiogroup"] button', "Anna Petrova")?.click());
+    await interact(() => byText<HTMLButtonElement>(dialogEl, "button", "Next")?.click());
+
+    expect(calendarApi.getWorkerSlots).toHaveBeenCalledWith("token", "w1", expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), expect.anything());
+
+    await interact(() => one<HTMLButtonElement>(dialogEl, '[role="radiogroup"] button').click());
+    await interact(() => byText<HTMLButtonElement>(dialogEl, "button", "Next")?.click());
+    await interact(() => byText<HTMLButtonElement>(dialogEl, "button", "Create booking")?.click());
+
+    expect(calendarApi.createManualBooking).toHaveBeenCalledWith("token", {
+      calendarId: "cal1",
+      serviceId: "s1",
+      workerId: "w1",
+      startEventId: "new-slot",
+      name: "Irina Melnikova",
+      phone: "+79210000000",
+      reusePersonId: null,
+      email: null,
+    });
+    // `getConfirmedBookings` was already called once on mount; a successful manual booking re-reads it.
+    expect(calendarApi.getConfirmedBookings).toHaveBeenCalledTimes(2);
   });
 });

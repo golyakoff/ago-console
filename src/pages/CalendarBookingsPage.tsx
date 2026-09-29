@@ -4,14 +4,22 @@ import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
 import {
+  createManualBooking,
+  getConfiguration,
   getConfirmedBookings,
+  getPersonCandidatesByPhone,
   getWorkerSlots,
   rescheduleBooking,
   revealCustomerPhone,
+  type ConfiguredCalendar,
+  type ConfiguredService,
+  type ConfiguredWorker,
   type ConfirmedBooking,
 } from "../api/calendarApi.js";
+import { getPersons } from "../api/personsApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { RescheduleBookingButton } from "./RescheduleBookingButton.js";
+import { ManualBookingButton, MANUAL_BOOKING_PERMISSION } from "./ManualBookingButton.js";
 import { renderPersonName, renderPhone, weekdayNames, type RevealControl } from "../calendar/calendarFormat.js";
 import { usePersonNames } from "../calendar/usePersonNames.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
@@ -183,6 +191,40 @@ export function CalendarBookingsPage() {
   // (`usePersonNames.ts`). Derived from the flat `rows`, so a customer appearing under two day/worker
   // groups (two bookings) resolves from the one batch.
   const personNames = usePersonNames(user?.access_token, (rows ?? []).map((row) => row.personId));
+
+  // `26-268`/`adr/0188`: the manual-entry dialog's own three read sources - services, workers and the
+  // calendars that resolve a picked worker back to a `calendarId` (`ManualBookingButton`'s own doc
+  // comment). Loaded only for an operator who actually holds the dialog's permission, the same
+  // "do not fetch what this operator has no use for" restraint `CalendarWorkersPage`'s own
+  // `readiness` load already applies to its own supplementary read.
+  const [manualBookingServices, setManualBookingServices] = useState<ConfiguredService[] | null>(null);
+  const [manualBookingWorkers, setManualBookingWorkers] = useState<ConfiguredWorker[] | null>(null);
+  const [manualBookingCalendars, setManualBookingCalendars] = useState<ConfiguredCalendar[] | null>(null);
+
+  useEffect(() => {
+    if (!hasPermission(MANUAL_BOOKING_PERMISSION) || config.calendarApiBaseUrl === null) {
+      return;
+    }
+    const accessToken = user?.access_token;
+    if (!accessToken) {
+      return;
+    }
+    const controller = new AbortController();
+    getConfiguration(accessToken, controller.signal)
+      .then((configuration) => {
+        setManualBookingServices(configuration.services);
+        setManualBookingWorkers(configuration.workers);
+        setManualBookingCalendars(configuration.calendars);
+      })
+      .catch((reason: unknown) => {
+        if (!(reason instanceof DOMException && reason.name === "AbortError")) {
+          // A secondary read - `adr/0184`'s own "degrade, never fail the surrounding screen" posture,
+          // restated here: the confirmed-bookings list this page exists for is unaffected, only the
+          // «Добавить вручную» entry point stays absent until the next successful load.
+        }
+      });
+    return () => controller.abort();
+  }, [hasPermission, user?.access_token]);
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
@@ -372,7 +414,54 @@ export function CalendarBookingsPage() {
       <PageHead
         title={strings.navCalendarBookings}
         description={strings.calendarBookingsDescription}
-        aside={<Button onClick={() => void reload()}>{strings.calendarRefreshButton}</Button>}
+        aside={
+          <>
+            <Button onClick={() => void reload()}>{strings.calendarRefreshButton}</Button>
+            {/* `26-268`/`adr/0188`: hidden entirely, not disabled, for an operator without
+                `booking:create` - `ManualBookingButton`'s own gate. Rendered only once its own
+                configuration read has actually landed, so the dialog never opens onto empty service/
+                worker lists it could not yet populate. */}
+            {manualBookingServices !== null && manualBookingWorkers !== null && manualBookingCalendars !== null && (
+              <ManualBookingButton
+                services={manualBookingServices}
+                workers={manualBookingWorkers}
+                calendars={manualBookingCalendars}
+                timeZone={timeZone}
+                onSearchByPhone={(phone, signal) => {
+                  const accessToken = user?.access_token;
+                  if (!accessToken) {
+                    return Promise.reject(new Error("Not signed in."));
+                  }
+                  return getPersonCandidatesByPhone(accessToken, phone, signal);
+                }}
+                onLookupNames={(personIds, signal) => {
+                  const accessToken = user?.access_token;
+                  if (!accessToken) {
+                    return Promise.reject(new Error("Not signed in."));
+                  }
+                  return getPersons(accessToken, personIds, signal);
+                }}
+                onLoadSlots={(workerId, date, signal) => {
+                  const accessToken = user?.access_token;
+                  if (!accessToken) {
+                    return Promise.reject(new Error("Not signed in."));
+                  }
+                  // The same one-day read `CalendarWorkerSlotsPage`/`RescheduleBookingButton` already
+                  // make - `from`/`to` both the picked date.
+                  return getWorkerSlots(accessToken, workerId, date, date, signal);
+                }}
+                onCreate={(booking) => {
+                  const accessToken = user?.access_token;
+                  if (!accessToken) {
+                    return Promise.reject(new Error("Not signed in."));
+                  }
+                  return createManualBooking(accessToken, booking);
+                }}
+                onCreated={() => void reload()}
+              />
+            )}
+          </>
+        }
       />
 
       <Panel>

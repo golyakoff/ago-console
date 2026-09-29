@@ -2855,6 +2855,84 @@ export interface ConsoleStrings {
    * surface the server's own detail for everything but this one named case. */
   calendarRescheduleSlotUnavailableError: string;
 
+  // --- `26-268`/`adr/0188`: the confirmed-bookings screen's own «Добавить вручную» dialog -
+  // `ManualBookingButton.tsx`. Phone-first recognition (§3.4 of the design doc), then a guided
+  // client → service → worker → date/slot → review flow, modelled on `RescheduleBookingButton.tsx`'s
+  // own dialog shape but with six internal steps instead of one picker. Gated on `booking:create`
+  // alone - see that component's own doc comment for the full reasoning. ---
+  /** The row of `PageHead`'s own `aside`, beside «Обновить» - and the dialog's own submit-adjacent
+   * label is a distinct string (`calendarManualBookingSubmitButton`), so this one names only the
+   * entry point. */
+  calendarManualBookingButton: string;
+  calendarManualBookingDialogTitle: string;
+  /** `stepName` is one of the six `calendarManualBookingStep*` strings below - kept as one function
+   * rather than six pre-composed sentences, so the "Шаг N из 6" frame is written once. */
+  calendarManualBookingStepLabel: (step: number, total: number, stepName: string) => string;
+  calendarManualBookingStepPhone: string;
+  calendarManualBookingStepClient: string;
+  calendarManualBookingStepService: string;
+  calendarManualBookingStepWorker: string;
+  calendarManualBookingStepSlot: string;
+  calendarManualBookingStepReview: string;
+
+  calendarManualBookingPhoneFieldLabel: string;
+  calendarManualBookingPhoneHint: string;
+  calendarManualBookingSearchButton: string;
+  calendarManualBookingSearchingLabel: string;
+  /** Beside the phone value once a search has run - resets the phone step back to editable, the
+   * mockup's own «Изменить» affordance (`26-268-manual-booking-entry.md`'s live design pass). */
+  calendarManualBookingChangePhoneButton: string;
+  calendarManualBookingFoundOneTitle: string;
+  /** `count` is `PersonRecognitionCandidate.bookingCount` - the three-way Russian plural this needs
+   * lives in `manualBookingRecordWord` (`ManualBookingButton.tsx`'s own local helper, `noShowWord`'s
+   * identical shape), not here: this string only frames the already-declined noun. */
+  calendarManualBookingReturningClientLabel: (count: number, word: string) => string;
+  /** `adr/0147`: a phone match is a hint, not proof - this is the operator's own confirmation that it
+   * really is this person, the one candidate case. */
+  calendarManualBookingReuseButton: string;
+  calendarManualBookingNewClientButton: string;
+  calendarManualBookingFoundSeveralTitle: string;
+  /** `adr/0147` restated for the shared-number case: one number, several people - the operator picks
+   * a row, nothing here merges them. */
+  calendarManualBookingFoundSeveralHint: string;
+  calendarManualBookingCandidatesLabel: string;
+  calendarManualBookingNotFoundTitle: string;
+  calendarManualBookingContinueAsNewButton: string;
+
+  calendarManualBookingNameFieldLabel: string;
+  calendarManualBookingEmailFieldLabel: string;
+  calendarManualBookingEmailOptionalHint: string;
+  calendarManualBookingRecognizedClientLabel: string;
+  calendarManualBookingClientTypeLabel: string;
+  calendarManualBookingNewClientTypeValue: string;
+  calendarManualBookingReturningClientTypeValue: string;
+
+  calendarManualBookingServiceFieldLabel: string;
+  calendarManualBookingWorkerFieldLabel: string;
+  calendarManualBookingNoWorkersForServiceLabel: string;
+
+  calendarManualBookingDateFieldLabel: string;
+  calendarManualBookingSlotsLabel: string;
+  calendarManualBookingNoSlotsLabel: string;
+
+  calendarManualBookingReviewServiceLabel: string;
+  calendarManualBookingReviewWorkerLabel: string;
+  calendarManualBookingReviewPhoneLabel: string;
+  calendarManualBookingReviewEmailLabel: string;
+  calendarManualBookingReviewEmailNotProvidedLabel: string;
+  /** `26-268` §4: the "not in the chat log" guarantee, stated on the one screen an operator sees it
+   * from - the review step, right above the button that makes it true. */
+  calendarManualBookingReviewNote: string;
+
+  calendarManualBookingBackButton: string;
+  calendarManualBookingNextButton: string;
+  calendarManualBookingRetryButton: string;
+  calendarManualBookingSubmitButton: string;
+  calendarManualBookingSubmittingLabel: string;
+  calendarManualBookingRecordWordOne: string;
+  calendarManualBookingRecordWordFew: string;
+  calendarManualBookingRecordWordMany: string;
+
   // --- `26-269`: `/calendar/clients/:personId` - the client-detail hub the redesigned Клиенты list's
   // own rows now open (`26-269-clients-redesign.md` §4). A pure read + navigation surface: it
   // introduces no write of its own beyond the two it reuses (`confirmOperatorVerifiedPhone`,

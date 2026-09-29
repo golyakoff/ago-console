@@ -180,6 +180,11 @@ export function seededPermissions(overrides: SeededPermissionsOverrides = {}) {
       // screen's own first row action - the identical reasoning `customer:read` above already carries
       // for the table it sits in.
       "booking:reschedule",
+      // `26-268`/`adr/0188`: without this, `ManualBookingButton` renders nothing at all on
+      // `calendar-bookings` (the identical "hidden, not disabled" idiom `booking:reschedule` above
+      // already follows), and the gate's contrast/tap-size/overflow/untranslated-text checks would
+      // never see this screen's own second `PageHead` action.
+      "booking:create",
     ],
     // `23-24`: the tenant side of the calendar's own three-way gate (`consoleNav.ts`'s own
     // `buildTenantNavItems`) - defaults to holding the module, matching the base operator above
