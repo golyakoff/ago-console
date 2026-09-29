@@ -850,10 +850,16 @@ export const en: ConsoleStrings = {
   billingLoadError: "Failed to load billing status.",
   billingLoadingLabel: "Loading billing status…",
 
-  billingPanelTitle: "Subscription",
+  billingPanelTitle: "Current plan",
   billingTierLabel: "Tier",
   billingSeatsUsedLabel: "In use",
   billingSeatLimitLabel: "Limit",
+  billingStatusLabel: "Status",
+  billingStatusFreeLabel: "Free",
+  billingStatusActiveLabel: "Active",
+  billingStatusPastDueLabel: "Past due",
+  billingStatusLapsedLabel: "Lapsed",
+  billingPaidUntilLabel: "Paid until",
 
   billingOperatorSeatsHeading: "Operator seats",
   billingAdminSeatsHeading: "Administrator seats",
@@ -871,6 +877,7 @@ export const en: ConsoleStrings = {
   billingExtraSeatPriceLabel: "Each seat beyond those",
   billingBillingPeriodDaysLabel: "Charged every, days",
 
+  billingAddToPlanHeading: "Add to your plan",
   billingCurrentSeatCountLabel: "Seats you have now",
   billingAddSeatsHeading: "Add operators",
   billingAddSeatsFieldLabel: "How many to add",
@@ -937,6 +944,14 @@ export const en: ConsoleStrings = {
     "to the free tier. No refund is given for the remaining time.",
   billingCancelConfirmButton: "Cancel subscription",
   billingCancelError: "Failed to cancel the subscription.",
+
+  billingNextRenewalHeading: "Next renewal",
+  billingNextRenewalDateLabel: "Renewal date",
+  billingNextRenewalAmountLabel: "Amount",
+  billingNextRenewalAmountPending: "Not shown yet",
+  billingNextRenewalAutomaticNote: "Renewal is automatic - paying early is not available yet.",
+  billingNextRenewalNoSubscription: "You are on the free plan. Nothing renews automatically.",
+  billingNextRenewalPending: "Renewal details will appear once your payment is confirmed.",
 
   productsTitle: "What AGO offers",
   productsDescription: "Every product on this platform, and which of them this workspace already has.",

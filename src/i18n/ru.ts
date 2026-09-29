@@ -850,10 +850,16 @@ export const ru: ConsoleStrings = {
   billingLoadError: "Не удалось загрузить статус оплаты.",
   billingLoadingLabel: "Загрузка статуса оплаты…",
 
-  billingPanelTitle: "Подписка",
+  billingPanelTitle: "Текущий тариф",
   billingTierLabel: "Тариф",
   billingSeatsUsedLabel: "Занято",
   billingSeatLimitLabel: "Лимит",
+  billingStatusLabel: "Статус",
+  billingStatusFreeLabel: "Бесплатный",
+  billingStatusActiveLabel: "Активна",
+  billingStatusPastDueLabel: "Просрочена",
+  billingStatusLapsedLabel: "Истекла",
+  billingPaidUntilLabel: "Оплачено до",
 
   billingOperatorSeatsHeading: "Операторские места",
   billingAdminSeatsHeading: "Места администраторов",
@@ -871,6 +877,7 @@ export const ru: ConsoleStrings = {
   billingExtraSeatPriceLabel: "Каждое место сверх них",
   billingBillingPeriodDaysLabel: "Списание раз в, дней",
 
+  billingAddToPlanHeading: "Что можно купить",
   billingCurrentSeatCountLabel: "Мест сейчас",
   billingAddSeatsHeading: "Добавить операторов",
   billingAddSeatsFieldLabel: "Сколько добавить",
@@ -937,6 +944,14 @@ export const ru: ConsoleStrings = {
     "бесплатный тариф. Возврат средств за оставшееся время не производится.",
   billingCancelConfirmButton: "Отменить подписку",
   billingCancelError: "Не удалось отменить подписку.",
+
+  billingNextRenewalHeading: "Следующее списание",
+  billingNextRenewalDateLabel: "Дата продления",
+  billingNextRenewalAmountLabel: "Сумма",
+  billingNextRenewalAmountPending: "Пока не показывается",
+  billingNextRenewalAutomaticNote: "Продление происходит автоматически — досрочная оплата пока недоступна.",
+  billingNextRenewalNoSubscription: "У вас бесплатный тариф. Автопродления нет.",
+  billingNextRenewalPending: "Информация о продлении появится после подтверждения платежа.",
 
   productsTitle: "Что предлагает AGO",
   productsDescription: "Все продукты платформы и то, что из них уже подключено этому рабочему пространству.",

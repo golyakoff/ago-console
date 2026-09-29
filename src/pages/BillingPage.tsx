@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import {
@@ -9,6 +9,7 @@ import {
   fetchBillingStatus,
   purchaseAdministratorSlot,
   type BillingStatusDto,
+  type BillingSubscriptionSummaryDto,
 } from "../api/billingApi.js";
 import { checkCheckoutConfirmation } from "../billing/checkoutConfirmation.js";
 import type { CheckoutConfirmationOutcome } from "../billing/checkoutConfirmation.js";
@@ -22,9 +23,11 @@ import { Field } from "../components/Field.js";
 import { Input } from "../components/Input.js";
 import { Button } from "../components/Button.js";
 import { Alert } from "../components/Alert.js";
+import { Badge, type BadgeTone } from "../components/Badge.js";
 import { Dialog } from "../components/Dialog.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
+import type { ConsoleStrings } from "../i18n/strings.js";
 import { shapeMismatchMessage } from "./apiErrorMessage.js";
 
 /** `13-04`: this screen's own gate - `13-02`/`13-03`'s checkout/cancel/seat-change endpoints, and the
@@ -60,6 +63,47 @@ type AdminPurchaseSuccess = { amountRub: number; count: number };
  * differently from one another. */
 function rub(amount: number): string {
   return `₽${amount.toFixed(2)}`;
+}
+
+/** `26-294`: one row of the dense label/value grid every card below uses - `.ago-billing-facts`
+ * (`index.css`) lays these out two-to-a-row on a wide viewport, one-per-row on narrow, replacing the
+ * old `<p><strong>label</strong>: value</p>` this screen used to repeat about twenty times. `note` is
+ * the small, second-order fact that used to be its own row ("Included free on Solo", "Purchased
+ * beyond the tier") - folded under the primary value instead of given a row of its own. */
+function FactRow({ label, value, note }: { label: string; value: ReactNode; note?: ReactNode }) {
+  return (
+    <div className="ago-billing-fact">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+      {note && <span className="ago-billing-fact__note">{note}</span>}
+    </div>
+  );
+}
+
+/** `26-294`: Card 1's status badge - `26-290`'s own Case 1 table ("Status badge ... rendered as
+ * active / past-due / pending badges"). `Pending` and `Failed` reuse `billingPendingTitle`/
+ * `billingFailedTitle` rather than a second translation of the identical word, since those are
+ * already the exact word shown as that state's own `Alert` title just below. A `null` subscription
+ * is the ordinary free-tier state, not an error - `tone: "neutral"`, not `"danger"`. */
+function subscriptionStatusBadge(
+  sub: BillingSubscriptionSummaryDto | null,
+  strings: ConsoleStrings,
+): { tone: BadgeTone; label: string } {
+  if (sub === null) {
+    return { tone: "neutral", label: strings.billingStatusFreeLabel };
+  }
+  switch (sub.status) {
+    case "Succeeded":
+      return { tone: "success", label: strings.billingStatusActiveLabel };
+    case "Pending":
+      return { tone: "accent", label: strings.billingPendingTitle };
+    case "Failed":
+      return { tone: "danger", label: strings.billingFailedTitle };
+    case "PastDue":
+      return { tone: "danger", label: strings.billingStatusPastDueLabel };
+    case "Lapsed":
+      return { tone: "neutral", label: strings.billingStatusLapsedLabel };
+  }
 }
 
 /**
@@ -167,6 +211,31 @@ function rub(amount: number): string {
  * it, and the state it owns, are new - and it is shown only once a subscription is already `Succeeded`,
  * the one state `ChangeSubscriptionSeatsHandler`'s own top gate accepts a seat change of either
  * direction on at all.
+ *
+ * ## `26-294`: three cards, not six stacked panels
+ *
+ * `26-290`'s own design (`docs/backlog/26-290-console-billing-redesign.md`, slice 1) found this
+ * screen reading as "empty and scrolly" not because it lacked data but because ~20 one-fact-per-line
+ * rows and five stacked forms buried the two things a paying tenant actually came to check - what is
+ * paid and until when, and what can be bought - under a wall of read-only pricing trivia. This item
+ * is a pure regrouping of data **already on the wire**, never a backend change: **Current plan**
+ * merges the old Subscription/Operator-seats/Administrator-seats panels into one dense
+ * `.ago-billing-facts` grid (`FactRow` below) plus a status `Badge`; **Add to your plan** merges the
+ * add-seats/add-administrator stepper panels into `.ago-billing-buy-row`s (name, unit price, and a
+ * stepper-plus-button sharing one line via `Field`'s `adornment` slot) and demotes reduce-seats/cancel
+ * - real money-relevant actions, but not *purchases* - into a `quiet` sub-panel and a small button
+ * beneath the buy rows, per `26-290`'s own layout call; **Next renewal** is new, and deliberately
+ * thin: it shows only `currentPeriodEnd` (already on the wire) and says renewal is automatic, never a
+ * computed charge total - `26-290`'s own finding is that the recurring amount needs a channel-option
+ * count this screen's `BillingStatusDto` does not carry yet, and `CLAUDE.md` bars inventing a number
+ * to fill the gap in the meantime.
+ *
+ * **What this item deliberately does not add**: a connected-channel add-on purchase row. `26-290`'s
+ * own premise-check found `billingApi.ts` has no `purchaseChannelAddOn` and `BillingStatusDto` has no
+ * `channelAddOnPriceRub` - both are `26-290` slice 2's own addition, alongside the channel count and
+ * the next-charge total. Building a row here would mean either fabricating a price or wiring a button
+ * to an endpoint that does not exist; the seam is left in the Add-to-your-plan card's own code comment
+ * instead.
  */
 export function BillingPage() {
   const { user } = useAuth();
@@ -458,15 +527,49 @@ export function BillingPage() {
           </Panel>
         )
       ) : (
-        <div className="ago-stack">
+        <div className="ago-billing-grid">
+          {/* Card 1 - "what's paid now, and until when" (`26-290` Case 1). One dense fact grid
+              replacing the old Subscription/Operator-seats/Administrator-seats panels; the
+              status-carrying Alerts below it stay full-width (they are transient/actionable, with
+              their own spinner or retry framing), but the cancel-requested/pending-downgrade
+              notices are folded into small inline lines - `26-290`'s own call, since neither is an
+              error needing an assertive live region. */}
           <Panel title={strings.billingPanelTitle}>
             <div className="ago-stack">
-              <p>
+              <dl className="ago-billing-facts">
                 {/* `25-23`: the grid's own name for this tier, resolved server-side - never
-                    `status.tier`, which is the raw enum value ("free"/"starter") the wire carries
-                    for whatever already reads it literally. */}
-                <strong>{strings.billingTierLabel}:</strong> {status.tierDisplayName}
-              </p>
+                    `status.tier`, which is the raw enum value ("free"/"starter") the wire carries. */}
+                <FactRow label={strings.billingTierLabel} value={status.tierDisplayName} />
+                <FactRow
+                  label={strings.billingStatusLabel}
+                  value={
+                    <Badge tone={subscriptionStatusBadge(sub, strings).tone}>
+                      {subscriptionStatusBadge(sub, strings).label}
+                    </Badge>
+                  }
+                />
+                {/* `25-23`: Operator and Administrator seats stay two separate facts against two
+                    separate limits - `ago-business 0011`'s own separation, which a single "Лимит
+                    мест" line would collapse. Each note names its allowance apart from what was
+                    bought beyond it, the same split the old two-panel layout made, now a sub-line
+                    instead of two rows of its own. */}
+                <FactRow
+                  label={strings.billingOperatorSeatsHeading}
+                  value={`${status.seatsUsed} / ${status.seatLimit}`}
+                  note={`${strings.billingFreeSeatsIncludedLabel}: ${pricing.freeSeatsIncluded}`}
+                />
+                <FactRow
+                  label={strings.billingAdminSeatsHeading}
+                  value={`${status.adminsUsed} / ${status.adminLimit}`}
+                  note={`${strings.billingAdminsPurchasedLabel}: ${status.extraAdministratorsPurchased}`}
+                />
+                <FactRow
+                  label={strings.billingPaidUntilLabel}
+                  value={periodEndDate ? formatDateStamp(periodEndDate, timeZone, strings) : "—"}
+                />
+              </dl>
+
+              <p className="ago-billing-note">{strings.billingAdminSeatsNote}</p>
 
               {isPending && (
                 <Alert tone="info" title={strings.billingPendingTitle}>
@@ -484,115 +587,92 @@ export function BillingPage() {
                 </Alert>
               )}
               {sub?.cancelRequested && (
-                <Alert tone="info" title={strings.billingCancelRequestedTitle}>
-                  {strings.billingCancelRequestedBody} {periodEndDate ? formatDateStamp(periodEndDate, timeZone, strings) : "—"}.
-                </Alert>
+                <p className="ago-billing-note">
+                  <strong>{strings.billingCancelRequestedTitle}:</strong> {strings.billingCancelRequestedBody}{" "}
+                  {periodEndDate ? formatDateStamp(periodEndDate, timeZone, strings) : "—"}.
+                </p>
               )}
               {sub?.pendingSeatCount !== null && sub?.pendingSeatCount !== undefined && (
-                <Alert tone="info" title={strings.billingPendingDowngradeTitle}>
-                  {strings.billingPendingDowngradeBody} {sub.pendingSeatCount} ({sub.pendingTier}).
-                </Alert>
+                <p className="ago-billing-note">
+                  <strong>{strings.billingPendingDowngradeTitle}:</strong> {strings.billingPendingDowngradeBody}{" "}
+                  {sub.pendingSeatCount} ({sub.pendingTier}).
+                </p>
               )}
             </div>
           </Panel>
 
-          {/* `25-23`: Operator seats and Administrator seats as two blocks against two limits -
-              `ago-business 0011`'s own separation, which the single "Лимит мест" line this replaced
-              collapsed. Each names its free allowance apart from what is bought beyond it. */}
-          <Panel title={strings.billingOperatorSeatsHeading}>
+          {/* Card 2 - "what can I buy, and for how much" (`26-290` Case 2). Each buyable dimension
+              is one `.ago-billing-buy-row` (name + unit price on the left, a stepper-plus-button on
+              the right via `Field`'s `adornment` slot) instead of a stepper panel of its own.
+              Reduce-seats and cancellation are demoted below the buy rows - `26-290`'s own call,
+              since neither is a purchase and both would otherwise compete with the buy rows for
+              attention. */}
+          <Panel title={strings.billingAddToPlanHeading}>
             <div className="ago-stack">
-              <p>
-                <strong>{strings.billingSeatsUsedLabel}:</strong> {status.seatsUsed}
-              </p>
-              <p>
-                <strong>{strings.billingSeatLimitLabel}:</strong> {status.seatLimit}
-              </p>
-              <p>
-                <strong>{strings.billingFreeSeatsIncludedLabel}:</strong> {pricing.freeSeatsIncluded}
-              </p>
-              <p>
-                <strong>{strings.billingPurchasableSeatsLabel}:</strong> {pricing.minSeats}-{pricing.maxSeats}
-              </p>
-              <p>
-                <strong>{strings.billingBaseSeatPriceLabel}:</strong> {rub(pricing.baseSeatPriceRub)}
-              </p>
-              <p>
-                <strong>{strings.billingBaseSeatsCoveredLabel}:</strong> {pricing.baseSeats}
-              </p>
-              <p>
-                <strong>{strings.billingExtraSeatPriceLabel}:</strong> {rub(pricing.pricePerExtraSeatRub)}
-              </p>
-              <p>
-                <strong>{strings.billingBillingPeriodDaysLabel}:</strong> {pricing.billingPeriodDays}
-              </p>
-            </div>
-          </Panel>
+              {/* `25-23`: one control for both directions of the same purchase - a site with no
+                  active paid subscription starts a checkout, one with a `Succeeded` subscription
+                  changes its seat count in place. Withheld while a payment is pending or retrying,
+                  exactly as before. */}
+              {!isPending && sub?.status !== "PastDue" && (
+                <div className="ago-billing-buy-row">
+                  <div className="ago-billing-buy-row__info">
+                    <span className="ago-billing-buy-row__name">{strings.billingAddSeatsHeading}</span>
+                    <span className="ago-billing-buy-row__price">
+                      {strings.billingBaseSeatPriceLabel} {rub(pricing.baseSeatPriceRub)} ({strings.billingBaseSeatsCoveredLabel}:{" "}
+                      {pricing.baseSeats}) · {strings.billingExtraSeatPriceLabel} {rub(pricing.pricePerExtraSeatRub)}
+                    </span>
+                    {/* `26-290` §4: pure reference pricing moves to its point of use rather than a
+                        standalone fact nobody is about to act on - the purchasable range belongs
+                        here, beside the control it bounds, not in Card 1. */}
+                    <span className="ago-billing-buy-row__price">
+                      {strings.billingPurchasableSeatsLabel}: {pricing.minSeats}-{pricing.maxSeats}
+                    </span>
+                    <span className="ago-billing-buy-row__price">
+                      {strings.billingCurrentSeatCountLabel}: {status.seatLimit}
+                    </span>
+                  </div>
 
-          <Panel title={strings.billingAdminSeatsHeading} description={strings.billingAdminSeatsNote}>
-            <div className="ago-stack">
-              <p>
-                <strong>{strings.billingSeatsUsedLabel}:</strong> {status.adminsUsed}
-              </p>
-              <p>
-                <strong>{strings.billingSeatLimitLabel}:</strong> {status.adminLimit}
-              </p>
-              <p>
-                {/* `Site.ActivateSubscription` builds `AdminLimit` as exactly
-                    `ResolveAdminLimit(tier) + ExtraAdministratorsPurchased`, so this difference is
-                    that first term rather than an estimate of it - and the second term below is the
-                    persisted field itself (`25-41`), never inferred. */}
-                <strong>{strings.billingAdminsIncludedLabel}:</strong> {status.adminLimit - status.extraAdministratorsPurchased}
-              </p>
-              <p>
-                <strong>{strings.billingAdminsPurchasedLabel}:</strong> {status.extraAdministratorsPurchased}
-              </p>
-              <p>
-                <strong>{strings.billingAdminExtraPriceLabel}:</strong>{" "}
-                {status.adminExtraPriceRub === null ? strings.billingAdminExtraNotPriced : rub(status.adminExtraPriceRub)}
-              </p>
-            </div>
-          </Panel>
+                  {atSeatMaximum ? (
+                    <p>{strings.billingSeatMaximumReached}</p>
+                  ) : (
+                    <form
+                      className="ago-billing-buy-row__controls"
+                      onSubmit={(e) => void (sub?.status === "Succeeded" ? handleSeatChangeSubmit(e) : handleCheckoutSubmit(e))}
+                    >
+                      <Field
+                        label={strings.billingAddSeatsFieldLabel}
+                        description={`${strings.billingNewSeatCountLabel}: ${seatsAfterPurchase}`}
+                        error={seatCountError}
+                        adornment={
+                          sub?.status === "Succeeded" ? (
+                            <Button type="submit" variant="primary" disabled={seatChangeSubmitting || !canSubmitPurchase}>
+                              {seatChangeSubmitting ? strings.billingChangingSeatsButton : strings.billingAddSeatsButton}
+                            </Button>
+                          ) : (
+                            <Button type="submit" variant="primary" disabled={checkoutSubmitting || !canSubmitPurchase}>
+                              {checkoutSubmitting ? strings.billingSubscribingButton : strings.billingAddSeatsButton}
+                            </Button>
+                          )
+                        }
+                      >
+                        {(controlProps) => (
+                          <Input
+                            {...controlProps}
+                            type="number"
+                            min={MIN_SEATS_TO_ADD}
+                            max={seatsAddable}
+                            value={seatsToAdd}
+                            onChange={(e) => setSeatsToAdd(Number(e.target.value))}
+                            disabled={checkoutSubmitting || seatChangeSubmitting}
+                          />
+                        )}
+                      </Field>
+                    </form>
+                  )}
 
-          {/* `25-23`: one control for both directions of the same purchase - a site with no active
-              paid subscription starts a checkout, one with a `Succeeded` subscription changes its
-              seat count in place. Both take the same absolute total, so the stepper's quantity is
-              the only thing that differs between them. Withheld while a payment is still pending or
-              retrying, exactly as the field it replaced was. */}
-          {!isPending && sub?.status !== "PastDue" && (
-            <Panel title={strings.billingAddSeatsHeading}>
-              {atSeatMaximum ? (
-                <p>{strings.billingSeatMaximumReached}</p>
-              ) : (
-                <form
-                  className="ago-stack"
-                  onSubmit={(e) => void (sub?.status === "Succeeded" ? handleSeatChangeSubmit(e) : handleCheckoutSubmit(e))}
-                >
-                  <p>
-                    {/* The read-only half of the control `25-23` asked for: what you have now is
-                        stated, not offered as something to overwrite. */}
-                    <strong>{strings.billingCurrentSeatCountLabel}:</strong> {status.seatLimit}
-                  </p>
-
-                  <Field
-                    label={strings.billingAddSeatsFieldLabel}
-                    description={`${strings.billingNewSeatCountLabel}: ${seatsAfterPurchase}`}
-                    error={seatCountError}
-                  >
-                    {(controlProps) => (
-                      <Input
-                        {...controlProps}
-                        type="number"
-                        min={MIN_SEATS_TO_ADD}
-                        max={seatsAddable}
-                        value={seatsToAdd}
-                        onChange={(e) => setSeatsToAdd(Number(e.target.value))}
-                        disabled={checkoutSubmitting || seatChangeSubmitting}
-                      />
-                    )}
-                  </Field>
-
-                  {sub?.status !== "Succeeded" && <p>{strings.billingAddSeatsStartsCheckout}</p>}
-
+                  {!atSeatMaximum && sub?.status !== "Succeeded" && (
+                    <p className="ago-billing-note">{strings.billingAddSeatsStartsCheckout}</p>
+                  )}
                   {checkoutError && <Alert tone="danger">{checkoutError}</Alert>}
                   {seatChangeError && <Alert tone="danger">{seatChangeError}</Alert>}
                   {seatChangeSuccess && (
@@ -601,110 +681,63 @@ export function BillingPage() {
                       {seatChangeSuccess.seats}.
                     </Alert>
                   )}
-
-                  <div className="ago-row">
-                    {sub?.status === "Succeeded" ? (
-                      <Button type="submit" variant="primary" disabled={seatChangeSubmitting || !canSubmitPurchase}>
-                        {seatChangeSubmitting ? strings.billingChangingSeatsButton : strings.billingAddSeatsButton}
-                      </Button>
-                    ) : (
-                      <Button type="submit" variant="primary" disabled={checkoutSubmitting || !canSubmitPurchase}>
-                        {checkoutSubmitting ? strings.billingSubscribingButton : strings.billingAddSeatsButton}
-                      </Button>
-                    )}
-                  </div>
-                </form>
+                </div>
               )}
-            </Panel>
-          )}
 
-          {/* `25-95`: the decrease direction `25-23`'s add-only stepper removed the one console path
-              for. A second, explicit control rather than letting the add stepper above cross zero -
-              an increase on a `Succeeded` subscription charges immediately and a decrease only ever
-              schedules (no charge, nothing written until the next renewal), and those are different
-              enough outcomes that one control silently switching between them by crossing zero would
-              be easy to trigger by accident. Shown only on an already-`Succeeded` subscription - the
-              one state `ChangeSubscriptionSeatsHandler` accepts a seat change of either direction on
-              at all - so there is no "no subscription yet" branch to fork on here the way the add
-              control above has. */}
-          {sub?.status === "Succeeded" && (
-            <Panel title={strings.billingReduceSeatsHeading}>
-              {atSeatMinimum ? (
-                <p>{strings.billingSeatMinimumReached}</p>
-              ) : (
-                <form className="ago-stack" onSubmit={(e) => void handleSeatReductionSubmit(e)}>
-                  <p>
-                    <strong>{strings.billingCurrentSeatCountLabel}:</strong> {status.seatLimit}
-                  </p>
+              {/* `25-96`: the Administrator-seat purchase row. Deliberately not the same two-branch
+                  shape as Operator seats above: `PurchaseAdministratorSlotHandler` has no
+                  checkout-session path at all, only an immediate charge against an already-
+                  `Succeeded` subscription's stored payment method - so this row explains what is
+                  missing and points at the Operator row above when there is no such subscription
+                  yet, rather than starting a checkout of its own.
+                  `26-294`: this is the row a connected-channel add-on purchase would join next to,
+                  once `26-290` slice 2 adds `channelAddOnPriceRub` to `BillingStatusDto` and a
+                  `purchaseChannelAddOn` client function to `billingApi.ts` - neither exists yet, so
+                  no channel row is built here (`26-290`'s own "leave a clean seam" call). */}
+              <div className="ago-billing-buy-row">
+                <div className="ago-billing-buy-row__info">
+                  <span className="ago-billing-buy-row__name">{strings.billingAddAdminSeatsHeading}</span>
+                  <span className="ago-billing-buy-row__price">
+                    {strings.billingAdminExtraPriceLabel}:{" "}
+                    {status.adminExtraPriceRub === null ? strings.billingAdminExtraNotPriced : rub(status.adminExtraPriceRub)}
+                  </span>
+                  <span className="ago-billing-buy-row__price">
+                    {strings.billingCurrentAdminCountLabel}: {status.extraAdministratorsPurchased}
+                  </span>
+                </div>
 
-                  <Field
-                    label={strings.billingReduceSeatsFieldLabel}
-                    description={`${strings.billingReduceSeatsNewCountLabel}: ${seatsAfterReduction}`}
-                    error={seatReductionCountError}
-                  >
-                    {(controlProps) => (
-                      <Input
-                        {...controlProps}
-                        type="number"
-                        min={MIN_SEATS_TO_REMOVE}
-                        max={seatsRemovable}
-                        value={seatsToRemove}
-                        onChange={(e) => setSeatsToRemove(Number(e.target.value))}
-                        disabled={seatReductionSubmitting}
-                      />
-                    )}
-                  </Field>
+                {status.adminExtraPriceRub === null ? (
+                  <p>{strings.billingAddAdminSeatsNotForSale}</p>
+                ) : sub === null || sub.status !== "Succeeded" ? (
+                  <p>{strings.billingAddAdminSeatsNeedsSubscription}</p>
+                ) : (
+                  <form className="ago-billing-buy-row__controls" onSubmit={(e) => void handleAdminPurchaseSubmit(e)}>
+                    <Field
+                      label={strings.billingAddAdminSeatsFieldLabel}
+                      description={`${strings.billingNewAdminCountLabel}: ${adminCountAfterPurchase}`}
+                      adornment={
+                        <Button type="submit" variant="primary" disabled={adminPurchaseSubmitting || !canPurchaseAdminSlot}>
+                          {adminPurchaseSubmitting ? strings.billingAdminPurchaseSubmittingButton : strings.billingAddAdminSeatsButton}
+                        </Button>
+                      }
+                    >
+                      {(controlProps) => (
+                        <Input
+                          {...controlProps}
+                          type="number"
+                          min={MIN_SEATS_TO_ADD}
+                          value={adminSlotsToAdd}
+                          onChange={(e) => setAdminSlotsToAdd(Number(e.target.value))}
+                          disabled={adminPurchaseSubmitting}
+                        />
+                      )}
+                    </Field>
+                  </form>
+                )}
 
-                  <p>{strings.billingReduceSeatsSchedulesAtRenewal}</p>
-
-                  {seatReductionError && <Alert tone="danger">{seatReductionError}</Alert>}
-
-                  <div className="ago-row">
-                    <Button type="submit" variant="primary" disabled={seatReductionSubmitting || !canSubmitReduction}>
-                      {seatReductionSubmitting ? strings.billingChangingSeatsButton : strings.billingReduceSeatsButton}
-                    </Button>
-                  </div>
-                </form>
-              )}
-            </Panel>
-          )}
-
-          {/* `25-96`: the Administrator-seat purchase control this screen has been missing since
-              `25-23` made the Administrator panel above display-only. Deliberately not the same
-              two-branch shape as the Operator panel immediately above: `25-41`'s own
-              `PurchaseAdministratorSlotHandler` has no checkout-session path at all, only an
-              immediate charge against an already-`Succeeded` subscription's stored payment method -
-              so, rather than starting a checkout of its own, this panel explains what is missing and
-              points at the Operator control above when there is no such subscription yet. */}
-          <Panel title={strings.billingAddAdminSeatsHeading}>
-            {status.adminExtraPriceRub === null ? (
-              <p>{strings.billingAddAdminSeatsNotForSale}</p>
-            ) : sub === null || sub.status !== "Succeeded" ? (
-              <p>{strings.billingAddAdminSeatsNeedsSubscription}</p>
-            ) : (
-              <form className="ago-stack" onSubmit={(e) => void handleAdminPurchaseSubmit(e)}>
-                <p>
-                  <strong>{strings.billingCurrentAdminCountLabel}:</strong> {status.extraAdministratorsPurchased}
-                </p>
-
-                <Field
-                  label={strings.billingAddAdminSeatsFieldLabel}
-                  description={`${strings.billingNewAdminCountLabel}: ${adminCountAfterPurchase}`}
-                >
-                  {(controlProps) => (
-                    <Input
-                      {...controlProps}
-                      type="number"
-                      min={MIN_SEATS_TO_ADD}
-                      value={adminSlotsToAdd}
-                      onChange={(e) => setAdminSlotsToAdd(Number(e.target.value))}
-                      disabled={adminPurchaseSubmitting}
-                    />
-                  )}
-                </Field>
-
-                <p>{strings.billingAddAdminSeatsChargesImmediately}</p>
-
+                {status.adminExtraPriceRub !== null && sub !== null && sub.status === "Succeeded" && (
+                  <p className="ago-billing-note">{strings.billingAddAdminSeatsChargesImmediately}</p>
+                )}
                 {adminPurchaseError && <Alert tone="danger">{adminPurchaseError}</Alert>}
                 {adminPurchaseSuccess && (
                   <Alert tone="success" title={strings.billingAdminPurchaseSuccessTitle}>
@@ -712,26 +745,96 @@ export function BillingPage() {
                     {adminPurchaseSuccess.count}.
                   </Alert>
                 )}
+              </div>
 
+              {/* `25-95`: the decrease direction, demoted into a `quiet` sub-panel below the buy
+                  rows - a decrease is not a purchase (no charge, nothing applies until the next
+                  renewal), so it should not visually compete with the two rows above that do charge
+                  immediately. Shown only on an already-`Succeeded` subscription, unchanged from
+                  before. */}
+              {sub?.status === "Succeeded" && (
+                <Panel quiet title={strings.billingReduceSeatsHeading}>
+                  {atSeatMinimum ? (
+                    <p>{strings.billingSeatMinimumReached}</p>
+                  ) : (
+                    <div className="ago-stack">
+                      <form className="ago-billing-buy-row__controls" onSubmit={(e) => void handleSeatReductionSubmit(e)}>
+                        <Field
+                          label={strings.billingReduceSeatsFieldLabel}
+                          description={`${strings.billingReduceSeatsNewCountLabel}: ${seatsAfterReduction}`}
+                          error={seatReductionCountError}
+                          adornment={
+                            <Button type="submit" variant="secondary" disabled={seatReductionSubmitting || !canSubmitReduction}>
+                              {seatReductionSubmitting ? strings.billingChangingSeatsButton : strings.billingReduceSeatsButton}
+                            </Button>
+                          }
+                        >
+                          {(controlProps) => (
+                            <Input
+                              {...controlProps}
+                              type="number"
+                              min={MIN_SEATS_TO_REMOVE}
+                              max={seatsRemovable}
+                              value={seatsToRemove}
+                              onChange={(e) => setSeatsToRemove(Number(e.target.value))}
+                              disabled={seatReductionSubmitting}
+                            />
+                          )}
+                        </Field>
+                      </form>
+
+                      <p className="ago-billing-note">{strings.billingReduceSeatsSchedulesAtRenewal}</p>
+
+                      {seatReductionError && <Alert tone="danger">{seatReductionError}</Alert>}
+                    </div>
+                  )}
+                </Panel>
+              )}
+
+              {(sub?.status === "Succeeded" || sub?.status === "PastDue") && !sub.cancelRequested && (
                 <div className="ago-row">
-                  <Button type="submit" variant="primary" disabled={adminPurchaseSubmitting || !canPurchaseAdminSlot}>
-                    {adminPurchaseSubmitting ? strings.billingAdminPurchaseSubmittingButton : strings.billingAddAdminSeatsButton}
+                  {cancelError && <Alert tone="danger">{cancelError}</Alert>}
+                  <Button variant="danger" size="sm" onClick={() => setCancelConfirming(true)}>
+                    {strings.billingCancelButton}
                   </Button>
                 </div>
-              </form>
-            )}
+              )}
+            </div>
           </Panel>
 
-          {(sub?.status === "Succeeded" || sub?.status === "PastDue") && !sub.cancelRequested && (
-            <Panel quiet>
-              {cancelError && <Alert tone="danger">{cancelError}</Alert>}
-              <div className="ago-row">
-                <Button variant="danger" onClick={() => setCancelConfirming(true)}>
-                  {strings.billingCancelButton}
-                </Button>
-              </div>
-            </Panel>
-          )}
+          {/* Card 3 - "next charge: how much, when, and pay-early" (`26-290` Case 3), display half
+              only. Deliberately thin: `currentPeriodEnd` is already on the wire, but the recurring
+              amount is not (it needs a channel-option count `BillingStatusDto` does not carry yet -
+              `26-290` slice 2) and pay-early does not exist as a command at all (`26-290` slice 4).
+              Showing only what is actually known, with an honest "not shown yet" for the rest, is
+              the point - `CLAUDE.md` bars inventing a number to fill the gap. */}
+          <Panel title={strings.billingNextRenewalHeading}>
+            <div className="ago-stack">
+              {sub === null ? (
+                <p>{strings.billingNextRenewalNoSubscription}</p>
+              ) : isPending || sub.status === "Failed" ? (
+                <p>{strings.billingNextRenewalPending}</p>
+              ) : sub.cancelRequested ? (
+                <p>
+                  {strings.billingCancelRequestedBody} {periodEndDate ? formatDateStamp(periodEndDate, timeZone, strings) : "—"}.
+                </p>
+              ) : (
+                <>
+                  <dl className="ago-billing-facts">
+                    <FactRow
+                      label={strings.billingNextRenewalDateLabel}
+                      value={periodEndDate ? formatDateStamp(periodEndDate, timeZone, strings) : "—"}
+                    />
+                    <FactRow label={strings.billingNextRenewalAmountLabel} value={strings.billingNextRenewalAmountPending} />
+                    {/* `26-290` §4: the period length is reference pricing too - moved here, next to
+                        the renewal date it explains, rather than left in a standalone panel. */}
+                    <FactRow label={strings.billingBillingPeriodDaysLabel} value={pricing.billingPeriodDays} />
+                  </dl>
+                  <p className="ago-billing-note">{strings.billingNextRenewalAutomaticNote}</p>
+                </>
+              )}
+            </div>
+          </Panel>
         </div>
       )}
 

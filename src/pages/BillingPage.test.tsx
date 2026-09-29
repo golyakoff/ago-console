@@ -198,19 +198,26 @@ describe("who is offered the screen", () => {
   });
 });
 
-/** `25-23`: everything this item's own Scope asked the screen to stop getting wrong. */
+/** `25-23`: everything this item's own Scope asked the screen to stop getting wrong.
+ * `26-294` merged the old Subscription/Operator-seats/Administrator-seats panels into one "Current
+ * plan" card and moved pure reference pricing (base/extra seat price, purchasable range) to its
+ * point of use in the "Add to your plan" card - these tests were rewritten around that new split. */
 describe("the Solo/Business grid, as this screen actually renders it", () => {
   it("renders the tier by the grid's own name, never the raw enum value the wire carries", async () => {
     billingApi.fetchBillingStatus.mockResolvedValue(freeStatus());
 
     const container = await render(page());
 
-    const subscriptionPanel = panelTitled(container, "Subscription");
-    expect(subscriptionPanel.textContent).toContain("Solo");
+    const currentPlanPanel = panelTitled(container, "Current plan");
+    expect(currentPlanPanel.textContent).toContain("Solo");
     // `tier` is still `"free"` on the wire and must never reach the screen as a label - that is the
-    // exact defect this item was filed for. Scoped to the tier panel because the Operator block
-    // legitimately says "Included free on Solo" about the allowance.
-    expect(subscriptionPanel.textContent).not.toContain("free");
+    // exact defect this item was filed for. Scoped to the Tier fact's own `<dd>` rather than the
+    // whole card's `textContent`: the same card legitimately says "Included free on Solo" about the
+    // seat allowance a few rows down, and a bare substring check would trip over that lowercase
+    // "free" as a false positive.
+    const tierValue = Array.from(currentPlanPanel.querySelectorAll("dt")).find((dt) => dt.textContent === "Tier")
+      ?.parentElement?.querySelector("dd");
+    expect(tierValue?.textContent).toBe("Solo");
   });
 
   it("shows Operator and Administrator counts as two separate pairs, each against its own limit", async () => {
@@ -219,39 +226,38 @@ describe("the Solo/Business grid, as this screen actually renders it", () => {
     );
 
     const container = await render(page());
-    const operatorPanel = panelTitled(container, "Operator seats");
-    const adminPanel = panelTitled(container, "Administrator seats");
+    const currentPlanPanel = panelTitled(container, "Current plan");
 
-    expect(operatorPanel.textContent).toContain("In use: 3");
-    expect(operatorPanel.textContent).toContain("Limit: 4");
-    expect(adminPanel.textContent).toContain("In use: 2");
-    expect(adminPanel.textContent).toContain("Limit: 3");
-    expect(adminPanel.textContent).toContain("Administrators are counted separately from Operator seats.");
+    expect(currentPlanPanel.textContent).toContain("3 / 4");
+    expect(currentPlanPanel.textContent).toContain("2 / 3");
+    expect(currentPlanPanel.textContent).toContain("Administrators are counted separately from Operator seats.");
   });
 
-  it("names the Administrator allowance apart from what was bought beyond it", async () => {
+  it("names the Administrator allowance apart from what was bought beyond it, and prices the extra seat at its point of use", async () => {
     billingApi.fetchBillingStatus.mockResolvedValue(
       businessStatus({ adminLimit: 3, adminsUsed: 3, extraAdministratorsPurchased: 1, adminExtraPriceRub: 500 }),
     );
 
     const container = await render(page());
-    const adminPanel = panelTitled(container, "Administrator seats");
+    const currentPlanPanel = panelTitled(container, "Current plan");
+    const addToPlanPanel = panelTitled(container, "Add to your plan");
 
-    // `AdminLimit` is `ResolveAdminLimit(tier) + ExtraAdministratorsPurchased`, so 3 - 1 = the 2 the
-    // Business tier itself includes; the 1 is `25-41`'s own persisted purchase count, not a guess.
-    expect(adminPanel.textContent).toContain("Included in the tier: 2");
-    expect(adminPanel.textContent).toContain("Purchased beyond the tier: 1");
-    expect(adminPanel.textContent).toContain("₽500.00");
+    // `AdminLimit` is `ResolveAdminLimit(tier) + ExtraAdministratorsPurchased` - the persisted
+    // purchase count `25-41` tracks, named apart from the tier's own included allowance.
+    expect(currentPlanPanel.textContent).toContain("Purchased beyond the tier: 1");
+    // `26-290` §4: the price itself is reference pricing and lives at its point of use (the buy
+    // row), not on the Current plan card.
+    expect(addToPlanPanel.textContent).toContain("₽500.00");
   });
 
   it("shows an unpublished extra-Administrator price as an absence, never as ₽0", async () => {
     billingApi.fetchBillingStatus.mockResolvedValue(businessStatus({ adminExtraPriceRub: null }));
 
     const container = await render(page());
-    const adminPanel = panelTitled(container, "Administrator seats");
+    const addToPlanPanel = panelTitled(container, "Add to your plan");
 
-    expect(adminPanel.textContent).toContain("not on sale yet");
-    expect(adminPanel.textContent).not.toContain("₽0.00");
+    expect(addToPlanPanel.textContent).toContain("not on sale yet");
+    expect(addToPlanPanel.textContent).not.toContain("₽0.00");
   });
 
   it("takes the purchasable seat range and its prices from the server, not from a copy of its own", async () => {
@@ -260,13 +266,14 @@ describe("the Solo/Business grid, as this screen actually renders it", () => {
     billingApi.fetchBillingStatus.mockResolvedValue(freeStatus());
 
     const container = await render(page());
-    const operatorPanel = panelTitled(container, "Operator seats");
+    const currentPlanPanel = panelTitled(container, "Current plan");
+    const addToPlanPanel = panelTitled(container, "Add to your plan");
 
-    expect(operatorPanel.textContent).toContain("Purchasable on Business: 2-5");
-    expect(operatorPanel.textContent).toContain("Included free on Solo: 2");
-    expect(operatorPanel.textContent).toContain("₽490.00");
-    expect(operatorPanel.textContent).toContain("₽200.00");
-    expect(operatorPanel.textContent).not.toContain("100");
+    expect(currentPlanPanel.textContent).toContain("Included free on Solo: 2");
+    expect(addToPlanPanel.textContent).toContain("Purchasable on Business: 2-5");
+    expect(addToPlanPanel.textContent).toContain("₽490.00");
+    expect(addToPlanPanel.textContent).toContain("₽200.00");
+    expect(addToPlanPanel.textContent).not.toContain("100");
   });
 
   it("renders whatever range the server sends, so a band change needs no console release", async () => {
@@ -274,7 +281,7 @@ describe("the Solo/Business grid, as this screen actually renders it", () => {
 
     const container = await render(page());
 
-    expect(panelTitled(container, "Operator seats").textContent).toContain("Purchasable on Business: 3-9");
+    expect(panelTitled(container, "Add to your plan").textContent).toContain("Purchasable on Business: 3-9");
   });
 });
 
@@ -335,12 +342,21 @@ describe("the add-seats control", () => {
     billingApi.fetchBillingStatus.mockResolvedValue(businessStatus({ seatLimit: 5, seatsUsed: 5 }));
 
     const container = await render(page());
-    // Scoped to the Add panel: `25-95` gave this screen a second, sibling number input (the
-    // reduce-seats control), so a bare `container`-wide query would also match that one.
-    const panel = panelTitled(container, "Add operators");
+    // `26-294`: the add-seats row now lives inside the "Add to your plan" card, alongside the
+    // Administrator buy row and - on a `Succeeded` subscription, which this fixture's `businessStatus`
+    // carries - the nested reduce-seats sub-panel. Scoped to the card's own buy rows rather than its
+    // full `textContent`/every input: the reduce-seats control legitimately has a number input of its
+    // own, and asserting "no input anywhere in this card" would wrongly fail on that unrelated control.
+    const panel = panelTitled(container, "Add to your plan");
+    const buyRows = Array.from(panel.querySelectorAll(".ago-billing-buy-row"));
 
     expect(panel.textContent).toContain("You already hold the largest seat count sold without a conversation.");
-    expect(panel.querySelector("input[type=number]")).toBeNull();
+    // The Administrator row's own price is unpublished by default in this fixture (`freeStatus`'s
+    // `adminExtraPriceRub: null`), so it renders no input of its own either - the seat row being at
+    // its maximum is the only reason nothing here is left to buy.
+    for (const row of buyRows) {
+      expect(row.querySelector("input[type=number]")).toBeNull();
+    }
     expect(byText(panel, "button", "Add")).toBeNull();
   });
 });
@@ -358,7 +374,7 @@ describe("the honest pending-then-confirmed state", () => {
     // Pending row exists, matching `CreateCheckoutSessionHandler`'s own "never touches Site.Tier
     // itself" contract. Scoped to the tier panel: the Operator block legitimately names Business
     // when describing what is purchasable.
-    const subscriptionPanel = panelTitled(container, "Subscription");
+    const subscriptionPanel = panelTitled(container, "Current plan");
     expect(subscriptionPanel.textContent).toContain("Solo");
     expect(subscriptionPanel.textContent).not.toContain("Business");
   });
@@ -570,7 +586,10 @@ describe("reducing seats on an active (Succeeded) subscription", () => {
 
 /** `25-96`: the Administrator-seat purchase control this screen was missing entirely before this
  * item - `25-41`'s own endpoint existed and was tested on the `ago-chat` side, but nothing in the
- * console called it. */
+ * console called it. `26-294` folded this control into a `.ago-billing-buy-row` inside the "Add to
+ * your plan" card rather than a panel of its own - these tests scope to that row via its own button
+ * or text (`.closest(".ago-billing-buy-row")`) rather than a `panelTitled` lookup that no longer
+ * resolves to anything. */
 describe("purchasing extra Administrator seats", () => {
   it("buys the quantity chosen on top of the current extra-Administrator count, charging immediately - no ЮKassa redirect", async () => {
     billingApi.fetchBillingStatus.mockResolvedValue(
@@ -579,12 +598,15 @@ describe("purchasing extra Administrator seats", () => {
     billingApi.purchaseAdministratorSlot.mockResolvedValue({ proratedAmountRub: 250, newExtraAdministratorCount: 3 });
 
     const container = await render(page());
-    const panel = panelTitled(container, "Add administrators");
-    const addInput = one<HTMLInputElement>(panel, "input[type=number]");
-    const button = byText<HTMLButtonElement>(panel, "button", "Add administrators");
+    const button = byText<HTMLButtonElement>(container, "button", "Add administrators");
     if (button === null) {
       throw new Error("no Add administrators button rendered");
     }
+    const row = button.closest(".ago-billing-buy-row");
+    if (row === null) {
+      throw new Error("Add administrators button is not inside a buy row");
+    }
+    const addInput = one<HTMLInputElement>(row, "input[type=number]");
 
     await interact(() => setInputValue(addInput, "2"));
     await interact(() => button.click());
@@ -592,19 +614,25 @@ describe("purchasing extra Administrator seats", () => {
     // 1 already bought + 2 added = 3 requested - the same "absolute count sent to the server, never
     // the bare quantity typed" contract `seatsAfterPurchase` uses for Operator seats.
     expect(billingApi.purchaseAdministratorSlot).toHaveBeenCalledWith("token", SITE_ID, "sub-1", 3);
-    expect(panel.textContent).toContain("250.00");
-    expect(panel.textContent).toContain("This charges your saved payment method immediately");
+    expect(row.textContent).toContain("250.00");
+    expect(row.textContent).toContain("This charges your saved payment method immediately");
   });
 
   it("offers no control, and explains why, while the extra-Administrator price is not yet published", async () => {
     billingApi.fetchBillingStatus.mockResolvedValue(freeStatus());
 
     const container = await render(page());
-    const panel = panelTitled(container, "Add administrators");
+    const notice = byText(container, "p", "Extra Administrators are not on sale yet.");
+    if (notice === null) {
+      throw new Error("no 'not on sale yet' notice rendered");
+    }
+    const row = notice.closest(".ago-billing-buy-row");
+    if (row === null) {
+      throw new Error("the notice is not inside a buy row");
+    }
 
-    expect(panel.textContent).toContain("Extra Administrators are not on sale yet.");
-    expect(panel.querySelector("input[type=number]")).toBeNull();
-    expect(byText(panel, "button", "Add administrators")).toBeNull();
+    expect(row.querySelector("input[type=number]")).toBeNull();
+    expect(byText(row, "button", "Add administrators")).toBeNull();
     expect(billingApi.purchaseAdministratorSlot).not.toHaveBeenCalled();
   });
 
@@ -614,11 +642,17 @@ describe("purchasing extra Administrator seats", () => {
     );
 
     const container = await render(page());
-    const panel = panelTitled(container, "Add administrators");
+    const notice = byText(container, "p", "Purchasing extra Administrators needs an active paid subscription. Add operators above first to start one, then extra Administrators can be bought here.");
+    if (notice === null) {
+      throw new Error("no 'needs an active paid subscription' notice rendered");
+    }
+    const row = notice.closest(".ago-billing-buy-row");
+    if (row === null) {
+      throw new Error("the notice is not inside a buy row");
+    }
 
-    expect(panel.textContent).toContain("needs an active paid subscription");
-    expect(panel.querySelector("input[type=number]")).toBeNull();
-    expect(byText(panel, "button", "Add administrators")).toBeNull();
+    expect(row.querySelector("input[type=number]")).toBeNull();
+    expect(byText(row, "button", "Add administrators")).toBeNull();
   });
 
   it("refreshes the purchased count and the resulting limit on the same screen after a successful purchase", async () => {
@@ -632,22 +666,21 @@ describe("purchasing extra Administrator seats", () => {
     billingApi.purchaseAdministratorSlot.mockResolvedValue({ proratedAmountRub: 250, newExtraAdministratorCount: 2 });
 
     const container = await render(page());
-    const addPanel = panelTitled(container, "Add administrators");
     // Default quantity (1) is submitted as-is - this test is about the post-purchase refresh, not
     // the quantity chosen.
-    const button = byText<HTMLButtonElement>(addPanel, "button", "Add administrators");
+    const button = byText<HTMLButtonElement>(container, "button", "Add administrators");
     if (button === null) {
       throw new Error("no Add administrators button rendered");
     }
 
     await interact(() => button.click());
 
-    // `load()` re-runs `fetchBillingStatus` after the purchase resolves - the display panel above
-    // reflects the server's own post-purchase numbers, never a locally-computed guess.
+    // `load()` re-runs `fetchBillingStatus` after the purchase resolves - the display card reflects
+    // the server's own post-purchase numbers, never a locally-computed guess.
     expect(billingApi.fetchBillingStatus).toHaveBeenCalledTimes(2);
-    const displayPanel = panelTitled(container, "Administrator seats");
-    expect(displayPanel.textContent).toContain("Purchased beyond the tier: 2");
-    expect(displayPanel.textContent).toContain("Limit: 4");
+    const currentPlanPanel = panelTitled(container, "Current plan");
+    expect(currentPlanPanel.textContent).toContain("Purchased beyond the tier: 2");
+    expect(currentPlanPanel.textContent).toContain("2 / 4");
   });
 });
 
