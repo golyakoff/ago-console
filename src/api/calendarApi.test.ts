@@ -3,6 +3,7 @@ import {
   CalendarApiError,
   confirmOperatorVerifiedPhone,
   createCalendar,
+  deleteClient,
   getConfiguration,
   getConfirmedBookings,
   getPendingBookings,
@@ -382,6 +383,32 @@ describe("the calendar API client", () => {
       const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
       expect(url).toContain("/contacts/c1/confirm-phone");
       expect(init.method).toBe("POST");
+    });
+  });
+
+  /** `26-275`/`adr/0189`: `DELETE /contacts/{personId}` - the calendar-initiated person erasure the
+   * client-detail hub's own delete action calls. */
+  describe("deleteClient - 26-275/adr-0189", () => {
+    it("sends a DELETE to this person's own contacts route and resolves on 204", async () => {
+      fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+
+      await expect(deleteClient("operator-token", "c1")).resolves.toBeUndefined();
+
+      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain("/contacts/c1");
+      expect(init.method).toBe("DELETE");
+    });
+
+    it("rejects with CalendarApiError('person_erase.future_bookings', 409) when the guard refuses", async () => {
+      fetchMock.mockResolvedValue(
+        problemResponse(409, { type: "person_erase.future_bookings", detail: "Person has one or more upcoming bookings." }),
+      );
+
+      const failure = (await deleteClient("operator-token", "c1").catch((reason: unknown) => reason)) as CalendarApiError;
+
+      expect(failure).toBeInstanceOf(CalendarApiError);
+      expect(failure.code).toBe("person_erase.future_bookings");
+      expect(failure.status).toBe(409);
     });
   });
 });

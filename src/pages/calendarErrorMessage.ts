@@ -61,9 +61,29 @@ export function calendarErrorMessage(reason: unknown, strings: ConsoleStrings): 
       // `26-268`§2a/`adr/0188`: `GetPersonCandidatesByPhoneHandler`'s own `customer:read` refusal - the
       // manual-entry dialog's phone-recognition step, gated the same way `contacts.forbidden` already
       // is above.
-      reason.code === "person_recognition.forbidden"
+      reason.code === "person_recognition.forbidden" ||
+      // `26-275`/`adr/0189`: the delete-client route's own refusal for an operator who lacks
+      // `customer:erase` - the identical sentence every other permission refusal above gets, since the
+      // server's own wording names a permission string an operator has no way to act on.
+      reason.code === "person_erase.forbidden"
     ) {
       return strings.calendarPermissionDeniedError;
+    }
+
+    // `26-275`/`adr/0189`: the future-bookings guard's own refusal. `CalendarClientDetailPage` branches
+    // on this code itself (swapping the confirm dialog for the explain-and-navigate one, never showing
+    // it as a plain alert) - this mapping is the defensive fallback for any caller that has not made
+    // that branch, so the sentence a viewer would see either way names the actual remedy.
+    if (reason.code === "person_erase.future_bookings") {
+      return strings.calendarDeleteClientFutureBookingsError;
+    }
+
+    // `26-275`/`adr/0189`: the person no longer exists in this tenant - already erased (by this
+    // operator's own earlier click, a race with another operator, or a stale link).
+    // `CalendarClientDetailPage` treats this the same as a completed delete rather than a failure; this
+    // mapping is the fallback sentence for any caller that does not make that distinction.
+    if (reason.code === "person_erase.not_found") {
+      return strings.calendarDeleteClientNotFoundError;
     }
 
     return reason.message;

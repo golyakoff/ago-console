@@ -1799,6 +1799,19 @@ export const en: ConsoleStrings = {
   calendarClientDetailMetaTitle: "Details",
   calendarClientDetailNoChannels: "No contact channels recorded yet.",
 
+  calendarClientDetailDeleteButton: "Delete client",
+  calendarClientDetailDeleteConfirmTitle: "Delete this client?",
+  calendarClientDetailDeleteConfirmBody:
+    "This permanently deletes the client's record, their entire booking history, and their whole chat history. This cannot be undone.",
+  calendarClientDetailDeleteConfirmButton: "Delete",
+  calendarClientDetailDeleting: "Deleting…",
+  calendarClientDetailDeleteBlockedTitle: "Can't delete: upcoming bookings",
+  calendarClientDetailDeleteBlockedBody:
+    "This client has one or more upcoming bookings. Cancel them first, then delete the client.",
+  calendarClientDetailDeleteBlockedGoToBookingsButton: "Go to bookings",
+  calendarDeleteClientFutureBookingsError: "This client has one or more upcoming bookings. Cancel them first, then delete the client.",
+  calendarDeleteClientNotFoundError: "This client has already been deleted.",
+
   calendarQueueForbidden: "You do not have permission to view the calendar's booking queue.",
   calendarElsewhereNotice: "You do have a calendar in another shop. Switch shops with the picker at the top of the page:",
   calendarSetupForbidden: "You do not have permission to configure the calendar.",

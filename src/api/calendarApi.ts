@@ -861,6 +861,20 @@ export function getPersonBookings(token: string, personId: string, signal?: Abor
 }
 
 /**
+ * `26-275`/`adr/0189`: `DELETE /contacts/{personId}` - the calendar-initiated, hard person erasure the
+ * client-detail hub's own delete action calls. Gated server-side on `customer:erase` (Admin-only,
+ * `adr/0189` §3) - a stricter permission than every other `/contacts/{personId}` route in this file,
+ * which all read or write under `customer:read`. Answers `204` on success; refuses with `409
+ * person_erase.future_bookings` while this person holds a live future booking (`Booked`/
+ * `PendingConfirmation`, `startsAt > now`) - the caller is expected to branch on that code rather than
+ * show it as a generic failure (`calendarErrorMessage.ts`'s own mapping, `CalendarClientDetailPage`'s
+ * own two-dialog flow: confirm-and-delete vs explain-and-navigate-to-cancel).
+ */
+export function deleteClient(token: string, personId: string): Promise<void> {
+  return requestVoid(token, "DELETE", `/contacts/${encodeURIComponent(personId)}`);
+}
+
+/**
  * `26-268`§2a/`adr/0188`: one candidate `GET /contacts/by-phone` returns - an existing client the
  * manual-entry dialog's phone-first step can offer the operator to reuse instead of minting a new
  * person. Field names match `Ago.Calendar.Contracts.PersonRecognitionCandidateResponse` verbatim.

@@ -64,3 +64,42 @@ describe("calendarErrorMessage - person_recognition.forbidden (26-268)", () => {
     expect(message).toBe(en.calendarPermissionDeniedError);
   });
 });
+
+/** `26-275`/`adr/0189`: the delete-client route's own three outcomes. `CalendarClientDetailPage`
+ * branches on `person_erase.future_bookings`/`person_erase.not_found` itself before ever reaching this
+ * mapper (its own two-dialog flow); these mappings are the defensive fallback for any caller that has
+ * not made that branch, and `person_erase.forbidden` reaches the ordinary permission sentence. */
+describe("calendarErrorMessage - person_erase.* (26-275/adr-0189)", () => {
+  it("explains the permission failure the same way every other forbidden code does", () => {
+    const message = calendarErrorMessage(
+      new CalendarApiError("person_erase.forbidden", "This operator does not hold 'customer:erase' for this tenant.", 403),
+      en,
+    );
+
+    expect(message).toBe(en.calendarPermissionDeniedError);
+  });
+
+  it("gives the future-bookings guard its own localized sentence, in both languages", () => {
+    const englishMessage = calendarErrorMessage(
+      new CalendarApiError("person_erase.future_bookings", "Person has one or more upcoming bookings.", 409),
+      en,
+    );
+    const russianMessage = calendarErrorMessage(
+      new CalendarApiError("person_erase.future_bookings", "Person has one or more upcoming bookings.", 409),
+      ru,
+    );
+
+    expect(englishMessage).toBe(en.calendarDeleteClientFutureBookingsError);
+    expect(russianMessage).toBe(ru.calendarDeleteClientFutureBookingsError);
+    expect(ru.calendarDeleteClientFutureBookingsError).not.toBe(en.calendarDeleteClientFutureBookingsError);
+  });
+
+  it("gives an already-erased person its own localized sentence, in both languages", () => {
+    const englishMessage = calendarErrorMessage(new CalendarApiError("person_erase.not_found", "Person does not exist.", 404), en);
+    const russianMessage = calendarErrorMessage(new CalendarApiError("person_erase.not_found", "Person does not exist.", 404), ru);
+
+    expect(englishMessage).toBe(en.calendarDeleteClientNotFoundError);
+    expect(russianMessage).toBe(ru.calendarDeleteClientNotFoundError);
+    expect(ru.calendarDeleteClientNotFoundError).not.toBe(en.calendarDeleteClientNotFoundError);
+  });
+});
