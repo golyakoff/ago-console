@@ -406,6 +406,19 @@ export interface ConsoleStrings {
   visitorHistoryDialogLoadingLabel: string;
   visitorHistoryDialogError: string;
 
+  // VisitorBookingsPanel - `26-272` T3: the dialog -> client-record edge
+  // `26-272-console-usability-parity.md` §3.3 names as the booking<->dialog<->client triangle's
+  // missing third side. Gated exactly like `CalendarContactsPage`/`CalendarClientDetailPage`
+  // (`calendar:configure` or `customer:read`, `config.calendarApiBaseUrl !== null`), so a tenant with
+  // no calendar module - or an operator without the permission - sees no trace of this section, not
+  // an empty one. Deliberately a *count*, not a second list of booking rows: the panel links to the
+  // `26-269` client-detail hub rather than rendering its own, per that item's own "one hub, not two
+  // divergent booking views to keep in sync" call.
+  visitorBookingsOpenClientCardLink: string;
+  visitorBookingsWordOne: string;
+  visitorBookingsWordFew: string;
+  visitorBookingsWordMany: string;
+
   // CloseConversationButton.
   closeConversationButton: string;
   closeConversationDialogTitle: string;

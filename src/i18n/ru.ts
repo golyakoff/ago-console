@@ -186,6 +186,11 @@ export const ru: ConsoleStrings = {
   visitorHistoryDialogLoadingLabel: "Загрузка диалога…",
   visitorHistoryDialogError: "Не удалось загрузить этот диалог.",
 
+  visitorBookingsOpenClientCardLink: "Открыть карточку клиента",
+  visitorBookingsWordOne: "предстоящая запись",
+  visitorBookingsWordFew: "предстоящие записи",
+  visitorBookingsWordMany: "предстоящих записей",
+
   closeConversationButton: "Закрыть диалог",
   closeConversationDialogTitle: "Закрыть этот диалог?",
   cancelButton: "Отмена",
