@@ -330,6 +330,36 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* `26-272` (T2): the row-expand detail - a full-width cell under the row it belongs to, shaded to
+   read as "opened out of" that row rather than as a new, unrelated one. */
+.ago-table__detail-row td {
+  background: var(--ago-surface-sunken);
+}
+
+.ago-table__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ago-space-2);
+  padding: var(--ago-space-2) 0;
+}
+
+.ago-table__detail-item {
+  display: flex;
+  gap: var(--ago-space-2);
+  align-items: baseline;
+}
+
+.ago-table__detail-item dt {
+  font-weight: 700;
+  color: var(--ago-ink-soft);
+  flex: 0 0 auto;
+  min-width: 8rem;
+}
+
+.ago-table__detail-item dd {
+  margin: 0;
+}
+
 /* ============================================================================ Badge */
 
 .ago-badge {

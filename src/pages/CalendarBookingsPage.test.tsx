@@ -5,7 +5,7 @@ import type { User } from "oidc-client-ts";
 import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { CalendarBookingsPage } from "./CalendarBookingsPage.js";
-import { byText, interact, one, render, unmount } from "../testing/dom.js";
+import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
 import type { ConfirmedBooking } from "../api/calendarApi.js";
 import type { PersonProfile } from "../api/personsApi.js";
 
@@ -530,6 +530,95 @@ describe("revealing a masked phone (23-91)", () => {
     expect(container.textContent).toContain("Customer c9 does not exist in this tenant.");
     expect(container.textContent).toContain("+7999•••0009");
     expect(container.textContent).not.toContain("+79990000009");
+  });
+});
+
+/**
+ * `26-272` (T2): the confirmed-bookings screen gains a row-expand - opening a booking's own full
+ * detail on one surface instead of only the flat table row. `b1` (above) is the fixture this exercises:
+ * it carries a chat origin (`originConversationId: "conv-1"`), so its detail must include the dialog
+ * link too, not just service/worker/phone.
+ */
+describe("confirmed-booking detail panel (26-272)", () => {
+  it("shows no detail until a row's own toggle is opened", async () => {
+    const container = await render(page());
+
+    expect(container.querySelector(".ago-table__detail")).toBeNull();
+  });
+
+  it("opens the first row's own detail, consolidating its facts and reusing the row's own dialog link, on Details", async () => {
+    const container = await render(page());
+
+    const toggle = byText<HTMLButtonElement>(container, "button", "Details");
+    expect(toggle).not.toBeNull();
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+
+    await interact(() => toggle?.click());
+
+    // b1's own detail block - exactly one open at a time.
+    const details = container.querySelectorAll(".ago-table__detail");
+    expect(details.length).toBe(1);
+    const detail = details[0];
+    expect(detail.textContent).toContain("Haircut");
+    expect(detail.textContent).toContain("Ivan");
+    // The exact same dialog-link markup the flat row already renders - not a second implementation.
+    expect(detail.querySelector('a[href="/conversations/conv-1"]')).not.toBeNull();
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(toggle?.textContent).toBe("Hide details");
+  });
+
+  it("never shows a dialog row in the detail for a booking with no chat origin (absent, not disabled)", async () => {
+    const container = await render(page());
+
+    // b2 (Boris Orlov, no origin conversation) is the second "Details" toggle in document order.
+    const toggles = all(container, "button").filter((btn) => btn.textContent === "Details");
+    const boris = toggles[1] as HTMLButtonElement | undefined;
+    expect(boris).toBeDefined();
+
+    await interact(() => boris?.click());
+
+    const detail = one(container, ".ago-table__detail");
+    expect(detail.textContent).toContain("Manicure");
+    expect(detail.querySelector("a")).toBeNull();
+  });
+
+  it("closes the open detail on Hide details, and only ever keeps one row open at a time", async () => {
+    const container = await render(page());
+
+    const firstToggle = byText<HTMLButtonElement>(container, "button", "Details");
+    await interact(() => firstToggle?.click());
+    expect(container.querySelectorAll(".ago-table__detail").length).toBe(1);
+
+    // Opening a second row's detail replaces the first, rather than stacking a second one open.
+    const secondToggle = byText<HTMLButtonElement>(container, "button", "Details");
+    await interact(() => secondToggle?.click());
+    expect(container.querySelectorAll(".ago-table__detail").length).toBe(1);
+
+    const hideButton = byText<HTMLButtonElement>(container, "button", "Hide details");
+    await interact(() => hideButton?.click());
+    expect(container.querySelectorAll(".ago-table__detail").length).toBe(0);
+  });
+
+  it("reveals a masked phone from inside the open detail through the exact same reveal call every other screen uses", async () => {
+    calendarApi.getConfirmedBookings.mockResolvedValue([
+      { ...bookings[1] }, // b2 - masked
+    ]);
+    calendarApi.revealCustomerPhone.mockResolvedValue({ phone: "+79990000002" });
+
+    const container = await render(page());
+    const toggle = byText<HTMLButtonElement>(container, "button", "Details");
+    await interact(() => toggle?.click());
+
+    const detail = one(container, ".ago-table__detail");
+    const revealButton = byText<HTMLButtonElement>(detail, "button", "Reveal");
+    expect(revealButton).not.toBeNull();
+
+    await interact(() => revealButton?.click());
+
+    expect(calendarApi.revealCustomerPhone).toHaveBeenCalledWith("token", "c2", "ConsoleBookings");
+    // The reveal replaces the row everywhere it is rendered - the flat cell and the open detail alike,
+    // since both call the identical `renderPhone`/`reveal` wiring rather than two copies of it.
+    expect(container.textContent).toContain("+79990000002");
   });
 });
 

@@ -2814,6 +2814,16 @@ export interface ConsoleStrings {
    * disabled control, for an operator without `booking:reschedule` - `CloseConversationButton.tsx`'s
    * own established idiom). */
   calendarBookingsColumnActions: string;
+  /** `26-272` (T2): the row-expand toggle's own accessible name, open and closed - `Table`'s own
+   * `TableExpandable.toggleLabel` renders whichever applies for that row. The toggle's own visible
+   * text, not just its `aria-expanded` state, so a sighted operator scanning the row sees what
+   * clicking it will do. */
+  calendarBookingsDetailsOpenButton: string;
+  calendarBookingsDetailsCloseButton: string;
+  /** The toggle column's own header - visually hidden (`Table`'s `TableExpandable.columnHeader`), so
+   * a screen-reader's table navigation still has something to announce for a column with no visible
+   * label. */
+  calendarBookingsDetailsColumnHeader: string;
   /** Prefixes the raw count on both the day-level and the master-level `Badge` - one shared word
    * rather than a pluralised sentence, deliberately: `calendarSlotWordOne`/`Few`/`Many` three doors up
    * this file already carry the Russian noun-declension cost for the one screen that actually needs a
