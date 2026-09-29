@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
 import { getContacts, revealCustomerPhone, type Contact } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
-import { phoneStatusWarningGlyph, renderPersonName, renderPhone, type RevealControl } from "../calendar/calendarFormat.js";
+import { noShowWord, phoneStatusWarningGlyph, renderPersonName, renderPhone, type RevealControl } from "../calendar/calendarFormat.js";
 import { usePersonNames, type PersonNames } from "../calendar/usePersonNames.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
@@ -17,18 +18,7 @@ import { Alert } from "../components/Alert.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { Table, type TableColumn } from "../components/Table.js";
 import { useStrings } from "../i18n/StringsContext.js";
-import type { ConsoleStrings } from "../i18n/strings.js";
 import { formatAbsolute, formatDateStamp, parseInstant, resolveTimeZone } from "../time/format.js";
-
-/** `26-269`: the Russian three-way plural (1 / 2-4 / 5+) for the no-show pill's own counted noun -
- * kept page-local, the same way `WorkerScheduleSection`'s own `slotWord` is, since no other screen
- * counts no-shows in a sentence. */
-function noShowWord(strings: ConsoleStrings, count: number): string {
-  if (count === 1) {
-    return strings.calendarNoShowWordOne;
-  }
-  return count < 5 ? strings.calendarNoShowWordFew : strings.calendarNoShowWordMany;
-}
 
 /** `26-269`/`26-269-clients-redesign.md` §1.5.3: client-side search over the already-loaded,
  * already name-merged list - by name (read through the same `PersonNames` lookup the name column
@@ -184,9 +174,16 @@ export function CalendarContactsPage() {
       // `26-161`/`adr/0184`: the name is chat's now - read by person id from chat's Person registry
       // and display-merged here, not taken from a `displayName` field the calendar no longer serves.
       // The `23-60` Notes and Duplicate/Merge columns are gone with the calendar-side merge (O2).
+      //
+      // `26-269`/`26-269-clients-redesign.md` §3.2: "a tappable row that opens the client detail" -
+      // the single biggest change from `26-52`'s deliberately inert list. `Table`'s own render
+      // signature is per-cell, not per-row (`Table.tsx`'s own doc comment: "a columns/rows signature"),
+      // so the name cell itself is the row's one interactive surface - the same "a link is the drill-in"
+      // idiom `CalendarWorkersPage`'s own row-to-slots link and `CalendarBookingsPage`'s own dialog
+      // column already establish, rather than inventing a second, table-wide click handler.
       key: "name",
       header: strings.calendarContactsColumnName,
-      render: (contact) => renderPersonName(contact.personId, personNames, strings),
+      render: (contact) => <Link to={`/calendar/clients/${contact.personId}`}>{renderPersonName(contact.personId, personNames, strings)}</Link>,
     },
     {
       // `26-269`: replaces the two verification-badge columns (`phoneVerified`/`phoneConfirmed`) with

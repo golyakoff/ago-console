@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getPersons } from "./personsApi.js";
+import { getPersonConversations, getPersons } from "./personsApi.js";
 import { ApiProblemError } from "./problemDetails.js";
 
 /**
@@ -72,5 +72,49 @@ describe("getPersons - shape validation", () => {
     fetchMock.mockResolvedValue(jsonResponse(200, {}));
 
     expect(((await getPersons("token", ["p1"]).catch((r: unknown) => r)) as ApiProblemError).code).toBe("shape.mismatch");
+  });
+});
+
+/** `26-269`: the client-detail hub's own new chat read - "which conversation do I open for this
+ * person". Same shape-at-the-boundary discipline `getPersons` above already exercises for its own
+ * response, over the new `/persons/{personId}/conversations` route. */
+describe("getPersonConversations - 26-269 shape validation", () => {
+  const conversation = {
+    conversationId: "conv-1",
+    state: "Assigned",
+    isActive: true,
+    startedAt: "2026-08-01T00:00:00Z",
+    closedAt: null,
+    lastActivityAt: "2026-08-01T00:05:00Z",
+  };
+
+  it("addresses this person's own conversations route and resolves the array", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { conversations: [conversation] }));
+
+    await expect(getPersonConversations("token", "p1")).resolves.toEqual([conversation]);
+    expect((fetchMock.mock.calls[0]?.[0] as string)).toContain("/persons/p1/conversations");
+  });
+
+  it("resolves an empty list for a person with no conversation yet - never an error", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { conversations: [] }));
+
+    await expect(getPersonConversations("token", "p1")).resolves.toEqual([]);
+  });
+
+  it("throws ApiProblemError('shape.mismatch') when a row drops isActive - the one fact the hub branches on", async () => {
+    const withoutIsActive = Object.fromEntries(Object.entries(conversation).filter(([key]) => key !== "isActive"));
+    fetchMock.mockResolvedValue(jsonResponse(200, { conversations: [withoutIsActive] }));
+
+    const failure = await getPersonConversations("token", "p1").catch((reason: unknown) => reason);
+
+    expect(failure).toBeInstanceOf(ApiProblemError);
+    expect((failure as ApiProblemError).code).toBe("shape.mismatch");
+    expect((failure as ApiProblemError).message).toContain("isActive");
+  });
+
+  it("throws when the conversations array is dropped entirely", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, {}));
+
+    expect(((await getPersonConversations("token", "p1").catch((r: unknown) => r)) as ApiProblemError).code).toBe("shape.mismatch");
   });
 });
