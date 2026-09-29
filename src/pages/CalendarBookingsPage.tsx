@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.js";
 import { usePermissions } from "../auth/PermissionsContext.js";
@@ -31,7 +31,7 @@ import { Button } from "../components/Button.js";
 import { Badge } from "../components/Badge.js";
 import { Alert } from "../components/Alert.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
-import { Table, type TableColumn } from "../components/Table.js";
+import { Table, type TableColumn, type TableExpandable } from "../components/Table.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import { formatClockTime, parseInstant, resolveTimeZone } from "../time/format.js";
 
@@ -174,6 +174,19 @@ function groupByDayThenWorker(rows: ConfirmedBooking[]): DayGroup[] {
  * so any range change gives it a new identity, and the mount effect below - which depends on `reload` -
  * re-runs on its own. That mechanism already existed for "From"/"To"; this control is just a second way
  * to reach it.
+ *
+ * <b>`26-272` (T2): a row-expand, not a modal, for the booking's own full detail.</b> The design doc
+ * (`26-272-console-usability-parity.md` §3.2) is explicit that a modal is the app's own answer to
+ * having no screen space, and is the wrong idiom on a desktop-width table; a row-expand was picked
+ * over a right-side panel because it needed no new layout - the day/worker grouping already renders
+ * several small `<Table>`s stacked vertically, and a fixed side panel would either float disconnected
+ * from whichever group's row opened it or need its own scroll/positioning logic for no real gain.
+ * `Table`'s own doc comment had already named "a colspan" as the moment to widen that shared
+ * component rather than fork a page-local one - this is that moment (`expandable` on `TableProps`).
+ * The detail content itself introduces no new logic: `renderBookingDetail` below replays each
+ * existing column's own `render(row)` - the identical phone-reveal, dialog-link and reschedule wiring
+ * the flat row already uses - as a label/value list, so there is exactly one implementation of each to
+ * keep correct, not a second one that could drift.
  */
 export function CalendarBookingsPage() {
   const { user } = useAuth();
@@ -186,6 +199,11 @@ export function CalendarBookingsPage() {
   // `23-91`: which person's own Reveal is in flight, if any - the identical state
   // `CalendarContactsPage`/`CalendarQueuePage`/`CalendarWorkerSlotsPage` already keep.
   const [revealingPersonId, setRevealingPersonId] = useState<string | null>(null);
+  // `26-272` (T2): which booking's own row-detail is open, if any - a single id rather than a set,
+  // because the item's own promise is "a booking's full detail on one surface", not several open at
+  // once. `bookingId` is unique across every day/worker group's own separate `<Table>`, so one flat
+  // id (not a per-table id) is enough to tell which row, in which group, is expanded.
+  const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
   // `26-161`/`adr/0184`: the display-merge - person names for every booking on the loaded set, read
   // in one batch from chat's Person registry and degrading to "name not shown yet" if unreachable
   // (`usePersonNames.ts`). Derived from the flat `rows`, so a customer appearing under two day/worker
@@ -409,6 +427,41 @@ export function CalendarBookingsPage() {
     },
   ];
 
+  /**
+   * `26-272` (T2): the row-detail's own content - every column's own `render(row)`, restated as a
+   * label/value list instead of a table row. Deliberately **not** a second rendering of phone-reveal,
+   * reschedule or the dialog link: each `<dd>` below is the exact same `column.render(row)` call the
+   * table cell above it already makes, so the detail can never drift from the row it belongs to, and
+   * there is only ever one reveal handler, one reschedule wiring, one dialog-link rule to keep
+   * correct. A column whose render returns `null` for this row (the dialog column, for a booking with
+   * no chat origin) is left out of the list entirely - the same "absent, not disabled" rule that
+   * column's own header comment already states, now extended to the detail view.
+   */
+  const renderBookingDetail = (row: ConfirmedBooking): ReactNode => (
+    <dl className="ago-table__detail">
+      {columns.map((column) => {
+        const content = column.render(row);
+        if (content === null) {
+          return null;
+        }
+        return (
+          <div className="ago-table__detail-item" key={column.key}>
+            <dt>{column.header}</dt>
+            <dd>{content}</dd>
+          </div>
+        );
+      })}
+    </dl>
+  );
+
+  const expandable: TableExpandable<ConfirmedBooking> = {
+    isExpanded: (row) => row.bookingId === expandedBookingId,
+    onToggle: (row) => setExpandedBookingId((prev) => (prev === row.bookingId ? null : row.bookingId)),
+    renderDetail: renderBookingDetail,
+    toggleLabel: (_row, expanded) => (expanded ? strings.calendarBookingsDetailsCloseButton : strings.calendarBookingsDetailsOpenButton),
+    columnHeader: strings.calendarBookingsDetailsColumnHeader,
+  };
+
   return (
     <>
       <PageHead
@@ -549,6 +602,7 @@ export function CalendarBookingsPage() {
                   columns={columns}
                   rows={worker.rows}
                   rowKey={(row) => row.bookingId}
+                  expandable={expandable}
                 />
               </Panel>
             ))}

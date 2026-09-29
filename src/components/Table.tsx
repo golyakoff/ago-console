@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
+import { Button } from "./Button.js";
 
 export interface TableColumn<TRow> {
   key: string;
@@ -6,6 +7,25 @@ export interface TableColumn<TRow> {
   render: (row: TRow) => ReactNode;
   /** Right-aligns and tabular-numbers the cell - counts, not text. */
   align?: "start" | "end";
+}
+
+/**
+ * `26-272` (T2): a row's own inline detail, opened in place rather than in a modal or a separate
+ * panel - see `Table`'s own doc comment for why this is the moment the "if a screen ever needs a
+ * colspan" widening it already named turned out to be. Optional, so the other screens that pass a
+ * plain `columns`/`rows` pair are unaffected.
+ */
+export interface TableExpandable<TRow> {
+  isExpanded: (row: TRow) => boolean;
+  onToggle: (row: TRow) => void;
+  renderDetail: (row: TRow) => ReactNode;
+  /** The toggle's own accessible name, open and closed - distinct text rather than relying on
+   * `aria-expanded` alone to carry the state, the same "a real accessible name, not just an ARIA
+   * state" rule every other control in this console follows. */
+  toggleLabel: (row: TRow, expanded: boolean) => string;
+  /** The toggle column's own header - visually hidden (the column carries no visible label, only a
+   * per-row button), but still a real `<th>` a screen-reader's table navigation can announce. */
+  columnHeader: string;
 }
 
 export interface TableProps<TRow> {
@@ -20,6 +40,8 @@ export interface TableProps<TRow> {
   columns: TableColumn<TRow>[];
   rows: TRow[];
   rowKey: (row: TRow) => string;
+  /** `26-272` (T2): opt-in row-expand - see `TableExpandable`'s own doc comment. */
+  expandable?: TableExpandable<TRow>;
 }
 
 /**
@@ -32,13 +54,18 @@ export interface TableProps<TRow> {
  * the actual bug a compositional table lets through. If a screen ever needs a colspan or a footer,
  * that is the moment to widen this, not before.
  */
-export function Table<TRow>({ caption, columns, rows, rowKey }: TableProps<TRow>) {
+export function Table<TRow>({ caption, columns, rows, rowKey, expandable }: TableProps<TRow>) {
   return (
     <div className="ago-table-scroll">
       <table className="ago-table">
         <caption className="ago-visually-hidden">{caption}</caption>
         <thead>
           <tr>
+            {expandable && (
+              <th scope="col" className="ago-visually-hidden">
+                {expandable.columnHeader}
+              </th>
+            )}
             {columns.map((column) => (
               <th key={column.key} scope="col" className={column.align === "end" ? "ago-table__cell--end" : undefined}>
                 {column.header}
@@ -47,15 +74,41 @@ export function Table<TRow>({ caption, columns, rows, rowKey }: TableProps<TRow>
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={rowKey(row)}>
-              {columns.map((column) => (
-                <td key={column.key} className={column.align === "end" ? "ago-table__cell--end" : undefined}>
-                  {column.render(row)}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {rows.map((row) => {
+            const key = rowKey(row);
+            const expanded = expandable?.isExpanded(row) ?? false;
+            const detailId = `${key}-detail`;
+
+            return (
+              <Fragment key={key}>
+                <tr>
+                  {expandable && (
+                    <td>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-expanded={expanded}
+                        aria-controls={detailId}
+                        onClick={() => expandable.onToggle(row)}
+                      >
+                        {expandable.toggleLabel(row, expanded)}
+                      </Button>
+                    </td>
+                  )}
+                  {columns.map((column) => (
+                    <td key={column.key} className={column.align === "end" ? "ago-table__cell--end" : undefined}>
+                      {column.render(row)}
+                    </td>
+                  ))}
+                </tr>
+                {expandable && expanded && (
+                  <tr id={detailId} className="ago-table__detail-row">
+                    <td colSpan={columns.length + 1}>{expandable.renderDetail(row)}</td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
         </tbody>
       </table>
     </div>
