@@ -57,7 +57,11 @@ export function calendarErrorMessage(reason: unknown, strings: ConsoleStrings): 
       // `23-34`: `GetConfirmedBookingsForTenantHandler`'s own permission refusal - the identical
       // shape `contacts.forbidden` already has, added here rather than left to fall through to the
       // server's raw `detail` sentence the way every other, un-taught code does.
-      reason.code === "confirmed_bookings.forbidden"
+      reason.code === "confirmed_bookings.forbidden" ||
+      // `26-268`§2a/`adr/0188`: `GetPersonCandidatesByPhoneHandler`'s own `customer:read` refusal - the
+      // manual-entry dialog's phone-recognition step, gated the same way `contacts.forbidden` already
+      // is above.
+      reason.code === "person_recognition.forbidden"
     ) {
       return strings.calendarPermissionDeniedError;
     }

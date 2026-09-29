@@ -861,6 +861,105 @@ export function getPersonBookings(token: string, personId: string, signal?: Abor
 }
 
 /**
+ * `26-268`§2a/`adr/0188`: one candidate `GET /contacts/by-phone` returns - an existing client the
+ * manual-entry dialog's phone-first step can offer the operator to reuse instead of minting a new
+ * person. Field names match `Ago.Calendar.Contracts.PersonRecognitionCandidateResponse` verbatim.
+ *
+ * No `displayName` here, the identical `adr/0184` reason `Contact`/`ConfirmedBooking` carry none: the
+ * calendar keeps no person copy, so the dialog display-merges the name from chat by `personId`, the
+ * same batch-read shape `usePersonNames.ts` already establishes for every other calendar row.
+ */
+export interface PersonRecognitionCandidate {
+  personId: string;
+  phone: string;
+  masked: boolean;
+  noShowCount: number;
+  /** The "returning client" hint - `ManualBookingButton`'s own «Постоянный клиент · N записей». */
+  bookingCount: number;
+  phoneVerifiedAt: string | null;
+  phoneConfirmedByOperatorAt: string | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+}
+
+const personRecognitionCandidateRequiredKeys = requiredKeysOf<PersonRecognitionCandidate>({
+  personId: true,
+  phone: true,
+  masked: true,
+  noShowCount: true,
+  bookingCount: true,
+  phoneVerifiedAt: true,
+  phoneConfirmedByOperatorAt: true,
+  firstSeenAt: true,
+  lastSeenAt: true,
+});
+
+/**
+ * `26-268`§2a/`adr/0188`: `GET /contacts/by-phone?phone=...` - the manual-entry dialog's own first
+ * step. Never auto-merges (`adr/0147`: a phone is a hint, not proof) - this is a pure read that may
+ * legitimately answer with zero, one, or several rows for the same number; the operator's own choice
+ * («Это он» / a pick-list row / «Новый клиент») is what `createManualBooking`'s `reusePersonId` below
+ * carries forward, never inferred here.
+ */
+export function getPersonCandidatesByPhone(
+  token: string,
+  phone: string,
+  signal?: AbortSignal,
+): Promise<PersonRecognitionCandidate[]> {
+  const query = new URLSearchParams({ phone });
+  return request<PersonRecognitionCandidate[]>(
+    token, "GET", `/contacts/by-phone?${query.toString()}`, undefined, signal, (value) => {
+      assertArrayHasKeys<PersonRecognitionCandidate>(value, personRecognitionCandidateRequiredKeys, "GET /contacts/by-phone");
+    },
+  );
+}
+
+/**
+ * `26-268`/`adr/0188`: what `POST /bookings/manual` answers with on success - the identical
+ * `Ago.Calendar.Contracts.BookingConfirmedResponse` shape the public `/book` route already returns,
+ * reused rather than given a second name (`ManualBookingRequest`'s own remarks: this creates a booking
+ * the same way a claim always has, straight into `Booked`).
+ */
+export interface ManualBookingConfirmation {
+  bookingId: string;
+  workerId: string;
+  startsAt: string;
+  endsAt: string;
+  localDate: string;
+}
+
+/**
+ * `26-268`/`adr/0188`: `POST /bookings/manual` - an operator blocks a slot for a client taken by
+ * phone, straight into `Booked`, no veto window, no chat conversation. Gated server-side on
+ * `booking:create` alone (`ManualBookingButton`'s own doc comment has the full reasoning).
+ *
+ * `reusePersonId` is `null` for a newly-minted client and the existing person's id when the operator
+ * confirmed a `getPersonCandidatesByPhone` candidate - the one place the operator's own recognition
+ * decision reaches the write (`Ago.Calendar.Contracts.ManualBookingRequest.ReusePersonId`'s own
+ * remarks: nothing upstream of this field ever resolves a phone to a person on its own).
+ *
+ * `email` is sent whenever the operator recorded one, ahead of the cross-repo slice (`26-268`#3) that
+ * teaches the server to do anything with it - an unknown JSON field is ignored by today's
+ * `ManualBookingRequest`, never rejected, so sending it early costs nothing and needs no follow-up
+ * change here once #3 lands.
+ */
+export function createManualBooking(
+  token: string,
+  body: {
+    calendarId: string;
+    serviceId: string;
+    workerId: string;
+    startEventId: string;
+    name: string;
+    phone: string;
+    reusePersonId?: string | null;
+    email?: string | null;
+  },
+): Promise<ManualBookingConfirmation> {
+  return request<ManualBookingConfirmation>(token, "POST", "/bookings/manual", body);
+}
+
+/**
  * `23-30`/`23-12`: `GET /contacts/phone-reveals` - the audit trail, gated server-side on
  * `calendar:configure` rather than `customer:read`, deliberately wider than the reveal action itself
  * (`GetPhoneRevealsForTenantHandler`'s own doc comment: revealing one number does not entitle

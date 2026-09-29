@@ -50,3 +50,17 @@ describe("calendarErrorMessage - shape.mismatch (23-41)", () => {
     expect(message).toContain("tenantName");
   });
 });
+
+/** `26-268`§2a/`adr/0188`: `GetPersonCandidatesByPhoneHandler`'s own `customer:read` refusal - the
+ * manual-entry dialog's phone-recognition step, given the identical localized sentence
+ * `contacts.forbidden`/`confirmed_bookings.forbidden` already get above it in this file. */
+describe("calendarErrorMessage - person_recognition.forbidden (26-268)", () => {
+  it("explains the permission failure rather than the server's raw English detail", () => {
+    const message = calendarErrorMessage(
+      new CalendarApiError("person_recognition.forbidden", "This operator does not hold 'customer:read' for this tenant.", 403),
+      en,
+    );
+
+    expect(message).toBe(en.calendarPermissionDeniedError);
+  });
+});
