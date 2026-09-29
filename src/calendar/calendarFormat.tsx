@@ -193,6 +193,18 @@ export function phoneStatusWarningGlyph(
   );
 }
 
+/** `26-269`: the Russian three-way plural (1 / 2-4 / 5+) for a no-show count's own counted noun -
+ * the same shape `WorkerScheduleSection`'s own `slotWord` already establishes. Shared by the Клиенты
+ * list's own pill and the client-detail hub's header pill (`CalendarClientDetailPage`) - both count
+ * the identical `Contact.noShowCount`/`PersonBooking` fact, so one function keeps the two readings
+ * from drifting apart the way two hand-written copies could. */
+export function noShowWord(strings: ConsoleStrings, count: number): string {
+  if (count === 1) {
+    return strings.calendarNoShowWordOne;
+  }
+  return count < 5 ? strings.calendarNoShowWordFew : strings.calendarNoShowWordMany;
+}
+
 /**
  * `25-16`: the eleven time zones of the Russian Federation (fixed since the 2014 return to permanent
  * standard time - `24-17` in `ago-calendar` already settled that none of this deployment's zones

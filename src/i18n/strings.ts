@@ -2852,6 +2852,54 @@ export interface ConsoleStrings {
    * surface the server's own detail for everything but this one named case. */
   calendarRescheduleSlotUnavailableError: string;
 
+  // --- `26-269`: `/calendar/clients/:personId` - the client-detail hub the redesigned Клиенты list's
+  // own rows now open (`26-269-clients-redesign.md` §4). A pure read + navigation surface: it
+  // introduces no write of its own beyond the two it reuses (`confirmOperatorVerifiedPhone`,
+  // `revealCustomerPhone`), composing the two new reads (`getPersonBookings`, `getPersonConversations`)
+  // with the same `Contact`/`PersonProfile` facts the list already reads. See
+  // `CalendarClientDetailPage.tsx`'s own doc comment for the full section-by-section reasoning. ---
+  calendarClientDetailTitle: string;
+  /** Shown when the tenant's own `/contacts` list loaded but carries no row for the id in the URL - an
+   * honest "not found", not a blank page, for a stale link or a copy-pasted id that never belonged to
+   * this tenant. */
+  calendarClientDetailNotFoundTitle: string;
+  calendarClientDetailNotFoundBody: string;
+  /** Back to the list this hub was opened from - `/calendar/clients` has no breadcrumb of its own
+   * (`AppShell`'s workspace chrome does not extend to these drill-down calendar routes, the same gap
+   * `CalendarWorkerSlotsPage`'s own back link already works around), so this hub supplies one exactly
+   * the way that screen's own `calendarViewSlotsLinkLabel` pairing does for its own drill-down. */
+  calendarClientDetailBackLink: string;
+  /** `decisions.md` §5 / `26-269-clients-redesign.md` §4: the actionable hint shown beside the header's
+   * own warning glyph - the sentence the list's bare glyph has no room for (`phoneStatusWarningGlyph`'s
+   * own `title`/`aria-label` carry the short form; this is the long form, with the action beside it). */
+  calendarClientDetailPhoneStatusHint: string;
+  /** `23-12`: «Подтвердить телефон» - calls the existing `ConfirmOperatorVerifiedPhone` endpoint.
+   * Shown only alongside the warning glyph (neither fact on file) - the same single-actionable-state
+   * rule the glyph itself follows, never offered once either fact already holds. */
+  calendarClientDetailConfirmPhoneButton: string;
+  calendarClientDetailConfirmingPhoneButton: string;
+  /** «Позвонить» - a plain `tel:` link, shown once the phone is unmasked (real, not `•••`), right
+   * beside the reveal control `renderPhone` already draws for the masked case. */
+  calendarClientDetailCallLink: string;
+  calendarClientDetailBookingsTitle: string;
+  /** The bookings section's own combined empty state - shown once, when this person has no booking at
+   * all (`getPersonBookings` answered `[]`), rather than two empty Предстоящие/Прошедшие segments each
+   * saying so separately. */
+  calendarClientDetailNoBookingsAtAll: string;
+  calendarClientDetailUpcomingTitle: string;
+  calendarClientDetailPastTitle: string;
+  /** Shown only when this person has at least one booking overall but none on *this* segment's own
+   * side of `Date.now()` - distinct from `calendarClientDetailNoBookingsAtAll` above, the identical
+   * "no contacts at all" vs "no search matches" distinction `calendarContactsEmpty`/
+   * `calendarContactsSearchEmptyTitle` already draw for the list this hub was opened from. */
+  calendarClientDetailNoUpcoming: string;
+  calendarClientDetailNoPast: string;
+  calendarClientDetailMetaTitle: string;
+  /** Shown when chat's Person registry holds no contact channel for this person at all - honest, not a
+   * blank list, the same "empty is a state" rule every other calendar screen's own `*Empty` string
+   * already carries. */
+  calendarClientDetailNoChannels: string;
+
   // --- `22-06`: permission-gate messages, one per moved screen (`ago-console`'s own established
   // per-screen-forbidden-sentence convention - `faqForbidden`/`autoReplyForbidden` - rather than one
   // shared sentence, since each names the resource it refused). ---

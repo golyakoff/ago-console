@@ -440,6 +440,55 @@ export interface Contact {
   lastSeenAt: string;
 }
 
+/**
+ * `26-269`: one of this person's own bookings - the client-detail hub's Предстоящие/Прошедшие read.
+ * Field names match `Ago.Calendar.Contracts.PersonBookingResponse` verbatim - the identical shape
+ * `ConfirmedBooking` above carries, plus `status`, the one thing a person's own held history needs
+ * that the tenant-wide *confirmed* list does not (that list only ever holds `Booked` rows).
+ *
+ * `status` is one of `"PendingConfirmation"`, `"Booked"` or `"NoShow"` - never `"Cancelled"` or
+ * `"Available"` (`IPersonBookingReadStore`'s own remarks on why those two never reach this read), so
+ * every row here is a booking a client-detail hub reader would recognise as "on the books" in some
+ * form. `CalendarClientDetailPage` splits this list into Предстоящие/Прошедшие client-side, against
+ * `Date.now()` rather than `status` - past-vs-future is a property of *when* a booking is, not of its
+ * status (`26-269-clients-redesign.md` §6 decision (b)).
+ */
+export interface PersonBooking {
+  bookingId: string;
+  calendarId: string;
+  workerId: string;
+  workerDisplayName: string;
+  serviceId: string;
+  serviceName: string | null;
+  personId: string;
+  startsAt: string;
+  endsAt: string;
+  localDate: string;
+  weekday: number;
+  phone: string;
+  masked: boolean;
+  originConversationId: string | null;
+  status: "PendingConfirmation" | "Booked" | "NoShow";
+}
+
+const personBookingRequiredKeys = requiredKeysOf<PersonBooking>({
+  bookingId: true,
+  calendarId: true,
+  workerId: true,
+  workerDisplayName: true,
+  serviceId: true,
+  serviceName: true,
+  personId: true,
+  startsAt: true,
+  endsAt: true,
+  localDate: true,
+  weekday: true,
+  phone: true,
+  masked: true,
+  originConversationId: true,
+  status: true,
+});
+
 /** `23-30`/`23-12`'s own audit view - one reveal, individually, never an aggregated count
  * (`decisions.md` §5's amendment: "reveal counts belong in an audit view, never in the report a
  * person is judged on" - and even here, never a per-operator tally this page could be read as
@@ -775,6 +824,39 @@ export function getContacts(token: string, signal?: AbortSignal): Promise<Contac
 export function revealCustomerPhone(token: string, personId: string, surface: string): Promise<{ phone: string }> {
   return request<{ phone: string }>(
     token, "POST", `/contacts/${encodeURIComponent(personId)}/reveal-phone`, { surface },
+  );
+}
+
+/**
+ * `23-12`: `POST /contacts/{personId}/confirm-phone` - "I called and it is them", the operator's own
+ * confirmation, distinct from the SMS-code fact and never merged with it (`decisions.md` §5). Gated
+ * server-side on `customer:read`, the same permission the contact reads already need. Returns the
+ * server's own timestamp for `phoneConfirmedByOperatorAt` rather than the caller stamping `Date.now()`
+ * itself - rule 11: ordering and "when" facts come from the server, never a client clock.
+ *
+ * `26-269`: the client-detail hub's own «Подтвердить телефон» action, shown only in the warning-glyph
+ * state (`phoneStatusWarningGlyph`'s own doc comment) - see `CalendarClientDetailPage`.
+ */
+export function confirmOperatorVerifiedPhone(token: string, personId: string): Promise<{ confirmedAt: string }> {
+  return request<{ confirmedAt: string }>(
+    token, "POST", `/contacts/${encodeURIComponent(personId)}/confirm-phone`,
+  );
+}
+
+/**
+ * `26-269`: `GET /contacts/{personId}/bookings` - this person's own bookings, past and upcoming, every
+ * held status (`PersonBooking`'s own doc comment). The one genuinely new calendar read the client-detail
+ * hub needs (`26-269-clients-redesign.md` §1.5.1/§5): a sibling of `getConfirmedBookings` above, filtered
+ * by person instead of by a tenant-wide date window - no new endpoint shape to learn, and validated the
+ * identical way (`assertArrayHasKeys`), since a silently-dropped `status` or `originConversationId` here
+ * would misdraw the Предстоящие/Прошедшие split or the «Открыть диалог» affordance just as quietly as it
+ * would on the confirmed-bookings screen.
+ */
+export function getPersonBookings(token: string, personId: string, signal?: AbortSignal): Promise<PersonBooking[]> {
+  return request<PersonBooking[]>(
+    token, "GET", `/contacts/${encodeURIComponent(personId)}/bookings`, undefined, signal, (value) => {
+      assertArrayHasKeys<PersonBooking>(value, personBookingRequiredKeys, "GET /contacts/{personId}/bookings");
+    },
   );
 }
 

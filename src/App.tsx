@@ -61,6 +61,7 @@ import { CalendarWorkerSlotsPage } from "./pages/CalendarWorkerSlotsPage.js";
 import { CalendarWorkerRecutPage } from "./pages/CalendarWorkerRecutPage.js";
 import { CalendarAvailabilityPage } from "./pages/CalendarAvailabilityPage.js";
 import { CalendarContactsPage } from "./pages/CalendarContactsPage.js";
+import { CalendarClientDetailPage } from "./pages/CalendarClientDetailPage.js";
 import { CalendarBookingsPage } from "./pages/CalendarBookingsPage.js";
 import { CalendarPhoneRevealsPage } from "./pages/CalendarPhoneRevealsPage.js";
 
@@ -530,6 +531,9 @@ export function App() {
         <Route path="/calendar/masters/:workerId/recut" element={<CalendarWorkerRecutPage />} />
         <Route path="/calendar/schedule" element={<CalendarAvailabilityPage />} />
         <Route path="/calendar/clients" element={<CalendarContactsPage />} />
+        {/* `26-269`: the client-detail hub the list's own rows now open - a drill-down route with no
+            nav entry of its own, the identical shape `/calendar/masters/:workerId/slots` already has. */}
+        <Route path="/calendar/clients/:personId" element={<CalendarClientDetailPage />} />
         {/* `23-30`/`23-12`: the reveal audit trail - gated on `calendar:configure` like the setup
             screens, deliberately wider than the reveal action itself (`CalendarPhoneRevealsPage`'s
             own doc comment). `buildCalendarItems` in `consoleNav.ts` draws this entry only in the

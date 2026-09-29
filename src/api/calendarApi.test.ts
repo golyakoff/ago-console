@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CalendarApiError,
+  confirmOperatorVerifiedPhone,
   createCalendar,
   getConfiguration,
   getConfirmedBookings,
   getPendingBookings,
+  getPersonBookings,
   rejectBooking,
   setAllowedOrigins,
 } from "./calendarApi.js";
@@ -315,6 +317,71 @@ describe("the calendar API client", () => {
       await expect(getConfirmedBookings("operator-token", "2026-09-08", "2026-09-14")).resolves.toEqual([
         expect.objectContaining({ originConversationId: "11111111-1111-1111-1111-111111111111" }),
       ]);
+    });
+  });
+
+  /** `26-269`: `getPersonBookings` is `PersonBooking`'s own `assertArrayHasKeys` reader - the identical
+   * validate-at-the-boundary discipline `getConfirmedBookings` above already exercises for its own
+   * sibling shape, kept deliberately shorter here: those tests already prove the mechanism
+   * (`assertArrayHasKeys`/`CalendarApiError('shape.mismatch')`) works; this only proves this endpoint's
+   * own reader is actually wired to it, plus the one field `PersonBooking` carries that
+   * `ConfirmedBooking` does not - `status`. */
+  describe("getPersonBookings - 26-269 shape validation", () => {
+    function row(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+      return {
+        bookingId: "b1",
+        calendarId: "cal1",
+        workerId: "w1",
+        workerDisplayName: "Anna",
+        serviceId: "s1",
+        serviceName: "Haircut",
+        personId: "c1",
+        startsAt: "2026-09-08T09:00:00+00:00",
+        endsAt: "2026-09-08T09:45:00+00:00",
+        localDate: "2026-09-08",
+        weekday: 2,
+        phone: "+79990000001",
+        masked: false,
+        originConversationId: null,
+        status: "Booked",
+        ...overrides,
+      };
+    }
+
+    it("resolves normally, addressing this person's own bookings route, when every row is well-formed", async () => {
+      fetchMock.mockResolvedValue(jsonResponse(200, [row()]));
+
+      const result = await getPersonBookings("operator-token", "c1");
+
+      expect(result).toHaveLength(1);
+      expect(fetchMock.mock.calls[0]?.[0]).toContain("/contacts/c1/bookings");
+    });
+
+    it("throws CalendarApiError('shape.mismatch') when a row drops status entirely", async () => {
+      const withoutStatus = Object.fromEntries(Object.entries(row()).filter(([key]) => key !== "status"));
+      fetchMock.mockResolvedValue(jsonResponse(200, [withoutStatus]));
+
+      const failure = (await getPersonBookings("operator-token", "c1").catch((reason: unknown) => reason)) as CalendarApiError;
+
+      expect(failure).toBeInstanceOf(CalendarApiError);
+      expect(failure.code).toBe("shape.mismatch");
+      expect(failure.message).toContain("status");
+    });
+  });
+
+  /** `23-12`/`26-269`: the client-detail hub's «Подтвердить телефон» action - a plain `POST` with no
+   * body, addressing the same person-scoped `/contacts/{personId}` prefix `revealCustomerPhone` above
+   * already addresses. */
+  describe("confirmOperatorVerifiedPhone - 23-12/26-269", () => {
+    it("posts to this person's own confirm-phone route and resolves the server's own confirmedAt", async () => {
+      fetchMock.mockResolvedValue(jsonResponse(200, { confirmedAt: "2026-09-08T09:00:00+00:00" }));
+
+      const result = await confirmOperatorVerifiedPhone("operator-token", "c1");
+
+      expect(result).toEqual({ confirmedAt: "2026-09-08T09:00:00+00:00" });
+      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain("/contacts/c1/confirm-phone");
+      expect(init.method).toBe("POST");
     });
   });
 });

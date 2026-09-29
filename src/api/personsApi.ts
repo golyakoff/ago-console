@@ -78,6 +78,73 @@ const personProfileRequiredKeys = requiredKeysOf<PersonProfile>({
  * (`usePersonNames.ts`); this client sends whatever it is given, joined by commas the way the server
  * splits them.
  */
+/**
+ * `26-269`: one of this person's own conversations - `Ago.Chat.Application.UseCases
+ * .GetPersonConversations.PersonConversationDto` verbatim, under the same default camelCase policy
+ * `PersonProfile` above already relies on.
+ *
+ * `isActive` restates `state` as the one boolean `CalendarClientDetailPage`'s «Открыть диалог» action
+ * actually branches on (open the composer, or open read-only) - `state` stays on the wire too,
+ * unreduced, the same "collapse only the presentation, keep both facts" rule
+ * `phoneStatusWarningGlyph` already follows for the phone-status glyph
+ * (`26-269-clients-redesign.md` §5). `closedAt` is `null` for a conversation still open.
+ */
+export interface PersonConversation {
+  conversationId: string;
+  state: string;
+  isActive: boolean;
+  startedAt: string;
+  closedAt: string | null;
+  lastActivityAt: string;
+}
+
+const personConversationRequiredKeys = requiredKeysOf<PersonConversation>({
+  conversationId: true,
+  state: true,
+  isActive: true,
+  startedAt: true,
+  closedAt: true,
+  lastActivityAt: true,
+});
+
+/**
+ * `GET /api/v1/persons/{personId}/conversations` - `26-269`'s own new chat read: given a person id,
+ * every conversation they have, ordered so `conversations[0]` is always the one to open (the active
+ * one if there is one, else the most recent - `PersonConversationItem`'s own doc comment on the
+ * server side). Empty, never an error, for a person with no conversations yet (a `26-268` manual
+ * client, for one) - `CalendarClientDetailPage` hides its «Открыть диалог» action on an empty list
+ * rather than treating it as a failure, the identical "no dialog to open yet" degrade
+ * `usePersonNames`'s own "name not shown yet" already establishes the shape for (`adr/0184`
+ * decision 4).
+ */
+export async function getPersonConversations(
+  accessToken: string,
+  personId: string,
+  signal?: AbortSignal,
+): Promise<PersonConversation[]> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/persons/${encodeURIComponent(personId)}/conversations`, {
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}`, Accept: "application/json" }),
+    signal: signal ?? null,
+  });
+
+  if (!response.ok) {
+    throw await problemDetailsFrom(response);
+  }
+
+  const body = (await response.json()) as { conversations?: unknown };
+  try {
+    assertArrayHasKeys<PersonConversation>(
+      body.conversations, personConversationRequiredKeys, "GET /api/v1/persons/{personId}/conversations",
+    );
+  } catch (reason) {
+    if (reason instanceof ShapeMismatchError) {
+      throw new ApiProblemError("shape.mismatch", reason.diagnostic, response.status);
+    }
+    throw reason;
+  }
+  return body.conversations;
+}
+
 export async function getPersons(
   accessToken: string,
   ids: readonly string[],
