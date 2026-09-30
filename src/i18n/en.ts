@@ -1577,6 +1577,9 @@ export const en: ConsoleStrings = {
   calendarGuideDoneMessagePrefix: "Done: send ",
   calendarGuideDoneMessageSuffix: " in chat to start booking.",
 
+  calendarFinishSetupBannerTitle: "Finish setting up booking",
+  calendarFinishSetupBannerDismissButton: "Dismiss",
+
   calendarWorkersTitle: "Workers",
   calendarWorkersQuotaPrefix: "Masters: ",
   calendarWorkersQuotaOfWord: " of ",

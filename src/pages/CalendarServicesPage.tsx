@@ -4,13 +4,16 @@ import { usePermissions } from "../auth/PermissionsContext.js";
 import { config } from "../config.js";
 import {
   createService,
+  getBookingReadiness,
   getConfiguration,
   updateService,
+  type CalendarReadiness,
   type ConfiguredService,
   type TenantConfiguration,
 } from "../api/calendarApi.js";
 import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
+import { FinishSetupBanner } from "../calendar/FinishSetupBanner.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Field } from "../components/Field.js";
@@ -84,9 +87,13 @@ import type { ConsoleStrings } from "../i18n/strings.js";
  */
 export function CalendarServicesPage() {
   const { user } = useAuth();
-  const { permissions, hasPermission } = usePermissions();
+  const { permissions, siteId, hasPermission } = usePermissions();
   const strings = useStrings();
   const [configuration, setConfiguration] = useState<TenantConfiguration | null>(null);
+  // `26-330`: supplementary, not critical - the same "a tenant must always see the page's own content
+  // even when this read is slow or failing" reasoning `CalendarWorkersPage.reload`'s own remarks state
+  // for the identical read, feeding nothing here but `FinishSetupBanner`.
+  const [readiness, setReadiness] = useState<CalendarReadiness[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   /** `26-96`. The service whose edit card is open, or `null` for none - the same single-slot editing
@@ -100,15 +107,27 @@ export function CalendarServicesPage() {
       if (!accessToken) {
         return;
       }
-      try {
-        const loaded = await getConfiguration(accessToken, signal);
-        setConfiguration(loaded);
-        setError(null);
-      } catch (reason) {
-        if (!(reason instanceof DOMException && reason.name === "AbortError")) {
-          setError(calendarErrorMessage(reason, strings));
-        }
-      }
+
+      const critical = getConfiguration(accessToken, signal)
+        .then((loaded) => {
+          setConfiguration(loaded);
+          setError(null);
+        })
+        .catch((reason: unknown) => {
+          if (!(reason instanceof DOMException && reason.name === "AbortError")) {
+            setError(calendarErrorMessage(reason, strings));
+          }
+        });
+
+      const readinessLoad = getBookingReadiness(accessToken, signal)
+        .then(setReadiness)
+        .catch((reason: unknown) => {
+          if (!(reason instanceof DOMException && reason.name === "AbortError")) {
+            setReadiness(null);
+          }
+        });
+
+      await Promise.all([critical, readinessLoad]);
     },
     [user?.access_token, strings],
   );
@@ -118,20 +137,11 @@ export function CalendarServicesPage() {
       return;
     }
     const controller = new AbortController();
-    // `23-100`: suppressed here rather than rewritten. `react-hooks/set-state-in-effect` is new in the
-    // plugin's v7, which folded the React Compiler's own analyzer in; it follows the call below and sees a
-    // `setState` reachable from an effect body. It is right about the shape and wrong about the defect:
-    // fetching in an effect is what React's own documentation prescribes until a framework or Suspense
-    // removes the need, and every `setState` reached from here runs after an `await`, never synchronously
-    // in the effect body. Rewriting the call to satisfy the analyzer would answer "when should this
-    // request happen" by accident rather than by decision.
-    //
-    // Per-line, replacing the file-scoped override `23-96` left: that one downgraded the rule for the
-    // whole file, so a genuinely synchronous `setState` written here tomorrow was also only a warning.
-    // This marks the one site that is deliberate and leaves the rest of the file an error again.
-    //
-    // Loads the service catalogue this screen exists to edit.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // `26-330`: `reload` split into two independently-caught branches (`critical`/`readinessLoad`,
+    // `CalendarSetupPage.reload`'s own shape) the moment this screen gained a second read - every
+    // `setState` this reaches now runs from inside a `.then()`, never synchronously in the effect body,
+    // which is why this call no longer needs the per-line `react-hooks/set-state-in-effect` suppression
+    // `23-100` left here for the single-read shape this replaces.
     void reload(controller.signal);
     return () => controller.abort();
   }, [reload, hasPermission]);
@@ -160,9 +170,9 @@ export function CalendarServicesPage() {
   }
 
   const accessToken = user?.access_token;
-  if (accessToken === undefined) {
-    // `RequireAuth` guarantees a signed-in session by the time this renders - same "reaching here is
-    // a wiring bug" reasoning `CalendarSetupPage`'s own equivalent check states.
+  if (accessToken === undefined || siteId === null) {
+    // `RequireAuth`/`PermissionsProvider` guarantee both by the time this renders - same "reaching
+    // here is a wiring bug" reasoning `CalendarSetupPage`'s own equivalent check states.
     return null;
   }
 
@@ -192,6 +202,8 @@ export function CalendarServicesPage() {
       <PageHead title={strings.navCalendarServices} />
 
       {error !== null && <Alert tone="danger">{error}</Alert>}
+
+      <FinishSetupBanner readiness={readiness} siteId={siteId} />
 
       <Panel title={strings.calendarSetupServicesTitle}>
         <ServicesTable

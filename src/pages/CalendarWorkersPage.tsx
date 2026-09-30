@@ -21,6 +21,7 @@ import { WorkerCard, type WorkerCardFields } from "../calendar/WorkerCard.js";
 import { WorkerScheduleSection } from "../calendar/WorkerScheduleSection.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
 import { BookingReadiness } from "../calendar/BookingReadiness.js";
+import { FinishSetupBanner } from "../calendar/FinishSetupBanner.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Button } from "../components/Button.js";
@@ -49,7 +50,7 @@ import { useStrings } from "../i18n/StringsContext.js";
  */
 export function CalendarWorkersPage() {
   const { user } = useAuth();
-  const { permissions, hasPermission } = usePermissions();
+  const { permissions, siteId, hasPermission } = usePermissions();
   const strings = useStrings();
   const navigate = useNavigate();
   const [workers, setWorkers] = useState<WorkerDetail[] | null>(null);
@@ -144,8 +145,8 @@ export function CalendarWorkersPage() {
   }
 
   const accessToken = user?.access_token;
-  if (accessToken === undefined) {
-    // `RequireAuth` guarantees a signed-in session by the time this renders - same
+  if (accessToken === undefined || siteId === null) {
+    // `RequireAuth`/`PermissionsProvider` guarantee both by the time this renders - same
     // "reaching here is a wiring bug" reasoning `FaqModulePage`/`WidgetConfigPage` state for their
     // own equivalent check. Narrows `accessToken` to `string` for every closure built below (the
     // `WorkerCard`/delete-confirmation `onSubmit`/`onClick` handlers), so none of them need a
@@ -181,6 +182,8 @@ export function CalendarWorkersPage() {
       <PageHead title={strings.navCalendarWorkers} />
 
       {error !== null && <Alert tone="danger">{error}</Alert>}
+
+      <FinishSetupBanner readiness={readiness} siteId={siteId} />
 
       <BookingReadiness readiness={readiness} />
 

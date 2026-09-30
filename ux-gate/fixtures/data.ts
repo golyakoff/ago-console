@@ -856,7 +856,9 @@ export function seededCalendarWorkerSlots() {
 
 /**
  * `23-23`: `GET /booking-readiness` for `CalendarSetupPage`/`CalendarWorkersPage`'s own
- * `BookingReadiness` panel.
+ * `BookingReadiness` panel. `26-330` added a second reader: `FinishSetupBanner`, rendered on those two
+ * screens plus `CalendarServicesPage`, which only reads this answer's `isBookable` flag - `false` here
+ * exercises that banner on all three of this gate's calendar screens too.
  *
  * <b>Deliberately not a fully-bookable tenant.</b> A ready tenant renders almost nothing - every
  * precondition a single `Badge`, no link, no interesting layout. This fixture instead agrees with

@@ -30,6 +30,7 @@ const ownerApi = vi.hoisted(() => ({ probeOwnerEligibility: vi.fn() }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
 const calendarApi = vi.hoisted(() => ({
   getConfiguration: vi.fn(),
+  getBookingReadiness: vi.fn(),
   createService: vi.fn(),
   updateService: vi.fn(),
 }));
@@ -130,8 +131,10 @@ beforeEach(() => {
   operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["calendar:configure"], siteId: SITE_ID });
   ownerApi.probeOwnerEligibility.mockResolvedValue("ineligible");
   calendarApi.getConfiguration.mockResolvedValue(configuration);
+  calendarApi.getBookingReadiness.mockResolvedValue([]);
   calendarApi.createService.mockResolvedValue({ serviceId: "s2" });
   calendarApi.updateService.mockResolvedValue(undefined);
+  sessionStorage.clear();
 });
 
 afterEach(async () => {
@@ -144,6 +147,31 @@ describe("the services dictionary screen", () => {
 
     expect(container.textContent).toContain("Haircut");
     expect(container.textContent).toContain("45");
+  });
+
+  // `26-330`: this screen never fetched `getBookingReadiness` before this item - the finish-setup
+  // banner is the first thing on `/calendar/services` that needs it, so this is also this screen's
+  // first assertion that the read happens at all, not only that a link renders from its answer.
+  it("shows the finish-setup banner, linking into the wizard, while the calendar is not bookable", async () => {
+    calendarApi.getBookingReadiness.mockResolvedValue([
+      { calendarId: "cal-1", calendarName: "Main", isBookable: false, preconditions: [] },
+    ]);
+
+    const container = await render(page());
+
+    const link = byText<HTMLAnchorElement>(container, "a", "Finish setting up booking");
+    expect(link).not.toBeNull();
+    expect(link?.getAttribute("href")).toBe("/calendar/setup/guide");
+  });
+
+  it("shows no finish-setup banner once the calendar is bookable", async () => {
+    calendarApi.getBookingReadiness.mockResolvedValue([
+      { calendarId: "cal-1", calendarName: "Main", isBookable: true, preconditions: [] },
+    ]);
+
+    const container = await render(page());
+
+    expect(byText<HTMLAnchorElement>(container, "a", "Finish setting up booking")).toBeNull();
   });
 
   // `25-53`: two blocks (a current-services table, a separate add-service card), split from the

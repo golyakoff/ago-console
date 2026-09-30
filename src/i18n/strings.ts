@@ -2678,6 +2678,13 @@ export interface ConsoleStrings {
   calendarGuideDoneMessagePrefix: string;
   calendarGuideDoneMessageSuffix: string;
 
+  // --- FinishSetupBanner (`26-330`/`26-318`) - shown on `/calendar/setup`, `/calendar/masters` and
+  // `/calendar/services` while the tenant's first calendar is not yet bookable, linking back into the
+  // wizard above. Dismissible for the rest of the browser tab (`finishSetupBannerDismissal.ts`), never
+  // permanently - see `FinishSetupBanner.tsx`'s own doc comment.
+  calendarFinishSetupBannerTitle: string;
+  calendarFinishSetupBannerDismissButton: string;
+
   calendarWorkersTitle: string;
   /** `26-317`/`26-329`: "N из Q" - split as a prefix and an "of" word around the two numbers, the
    * same prefix/suffix shape `calendarHorizonCapPrefix`/`Suffix` already uses for a number sandwiched
