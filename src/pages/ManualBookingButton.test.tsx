@@ -218,15 +218,19 @@ describe("who is offered the control", () => {
 });
 
 describe("phone-first recognition (26-268 §3.4)", () => {
-  it("searches with the typed phone, trimmed", async () => {
+  it("searches with the canonical phone PhoneInput normalised, not the raw typed shape", async () => {
+    // `26-326`: `PhoneInput`'s own value/onChange now carry the canonical `+7<digits>` form
+    // (`phoneFormat.ts`'s doc comment) - a human-shaped paste with spaces and dashes normalises down
+    // to that before it ever reaches `phone` state, so this searches with the bare canonical number,
+    // never the typed punctuation.
     const h = handlers({ onSearchByPhone: vi.fn(() => Promise.resolve([])) });
     const container = await mount([MANUAL_BOOKING_PERMISSION], h);
 
     await open(container);
-    await typePhone(container, "  +7 921 000-00-00  ");
+    await typePhone(container, "+7 921 000-00-00");
     await clickFooter(container, "Find client");
 
-    expect(h.onSearchByPhone).toHaveBeenCalledWith("+7 921 000-00-00", expect.anything());
+    expect(h.onSearchByPhone).toHaveBeenCalledWith("+79210000000", expect.anything());
   });
 
   it("no match: offers to continue as a new client, straight past the name/email step is not skipped", async () => {
@@ -321,6 +325,12 @@ describe("phone-first recognition (26-268 §3.4)", () => {
   });
 
   it("surfaces a search failure and lets the operator retry", async () => {
+    // `26-326`: `PhoneInput` now strips non-digit input as it types (Android's identical mask), so
+    // typing letters like the old "abc" fixture no longer reaches this dialog's own state at all - the
+    // field simply never accumulates a phone. This test's own point - a rejected search surfaces the
+    // server's own message and "Retry" tries again - still needs a *complete* phone to even enable
+    // "Find client", so it types one and keeps the rejection itself server-side, exactly as any other
+    // search failure this dialog cannot predict client-side.
     const h = handlers({
       onSearchByPhone: vi
         .fn()
@@ -330,7 +340,7 @@ describe("phone-first recognition (26-268 §3.4)", () => {
     const container = await mount([MANUAL_BOOKING_PERMISSION], h);
 
     await open(container);
-    await typePhone(container, "abc");
+    await typePhone(container, "+79210000000");
     await clickFooter(container, "Find client");
 
     expect(dialog(container).textContent).toContain("not a phone");

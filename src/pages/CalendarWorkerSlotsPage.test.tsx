@@ -8,6 +8,7 @@ import { CalendarWorkerSlotsPage } from "./CalendarWorkerSlotsPage.js";
 import { all, byText, interact, render, unmount } from "../testing/dom.js";
 import type { TenantConfiguration, WorkerSlot } from "../api/calendarApi.js";
 import type { PersonProfile } from "../api/personsApi.js";
+import { formatRuPhoneForDisplay } from "../components/phoneFormat.js";
 
 /**
  * `22-06`: `/calendar/workers/:workerId/slots` - moved from `ago-calendar-console`'s own
@@ -169,7 +170,7 @@ describe("the materialised slot view", () => {
     // The name is read from chat by person id, not carried on the slot; the phone is the calendar's own.
     expect(personsApi.getPersons).toHaveBeenCalledWith("token", ["c1"], expect.anything());
     expect(container.textContent).toContain("Dana");
-    expect(container.textContent).toContain("+79990000001");
+    expect(container.textContent).toContain(formatRuPhoneForDisplay("+79990000001"));
   });
 
   it("hides only the phone (not the name) for an occupied slot the operator may not see the contact of (26-161)", async () => {
@@ -219,7 +220,7 @@ describe("revealing a masked phone (23-30)", () => {
     const container = await render(page());
 
     expect(container.textContent).toContain("+7999•••0001");
-    expect(container.textContent).not.toContain("+79990000001");
+    expect(container.textContent).not.toContain(formatRuPhoneForDisplay("+79990000001"));
     expect(byText(container, "button", "Reveal")).not.toBeNull();
   });
 
@@ -234,8 +235,11 @@ describe("revealing a masked phone (23-30)", () => {
     await interact(() => byText<HTMLButtonElement>(container, "button", "Reveal")?.click());
 
     expect(calendarApi.revealCustomerPhone).toHaveBeenCalledWith("token", "c1", "ConsoleWorkerSlots");
-    // Both rows for this customer are unmasked, not just the one whose button was clicked.
-    expect((container.textContent?.match(/\+79990000001/g) ?? []).length).toBe(2);
+    // Both rows for this customer are unmasked, not just the one whose button was clicked. Split rather
+    // than a regex match - `formatRuPhoneForDisplay`'s own output carries parentheses and a dash, both
+    // regex metacharacters.
+    const formatted = formatRuPhoneForDisplay("+79990000001");
+    expect((container.textContent?.split(formatted).length ?? 1) - 1).toBe(2);
     expect(container.textContent).not.toContain("+7999•••0001");
     expect(all(container, "button").filter((b) => b.textContent === "Reveal")).toHaveLength(0);
   });

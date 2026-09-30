@@ -5,6 +5,7 @@ import { Alert } from "../components/Alert.js";
 import { Field } from "../components/Field.js";
 import { Input } from "../components/Input.js";
 import { PhoneInput } from "../components/PhoneInput.js";
+import { formatRuPhoneForDisplay, isRuPhoneComplete } from "../components/phoneFormat.js";
 import { Panel } from "../components/Panel.js";
 import { Badge } from "../components/Badge.js";
 import { Skeleton } from "../components/Spinner.js";
@@ -379,7 +380,11 @@ export function ManualBookingButton({
   switch (step) {
     case "phone":
       if (recognition.status === "idle") {
-        primary = { label: strings.calendarManualBookingSearchButton, disabled: phone.trim() === "", onClick: () => void search() };
+        // `26-326`: the completeness gate is now `isRuPhoneComplete` (exactly 10 national digits, the
+        // web mirror of Android's `isRuPhoneComplete`) rather than a bare blank check - `phone` is the
+        // canonical value `PhoneInput` now hands back, and a fixed `+7` with one digit typed is already
+        // non-blank but nowhere near a dialable number.
+        primary = { label: strings.calendarManualBookingSearchButton, disabled: !isRuPhoneComplete(phone), onClick: () => void search() };
       } else if (recognition.status === "searching") {
         primary = { label: strings.calendarManualBookingSearchingLabel, disabled: true, onClick: () => undefined };
       } else if (recognition.status === "error") {
@@ -447,7 +452,12 @@ export function ManualBookingButton({
 
   // Review step's own "Client" row: the typed name for a freshly-minted client, the display-merged
   // name (falling back to the phone while it is still loading) for a reused one.
-  const reviewClientName = reusePersonId === null ? (name.trim() === "" ? phone : name.trim()) : candidateName(reusePersonId) ?? phone;
+  const reviewClientName =
+    reusePersonId === null
+      ? name.trim() === ""
+        ? formatRuPhoneForDisplay(phone)
+        : name.trim()
+      : candidateName(reusePersonId) ?? formatRuPhoneForDisplay(phone);
 
   return (
     <>
@@ -504,8 +514,8 @@ export function ManualBookingButton({
 
             {recognition.status === "found" && recognition.candidates.length === 1 && (
               <Panel quiet title={strings.calendarManualBookingFoundOneTitle}>
-                <p>{candidateName(recognition.candidates[0].personId) ?? phone}</p>
-                <p className="ago-meta">{phone}</p>
+                <p>{candidateName(recognition.candidates[0].personId) ?? formatRuPhoneForDisplay(phone)}</p>
+                <p className="ago-meta">{formatRuPhoneForDisplay(phone)}</p>
                 <Badge tone="brand">
                   {strings.calendarManualBookingReturningClientLabel(
                     recognition.candidates[0].bookingCount,
@@ -534,7 +544,7 @@ export function ManualBookingButton({
                         aria-pressed={selected}
                         onClick={() => setSelectedCandidateId(candidate.personId)}
                       >
-                        {candidateName(candidate.personId) ?? candidate.phone} ·{" "}
+                        {candidateName(candidate.personId) ?? formatRuPhoneForDisplay(candidate.phone)} ·{" "}
                         {strings.calendarManualBookingReturningClientLabel(
                           candidate.bookingCount,
                           manualBookingRecordWord(strings, candidate.bookingCount),
@@ -559,8 +569,8 @@ export function ManualBookingButton({
         {step === "client" &&
           (reusePersonId !== null ? (
             <Panel quiet title={strings.calendarManualBookingRecognizedClientLabel}>
-              <p>{candidateName(reusePersonId) ?? phone}</p>
-              <p className="ago-meta">{phone}</p>
+              <p>{candidateName(reusePersonId) ?? formatRuPhoneForDisplay(phone)}</p>
+              <p className="ago-meta">{formatRuPhoneForDisplay(phone)}</p>
               {reusedCandidate && (
                 <Badge tone="brand">
                   {strings.calendarManualBookingReturningClientLabel(
@@ -706,7 +716,7 @@ export function ManualBookingButton({
             </dd>
 
             <dt>{strings.calendarManualBookingReviewPhoneLabel}</dt>
-            <dd>{phone}</dd>
+            <dd>{formatRuPhoneForDisplay(phone)}</dd>
 
             <dt>{strings.calendarManualBookingReviewEmailLabel}</dt>
             <dd>{email.trim() === "" ? strings.calendarManualBookingReviewEmailNotProvidedLabel : email}</dd>

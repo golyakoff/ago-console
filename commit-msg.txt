@@ -1,15 +1,17 @@
-feat(26-323): manual booking wizard skips service/worker step when only one option
+feat(26-326): console phone input+display mirrors Android RuPhoneField
 
-The first live user (26-321) stalled on a "choose a master" step that offered
-exactly one master, not realising she had to tap her own name to select it.
-The manual-booking wizard's service and worker steps now each auto-select and
-skip themselves when they would offer exactly one option - the service step
-when there is exactly one active service, the worker step when exactly one
-worker is eligible for the chosen service (the two checks compose, so a
-single-service, single-master tenant skips straight from the client step to
-the slot step). Several options at either step is unchanged, and so is the
-zero-eligible-workers case.
-
-Back-navigation now walks a history stack of steps actually shown, replacing
-the old fixed WizardStep -> WizardStep map, since which step is "previous"
-now depends on what this particular walk skipped.
+PhoneInput now renders the inline +7 (XXX) XXX-XX-XX mask itself, fixed
+non-deletable +7 lead included, and drops the separate flag+prefix chip -
+value/onChange carry the canonical +7<digits> form ago-android's RuPhoneField
+already established, normalising every keystroke and paste through the same
+path (drop one leading 8/7 past 10 digits, cap at 10). New phoneFormat.ts
+ports normalizeRuNationalDigits/canonicalRuPhone/isRuPhoneComplete/
+maskRuNational/the digit-count<->masked-offset caret mapping/
+formatRuPhoneForDisplay byte-for-byte from RuPhoneField.kt, plus the
+console-only isExplicitNonRussianPhoneValue escape hatch and the
+nextRuPhoneEdit bridge a real masked <input> needs that Compose's
+VisualTransformation does not. formatRuPhoneForDisplay is now applied at
+every phone display site (calendarFormat.renderPhone, ContactDetailsPanel,
+CalendarClientDetailPage's linked-channel list, ManualBookingButton's
+recognition/review screens), and the manual-booking phone step's search gate
+is isRuPhoneComplete instead of a blank check.

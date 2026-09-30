@@ -2,6 +2,7 @@ import type { ConsoleStrings } from "../i18n/strings.js";
 import type { PersonBooking, WorkerSlot } from "../api/calendarApi.js";
 import type { PersonNames } from "./usePersonNames.js";
 import { Button } from "../components/Button.js";
+import { formatRuPhoneForDisplay } from "../components/phoneFormat.js";
 import { parseInstant } from "../time/format.js";
 
 /**
@@ -143,7 +144,7 @@ export function renderPhone(
   }
 
   if (!slot.masked) {
-    return slot.phone;
+    return formatRuPhoneForDisplay(slot.phone);
   }
 
   const personId = slot.personId;
@@ -151,7 +152,11 @@ export function renderPhone(
 
   return (
     <span className="ago-row">
-      <span>{slot.phone}</span>
+      {/* `26-326`: `formatRuPhoneForDisplay` is a no-op here in practice - a masked preview (`+7 ··· 08`,
+          dots included) never has `NATIONAL_DIGIT_COUNT` real digits, so it always comes back unchanged
+          (`phoneFormat.ts`'s own doc comment). Applied anyway so this row is not a second, unformatted
+          copy of the same rule the unmasked branch above already follows. */}
+      <span>{formatRuPhoneForDisplay(slot.phone)}</span>
       <Button size="sm" variant="secondary" disabled={revealing} onClick={() => reveal.onReveal(personId)}>
         {revealing ? strings.calendarRevealingPhoneButton : strings.calendarRevealPhoneButton}
       </Button>

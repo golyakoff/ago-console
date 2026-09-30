@@ -8,6 +8,7 @@ import { CalendarBookingsPage } from "./CalendarBookingsPage.js";
 import { all, byText, interact, one, render, unmount } from "../testing/dom.js";
 import type { ConfirmedBooking } from "../api/calendarApi.js";
 import type { PersonProfile } from "../api/personsApi.js";
+import { formatRuPhoneForDisplay } from "../components/phoneFormat.js";
 
 /**
  * `23-34`: `/calendar/bookings` - confirmed bookings, grouped by day and by master. Permission
@@ -160,7 +161,12 @@ const bookings: ConfirmedBooking[] = [
     endsAt: "2026-09-08T10:30:00+00:00",
     localDate: "2026-09-08",
     weekday: 2,
-    phone: "+7 999 000-00-** 02",
+    // `26-326`: matches `Ago.Calendar.Domain.PhoneNumber.Masked()`'s own real shape - first two
+    // characters and last two kept, everything between replaced by bullets - rather than this fixture's
+    // old, unrealistically revealing "+7 999 000-00-** 02" (which happened to strip down to exactly 10
+    // real digits, indistinguishable from a complete number once `formatRuPhoneForDisplay` looks at bare
+    // digit count; the real backend mask never leaves that many digits visible).
+    phone: "+7••••••••02",
     masked: true,
     // `26-165`: an operator-entered or widget booking has no chat origin - no link, not a disabled one.
     originConversationId: null,
@@ -263,14 +269,17 @@ describe("confirmed bookings", () => {
     expect(container.textContent).toContain("name not shown yet");
   });
 
-  it("renders the phone exactly as the server sent it - masked or real, with no client-side masking logic", async () => {
+  it("shows a real number through 26-326's own display formatter, and a masked server preview verbatim", async () => {
     const container = await render(page());
 
-    // b1: real number, arrives unmasked from the server.
-    expect(container.textContent).toContain("+79990000001");
-    // b2: the server already masked it - the page must render that string verbatim, never the real
-    // number and never a second, client-computed mask.
-    expect(container.textContent).toContain("+7 999 000-00-** 02");
+    // b1: real number, arrives unmasked from the server - `26-326` renders it through
+    // `formatRuPhoneForDisplay`, the same as every other phone display site.
+    expect(container.textContent).toContain(formatRuPhoneForDisplay("+79990000001"));
+    // b2: the server already masked it (bullets standing in for the digits it withholds) - the page
+    // must render that string verbatim, never guessing at the real number and never inventing a second,
+    // client-computed mask of its own. `formatRuPhoneForDisplay` is a no-op here: too few real digits
+    // survive stripping the bullets to look like a complete number.
+    expect(container.textContent).toContain("+7••••••••02");
   });
 
   /** `26-165`/`adr/0184` (C1w): the one promise this item makes - a chat-origin confirmed booking
@@ -497,7 +506,7 @@ describe("revealing a masked phone (23-91)", () => {
     const container = await render(page());
 
     expect(container.textContent).toContain("+7999•••0009");
-    expect(container.textContent).not.toContain("+79990000009");
+    expect(container.textContent).not.toContain(formatRuPhoneForDisplay("+79990000009"));
     expect(byText(container, "button", "Reveal")).not.toBeNull();
   });
 
@@ -512,7 +521,7 @@ describe("revealing a masked phone (23-91)", () => {
     // `Surface` - this asserts the exact same endpoint and parameter shape `CalendarQueuePage`'s own
     // reveal test asserts, only the surface name differs.
     expect(calendarApi.revealCustomerPhone).toHaveBeenCalledWith("token", "c9", "ConsoleBookings");
-    expect(container.textContent).toContain("+79990000009");
+    expect(container.textContent).toContain(formatRuPhoneForDisplay("+79990000009"));
     expect(container.textContent).not.toContain("+7999•••0009");
     expect(byText(container, "button", "Reveal")).toBeNull();
   });
@@ -529,7 +538,7 @@ describe("revealing a masked phone (23-91)", () => {
 
     expect(container.textContent).toContain("Customer c9 does not exist in this tenant.");
     expect(container.textContent).toContain("+7999•••0009");
-    expect(container.textContent).not.toContain("+79990000009");
+    expect(container.textContent).not.toContain(formatRuPhoneForDisplay("+79990000009"));
   });
 });
 
@@ -618,7 +627,7 @@ describe("confirmed-booking detail panel (26-272)", () => {
     expect(calendarApi.revealCustomerPhone).toHaveBeenCalledWith("token", "c2", "ConsoleBookings");
     // The reveal replaces the row everywhere it is rendered - the flat cell and the open detail alike,
     // since both call the identical `renderPhone`/`reveal` wiring rather than two copies of it.
-    expect(container.textContent).toContain("+79990000002");
+    expect(container.textContent).toContain(formatRuPhoneForDisplay("+79990000002"));
   });
 });
 

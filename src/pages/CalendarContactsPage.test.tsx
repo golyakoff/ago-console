@@ -8,6 +8,7 @@ import { CalendarContactsPage } from "./CalendarContactsPage.js";
 import { byText, interact, one, render, unmount } from "../testing/dom.js";
 import type { Contact } from "../api/calendarApi.js";
 import type { PersonProfile } from "../api/personsApi.js";
+import { formatRuPhoneForDisplay } from "../components/phoneFormat.js";
 
 /**
  * `22-06`: `/calendar/contacts` - moved from `ago-calendar-console`'s own `ContactsPage.test.tsx`,
@@ -108,7 +109,9 @@ describe("the contacts report", () => {
   it("lists every contact's phone and the name read from chat's Person registry", async () => {
     const container = await render(page());
 
-    expect(container.textContent).toContain("+79990000001");
+    // `26-326`: the phone column now renders through `formatRuPhoneForDisplay` - a complete RU number
+    // reads `+7 (999) 000-00-01`, never the raw wire string.
+    expect(container.textContent).toContain(formatRuPhoneForDisplay("+79990000001"));
     expect(container.textContent).toContain("Anna");
     // `26-161`: the name is fetched by the contact's person id, not taken off the calendar row.
     expect(personsApi.getPersons).toHaveBeenCalledWith("token", ["c1", "c2"], expect.anything());
@@ -117,7 +120,7 @@ describe("the contacts report", () => {
   it("shows an honest placeholder for a person with no name recorded in chat, not a blank cell", async () => {
     const container = await render(page());
 
-    expect(container.textContent).toContain("+79990000002");
+    expect(container.textContent).toContain(formatRuPhoneForDisplay("+79990000002"));
     expect(container.textContent).toContain("not recorded");
   });
 
@@ -127,7 +130,7 @@ describe("the contacts report", () => {
     const container = await render(page());
 
     // The booking data still renders - the phone is here - and the name column degrades rather than blanks.
-    expect(container.textContent).toContain("+79990000001");
+    expect(container.textContent).toContain(formatRuPhoneForDisplay("+79990000001"));
     expect(container.textContent).toContain("name not shown yet");
   });
 
@@ -135,11 +138,15 @@ describe("the contacts report", () => {
     const container = await render(page());
 
     // `26-269`: c2 has 2 no-shows - a pill naming the count, not a bare number.
-    const pilledRow = Array.from(container.querySelectorAll("tr")).find((tr) => tr.textContent?.includes("+79990000002"));
+    const pilledRow = Array.from(container.querySelectorAll("tr")).find((tr) =>
+      tr.textContent?.includes(formatRuPhoneForDisplay("+79990000002")),
+    );
     expect(pilledRow?.textContent).toContain("2 no-shows");
 
     // c1 has zero - the quiet default: no pill, and the word never appears on its row at all.
-    const zeroRow = Array.from(container.querySelectorAll("tr")).find((tr) => tr.textContent?.includes("+79990000001"));
+    const zeroRow = Array.from(container.querySelectorAll("tr")).find((tr) =>
+      tr.textContent?.includes(formatRuPhoneForDisplay("+79990000001")),
+    );
     expect(zeroRow?.textContent).not.toContain("no-show");
   });
 
@@ -176,8 +183,10 @@ describe("revealing a masked phone (23-30)", () => {
 
     const container = await render(page());
 
+    // `26-326`: the masked preview has too few real digits for `formatRuPhoneForDisplay` to touch -
+    // it renders unchanged (`phoneFormat.ts`'s own doc comment).
     expect(container.textContent).toContain("+7999•••0003");
-    expect(container.textContent).not.toContain("+79990000003");
+    expect(container.textContent).not.toContain(formatRuPhoneForDisplay("+79990000003"));
     expect(byText(container, "button", "Reveal")).not.toBeNull();
   });
 
@@ -190,7 +199,7 @@ describe("revealing a masked phone (23-30)", () => {
     await interact(() => byText<HTMLButtonElement>(container, "button", "Reveal")?.click());
 
     expect(calendarApi.revealCustomerPhone).toHaveBeenCalledWith("token", "c3", "ConsoleContacts");
-    expect(container.textContent).toContain("+79990000003");
+    expect(container.textContent).toContain(formatRuPhoneForDisplay("+79990000003"));
     expect(container.textContent).not.toContain("+7999•••0003");
     expect(byText(container, "button", "Reveal")).toBeNull();
   });
@@ -288,17 +297,20 @@ describe("the client-side search field (26-269)", () => {
     await interact(() => typeInto(search, "anna"));
 
     expect(container.textContent).toContain("Anna");
-    expect(container.textContent).not.toContain("+79990000002");
+    expect(container.textContent).not.toContain(formatRuPhoneForDisplay("+79990000002"));
   });
 
   it("filters the list by phone as the operator types", async () => {
     const container = await render(page());
 
+    // `matchesContactSearch` still matches against the raw wire string, masked or not (its own doc
+    // comment) - unaffected by `26-326`'s display formatting, which only changes what a matched row
+    // then renders as.
     const search = one<HTMLInputElement>(container, "input[type='search']");
     await interact(() => typeInto(search, "0000002"));
 
-    expect(container.textContent).toContain("+79990000002");
-    expect(container.textContent).not.toContain("+79990000001");
+    expect(container.textContent).toContain(formatRuPhoneForDisplay("+79990000002"));
+    expect(container.textContent).not.toContain(formatRuPhoneForDisplay("+79990000001"));
   });
 
   it("shows an explicit no-results state, distinct from the no-contacts-at-all state, and clears back to the full list", async () => {
@@ -314,7 +326,7 @@ describe("the client-side search field (26-269)", () => {
     await interact(() => byText<HTMLButtonElement>(container, "button", "Clear search")?.click());
 
     expect(container.querySelector("table")).not.toBeNull();
-    expect(container.textContent).toContain("+79990000001");
-    expect(container.textContent).toContain("+79990000002");
+    expect(container.textContent).toContain(formatRuPhoneForDisplay("+79990000001"));
+    expect(container.textContent).toContain(formatRuPhoneForDisplay("+79990000002"));
   });
 });

@@ -9,6 +9,7 @@ import { CalendarQueuePage } from "./CalendarQueuePage.js";
 import { all, byText, interact, render, unmount } from "../testing/dom.js";
 import type { PendingBooking } from "../api/calendarApi.js";
 import type { PersonProfile } from "../api/personsApi.js";
+import { formatRuPhoneForDisplay } from "../components/phoneFormat.js";
 
 /**
  * `22-06`: `/calendar` - moved from `ago-calendar-console`'s own `QueuePage.test.tsx`, adapted to
@@ -204,7 +205,8 @@ describe("the pending-bookings queue", () => {
 
     const container = await render(page());
 
-    expect(container.textContent).toContain("+79990000001");
+    // `26-326`: the phone column now renders through `formatRuPhoneForDisplay`.
+    expect(container.textContent).toContain(formatRuPhoneForDisplay("+79990000001"));
   });
 
   it("shows 'hidden', not a blank cell, when the server omits the phone", async () => {
@@ -282,7 +284,7 @@ describe("the pending-bookings queue", () => {
     const container = await render(page());
 
     // The booking still renders (its phone is here); only the name column degrades.
-    expect(container.textContent).toContain("+79990000003");
+    expect(container.textContent).toContain(formatRuPhoneForDisplay("+79990000003"));
     expect(container.textContent).toContain("name not shown yet");
   });
 
@@ -351,7 +353,7 @@ describe("revealing a masked phone (23-30)", () => {
     const container = await render(page());
 
     expect(container.textContent).toContain("+7999•••0001");
-    expect(container.textContent).not.toContain("+79990000001");
+    expect(container.textContent).not.toContain(formatRuPhoneForDisplay("+79990000001"));
     expect(byText(container, "button", "Reveal")).not.toBeNull();
   });
 
@@ -363,7 +365,7 @@ describe("revealing a masked phone (23-30)", () => {
     await interact(() => byText<HTMLButtonElement>(container, "button", "Reveal")?.click());
 
     expect(calendarApi.revealCustomerPhone).toHaveBeenCalledWith("token", "c1", "ConsoleQueue");
-    expect(container.textContent).toContain("+79990000001");
+    expect(container.textContent).toContain(formatRuPhoneForDisplay("+79990000001"));
     expect(container.textContent).not.toContain("+7999•••0001");
     expect(byText(container, "button", "Reveal")).toBeNull();
   });
@@ -380,6 +382,6 @@ describe("revealing a masked phone (23-30)", () => {
 
     expect(container.textContent).toContain("Customer c1 does not exist in this tenant.");
     expect(container.textContent).toContain("+7999•••0001");
-    expect(container.textContent).not.toContain("+79990000001");
+    expect(container.textContent).not.toContain(formatRuPhoneForDisplay("+79990000001"));
   });
 });

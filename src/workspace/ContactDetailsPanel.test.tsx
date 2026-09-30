@@ -213,7 +213,12 @@ describe("editing a contact detail (25-58)", () => {
   });
 
   it("shows an error and stays in edit mode when saving fails", async () => {
-    contactDetailsApi.fetchContactDetails.mockResolvedValue([detail()]);
+    // `26-326`: this test is about the generic save-error path, not phone-specific behaviour, so it now
+    // edits a `Name` row rather than this file's own `detail()` default (`kind: "Phone"`) - typing plain
+    // text like "not empty" into a `Phone` row's own `PhoneInput` would strip every non-digit character
+    // down to nothing (`phoneFormat.ts`'s `normalizeRuNationalDigits`), which is correct there but would
+    // make this test about the mask instead of about the error handling it actually means to prove.
+    contactDetailsApi.fetchContactDetails.mockResolvedValue([detail({ kind: "Name", value: "Alex" })]);
     contactDetailsApi.editContactDetail.mockRejectedValue(
       new ApiProblemError("VisitorContactDetail.Invalid", "server wording", 400),
     );
@@ -252,34 +257,38 @@ describe("editing a contact detail (25-58)", () => {
 /** `25-186`: the flagged phone field only replaces the plain `Input` for a `Phone` row's own edit
  * control - `Email`/`Name` rows are untouched, `ContactDetailsPanel.tsx`'s own remarks on the switch. */
 describe("the flagged phone field on edit (25-186)", () => {
-  it("renders PhoneInput's wrapper and 🇷🇺 +7 prefix when editing a Russian-shaped Phone row", async () => {
+  it("renders PhoneInput's own inline +7 (...) mask, not a plain input, when editing a Russian-shaped Phone row", async () => {
     // `25-209`: this file's own `detail()` default value ("+1 555 0100") is deliberately
     // non-Russian-shaped (see the test right below this one) - a Russian-shaped value is passed
-    // explicitly here so this test keeps proving what its name says: the wrapper and prefix render at
+    // explicitly here so this test keeps proving what its name says: the wrapper and mask render at
     // all for a Phone row, independent of `PhoneInput`'s own value-shape logic (covered in full by
     // `PhoneInput.test.tsx`, not re-tested here).
+    //
+    // `26-326`: the separate `🇷🇺 +7` chip this test used to assert on is gone - `+7` now lives inside
+    // the one masked control (`PhoneInput.tsx`'s own doc comment), so this asserts the mask itself.
     contactDetailsApi.fetchContactDetails.mockResolvedValue([detail({ kind: "Phone", value: "+7 900 000-00-01" })]);
 
     const container = await mount(["conversation:read", "conversation:send"]);
     await interact(() => byText<HTMLButtonElement>(container, "button", "Edit").click());
 
     expect(all(container, ".ago-phone-input")).toHaveLength(1);
-    expect(container.textContent).toContain("🇷🇺 +7");
+    expect(one<HTMLInputElement>(container, "input").value).toBe("+7 (900) 000-00-01");
   });
 
   // `25-209`: the backlog item's own resolution, proven at this panel's own level rather than only
   // inside `PhoneInput.test.tsx` - a Phone row's stored value can legitimately be the non-Russian
   // escape-hatch shape `ago-widget`'s own `phoneFormat.ts` writes (`VisitorContactDetail` has no
-  // format contract), and this file's own `detail()` default ("+1 555 0100") already is one. The
-  // prefix must not assert "Russia" beside a value that contradicts it.
-  it("hides the 🇷🇺 +7 prefix when editing a Phone row whose stored value is not Russian-shaped", async () => {
+  // format contract), and this file's own `detail()` default ("+1 555 0100") already is one. `26-326`:
+  // the field must not impose the RU mask on a value that already contradicts it - it renders and edits
+  // completely unmasked instead (`PhoneInput.tsx`'s own foreign-passthrough branch).
+  it("renders the raw, unmasked value when editing a Phone row whose stored value is not Russian-shaped", async () => {
     contactDetailsApi.fetchContactDetails.mockResolvedValue([detail({ kind: "Phone" })]);
 
     const container = await mount(["conversation:read", "conversation:send"]);
     await interact(() => byText<HTMLButtonElement>(container, "button", "Edit").click());
 
     expect(all(container, ".ago-phone-input")).toHaveLength(1);
-    expect(container.textContent).not.toContain("🇷🇺 +7");
+    expect(one<HTMLInputElement>(container, "input").value).toBe("+1 555 0100");
   });
 
   it("renders the plain Input, not PhoneInput's wrapper, when editing an Email row", async () => {
@@ -291,7 +300,6 @@ describe("the flagged phone field on edit (25-186)", () => {
     await interact(() => byText<HTMLButtonElement>(container, "button", "Edit").click());
 
     expect(all(container, ".ago-phone-input")).toHaveLength(0);
-    expect(container.textContent).not.toContain("🇷🇺 +7");
     expect(all(container, "input")).toHaveLength(1);
   });
 
@@ -304,7 +312,6 @@ describe("the flagged phone field on edit (25-186)", () => {
     await interact(() => byText<HTMLButtonElement>(container, "button", "Edit").click());
 
     expect(all(container, ".ago-phone-input")).toHaveLength(0);
-    expect(container.textContent).not.toContain("🇷🇺 +7");
     expect(all(container, "input")).toHaveLength(1);
   });
 });
