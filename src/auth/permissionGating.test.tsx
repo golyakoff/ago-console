@@ -474,7 +474,9 @@ describe("the operator navigation", () => {
     // agreement and separately declares a lawful basis. Same `isAdmin`-only gate, placed with the
     // other buy-and-agree screens rather than in Automation.
     await openSection(container, "Administration");
-    expect(itemLabels(container)).toEqual(["Products", "Billing", "Device data", "Documents", "AI features", "Storage"]);
+    expect(itemLabels(container)).toEqual([
+      "Products", "Bookings module", "Billing", "Device data", "Documents", "AI features", "Storage",
+    ]);
     expect(reservedItemLabels(container)).toEqual([]);
   });
 
@@ -508,7 +510,7 @@ describe("the operator navigation", () => {
 
     await openSection(container, "Administration");
     expect(itemLabels(container)).toEqual([
-      "Products", "Billing", "Device data", "Documents", "AI features", "Storage", "Delete account",
+      "Products", "Bookings module", "Billing", "Device data", "Documents", "AI features", "Storage", "Delete account",
     ]);
   });
 

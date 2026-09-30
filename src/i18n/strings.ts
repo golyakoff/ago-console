@@ -1540,6 +1540,9 @@ export interface ConsoleStrings {
    * database. *Taking bookings* is the thing being sold."). */
   productsCalendarDescription: string;
   productsCalendarActionLabel: string;
+  /** `26-316`: the not-held calendar row's own next step, now that enabling it is self-serve - a link to
+   * «Модуль «Записи»» rather than the "contact AGO" note every other not-held product still shows. */
+  productsCalendarEnableActionLabel: string;
 
   /** `enabledModules.includes("faq")` decides `held`; same "describe the outcome" reasoning as
    * `productsCalendarDescription` above. */
@@ -3386,6 +3389,30 @@ export interface ConsoleStrings {
   aiAddOnEnableLabel: string;
   aiAddOnDisableLabel: string;
   aiAddOnEnableBlocked: string;
+  // -------------------------------------------------------------------------------------------
+  // `26-316`: `/account/bookings-module` - the tenant admin's own on/off switch for the bookings
+  // (calendar) module. Author decision в (self-serve): a tenant turns the module on and off from their
+  // own settings, no platform-owner action. The copy speaks about what the visitor gets ("appointment
+  // booking"), never the raw module key.
+  navBookingsModule: string;
+  bookingsModuleForbidden: string;
+  bookingsModuleLoadError: string;
+  bookingsModuleActionError: string;
+  bookingsModuleIntro: string;
+  bookingsModulePanelTitle: string;
+  bookingsModuleStatusOn: string;
+  bookingsModuleStatusOff: string;
+  bookingsModuleEnableLabel: string;
+  bookingsModuleDisableLabel: string;
+  /** What turning it on does, in the tenant's terms - a booking widget for their visitors and the
+   * calendar screens for their team. */
+  bookingsModuleEnableDescription: string;
+  /** The reassurance a tenant needs before switching it off: nothing is deleted, and turning it back
+   * on restores access. */
+  bookingsModuleDisableDescription: string;
+  /** Shown instead of the off control when a platform owner enabled the module (`grantedByOwner`) - it
+   * is an override the tenant cannot turn off here. */
+  bookingsModuleManagedByOwner: string;
   // -------------------------------------------------------------------------------------------
   // `23-38`: `/automation/ai-suggestions` - the reply draft's own screen. Reads and writes the exact
   // same `AiAddOnEnablement` switch `25-04`'s screen above already reads and writes (there is no

@@ -44,6 +44,7 @@ import { DocumentsPage } from "./pages/DocumentsPage.js";
 import { StoragePage } from "./pages/StoragePage.js";
 import { SiteExportPage } from "./pages/SiteExportPage.js";
 import { ProductsPage } from "./pages/ProductsPage.js";
+import { BookingsModulePage } from "./pages/BookingsModulePage.js";
 import { AccountDeletionPage } from "./pages/AccountDeletionPage.js";
 import { OperatorsTeamPage } from "./pages/OperatorsTeamPage.js";
 import { TeamChatPage } from "./pages/TeamChatPage.js";
@@ -478,6 +479,11 @@ export function App() {
             finally linked from `consoleNav.ts` - `23-25` built the route and screen but left the nav
             placement to this item (`strings.navAccountProducts`'s own doc comment). */}
         <Route path="/account/products" element={<ProductsPage />} />
+        {/* `26-316`: same "route stays outside the workspace layout, page gates itself internally"
+            shape as the ones around it - `BookingsModulePage` gates itself on `site:configure`
+            internally, and the server re-checks it on every enable/disable. The tenant admin's own
+            self-serve on/off toggle for the bookings (calendar) module (author decision в). */}
+        <Route path="/account/bookings-module" element={<BookingsModulePage />} />
         {/* `16-02`: same "route stays outside the workspace layout, page gates itself internally"
             shape - but on `site:erase`, not `site:configure` (`AccountDeletionPage`'s own doc
             comment). `23-31`: moved from `/settings/delete-account` into "Администрирование". */}

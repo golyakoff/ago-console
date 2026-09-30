@@ -49,7 +49,12 @@ function buildRows(strings: ConsoleStrings, enabledModules: readonly string[]): 
       id: "calendar",
       description: strings.productsCalendarDescription,
       held: hasCalendar,
-      action: hasCalendar ? { label: strings.productsCalendarActionLabel, to: "/calendar/waiting" } : null,
+      // `26-316`: enabling the calendar is self-serve now (author decision в), so a not-held calendar's
+      // next step is a link to «Модуль «Записи»» - not the "contact AGO" note. The other not-held
+      // products (`faq` below) still have no self-serve path, so they keep that note.
+      action: hasCalendar
+        ? { label: strings.productsCalendarActionLabel, to: "/calendar/waiting" }
+        : { label: strings.productsCalendarEnableActionLabel, to: "/account/bookings-module" },
     },
     {
       id: "faq",
@@ -74,12 +79,13 @@ function buildRows(strings: ConsoleStrings, enabledModules: readonly string[]): 
  * would be exactly the "second uncontrolled read" `23-21`'s own scope warned against; this screen
  * reuses the one that already exists instead.
  *
- * <b>The next step for a product this workspace lacks is "contact AGO", never a control that looks
- * like it provisions.</b> `decisions.md` §6: enabling a product is owner-only today, through a
- * runbook, not a console write - `22-17`'s grant API takes a deployment-wide secret no browser form
- * may hold. A "request access" button that writes nothing would be worse than plain prose: the tenant
- * would wait for something that never happens. So the not-held cells says only "Contact AGO to add
- * this to your workspace." - true today, and truthfully not a self-service flow.
+ * <b>The next step for a product this workspace lacks depends on whether enabling it is self-serve.</b>
+ * `26-316` (author decision в) made the calendar self-serve: its not-held cell links to «Модуль
+ * «Записи»» (`/account/bookings-module`, `BookingsModulePage`), a real control that turns it on, because
+ * there is now something true to link to (`adr/0150`/`adr/0154` took the deployment-wide secret out of
+ * the browser, which is what had made `22-17`'s grant owner-only). Every other not-held product still has
+ * no self-serve path, so its cell says only "Contact AGO to add this to your workspace." - a "request
+ * access" button that wrote nothing would be worse than plain prose.
  *
  * <b>The copy never shows a module key.</b> `"calendar"`/`"faq"` are words from this platform's own
  * schema (`Ago.Chat.Domain.ModuleKey`) - `buildRows` above is the one place either raw string is
