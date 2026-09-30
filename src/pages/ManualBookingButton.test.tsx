@@ -64,8 +64,14 @@ const SERVICES: ConfiguredService[] = [
   { serviceId: "svc-old", name: "Retired service", durationMinutes: 30, priceMinorUnits: null, priceCurrencyCode: null, priceIsFrom: false, description: null, isActive: false },
 ];
 
+// Two active workers offer "svc-cut" (`w-irina`/`w-anna`) - deliberately more than one, so the walk
+// through this file's shared fixtures exercises the ordinary "several options, still shown" worker step
+// (`26-323`'s own several-eligible-workers scenario is otherwise indistinguishable from a bug, since a
+// single eligible worker per service is exactly the case that component now auto-skips). The dedicated
+// single-eligible-worker fixtures for that skip live in the "skipping a step" describe block below.
 const WORKERS: ConfiguredWorker[] = [
   { workerId: "w-irina", displayName: "Irina Sokolova", isActive: true, serviceIds: ["svc-cut"] },
+  { workerId: "w-anna", displayName: "Anna Orlova", isActive: true, serviceIds: ["svc-cut"] },
   { workerId: "w-petr", displayName: "Petr Kim", isActive: true, serviceIds: ["svc-color"] },
   { workerId: "w-gone", displayName: "Departed worker", isActive: false, serviceIds: ["svc-cut"] },
 ];
@@ -129,13 +135,19 @@ function handlers(overrides: Partial<Handlers> = {}): Handlers {
   };
 }
 
-async function mount(permissions: string[], h: Handlers): Promise<HTMLElement> {
+interface FixtureOverrides {
+  services?: ConfiguredService[];
+  workers?: ConfiguredWorker[];
+  calendars?: ConfiguredCalendar[];
+}
+
+async function mount(permissions: string[], h: Handlers, overrides: FixtureOverrides = {}): Promise<HTMLElement> {
   return render(
     <Permitted permissions={permissions}>
       <ManualBookingButton
-        services={SERVICES}
-        workers={WORKERS}
-        calendars={CALENDARS}
+        services={overrides.services ?? SERVICES}
+        workers={overrides.workers ?? WORKERS}
+        calendars={overrides.calendars ?? CALENDARS}
         timeZone="UTC"
         onSearchByPhone={h.onSearchByPhone}
         onLookupNames={h.onLookupNames}
@@ -145,6 +157,21 @@ async function mount(permissions: string[], h: Handlers): Promise<HTMLElement> {
       />
     </Permitted>,
   );
+}
+
+/** Drives the wizard from a freshly-opened dialog up to and including the "Continue as new" +
+ * name-entry step - the shared prefix every skip test below starts from, since none of them are about
+ * the phone/client steps themselves. */
+async function walkToClientStep(container: HTMLElement, name: string): Promise<void> {
+  await open(container);
+  await typePhone(container, "+79210000000");
+  await clickFooter(container, "Find client");
+  await clickFooter(container, "Continue as new");
+  const nameInput = one<HTMLInputElement>(dialog(container), "input[type='text'], input:not([type])");
+  await interact(() => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(nameInput, name);
+    nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+  });
 }
 
 async function open(container: HTMLElement): Promise<void> {
@@ -497,5 +524,125 @@ describe("the guided walk from client to review", () => {
     await clickFooter(container, "Create booking");
 
     expect(h.onCreate).toHaveBeenCalledWith(expect.objectContaining({ email: "irina@example.com" }));
+  });
+});
+
+/**
+ * `26-323` (design of record `26-321`): the first real user stalled on a "choose a master" step that
+ * offered exactly one master, not realising she had to tap her own name. The service and worker steps
+ * now each auto-select and skip themselves in that situation - covered here for the service step alone,
+ * the worker step alone, both together, back-navigation past whichever were skipped, and confirmation
+ * that a step with several real options is untouched.
+ */
+describe("skipping a step with exactly one option (26-323)", () => {
+  const ONE_ACTIVE_SERVICE: ConfiguredService[] = [SERVICES[0]]; // svc-cut only - the archived and
+  // second service are both dropped, so this fixture offers exactly one selectable service.
+
+  // A single worker offering "svc-cut" - paired with the default (two-service) SERVICES fixture so the
+  // service step itself still shows, isolating the worker-step skip from the service-step skip.
+  const SOLO_WORKER: ConfiguredWorker[] = [{ workerId: "w-solo", displayName: "Solo Master", isActive: true, serviceIds: ["svc-cut"] }];
+  const SOLO_CALENDARS: ConfiguredCalendar[] = [
+    { calendarId: "cal-solo", name: "Main", timeZone: "UTC", isPublished: true, workerIds: ["w-solo"], workingHours: [] },
+  ];
+
+  it("one active service: auto-selects it and skips straight to the worker step", async () => {
+    const h = handlers();
+    const container = await mount([MANUAL_BOOKING_PERMISSION], h, { services: ONE_ACTIVE_SERVICE });
+    await walkToClientStep(container, "Irina Melnikova");
+
+    await clickFooter(container, "Next");
+
+    // Landed directly on the worker step - the one-option service step never showed.
+    expect(dialog(container).textContent).toContain("Step 4 of 6");
+    expect(byText(dialog(container), "button", "Haircut · 60 min")).toBeNull();
+    expect(dialog(container).textContent).toContain("Irina Sokolova");
+    expect(dialog(container).textContent).toContain("Anna Orlova");
+
+    await interact(() => byText<HTMLButtonElement>(dialog(container), '[role="radiogroup"] button', "Irina Sokolova")?.click());
+    await clickFooter(container, "Next");
+    await interact(() => one<HTMLButtonElement>(dialog(container), '[role="radiogroup"] button').click());
+    await clickFooter(container, "Next");
+    await clickFooter(container, "Create booking");
+
+    // The auto-selected service made it all the way to the submitted booking.
+    expect(h.onCreate).toHaveBeenCalledWith(expect.objectContaining({ serviceId: "svc-cut", workerId: "w-irina" }));
+  });
+
+  it("one eligible worker for the chosen service: auto-selects it and skips straight to the slot step", async () => {
+    const h = handlers();
+    const container = await mount([MANUAL_BOOKING_PERMISSION], h, { workers: SOLO_WORKER, calendars: SOLO_CALENDARS });
+    await walkToClientStep(container, "Irina Melnikova");
+    await clickFooter(container, "Next");
+
+    // Two active services, so the service step still shows.
+    expect(dialog(container).textContent).toContain("Step 3 of 6");
+
+    await interact(() => byText<HTMLButtonElement>(dialog(container), '[role="radiogroup"] button', "Haircut · 60 min")?.click());
+
+    // Jumped straight to the slot step - "Solo Master" never had to be tapped, and no explicit "Next"
+    // was needed on the service step either.
+    expect(dialog(container).textContent).toContain("Step 5 of 6");
+    expect(h.onLoadSlots).toHaveBeenCalledWith("w-solo", expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), expect.anything());
+
+    await interact(() => one<HTMLButtonElement>(dialog(container), '[role="radiogroup"] button').click());
+    await clickFooter(container, "Next");
+    await clickFooter(container, "Create booking");
+
+    expect(h.onCreate).toHaveBeenCalledWith(expect.objectContaining({ serviceId: "svc-cut", workerId: "w-solo" }));
+  });
+
+  it("back from the slot step returns to the service step when only the worker step was skipped", async () => {
+    const h = handlers();
+    const container = await mount([MANUAL_BOOKING_PERMISSION], h, { workers: SOLO_WORKER, calendars: SOLO_CALENDARS });
+    await walkToClientStep(container, "Irina Melnikova");
+    await clickFooter(container, "Next"); // client -> service
+    await interact(() => byText<HTMLButtonElement>(dialog(container), '[role="radiogroup"] button', "Haircut · 60 min")?.click()); // service -> slot, worker skipped
+
+    expect(dialog(container).textContent).toContain("Step 5 of 6");
+
+    await clickFooter(container, "Back");
+
+    // Back to the service step, not the worker step it never actually saw.
+    expect(dialog(container).textContent).toContain("Step 3 of 6");
+    expect(byText(dialog(container), '[role="radiogroup"] button', "Haircut · 60 min")).not.toBeNull();
+  });
+
+  it("back from the slot step returns to the client step when both the service and worker steps were skipped", async () => {
+    const h = handlers();
+    const container = await mount([MANUAL_BOOKING_PERMISSION], h, {
+      services: ONE_ACTIVE_SERVICE,
+      workers: SOLO_WORKER,
+      calendars: SOLO_CALENDARS,
+    });
+    await walkToClientStep(container, "Irina Melnikova");
+    await clickFooter(container, "Next"); // client -> slot directly, both service and worker skipped
+
+    expect(dialog(container).textContent).toContain("Step 5 of 6");
+
+    await clickFooter(container, "Back");
+
+    expect(dialog(container).textContent).toContain("Step 2 of 6");
+  });
+
+  it("several services and several eligible workers: both steps are still shown, unchanged", async () => {
+    const h = handlers();
+    const container = await mount([MANUAL_BOOKING_PERMISSION], h);
+    await walkToClientStep(container, "Irina Melnikova");
+    await clickFooter(container, "Next");
+
+    expect(dialog(container).textContent).toContain("Step 3 of 6");
+    expect(byText(dialog(container), '[role="radiogroup"] button', "Haircut · 60 min")).not.toBeNull();
+    expect(byText(dialog(container), '[role="radiogroup"] button', "Coloring · 120 min")).not.toBeNull();
+
+    await interact(() => byText<HTMLButtonElement>(dialog(container), '[role="radiogroup"] button', "Haircut · 60 min")?.click());
+
+    // Still on the service step - two eligible workers for "svc-cut", so nothing auto-advances.
+    expect(dialog(container).textContent).toContain("Step 3 of 6");
+
+    await clickFooter(container, "Next");
+
+    expect(dialog(container).textContent).toContain("Step 4 of 6");
+    expect(byText(dialog(container), '[role="radiogroup"] button', "Irina Sokolova")).not.toBeNull();
+    expect(byText(dialog(container), '[role="radiogroup"] button', "Anna Orlova")).not.toBeNull();
   });
 });
