@@ -28,6 +28,7 @@ import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
 import { Dialog } from "../components/Dialog.js";
 import { Alert } from "../components/Alert.js";
+import { formatRuPhoneForDisplay } from "../components/phoneFormat.js";
 import { Skeleton, Spinner } from "../components/Spinner.js";
 import { Table, type TableColumn } from "../components/Table.js";
 import { useStrings } from "../i18n/StringsContext.js";
@@ -625,7 +626,13 @@ export function CalendarClientDetailPage() {
                 <ul>
                   {channels.map((channel) => (
                     <li key={channel.id}>
-                      <Badge tone="accent">{channelKindLabel(channel.kind, strings)}</Badge> {channel.value}
+                      {/* `26-326`: a linked `Phone` channel's own value gets the same display formatter
+                          every other phone render site does - `Vk`/`Telegram`/etc. pass through
+                          `formatRuPhoneForDisplay` untouched anyway (never RU-mask-shaped), but gating on
+                          `channel.kind` says that plainly rather than relying on the formatter's own
+                          no-op fallback to do it silently (`ContactDetailsPanel`'s identical gate). */}
+                      <Badge tone="accent">{channelKindLabel(channel.kind, strings)}</Badge>{" "}
+                      {channel.kind === "Phone" ? formatRuPhoneForDisplay(channel.value) : channel.value}
                     </li>
                   ))}
                 </ul>

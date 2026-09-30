@@ -8,6 +8,7 @@ import { CalendarClientDetailPage } from "./CalendarClientDetailPage.js";
 import { byText, interact, one, render, unmount } from "../testing/dom.js";
 import { CalendarApiError, type Contact, type PersonBooking } from "../api/calendarApi.js";
 import type { PersonConversation, PersonProfile } from "../api/personsApi.js";
+import { formatRuPhoneForDisplay } from "../components/phoneFormat.js";
 
 /**
  * `26-269`/`26-269-clients-redesign.md` §4: `/calendar/clients/:personId` - the client-detail hub the
@@ -205,7 +206,7 @@ describe("the client-detail header", () => {
     const container = await render(page());
 
     expect(container.textContent).toContain("Anna");
-    expect(container.textContent).toContain("+79990000001");
+    expect(container.textContent).toContain(formatRuPhoneForDisplay("+79990000001"));
   });
 
   it("shows the not-found panel when the contacts list loaded but carries no row for this id", async () => {
@@ -260,7 +261,7 @@ describe("the client-detail header", () => {
     await interact(() => byText<HTMLButtonElement>(container, "button", "Reveal")?.click());
 
     expect(calendarApi.revealCustomerPhone).toHaveBeenCalledWith("token", PERSON_ID, "ConsoleClientDetail");
-    expect(container.textContent).toContain("+79990000001");
+    expect(container.textContent).toContain(formatRuPhoneForDisplay("+79990000001"));
   });
 });
 
@@ -338,7 +339,7 @@ describe("dialog navigation (26-269)", () => {
     const container = await render(page());
 
     // The rest of the hub still renders - the phone is here - the dialog link is simply absent.
-    expect(container.textContent).toContain("+79990000001");
+    expect(container.textContent).toContain(formatRuPhoneForDisplay("+79990000001"));
     expect(byText(container, "a", "Open dialog")).toBeNull();
   });
 });
@@ -351,7 +352,9 @@ describe("the contact channels meta section (26-269)", () => {
 
     const container = await render(page());
 
-    expect(one(container, "ul").textContent).toContain("+79990000001");
+    // `26-326`: a linked `Phone` channel's own value is now formatted the same as every other phone
+    // display site.
+    expect(one(container, "ul").textContent).toContain(formatRuPhoneForDisplay("+79990000001"));
   });
 
   it("shows an honest empty state when chat holds no channel for this person", async () => {

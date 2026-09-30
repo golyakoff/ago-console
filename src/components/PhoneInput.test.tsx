@@ -3,11 +3,14 @@ import { PhoneInput, type PhoneInputProps } from "./PhoneInput.js";
 import { interact, one, render, unmount } from "../testing/dom.js";
 
 /**
- * `25-186`: `PhoneInput`'s own first test file, matching `Tooltip.test.tsx`'s precedent - the one
- * other component in this directory with its own direct test file (`adr/0030`'s closed-component-set
- * consequence, revisited here for the component this item adds). Covers the mechanism this wrapper
- * owns - the prefix, and forwarding `value`/`onChange`/`disabled`/`invalid` to the underlying `Input`
- * the same way `Input` itself already documents those props - not any one call site's own copy.
+ * `25-186`/`26-326`: `PhoneInput`'s own tests. `26-326` rewrote the component from "plain `Input` plus a
+ * non-interactive `🇷🇺 +7` chip beside it" to "the whole `+7 (XXX) XXX-XX-XX` mask, fixed prefix
+ * included, rendered inside the one native control" (`ago-android`'s `RuPhoneField` mirrored in
+ * behaviour) - these cases replace the old chip-focused ones. The normalisation/mask/offset-mapping
+ * *functions* have their own thorough, Android-mirroring cases in `phoneFormat.test.ts`; this file only
+ * has to prove the DOM wiring around them - the mask renders, `onChange` forwards the canonical value,
+ * the caret survives a re-render, and the `25-209` foreign escape hatch still switches the control to
+ * plain, unmasked passthrough.
  */
 afterEach(async () => {
   await unmount();
@@ -22,31 +25,136 @@ async function mount(props: PhoneInputProps = {}) {
   };
 }
 
-describe("PhoneInput", () => {
-  it("renders the non-interactive 🇷🇺 +7 prefix beside the native control", async () => {
-    const { wrapper, input } = await mount();
+/** Sets a controlled `<input>`'s DOM value through React's own tracked native setter (a plain
+ * `el.value = ...` is invisible to React's controlled-input diffing in a real browser, though jsdom's
+ * own `dispatchEvent` happens to still notice it) - `PhoneInput.test.tsx`'s own pre-26-326 precedent. */
+function setNativeValue(el: HTMLInputElement, value: string) {
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(el, value);
+}
 
-    expect(wrapper.textContent).toContain("🇷🇺 +7");
+async function typeInto(input: HTMLInputElement, nextRawValue: string, caret: number) {
+  await interact(() => {
+    setNativeValue(input, nextRawValue);
+    input.setSelectionRange(caret, caret);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+describe("PhoneInput", () => {
+  it("renders the fixed, non-deletable +7 mask lead with no value typed yet", async () => {
+    const { input } = await mount();
+
+    expect(input.value).toBe("+7 ");
     expect(input.type).toBe("tel");
   });
 
-  it("forwards value and fires the passed onChange when the operator types", async () => {
-    let seen = "";
+  it("no longer renders a separate country-code chip beside the control - 26-326 moved +7 inside the mask", async () => {
+    const { wrapper, container } = await mount();
+
+    expect(container.querySelector(".ago-phone-input__prefix")).toBeNull();
+    expect(wrapper.textContent).not.toContain("🇷🇺");
+  });
+
+  it("renders the masked display for a canonical value the caller already holds", async () => {
+    const { input } = await mount({ value: "+7921" });
+
+    expect(input.value).toBe("+7 (921) ");
+  });
+
+  it("forwards the canonical value on a keystroke, not the raw masked text the DOM produced", async () => {
+    let seen: string | null = null;
     const { input } = await mount({
-      value: "+7 900",
+      value: "",
       onChange: (e) => {
         seen = e.target.value;
       },
     });
 
-    expect(input.value).toBe("+7 900");
+    await typeInto(input, "+7 9", 4);
 
-    await interact(() => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, "+7 900 123");
-      input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(seen).toBe("+79");
+  });
+
+  it("normalises a full paste in one path, the same as a keystroke - 89211234567 collapses to +79211234567", async () => {
+    let seen: string | null = null;
+    const { input } = await mount({
+      value: "",
+      onChange: (e) => {
+        seen = e.target.value;
+      },
     });
 
-    expect(seen).toBe("+7 900 123");
+    await typeInto(input, "89211234567", 11);
+
+    expect(seen).toBe("+79211234567");
+  });
+
+  it("re-renders with the grouped mask once the caller stores the new canonical value", async () => {
+    const { container } = await mount({ value: "+7921" });
+
+    // Simulate the caller re-rendering with the value PhoneInput's own onChange just handed it.
+    await render(<PhoneInput value="+79211234567" onChange={() => undefined} />);
+    const rerendered = one<HTMLInputElement>(container, "input");
+
+    expect(rerendered.value).toBe("+7 (921) 123-45-67");
+  });
+
+  it("keeps the caret right after the digit just typed, not at the end of the field", async () => {
+    let value = "";
+    const onChange = (raw: string) => {
+      value = raw;
+    };
+    const { input, container } = await mount({
+      value,
+      onChange: (e) => onChange(e.target.value),
+    });
+
+    await typeInto(input, "+7 9", 4);
+    await render(<PhoneInput value={value} onChange={(e) => onChange(e.target.value)} />);
+    const rerendered = one<HTMLInputElement>(container, "input");
+
+    expect(rerendered.value).toBe("+7 (9");
+    expect(rerendered.selectionStart).toBe("+7 (9".length);
+  });
+
+  it("snaps the fixed +7 lead back the moment the field is cleared to empty", async () => {
+    let value = "+79211234567";
+    const onChange = (raw: string) => {
+      value = raw;
+    };
+    const { input, container } = await mount({
+      value,
+      onChange: (e) => onChange(e.target.value),
+    });
+
+    await typeInto(input, "", 0);
+    expect(value).toBe("");
+
+    await render(<PhoneInput value={value} onChange={(e) => onChange(e.target.value)} />);
+    const rerendered = one<HTMLInputElement>(container, "input");
+    expect(rerendered.value).toBe("+7 ");
+  });
+
+  describe("the 25-209 foreign-passthrough escape hatch, inferred from value alone", () => {
+    it("renders a plain unmasked control once the value carries an explicit non-+7 country code", async () => {
+      const { input } = await mount({ value: "+1 555 019 4567" });
+
+      expect(input.value).toBe("+1 555 019 4567");
+    });
+
+    it("forwards further edits verbatim, with no RU mask imposed, while in foreign mode", async () => {
+      let seen: string | null = null;
+      const { input } = await mount({
+        value: "+1 555 019 4567",
+        onChange: (e) => {
+          seen = e.target.value;
+        },
+      });
+
+      await typeInto(input, "+1 555 019 45678", 16);
+
+      expect(seen).toBe("+1 555 019 45678");
+    });
   });
 
   it("forwards disabled to the native input", async () => {
@@ -61,7 +169,7 @@ describe("PhoneInput", () => {
     expect(input.disabled).toBe(false);
   });
 
-  it("applies ago-phone-input--invalid on the wrapper and aria-invalid on the input when invalid, the same way Input's own invalid prop reddens its control", async () => {
+  it("applies ago-phone-input--invalid on the wrapper and aria-invalid on the input when invalid", async () => {
     const { wrapper, input } = await mount({ invalid: true });
 
     expect(wrapper.classList.contains("ago-phone-input--invalid")).toBe(true);
@@ -73,41 +181,5 @@ describe("PhoneInput", () => {
 
     expect(wrapper.classList.contains("ago-phone-input--invalid")).toBe(false);
     expect(input.hasAttribute("aria-invalid")).toBe(false);
-  });
-
-  // `25-209`: the prefix asserts "Russia" - it must stop the moment the value itself contradicts
-  // that, the same "never assert a fact the value contradicts" reasoning `ago-widget`'s own
-  // `isExplicitNonRussianPhoneValue` already applies to its own prefix chip.
-  describe("the 🇷🇺 +7 prefix, inferred from value alone (this file's own doc comment on why)", () => {
-    it("shows with no value at all - the pre-25-209 default", async () => {
-      const { wrapper } = await mount();
-
-      expect(wrapper.textContent).toContain("🇷🇺 +7");
-    });
-
-    it("shows for a plain Russian-shaped value with no leading +", async () => {
-      const { wrapper } = await mount({ value: "(916) 291-11-29" });
-
-      expect(wrapper.textContent).toContain("🇷🇺 +7");
-    });
-
-    it("shows for an explicit +7 value - still Russia", async () => {
-      const { wrapper } = await mount({ value: "+7 (916) 291-11-29" });
-
-      expect(wrapper.textContent).toContain("🇷🇺 +7");
-    });
-
-    it("hides for an explicit non-Russian country code", async () => {
-      const { wrapper } = await mount({ value: "+1 555 019 4567" });
-
-      expect(wrapper.textContent).not.toContain("🇷🇺 +7");
-    });
-
-    it("does not remove the underlying tel input when the prefix hides", async () => {
-      const { wrapper, input } = await mount({ value: "+1 555 019 4567" });
-
-      expect(wrapper.contains(input)).toBe(true);
-      expect(input.value).toBe("+1 555 019 4567");
-    });
   });
 });

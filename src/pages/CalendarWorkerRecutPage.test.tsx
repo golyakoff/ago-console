@@ -8,6 +8,7 @@ import { CalendarWorkerRecutPage } from "./CalendarWorkerRecutPage.js";
 import { all, byText, interact, render, unmount } from "../testing/dom.js";
 import type { RecutBookingPreview, RecutDayPreview } from "../api/calendarApi.js";
 import type { PersonProfile } from "../api/personsApi.js";
+import { formatRuPhoneForDisplay } from "../components/phoneFormat.js";
 
 /**
  * `22-06`: `/calendar/workers/:workerId/recut` - moved from `ago-calendar-console`'s own
@@ -140,7 +141,7 @@ describe("the re-cut schedule screen", () => {
     // The name is read from chat by person id; the phone is the calendar's own.
     expect(personsApi.getPersons).toHaveBeenCalledWith("token", ["c1"], expect.anything());
     expect(container.textContent).toContain("Dana");
-    expect(container.textContent).toContain("+79990000001");
+    expect(container.textContent).toContain(formatRuPhoneForDisplay("+79990000001"));
     expect(() => radioByLabel(container, "Cancel")).not.toThrow();
     expect(() => radioByLabel(container, "Keep")).not.toThrow();
   });
@@ -262,7 +263,7 @@ describe("revealing a masked phone (23-30)", () => {
     await interact(() => byText<HTMLButtonElement>(container, "button", "Preview")?.click());
 
     expect(container.textContent).toContain("+7999•••0001");
-    expect(container.textContent).not.toContain("+79990000001");
+    expect(container.textContent).not.toContain(formatRuPhoneForDisplay("+79990000001"));
     expect(byText(container, "button", "Reveal")).not.toBeNull();
   });
 
@@ -278,7 +279,7 @@ describe("revealing a masked phone (23-30)", () => {
     await interact(() => byText<HTMLButtonElement>(container, "button", "Reveal")?.click());
 
     expect(calendarApi.revealCustomerPhone).toHaveBeenCalledWith("token", "c1", "ConsoleRecut");
-    expect(container.textContent).toContain("+79990000001");
+    expect(container.textContent).toContain(formatRuPhoneForDisplay("+79990000001"));
     expect(container.textContent).not.toContain("+7999•••0001");
     expect(byText(container, "button", "Reveal")).toBeNull();
   });

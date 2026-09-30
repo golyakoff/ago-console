@@ -14,6 +14,7 @@ import { Badge } from "../components/Badge.js";
 import { Button } from "../components/Button.js";
 import { Input } from "../components/Input.js";
 import { PhoneInput } from "../components/PhoneInput.js";
+import { formatRuPhoneForDisplay } from "../components/phoneFormat.js";
 import { Skeleton } from "../components/Spinner.js";
 import { useStrings } from "../i18n/StringsContext.js";
 import type { ConsoleStrings } from "../i18n/strings.js";
@@ -305,7 +306,11 @@ export function ContactDetailsPanel({ conversationId, accessToken }: ContactDeta
                   </>
                 ) : (
                   <>
-                    <span>{detail.value}</span>
+                    {/* `26-326`: only a `Phone` row's own value is ever RU-mask-shaped - `Name`/`Email`
+                        rows pass through `formatRuPhoneForDisplay` untouched anyway (neither looks like a
+                        complete RU number), but gating on `detail.kind` here says that plainly rather
+                        than relying on the formatter's own no-op fallback to do it silently. */}
+                    <span>{detail.kind === "Phone" ? formatRuPhoneForDisplay(detail.value) : detail.value}</span>
 
                     {detail.masked && (
                       <Button
