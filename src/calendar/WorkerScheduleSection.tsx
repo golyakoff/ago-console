@@ -33,6 +33,16 @@ const MAX_HORIZON_DAYS = 180;
  */
 export interface WorkerScheduleSectionProps {
   workerId: string;
+  /**
+   * `26-329`: fires after a successful save, in addition to this section's own internal
+   * `existing`/`form` update - optional, and `undefined` for every caller before this item
+   * (`CalendarWorkersPage`'s own usage is unchanged). `CalendarSetupGuidePage`'s "confirm schedule"
+   * step is the first caller to pass one: the wizard's own step is derived from the server's
+   * readiness read (`setupWizardStep.ts`), and nothing else in this section's own render tells the
+   * wizard a schedule now exists - without this hook the wizard would sit on the same step until the
+   * next unrelated re-render happened to re-poll readiness.
+   */
+  onSaved?: () => void;
 }
 
 type FormState = {
@@ -113,7 +123,7 @@ function formFrom(schedule: WorkerSchedule): FormState {
   };
 }
 
-export function WorkerScheduleSection({ workerId }: WorkerScheduleSectionProps) {
+export function WorkerScheduleSection({ workerId, onSaved }: WorkerScheduleSectionProps) {
   const { user } = useAuth();
   const strings = useStrings();
   const [existing, setExisting] = useState<WorkerSchedule | null>(null);
@@ -201,6 +211,7 @@ export function WorkerScheduleSection({ workerId }: WorkerScheduleSectionProps) 
       });
       setExisting(saved);
       setForm(formFrom(saved));
+      onSaved?.();
     } catch (reason) {
       setError(calendarErrorMessage(reason, strings));
     } finally {

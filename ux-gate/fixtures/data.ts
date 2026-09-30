@@ -707,6 +707,10 @@ export function seededCalendarConfiguration() {
         isActive: true,
       },
     ],
+    // `26-329`: `GET /configuration`'s own required field since that item's console client started
+    // checking for it (`calendarApi.ts`'s `assertHasKeys`) - one seeded active worker, one free seat
+    // left of two, so `CalendarWorkersPage`'s own "N из Q" line renders a real, non-trivial pair.
+    workerQuota: 2,
   };
 }
 

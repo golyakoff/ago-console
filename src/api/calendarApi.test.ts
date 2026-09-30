@@ -51,6 +51,18 @@ function problemResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/problem+json" } });
 }
 
+/**
+ * `26-329`: a body shaped enough to satisfy `getConfiguration`'s own `assertHasKeys` check - every
+ * required `TenantConfiguration` key present, with harmless empty/zero values. Every test in this
+ * file that does not care what `getConfiguration` resolves to (most of them - they assert on the
+ * *request*, not the response) shares this one default rather than each growing its own copy; a test
+ * that does care about the parsed shape (the `getConfirmedBookings`/`getPersonBookings` ones further
+ * down) already overrides the mock with its own fixture.
+ */
+function minimalConfigurationBody(): unknown {
+  return { tenantName: "", publicKey: "", allowedOrigins: [], calendars: [], workers: [], services: [], workerQuota: 0 };
+}
+
 beforeEach(() => {
   // `22-14`: `activeSite.ts` is a module-level singleton, so a test that sets it would otherwise
   // leak into every test after it in this file.
@@ -58,7 +70,7 @@ beforeEach(() => {
   fetchMock.mockReset();
   // A fresh `Response` per call, not one shared instance - `.json()` consumes the body stream, and
   // several of these tests make more than one call in a row.
-  fetchMock.mockImplementation(() => Promise.resolve(jsonResponse(200, {})));
+  fetchMock.mockImplementation(() => Promise.resolve(jsonResponse(200, minimalConfigurationBody())));
   vi.stubGlobal("fetch", fetchMock);
 });
 

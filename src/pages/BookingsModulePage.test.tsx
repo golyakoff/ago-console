@@ -145,8 +145,10 @@ describe("the bookings module toggle", () => {
     expect(modulesApi.enableModule).toHaveBeenCalledTimes(1);
     expect(modulesApi.enableModule).toHaveBeenCalledWith("token", SITE_ID, "calendar", ["/записаться"]);
     expect(modulesApi.disableModule).not.toHaveBeenCalled();
-    // The whole console re-bootstraps so the nav and calendar screens reflect the new state.
-    expect(reload).toHaveBeenCalledTimes(1);
+    // `26-329`/`26-318` decision 1: a successful enable navigates straight to the guided setup wizard
+    // rather than reloading this same settings page - see `BookingsModulePage.tsx`'s own remarks.
+    expect(window.location.href).toBe("/calendar/setup/guide");
+    expect(reload).not.toHaveBeenCalled();
   });
 
   it("shows On and turns the module off with one click when the tenant enabled it themselves", async () => {

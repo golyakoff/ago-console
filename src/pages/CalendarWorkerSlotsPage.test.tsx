@@ -99,6 +99,7 @@ const configuration: TenantConfiguration = {
       isActive: true,
     },
   ],
+  workerQuota: 2,
 };
 
 function slot(overrides: Partial<WorkerSlot> = {}): WorkerSlot {
