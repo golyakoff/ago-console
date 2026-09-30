@@ -177,3 +177,44 @@ export async function disableModule(accessToken: string, siteId: string, moduleK
     throw await buildError(response, "Modules.Unknown", "Failed to disable the module");
   }
 }
+
+/** `26-320`: the response `PUT .../modules/{moduleKey}/trigger-words` echoes - the words that were set,
+ * the same "PUT returns the thing it wrote" convention `updateModule`/`enableModule` already follow. */
+interface SetTriggerWordsResponseBody {
+  moduleKey: string;
+  triggerWords: string[];
+}
+
+/**
+ * `26-320`: replaces an already-enabled module's trigger words for a site -
+ * `PUT /api/v1/sites/{siteId}/modules/{moduleKey}/trigger-words`. The write half `26-316` left out: that
+ * item's enable seeded a default trigger word but gave no way to edit it afterward. Gated by the server on
+ * `site:configure` against the route's siteId (never a body-supplied tenant), and refused for an
+ * owner-granted module (a `409`, `Module.TriggerWordsOwnerGrantRefused`) - the caller sends the complete
+ * replacement set, since the server replaces rather than merges. The server validates the words (reserved
+ * word → `Module.TriggerWordReserved`; a word already opening another module on the site →
+ * `Module.TriggerWordAlreadyRegistered`; shape/bounds → `Module.Invalid`), all surfaced through
+ * {@link ModulesError} the same way the other writes here are.
+ */
+export async function setModuleTriggerWords(
+  accessToken: string,
+  siteId: string,
+  moduleKey: string,
+  triggerWords: string[],
+): Promise<string[]> {
+  const response = await fetch(`${url(siteId)}/${encodeURIComponent(moduleKey)}/trigger-words`, {
+    method: "PUT",
+    headers: withActiveSiteHeader({
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify({ triggerWords }),
+  });
+
+  if (!response.ok) {
+    throw await buildError(response, "Modules.Unknown", "Failed to save the module's trigger words");
+  }
+
+  const body = (await response.json()) as SetTriggerWordsResponseBody;
+  return body.triggerWords;
+}

@@ -2040,6 +2040,13 @@ export const en: ConsoleStrings = {
   bookingsModuleEnableDescription: "Turning it on adds a booking button to your widget and the booking screens to the console for your team.",
   bookingsModuleDisableDescription: "Turning it off hides the booking screens and the booking button. Nothing is deleted - your calendars, services and existing bookings are kept, and turning it back on restores access.",
   bookingsModuleManagedByOwner: "This module was enabled for your account by AGO and cannot be turned off here. Contact AGO to change it.",
+  bookingsModuleTriggerWordsLabel: "Booking trigger words",
+  bookingsModuleTriggerWordsDescription:
+    "The word or words a visitor's message must contain to open the booking flow from the chat. The first one is what the widget's booking button sends. Separate several with a comma or a space.",
+  bookingsModuleTriggerWordsSaveLabel: "Save trigger words",
+  bookingsModuleTriggerWordsSaved: "Booking trigger words saved.",
+  bookingsModuleTriggerWordsEmpty: "Enter at least one trigger word.",
+  bookingsModuleTriggerWordsError: "Failed to save the booking trigger words. Please try again.",
   aiReplyDraftForbidden: "You do not have permission to configure this site's AI reply drafts.",
   aiReplyDraftLoadError: "Could not load the reply-draft status.",
   aiReplyDraftIntro:

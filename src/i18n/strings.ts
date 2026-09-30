@@ -3413,6 +3413,18 @@ export interface ConsoleStrings {
   /** Shown instead of the off control when a platform owner enabled the module (`grantedByOwner`) - it
    * is an override the tenant cannot turn off here. */
   bookingsModuleManagedByOwner: string;
+  // `26-320`: the trigger-words editor - only for a tenant's own (non-owner) enabled module. The word(s)
+  // that open a booking from the chat; the first is what the widget's booking chip sends.
+  bookingsModuleTriggerWordsLabel: string;
+  bookingsModuleTriggerWordsDescription: string;
+  bookingsModuleTriggerWordsSaveLabel: string;
+  /** Confirmation after a successful save. */
+  bookingsModuleTriggerWordsSaved: string;
+  /** Client-side guard: the field parsed to no words at all. The server's own reserved/collision/shape
+   * refusals are surfaced verbatim from its problem `detail`, not from a fixed string here. */
+  bookingsModuleTriggerWordsEmpty: string;
+  /** Fallback when the save fails with no readable server message. */
+  bookingsModuleTriggerWordsError: string;
   // -------------------------------------------------------------------------------------------
   // `23-38`: `/automation/ai-suggestions` - the reply draft's own screen. Reads and writes the exact
   // same `AiAddOnEnablement` switch `25-04`'s screen above already reads and writes (there is no

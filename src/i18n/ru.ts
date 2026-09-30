@@ -2047,6 +2047,13 @@ export const ru: ConsoleStrings = {
   bookingsModuleEnableDescription: "При включении в виджет добавляется кнопка записи, а в консоли появляются экраны записей для вашей команды.",
   bookingsModuleDisableDescription: "При выключении экраны записей и кнопка записи скрываются. Ничего не удаляется - календари, услуги и уже созданные записи сохраняются, а при повторном включении доступ восстанавливается.",
   bookingsModuleManagedByOwner: "Этот модуль включён для вашего аккаунта командой AGO, и его нельзя выключить здесь. Свяжитесь с AGO для изменения.",
+  bookingsModuleTriggerWordsLabel: "Слова-триггеры записи",
+  bookingsModuleTriggerWordsDescription:
+    "Слово или слова, которые должны быть в сообщении посетителя, чтобы открыть запись из чата. Первое из них отправляет кнопка записи в виджете. Несколько слов разделяйте запятой или пробелом.",
+  bookingsModuleTriggerWordsSaveLabel: "Сохранить слова-триггеры",
+  bookingsModuleTriggerWordsSaved: "Слова-триггеры записи сохранены.",
+  bookingsModuleTriggerWordsEmpty: "Укажите хотя бы одно слово-триггер.",
+  bookingsModuleTriggerWordsError: "Не удалось сохранить слова-триггеры записи. Попробуйте ещё раз.",
   aiReplyDraftForbidden: "У вас нет прав на настройку ИИ-подсказок этого сайта.",
   aiReplyDraftLoadError: "Не удалось загрузить состояние ИИ-подсказок.",
   aiReplyDraftIntro:
