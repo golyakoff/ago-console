@@ -32,14 +32,16 @@ export const MANUAL_BOOKING_PERMISSION = "booking:create";
 
 type WizardStep = "phone" | "client" | "service" | "worker" | "slot" | "review";
 
-const PREVIOUS_STEP: Record<WizardStep, WizardStep | null> = {
-  phone: null,
-  client: "phone",
-  service: "client",
-  worker: "service",
-  slot: "worker",
-  review: "slot",
-};
+/** `26-323` (design of record `26-321`): the service and worker steps each auto-select and skip
+ * themselves when they would offer exactly one option, since a "choose" step with only one choice is
+ * exactly what confused the first live user (she did not realise tapping her own name was required).
+ * Which of those two steps a given walk actually visits varies per booking, so `handleBack`/`advance`
+ * track it as a history stack rather than a fixed `WizardStep -> WizardStep` map (the old `PREVIOUS_STEP`
+ * this replaces) - a static map cannot express "back from slot goes to service, worker was skipped" and
+ * "back from slot goes to client, both were skipped" at once. */
+function eligibleWorkersFor(workers: ConfiguredWorker[], serviceId: string): ConfiguredWorker[] {
+  return workers.filter((worker) => worker.isActive && worker.serviceIds.includes(serviceId));
+}
 
 type Recognition =
   | { status: "idle" }
@@ -152,6 +154,9 @@ export function ManualBookingButton({
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<WizardStep>("phone");
+  // The steps actually visited on this walk, in order - `handleBack`'s own source of truth so it can
+  // return to whichever step the operator last saw, even when `service` and/or `worker` were skipped.
+  const [history, setHistory] = useState<WizardStep[]>(["phone"]);
 
   const [phone, setPhone] = useState("");
   const [recognition, setRecognition] = useState<Recognition>({ status: "idle" });
@@ -239,6 +244,7 @@ export function ManualBookingButton({
 
   const resetAndOpen = () => {
     setStep("phone");
+    setHistory(["phone"]);
     setPhone("");
     setRecognition({ status: "idle" });
     setCandidateNames(null);
@@ -277,22 +283,53 @@ export function ManualBookingButton({
   const chooseReuse = (candidate: PersonRecognitionCandidate | null) => {
     setReusePersonId(candidate?.personId ?? null);
     setReusedCandidate(candidate);
-    setStep("client");
+    advance("client");
+  };
+
+  // A genuine forward move to a step the operator actually sees - as opposed to a same-step selection
+  // (picking a service or worker button keeps `step` put until "Next", or until a skip fires). Every
+  // real transition goes through this so `history` always matches what was shown, which is what makes
+  // `handleBack` correct without a step-by-step map of what was skipped.
+  const advance = (next: WizardStep) => {
+    setStep(next);
+    setHistory([...history, next]);
+  };
+
+  // The client step's "Next": skips the service step when there is exactly one active service
+  // (auto-selecting it), and - having settled on a service one way or the other - also skips the worker
+  // step when that service has exactly one eligible worker. The two checks compose because a tenant can
+  // hit either or both (a single-master tenant with one service skips straight to the slot step).
+  const advanceFromClient = () => {
+    if (activeServices.length !== 1) {
+      advance("service");
+      return;
+    }
+    const soleService = activeServices[0];
+    setServiceId(soleService.serviceId);
+    const eligible = eligibleWorkersFor(workers, soleService.serviceId);
+    if (eligible.length === 1) {
+      setWorkerId(eligible[0].workerId);
+      advance("slot");
+    } else {
+      setWorkerId(null);
+      advance("worker");
+    }
   };
 
   const activeServices = services.filter((service) => service.isActive);
-  const workersForService =
-    serviceId === null ? [] : workers.filter((worker) => worker.isActive && worker.serviceIds.includes(serviceId));
+  const workersForService = serviceId === null ? [] : eligibleWorkersFor(workers, serviceId);
   const availableSlots = (slots ?? []).filter((slot) => slot.status === "Available");
   const selectedSlot = selectedEventId === null ? null : (slots ?? []).find((slot) => slot.eventId === selectedEventId) ?? null;
   const selectedService = services.find((service) => service.serviceId === serviceId) ?? null;
   const selectedWorker = workers.find((worker) => worker.workerId === workerId) ?? null;
 
   const handleBack = () => {
-    const previous = PREVIOUS_STEP[step];
-    if (previous !== null) {
-      setStep(previous);
+    if (history.length <= 1) {
+      return;
     }
+    const next = history.slice(0, -1);
+    setStep(next[next.length - 1]);
+    setHistory(next);
   };
 
   const handleClose = () => {
@@ -365,28 +402,28 @@ export function ManualBookingButton({
       primary = {
         label: strings.calendarManualBookingNextButton,
         disabled: reusePersonId === null && name.trim() === "",
-        onClick: () => setStep("service"),
+        onClick: () => advanceFromClient(),
       };
       break;
     case "service":
       primary = {
         label: strings.calendarManualBookingNextButton,
         disabled: serviceId === null,
-        onClick: () => setStep("worker"),
+        onClick: () => advance("worker"),
       };
       break;
     case "worker":
       primary = {
         label: strings.calendarManualBookingNextButton,
         disabled: workerId === null,
-        onClick: () => setStep("slot"),
+        onClick: () => advance("slot"),
       };
       break;
     case "slot":
       primary = {
         label: strings.calendarManualBookingNextButton,
         disabled: selectedEventId === null,
-        onClick: () => setStep("review"),
+        onClick: () => advance("review"),
       };
       break;
     case "review":
@@ -425,7 +462,7 @@ export function ManualBookingButton({
             <Button variant="ghost" onClick={handleClose} disabled={submitting}>
               {strings.cancelButton}
             </Button>
-            {PREVIOUS_STEP[step] !== null && (
+            {history.length > 1 && (
               <Button variant="secondary" onClick={handleBack} disabled={submitting}>
                 {strings.calendarManualBookingBackButton}
               </Button>
@@ -556,7 +593,17 @@ export function ManualBookingButton({
                   aria-pressed={selected}
                   onClick={() => {
                     setServiceId(service.serviceId);
-                    setWorkerId(null);
+                    const eligible = eligibleWorkersFor(workers, service.serviceId);
+                    if (eligible.length === 1) {
+                      // Exactly one eligible worker for this service - auto-select it and jump straight
+                      // to the slot step, the same one-option skip `advanceFromClient` applies to the
+                      // service step itself. The review step already names the worker, so nothing here
+                      // needs new copy to explain the jump.
+                      setWorkerId(eligible[0].workerId);
+                      advance("slot");
+                    } else {
+                      setWorkerId(null);
+                    }
                   }}
                 >
                   {service.name} · {service.durationMinutes}

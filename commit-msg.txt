@@ -1,0 +1,15 @@
+feat(26-323): manual booking wizard skips service/worker step when only one option
+
+The first live user (26-321) stalled on a "choose a master" step that offered
+exactly one master, not realising she had to tap her own name to select it.
+The manual-booking wizard's service and worker steps now each auto-select and
+skip themselves when they would offer exactly one option - the service step
+when there is exactly one active service, the worker step when exactly one
+worker is eligible for the chosen service (the two checks compose, so a
+single-service, single-master tenant skips straight from the client step to
+the slot step). Several options at either step is unchanged, and so is the
+zero-eligible-workers case.
+
+Back-navigation now walks a history stack of steps actually shown, replacing
+the old fixed WizardStep -> WizardStep map, since which step is "previous"
+now depends on what this particular walk skipped.
