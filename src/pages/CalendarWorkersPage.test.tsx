@@ -143,6 +143,7 @@ const configuration: TenantConfiguration = {
       isActive: true,
     },
   ],
+  workerQuota: 2,
 };
 
 beforeEach(async () => {
@@ -174,6 +175,17 @@ describe("the workers screen", () => {
     expect(container.textContent).toContain("Alex Doe");
     const row = byText<HTMLElement>(container, "td", "Alex Doe")?.closest("tr");
     expect(row?.textContent).toContain("Active");
+  });
+
+  // `26-317`/`26-329`: the backend has sent `workerQuota` since `26-317` and this screen silently
+  // dropped it - the discoverability gap this item closes. One active worker (Alex Doe), one inactive
+  // one (Sam) who must not count against the ceiling the server itself does not charge them against.
+  it("shows the active worker count against the tenant's own quota", async () => {
+    calendarApi.listWorkers.mockResolvedValue([alex, { ...alex, workerId: "w2", displayName: "Sam", isActive: false }]);
+
+    const container = await render(page());
+
+    expect(container.textContent).toContain("1 of 2");
   });
 
   it("creates a worker with split name fields, on exactly one calendar", async () => {

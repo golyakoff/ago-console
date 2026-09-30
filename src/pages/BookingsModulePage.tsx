@@ -58,11 +58,15 @@ function parseTriggerWords(input: string): string[] {
  * which is what tells an owner-granted module (an override the tenant cannot switch off here) apart from
  * the tenant's own self-serve one.</p>
  *
- * <p><b>Reloads the page after a successful toggle</b>, the same `PermissionsContext.switchTenancy`
+ * <p><b>A full document navigation after a successful toggle</b>, the same `PermissionsContext.switchTenancy`
  * precedent: enabling seeds `calendar:configure` and adds the `"calendar"` module to
  * `GET /operators/me`'s `enabledModules`, both of which the whole console (the «Записи» nav section, every
  * calendar screen's access gate) reads once per session from `PermissionsProvider`. A full reload is the
- * simple, bulletproof way to re-bootstrap all of that, exactly as the tenancy switcher already does.</p>
+ * simple, bulletproof way to re-bootstrap all of that, exactly as the tenancy switcher already does -
+ * disabling still reloads in place. `26-329`/`26-318` decision 1: a successful *enable* instead
+ * navigates to `/calendar/setup/guide`, the guided setup wizard's own route - still a full document
+ * navigation (`window.location.href`), so the newly-enabled module is in effect by the time the wizard's
+ * own `calendar:configure` gate runs, just landing somewhere more useful than this same settings page.</p>
  */
 export function BookingsModulePage() {
   const { user } = useAuth();
@@ -126,7 +130,7 @@ export function BookingsModulePage() {
     return <AccessRefusal title={strings.navBookingsModule} message={strings.bookingsModuleForbidden} strings={strings} />;
   }
 
-  const run = (action: (accessToken: string, siteId: string) => Promise<void>) => {
+  const run = (action: (accessToken: string, siteId: string) => Promise<void>, onSuccess?: () => void) => {
     const accessToken = user?.access_token;
     if (!accessToken || !siteId) {
       return;
@@ -137,7 +141,13 @@ export function BookingsModulePage() {
     action(accessToken, siteId)
       // A full reload re-bootstraps the nav and every calendar screen's gate - see this component's own
       // remarks. The finally below never runs after a successful reload; on failure it clears `busy`.
-      .then(() => window.location.reload())
+      //
+      // `26-329`/`26-318` decision 1: a successful *enable* navigates to the guided setup wizard
+      // instead of reloading in place - `onSuccess` below, passed only by the enable button. That is
+      // still a full document navigation (`window.location.href`, not `useNavigate()`), for the
+      // identical reason a plain reload is: `PermissionsProvider`'s nav/gate state has to re-bootstrap
+      // from the newly-enabled module before the wizard's own `calendar:configure` check would pass.
+      .then(() => (onSuccess ?? (() => window.location.reload()))())
       .catch((err: unknown) => {
         setActionError(err instanceof ModulesError ? err.message : strings.bookingsModuleActionError);
         setBusy(false);
@@ -238,7 +248,18 @@ export function BookingsModulePage() {
               <>
                 <p className="ago-meta">{strings.bookingsModuleEnableDescription}</p>
                 <div className="ago-row">
-                  <Button variant="primary" disabled={busy} onClick={() => run((token, site) => enableModule(token, site, BOOKINGS_MODULE_KEY, BOOKINGS_TRIGGER_WORDS))}>
+                  <Button
+                    variant="primary"
+                    disabled={busy}
+                    onClick={() =>
+                      run(
+                        (token, site) => enableModule(token, site, BOOKINGS_MODULE_KEY, BOOKINGS_TRIGGER_WORDS),
+                        () => {
+                          window.location.href = "/calendar/setup/guide";
+                        },
+                      )
+                    }
+                  >
                     {strings.bookingsModuleEnableLabel}
                   </Button>
                 </div>

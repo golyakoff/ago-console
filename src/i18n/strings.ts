@@ -2638,7 +2638,54 @@ export interface ConsoleStrings {
   calendarReadinessScheduleSavedLabel: string;
   calendarReadinessSlotsMaterializedLabel: string;
 
+  // --- CalendarSetupGuidePage (`/calendar/setup/guide`, `26-329`/`26-318`) - a pure client
+  // re-presentation of `GET /booking-readiness` + the existing write endpoints, never a second
+  // "onboarding progress" of its own (`setupWizardStep.ts`'s own doc comment). Step titles reuse the
+  // `calendarReadiness*` strings above wherever a step fixes exactly one of those six preconditions -
+  // only the three steps with no precondition of their own (create the first calendar, the
+  // console-only booking-trigger gate, and the done screen) get a new title here.
+  calendarGuideTitle: string;
+  calendarGuideIntro: string;
+  calendarGuideStepIndexPrefix: string;
+  calendarGuideStepIndexOfWord: string;
+  calendarGuideCreateCalendarTitle: string;
+  calendarGuideCreateCalendarIntro: string;
+  /** Decision 3 (`26-329`): a tenant may finish every later step for one master and come back for the
+   * next on the classic Masters screen, or add several before moving on - stated once, here, rather
+   * than assumed. */
+  calendarGuideAddMasterIntro: string;
+  calendarGuideAddServiceIntro: string;
+  calendarGuideAddServiceAutoAssignPrefix: string;
+  calendarGuideAddServiceAutoAssignSuffix: string;
+  calendarGuideAddServiceManualAssignNote: string;
+  calendarGuideWorkingHoursIntro: string;
+  calendarGuideWorkingHoursDaysLegend: string;
+  calendarGuideScheduleIntro: string;
+  calendarGuideMaterializingIntro: string;
+  calendarGuideMaterializingCheckAgainButton: string;
+  calendarGuideMaterializingFallbackIntro: string;
+  calendarGuideMaterializingFallbackButton: string;
+  calendarGuideMaterializingFallbackDone: string;
+  /** `26-320`'s endpoint, `26-329` decision 6: the MUST-HAVE gate - a calendar with no trigger word has
+   * no entry point at all, so this step blocks "done" even once every readiness precondition holds. */
+  calendarGuideBookingTriggerTitle: string;
+  calendarGuideBookingTriggerIntro: string;
+  calendarGuidePublishIntro: string;
+  /** Decision 5: an explicit "Publish" action, never an automatic flip the moment every other step
+   * clears - the tenant's own last, deliberate "go live". */
+  calendarGuidePublishButton: string;
+  calendarGuideDoneTitle: string;
+  calendarGuideDoneMessagePrefix: string;
+  calendarGuideDoneMessageSuffix: string;
+
   calendarWorkersTitle: string;
+  /** `26-317`/`26-329`: "N из Q" - split as a prefix and an "of" word around the two numbers, the
+   * same prefix/suffix shape `calendarHorizonCapPrefix`/`Suffix` already uses for a number sandwiched
+   * between two pieces of localized text. Rendered on both `CalendarWorkersPage` and the setup
+   * wizard's own master step - the identical ceiling, read from the identical
+   * `TenantConfiguration.workerQuota` field, never restated as a second number. */
+  calendarWorkersQuotaPrefix: string;
+  calendarWorkersQuotaOfWord: string;
   calendarEditButton: string;
   calendarScheduleButton: string;
   calendarSlotsLinkLabel: string;

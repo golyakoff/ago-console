@@ -73,6 +73,7 @@ const configuration: TenantConfiguration = {
   calendars: [{ calendarId: "cal-1", name: "Main", timeZone: "Europe/Moscow", isPublished: true, workerIds: ["w1"], workingHours: [] }],
   workers: [{ workerId: "w1", displayName: "Alex", isActive: true, serviceIds: [] }],
   services: [],
+  workerQuota: 2,
 };
 
 beforeEach(() => {

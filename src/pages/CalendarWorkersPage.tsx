@@ -55,6 +55,10 @@ export function CalendarWorkersPage() {
   const [workers, setWorkers] = useState<WorkerDetail[] | null>(null);
   const [calendars, setCalendars] = useState<ConfiguredCalendar[]>([]);
   const [services, setServices] = useState<ConfiguredService[]>([]);
+  // `26-317`/`26-329`: the ceiling `configuration.workerQuota` already carried - the backend has sent
+  // it since `26-317`, and this screen silently dropped it until now. `null` only while nothing has
+  // loaded yet, so the quota line renders exactly when `workers` itself does.
+  const [workerQuota, setWorkerQuota] = useState<number | null>(null);
   const [readiness, setReadiness] = useState<CalendarReadiness[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -77,6 +81,7 @@ export function CalendarWorkersPage() {
           setWorkers(loadedWorkers);
           setCalendars(configuration.calendars);
           setServices(configuration.services);
+          setWorkerQuota(configuration.workerQuota);
           setError(null);
         } catch (reason) {
           if (!(reason instanceof DOMException && reason.name === "AbortError")) {
@@ -180,6 +185,20 @@ export function CalendarWorkersPage() {
       <BookingReadiness readiness={readiness} />
 
       <Panel title={strings.calendarWorkersTitle}>
+        {/* `26-317`/`26-329`: "N из Q" - the ceiling this screen's own "Add worker" button enforces
+            server-side (`CreateWorkerHandler.TryAddWithinQuotaAsync`), stated before a tenant discovers
+            it as a refusal. `N` counts active workers only, matching what the server's own quota check
+            counts (`IWorkerRepository.TryAddWithinQuotaAsync`'s own remarks: a deactivated worker frees
+            a seat, never occupies one) - not `workers.length`, which would count a reactivatable but
+            currently-inactive worker against a ceiling they are not presently spending. */}
+        {workerQuota !== null && (
+          <p className="ago-meta">
+            {strings.calendarWorkersQuotaPrefix}
+            {workers.filter((worker) => worker.isActive).length}
+            {strings.calendarWorkersQuotaOfWord}
+            {workerQuota}
+          </p>
+        )}
         <WorkersTable
           workers={workers}
           renderRowActions={(worker) => (

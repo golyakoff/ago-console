@@ -121,6 +121,7 @@ const configuration: TenantConfiguration = {
       isActive: true,
     },
   ],
+  workerQuota: 2,
 };
 
 beforeEach(() => {

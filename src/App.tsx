@@ -56,6 +56,7 @@ import { OwnerSuspensionsPage } from "./owner/OwnerSuspensionsPage.js";
 import { OwnerTenantIsolationPage } from "./owner/OwnerTenantIsolationPage.js";
 import { CalendarQueuePage } from "./pages/CalendarQueuePage.js";
 import { CalendarSetupPage } from "./pages/CalendarSetupPage.js";
+import { CalendarSetupGuidePage } from "./pages/CalendarSetupGuidePage.js";
 import { CalendarServicesPage } from "./pages/CalendarServicesPage.js";
 import { CalendarWorkersPage } from "./pages/CalendarWorkersPage.js";
 import { CalendarWorkerSlotsPage } from "./pages/CalendarWorkerSlotsPage.js";
@@ -531,6 +532,15 @@ export function App() {
             comment; `buildCalendarItems` in `consoleNav.ts` carries the matching nav branch). */}
         <Route path="/calendar/bookings" element={<CalendarBookingsPage />} />
         <Route path="/calendar/setup" element={<CalendarSetupPage />} />
+        {/* `26-329`/`26-318`: the guided setup wizard's own route - a pure client re-presentation of
+            `GET /booking-readiness` plus the classic screens' own write endpoints, never a second
+            "onboarding progress" of its own (`CalendarSetupGuidePage.tsx`'s own doc comment). Auto-
+            launched from `BookingsModulePage` on a successful enable; reachable again by URL any time,
+            since its step is derived fresh from readiness on every mount. No nav entry of its own - the
+            same "drill-down route, no nav entry" shape `/calendar/masters/:workerId/slots` already has,
+            deliberate here too: the readiness panel on `/calendar/setup`/`/calendar/masters` stays the
+            always-available map back to whatever is still missing. */}
+        <Route path="/calendar/setup/guide" element={<CalendarSetupGuidePage />} />
         <Route path="/calendar/services" element={<CalendarServicesPage />} />
         <Route path="/calendar/masters" element={<CalendarWorkersPage />} />
         <Route path="/calendar/masters/:workerId/slots" element={<CalendarWorkerSlotsPage />} />

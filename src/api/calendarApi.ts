@@ -1,6 +1,6 @@
 import { config } from "../config.js";
 import { withActiveSiteHeader } from "./activeSite.js";
-import { ShapeMismatchError, assertArrayHasKeys, requiredKeysOf } from "./shapeGuard.js";
+import { ShapeMismatchError, assertArrayHasKeys, assertHasKeys, requiredKeysOf } from "./shapeGuard.js";
 
 /**
  * Every call the six calendar screens make, in one file - moved unchanged from
@@ -175,6 +175,17 @@ export interface TenantConfiguration {
   calendars: ConfiguredCalendar[];
   workers: ConfiguredWorker[];
   services: ConfiguredService[];
+  /**
+   * `22-07`/`26-317`/`26-329`: the ceiling this tenant's masters screen actually enforces -
+   * `Ago.Calendar.Domain.Tenant.EffectiveWorkerQuota`, never the raw grant column, so a fresh tenant
+   * with no grant at all reads "0 из 2" rather than "0 из 0". `GetTenantConfigurationHandler`'s own
+   * remarks name the exact reason this field exists: so the setup screen can say "N of Q masters"
+   * itself, rather than leaving a worker-creation-time refusal as the tenant's only way to discover the
+   * ceiling. `26-317` found the backend already sent this and the console silently dropped it -
+   * `26-329` is what reads it: `CalendarWorkersPage`'s own quota line and the wizard's master step both
+   * render `workers.filter(w => w.isActive).length` against this number, never a client-side guess.
+   */
+  workerQuota: number;
 }
 
 /**
@@ -553,8 +564,26 @@ function requireBaseUrl(): string {
 
 const base = () => `${requireBaseUrl()}/api/v1/console`;
 
+/**
+ * `26-329`: `workerQuota` joins the checked fields here for the identical `23-99` reason every other
+ * `requiredKeysOf` call in this file exists - a dropped `workerQuota` would render as `undefined`
+ * masters shown out of `undefined`, indistinguishable from a genuinely quota-less deployment, rather
+ * than throwing where the gap is found.
+ */
+const tenantConfigurationRequiredKeys = requiredKeysOf<TenantConfiguration>({
+  tenantName: true,
+  publicKey: true,
+  allowedOrigins: true,
+  calendars: true,
+  workers: true,
+  services: true,
+  workerQuota: true,
+});
+
 export function getConfiguration(token: string, signal?: AbortSignal): Promise<TenantConfiguration> {
-  return request<TenantConfiguration>(token, "GET", "/configuration", undefined, signal);
+  return request<TenantConfiguration>(token, "GET", "/configuration", undefined, signal, (value) => {
+    assertHasKeys<TenantConfiguration>(value, tenantConfigurationRequiredKeys, "GET /configuration");
+  });
 }
 
 export function setAllowedOrigins(token: string, origins: string[]): Promise<void> {
