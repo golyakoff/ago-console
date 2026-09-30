@@ -23,6 +23,7 @@ import { calendarErrorMessage } from "./calendarErrorMessage.js";
 import { timeZoneOptions, weekdayNames } from "../calendar/calendarFormat.js";
 import { CalendarAccessRefusal } from "../calendar/calendarAccess.js";
 import { BookingReadiness } from "../calendar/BookingReadiness.js";
+import { FinishSetupBanner } from "../calendar/FinishSetupBanner.js";
 import { PageHead } from "../shell/AppShell.js";
 import { Panel } from "../components/Panel.js";
 import { Field } from "../components/Field.js";
@@ -75,7 +76,7 @@ import type { ConsoleStrings } from "../i18n/strings.js";
  */
 export function CalendarSetupPage() {
   const { user } = useAuth();
-  const { permissions, hasPermission } = usePermissions();
+  const { permissions, siteId, hasPermission } = usePermissions();
   const strings = useStrings();
   const [configuration, setConfiguration] = useState<TenantConfiguration | null>(null);
   const [readiness, setReadiness] = useState<CalendarReadiness[] | null>(null);
@@ -157,8 +158,8 @@ export function CalendarSetupPage() {
   }
 
   const accessToken = user?.access_token;
-  if (accessToken === undefined) {
-    // `RequireAuth` guarantees a signed-in session by the time this renders - same
+  if (accessToken === undefined || siteId === null) {
+    // `RequireAuth`/`PermissionsProvider` guarantee both by the time this renders - same
     // "reaching here is a wiring bug" reasoning `FaqModulePage`/`WidgetConfigPage` state for their
     // own equivalent check. Narrows `accessToken` to `string` for every closure built below, so the
     // three sub-forms' own `onSubmit` handlers need no repeated null check or assertion.
@@ -216,6 +217,8 @@ export function CalendarSetupPage() {
       <PageHead title={strings.navCalendarSetup} description={configuration.tenantName} />
 
       {error !== null && <Alert tone="danger">{error}</Alert>}
+
+      <FinishSetupBanner readiness={readiness} siteId={siteId} />
 
       <BookingReadiness readiness={readiness} />
 

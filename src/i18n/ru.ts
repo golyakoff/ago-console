@@ -1583,6 +1583,9 @@ export const ru: ConsoleStrings = {
   calendarGuideDoneMessagePrefix: "Готово: напишите ",
   calendarGuideDoneMessageSuffix: " в чат, чтобы начать запись.",
 
+  calendarFinishSetupBannerTitle: "Завершите настройку записи",
+  calendarFinishSetupBannerDismissButton: "Скрыть",
+
   calendarWorkersTitle: "Мастера",
   calendarWorkersQuotaPrefix: "Мастеров: ",
   calendarWorkersQuotaOfWord: " из ",

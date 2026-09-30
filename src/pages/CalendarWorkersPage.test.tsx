@@ -162,6 +162,7 @@ beforeEach(async () => {
   // "not configured yet" answer.
   const { CalendarApiError } = await import("../api/calendarApi.js");
   calendarApi.getWorkerSchedule.mockRejectedValue(new CalendarApiError("configuration.no_schedule", "No schedule yet.", 404));
+  sessionStorage.clear();
 });
 
 afterEach(async () => {
@@ -349,5 +350,27 @@ describe("the workers screen", () => {
 
     const link = byText<HTMLAnchorElement>(container, "a", "Fix it");
     expect(link?.getAttribute("href")).toBe("/calendar/setup");
+  });
+
+  // `26-330`: the same finish-setup nudge `CalendarSetupPage` shows, on this screen too.
+  it("shows the finish-setup banner, linking into the wizard, while the calendar is not bookable", async () => {
+    calendarApi.getBookingReadiness.mockResolvedValue([
+      { calendarId: "cal-1", calendarName: "Main", isBookable: false, preconditions: [] },
+    ]);
+
+    const container = await render(page());
+
+    const link = byText<HTMLAnchorElement>(container, "a", "Finish setting up booking");
+    expect(link?.getAttribute("href")).toBe("/calendar/setup/guide");
+  });
+
+  it("shows no finish-setup banner once the calendar is bookable", async () => {
+    calendarApi.getBookingReadiness.mockResolvedValue([
+      { calendarId: "cal-1", calendarName: "Main", isBookable: true, preconditions: [] },
+    ]);
+
+    const container = await render(page());
+
+    expect(byText<HTMLAnchorElement>(container, "a", "Finish setting up booking")).toBeNull();
   });
 });

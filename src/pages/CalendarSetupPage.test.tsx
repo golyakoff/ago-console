@@ -132,6 +132,7 @@ beforeEach(() => {
     rule: null,
     reconciliation: { recutFrom: null, alreadyCutDays: [], liveBookingCount: 0 },
   });
+  sessionStorage.clear();
 });
 
 /** `26-97`: the same tenant, with one working-hours rule to correct. Kept separate from
@@ -400,5 +401,28 @@ describe("the tenant setup screen", () => {
 
     expect(container.textContent).toContain("Bookable");
     expect(container.querySelector("a[href='/calendar/setup'], a[href='/calendar/workers']")).toBeNull();
+  });
+
+  // `26-330`: the finish-setup banner reads the identical readiness answer `BookingReadiness` renders
+  // on this same page - never a second, disagreeing source of truth about whether setup is done.
+  it("shows the finish-setup banner, linking into the wizard, while the calendar is not bookable", async () => {
+    calendarApi.getBookingReadiness.mockResolvedValue([
+      { calendarId: "cal-1", calendarName: "Main", isBookable: false, preconditions: [] },
+    ]);
+
+    const container = await render(page());
+
+    const link = byText<HTMLAnchorElement>(container, "a", "Finish setting up booking");
+    expect(link?.getAttribute("href")).toBe("/calendar/setup/guide");
+  });
+
+  it("shows no finish-setup banner once the calendar is bookable", async () => {
+    calendarApi.getBookingReadiness.mockResolvedValue([
+      { calendarId: "cal-1", calendarName: "Main", isBookable: true, preconditions: [] },
+    ]);
+
+    const container = await render(page());
+
+    expect(byText<HTMLAnchorElement>(container, "a", "Finish setting up booking")).toBeNull();
   });
 });
