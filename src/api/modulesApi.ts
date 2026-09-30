@@ -16,6 +16,12 @@ export interface ModuleConfigDto {
   moduleKey: string;
   triggerWords: string[];
   entryPoint: string;
+  /** `26-316`: `true` when a platform owner enabled this module rather than the tenant themselves - the
+   * wire-visible half of `22-17`'s audit distinction, already on the `GET` response. Optional here: an
+   * older fixture that predates it simply omits it, and `BookingsModulePage` reads it as "not an owner
+   * grant" when absent. Never in `moduleConfigRequiredKeys` below - a dropped `grantedByOwner` must not
+   * read as a shape mismatch. */
+  grantedByOwner?: boolean;
 }
 
 export interface ModulesListDto {
@@ -125,4 +131,49 @@ export async function updateModule(
   }
 
   return (await response.json()) as ModuleConfigDto;
+}
+
+/**
+ * `26-316`: turns a module on for a site - the tenant admin's own self-serve enable,
+ * `PUT /api/v1/sites/{siteId}/modules/{moduleKey}`. The server mints the per-site credential and reads
+ * the entry point and provisioning secret from its own configuration (`adr/0150`/`adr/0154`), so the only
+ * thing the caller sends is the trigger words the module answers to - the one fact `Ago.Chat.*` cannot
+ * know for a product it deliberately never learns the meaning of.
+ */
+export async function enableModule(
+  accessToken: string,
+  siteId: string,
+  moduleKey: string,
+  triggerWords: string[],
+): Promise<void> {
+  const response = await fetch(`${url(siteId)}/${encodeURIComponent(moduleKey)}`, {
+    method: "PUT",
+    headers: withActiveSiteHeader({
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify({ triggerWords }),
+  });
+
+  if (!response.ok) {
+    throw await buildError(response, "Modules.Unknown", "Failed to enable the module");
+  }
+}
+
+/**
+ * `26-316`: turns a module off for a site - `DELETE .../modules/{moduleKey}`. Non-destructive on the
+ * server: the registration is deactivated and the row tombstoned, never the tenant's calendars and
+ * bookings, so a later re-enable restores access. Refused (a `409`, `Module.DisableOwnerGrantRefused`)
+ * for a module a platform owner granted - the console does not offer the control in that case, so this
+ * surfaces only as defence in depth.
+ */
+export async function disableModule(accessToken: string, siteId: string, moduleKey: string): Promise<void> {
+  const response = await fetch(`${url(siteId)}/${encodeURIComponent(moduleKey)}`, {
+    method: "DELETE",
+    headers: withActiveSiteHeader({ Authorization: `Bearer ${accessToken}` }),
+  });
+
+  if (!response.ok) {
+    throw await buildError(response, "Modules.Unknown", "Failed to disable the module");
+  }
 }

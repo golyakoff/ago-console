@@ -955,6 +955,7 @@ export const en: ConsoleStrings = {
   productsCalendarDescription:
     "Let customers book an appointment with one of your staff, and manage the schedule from here.",
   productsCalendarActionLabel: "Open your booking queue",
+  productsCalendarEnableActionLabel: "Turn it on",
 
   productsFaqDescription:
     "Answer common questions automatically, from a knowledge base you write - so operators only handle " +
@@ -2026,6 +2027,19 @@ export const en: ConsoleStrings = {
   aiAddOnEnableLabel: "Turn AI features on",
   aiAddOnDisableLabel: "Turn AI features off",
   aiAddOnEnableBlocked: "Accept the agreement and make the declaration first - they are recorded separately.",
+  navBookingsModule: "Bookings module",
+  bookingsModuleForbidden: "You do not have permission to change this site's bookings module.",
+  bookingsModuleLoadError: "Failed to load the bookings module's state.",
+  bookingsModuleActionError: "Failed to change the bookings module. Please try again.",
+  bookingsModuleIntro: "Let visitors book an appointment from the chat, and give your team the calendar, clients and schedule screens.",
+  bookingsModulePanelTitle: "Bookings module",
+  bookingsModuleStatusOn: "On",
+  bookingsModuleStatusOff: "Off",
+  bookingsModuleEnableLabel: "Turn on",
+  bookingsModuleDisableLabel: "Turn off",
+  bookingsModuleEnableDescription: "Turning it on adds a booking button to your widget and the booking screens to the console for your team.",
+  bookingsModuleDisableDescription: "Turning it off hides the booking screens and the booking button. Nothing is deleted - your calendars, services and existing bookings are kept, and turning it back on restores access.",
+  bookingsModuleManagedByOwner: "This module was enabled for your account by AGO and cannot be turned off here. Contact AGO to change it.",
   aiReplyDraftForbidden: "You do not have permission to configure this site's AI reply drafts.",
   aiReplyDraftLoadError: "Could not load the reply-draft status.",
   aiReplyDraftIntro:

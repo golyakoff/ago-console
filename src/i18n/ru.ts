@@ -957,6 +957,7 @@ export const ru: ConsoleStrings = {
   productsCalendarDescription:
     "Позвольте клиентам записываться к вашим мастерам и ведите расписание прямо здесь.",
   productsCalendarActionLabel: "Открыть очередь записей",
+  productsCalendarEnableActionLabel: "Включить",
 
   productsFaqDescription:
     "Отвечайте на частые вопросы автоматически - по базе знаний, которую вы сами наполняете, - " +
@@ -2033,6 +2034,19 @@ export const ru: ConsoleStrings = {
   aiAddOnEnableLabel: "Включить ИИ-функции",
   aiAddOnDisableLabel: "Выключить ИИ-функции",
   aiAddOnEnableBlocked: "Сначала примите соглашение и сделайте заявление - они фиксируются отдельно.",
+  navBookingsModule: "Модуль «Записи»",
+  bookingsModuleForbidden: "У вас нет прав на изменение модуля «Записи» этого сайта.",
+  bookingsModuleLoadError: "Не удалось загрузить состояние модуля «Записи».",
+  bookingsModuleActionError: "Не удалось изменить модуль «Записи». Попробуйте ещё раз.",
+  bookingsModuleIntro: "Позвольте посетителям записываться прямо из чата, а команде - работать с календарём, клиентами и расписанием.",
+  bookingsModulePanelTitle: "Модуль «Записи»",
+  bookingsModuleStatusOn: "Вкл",
+  bookingsModuleStatusOff: "Выкл",
+  bookingsModuleEnableLabel: "Включить",
+  bookingsModuleDisableLabel: "Выключить",
+  bookingsModuleEnableDescription: "При включении в виджет добавляется кнопка записи, а в консоли появляются экраны записей для вашей команды.",
+  bookingsModuleDisableDescription: "При выключении экраны записей и кнопка записи скрываются. Ничего не удаляется - календари, услуги и уже созданные записи сохраняются, а при повторном включении доступ восстанавливается.",
+  bookingsModuleManagedByOwner: "Этот модуль включён для вашего аккаунта командой AGO, и его нельзя выключить здесь. Свяжитесь с AGO для изменения.",
   aiReplyDraftForbidden: "У вас нет прав на настройку ИИ-подсказок этого сайта.",
   aiReplyDraftLoadError: "Не удалось загрузить состояние ИИ-подсказок.",
   aiReplyDraftIntro:

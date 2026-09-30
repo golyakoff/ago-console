@@ -437,6 +437,11 @@ function buildAdminItems(
   const items: AppShellNavItem[] = [];
   if (isAdmin) {
     items.push({ to: "/account/products", label: strings.navAccountProducts });
+    // `26-316`: the tenant admin's own on/off switch for the bookings (calendar) module (author
+    // decision в, self-serve). Placed right after "Продукты" - a tenant reading the catalog of what
+    // AGO offers is exactly who then turns the bookings module on. Same `site:configure`/`isAdmin` gate
+    // as the entries around it; `BookingsModulePage` re-checks it, and the server checks it again.
+    items.push({ to: "/account/bookings-module", label: strings.navBookingsModule });
     items.push({ to: "/account/billing", label: strings.navBilling });
     items.push({ to: "/account/device-storage", label: strings.navDeviceStorage });
     items.push({ to: "/account/documents", label: strings.navAccountDocuments });

@@ -117,7 +117,7 @@ describe("held versus not held", () => {
     expect(container.textContent).toContain("You have this");
   });
 
-  it("offers only 'contact AGO', never a link, for a product not in enabledModules", async () => {
+  it("links a not-held calendar to its self-serve toggle, and still offers only 'contact AGO' for other products", async () => {
     operatorsApi.fetchMyPermissions.mockResolvedValue({
       permissions: [PRODUCTS_PERMISSION],
       siteId: SITE_ID,
@@ -126,13 +126,16 @@ describe("held versus not held", () => {
 
     const container = await render(page());
 
+    // `26-316`: the calendar is self-serve now, so its not-held next step is a real link to the toggle.
+    const enableLink = Array.from(container.querySelectorAll("a")).find((a) => a.textContent === "Turn it on");
+    expect(enableLink?.getAttribute("href")).toBe("/account/bookings-module");
+    // Every other not-held product (faq) still has no self-serve path - the "contact AGO" note stays.
     expect(container.textContent).toContain("Contact AGO to add this to your workspace.");
     expect(container.textContent).toContain("Not yet");
-    // No link anywhere claims to enable a product this workspace does not have - the two links on
-    // the page (the base product's, "Open your conversations") is the only anchor present when
-    // nothing else is held.
+    // The only links present are the base product's queue link and the calendar's own enable link -
+    // nothing links to enable a product (faq) that has no self-serve path.
     const hrefs = Array.from(container.querySelectorAll("a")).map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(["/"]);
+    expect(hrefs).toEqual(["/", "/account/bookings-module"]);
   });
 
   it("never shows a raw module key - the copy names what the product does, not its schema value", async () => {
