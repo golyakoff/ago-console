@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthContext, type AuthState } from "../auth/AuthContext.js";
 import { PermissionsProvider } from "../auth/PermissionsProvider.js";
 import { BookingsModulePage } from "./BookingsModulePage.js";
-import { byText, interact, render, unmount } from "../testing/dom.js";
+import { byText, interact, one, render, unmount } from "../testing/dom.js";
 import type { User } from "oidc-client-ts";
 
 /**
@@ -24,7 +24,12 @@ vi.mock("../config.js", () => ({
 
 const operatorsApi = vi.hoisted(() => ({ fetchMyPermissions: vi.fn() }));
 const tenanciesApi = vi.hoisted(() => ({ fetchMyTenancies: vi.fn() }));
-const modulesApi = vi.hoisted(() => ({ fetchModules: vi.fn(), enableModule: vi.fn(), disableModule: vi.fn() }));
+const modulesApi = vi.hoisted(() => ({
+  fetchModules: vi.fn(),
+  enableModule: vi.fn(),
+  disableModule: vi.fn(),
+  setModuleTriggerWords: vi.fn(),
+}));
 
 vi.mock("../api/operatorsApi.js", () => operatorsApi);
 vi.mock("../api/tenanciesApi.js", () => tenanciesApi);
@@ -99,7 +104,15 @@ beforeEach(() => {
   operatorsApi.fetchMyPermissions.mockResolvedValue({ permissions: ["site:configure"], siteId: SITE_ID, enabledModules: [] });
   modulesApi.enableModule.mockResolvedValue(undefined);
   modulesApi.disableModule.mockResolvedValue(undefined);
+  modulesApi.setModuleTriggerWords.mockResolvedValue(["/записаться"]);
 });
+
+// The same tracked-setter dance `WidgetConfigPage.test.tsx` uses: a bare `.value =` is swallowed by
+// React as "no change", so go through the prototype's setter then dispatch a real "input" event.
+function setTextValue(element: HTMLInputElement, value: string): void {
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(element, value);
+  element.dispatchEvent(new Event("input", { bubbles: true }));
+}
 
 afterEach(async () => {
   Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
@@ -172,5 +185,58 @@ describe("the bookings module toggle", () => {
 
     expect(container.textContent).toContain("Not configured yet.");
     expect(reload).not.toHaveBeenCalled();
+  });
+
+  // `26-320`: the trigger-words editor, only on a tenant's own enabled module.
+  it("shows the current trigger words and saves an edited set without reloading", async () => {
+    modulesApi.fetchModules.mockResolvedValue({ modules: [calendarRow()] });
+    modulesApi.setModuleTriggerWords.mockResolvedValue(["/записаться", "/booking"]);
+    const reload = stubLocationReload();
+    const container = await render(page());
+
+    const field = one<HTMLInputElement>(container, "input.ago-control");
+    expect(field.value).toBe("/записаться");
+
+    await interact(() => setTextValue(field, "/записаться, /booking"));
+    await interact(() => buttonLabelled(container, "Save trigger words").click());
+
+    expect(modulesApi.setModuleTriggerWords).toHaveBeenCalledTimes(1);
+    expect(modulesApi.setModuleTriggerWords).toHaveBeenCalledWith("token", SITE_ID, "calendar", ["/записаться", "/booking"]);
+    expect(container.textContent).toContain("Booking trigger words saved.");
+    // Editing trigger words feeds only routing - the page does not reload the way the on/off toggle does.
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("surfaces the server's reserved/collision refusal inline when saving trigger words fails", async () => {
+    modulesApi.fetchModules.mockResolvedValue({ modules: [calendarRow()] });
+    const { ModulesError } = await vi.importActual<typeof import("../api/modulesApi.js")>("../api/modulesApi.js");
+    modulesApi.setModuleTriggerWords.mockRejectedValue(
+      new ModulesError("Module.TriggerWordAlreadyRegistered", "Trigger word '/faq' is already registered to module 'faq' on this site."),
+    );
+    const container = await render(page());
+
+    await interact(() => setTextValue(one<HTMLInputElement>(container, "input.ago-control"), "/faq"));
+    await interact(() => buttonLabelled(container, "Save trigger words").click());
+
+    expect(container.textContent).toContain("is already registered to module 'faq'");
+  });
+
+  it("refuses to save an empty set client-side, without calling the server", async () => {
+    modulesApi.fetchModules.mockResolvedValue({ modules: [calendarRow()] });
+    const container = await render(page());
+
+    await interact(() => setTextValue(one<HTMLInputElement>(container, "input.ago-control"), "   "));
+    await interact(() => buttonLabelled(container, "Save trigger words").click());
+
+    expect(modulesApi.setModuleTriggerWords).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("Enter at least one trigger word.");
+  });
+
+  it("offers no trigger-words editor for a platform-owner grant", async () => {
+    modulesApi.fetchModules.mockResolvedValue({ modules: [calendarRow({ grantedByOwner: true })] });
+    const container = await render(page());
+
+    expect(container.querySelector("input.ago-control")).toBeNull();
+    expect(buttonLabelled(container, "Save trigger words")).toBeNull();
   });
 });
